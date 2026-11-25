@@ -92,7 +92,8 @@ def run_native(args, before_cuda=None):
         tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt") for t in tasks]
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(args.checkpoint, local_files_only=True,
         dtype=torch.bfloat16, attn_implementation=plan["attention"],
-        experts_implementation=plan["experts"]).eval()
+        experts_implementation=plan["experts"],
+        device_map={"": "cuda" if before_cuda is None else "cpu"}).eval()
     canvas = model.config.canvas_length
     cfg = model.generation_config
     if canvas != plan["canvas"] or cfg.max_denoising_steps != 48:
