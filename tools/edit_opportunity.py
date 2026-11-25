@@ -21,8 +21,8 @@ from bdlm_serving.methods.t2t.frontier import select_hard
 from bdlm_serving.methods.t2t.hazard import features
 
 
-def load(path, task, *, old_token_features=None):
-    """Optionally append features of the pre-step accepted token at each old row."""
+def load(path, task, *, old_token_features=None, history_factory=None):
+    """Append optional old-row features; only completed transitions reach history."""
     steps = []
     with gzip.open(path, "rt") as f:
         source = map(json.loads, f)
@@ -36,6 +36,7 @@ def load(path, task, *, old_token_features=None):
                 clock = 0
                 valid = list(range(max(0, prompt["prompt_length"]-start), 32))
                 fresh, strict, write = set(), set(), [-1]*32
+                history = history_factory() if history_factory is not None else None
             else:
                 assert before == prior
             clock += 1
@@ -47,6 +48,8 @@ def load(path, task, *, old_token_features=None):
             if old and old_token_features is not None:
                 extra = [old_token_features(before[i]) for i in old]
                 x = np.column_stack((x, extra))
+            if old and history is not None:
+                x = np.column_stack((x, [history.features(i) for i in old]))
             after = row["after"]
             changed = {i for i in valid if before[i] != after[i]}
             positive = {i for i in changed if before[i] != prompt["mask_id"]
@@ -54,6 +57,8 @@ def load(path, task, *, old_token_features=None):
             steps.append((phase, valid, masks, old, fresh, write.copy(), clock, x, positive))
             fresh = {i for i in changed if after[i] != prompt["mask_id"]}
             strict = positive
+            if history is not None:
+                history.observe(strict, fresh)
             for i in changed:
                 write[i] = clock
             prior, last = after, start

@@ -62,17 +62,18 @@ quality, or generalization claim follows from these results.
 
 ## Reproduce
 
-From the n164 repo at `dad7d559e6ede420fcaaa9f5796c9ccdf5bca929`, with the
+From the n164 repo on `T2T_experiments`, with the
 existing sibling trace directory and checked-in frozen exchange rates:
 
 ```sh
 CUDA_VISIBLE_DEVICES='' /usr/bin/python3 -B -m tools.exchange_ceiling \
   --dir ../t2t-native-1125/llada21 --rates experiments/t2t/exchange/rates.json \
+  --hazard-weights experiments/t2t/calibrated/weights.json \
   --out experiments/t2t/exchange/ceiling
 /usr/bin/python3 -B -m unittest discover -s tests -p 'test_exchange*.py'
 ```
 
-[`requests.csv`](requests.csv) has the 18 rows per request;
+[`requests.csv`](requests.csv) has one row per request and configuration;
 [`summary.csv`](summary.csv) sums them. Frozen edit4 hit, admission, and Q
 counts were checked against the existing native replay totals.
 
@@ -99,5 +100,28 @@ gate still misses useful times to exchange (e.g. Q4 capped zero-loss 54, vs
 17 when both choices are optimal but the old gate is fixed). Simply replacing
 the last eligible MASK with the lowest score in the existing table did not
 reduce lost admissions at any budget. These are immediate native transitions;
-no end-to-end gains are implied. Including the four extra locked variants,
-`requests.csv` has 30 configurations per request.
+no end-to-end gains are implied.
+
+## Candidate-only positional reranking
+
+Before running this ablation: fix each edit4 gate, all victims and physical
+width. Retain the old calibration24 positional weights, unaltered. Reorder
+only eligible outside old rows by their positional linear score (ties: lower
+offset); do not use the current label, logits or extra model forwards. Compare
+to edit4 strict old-edit hits at Q4/1, Q8/1, Q16/2 under exactly the same native
+admission losses. Advance this particular ranker to rollout only if it improves
+at least two of those three totals and does not decrease the third. No
+retuning on frozen30. These request/trajectory pairs are not an independent
+validation set.
+
+| Q / maximum extra seats | Frozen edit4 hits | Positional hits | Fixed-victim candidate oracle | Base MASK admissions lost in every arm |
+|---:|---:|---:|---:|---:|
+| 4 / 1 | 3 | 2 | 17 | 3 |
+| 8 / 1 | 14 | 13 | 64 | 13 |
+| 16 / 2 | 41 | 48 | 138 | 24 |
+
+The positional reranker gains seven old-edit hits at Q16 but loses one at
+both Q4 and Q8; it fails the fixed advancement rule. The three swap counts
+(65 / 265 / 1,139) and physical row totals are identical to edit4. Q16 totals
+include four retained base hits in each arm (seven base hits before swapping).
+No new rollout, TPF or quality estimate for this ablation.

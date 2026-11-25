@@ -6,6 +6,7 @@ from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import MANIFEST
 from bdlm_serving.methods.t2t.exchange import MODES, choose, position_keys, read_rates
+from bdlm_serving.methods.t2t.hazard import features, read_weights
 from tools.exchange_study import states
 from tools.t2t_results import table
 
@@ -13,6 +14,25 @@ from tools.t2t_results import table
 BUDGETS = ((4, 1), (8, 1), (16, 2))
 FROZEN = "hard_exchange_edit4"
 LOCKED = ("locked_candidate_oracle", "locked_victim_oracle", "locked_both_oracle", "locked_mask_rate")
+POSITIONAL = "locked_candidate_positional"
+
+
+def rerank_entrants(state, base, ranked, weights):
+    """Score only eligible entrants. No current labels; gate and victims stay fixed."""
+    k = len(ranked - base)
+    if not k:
+        return set(ranked)
+    valid, resolved, fresh, strict, writes, clock = state
+    masks = [i for i in valid if not resolved[i]]
+    pool = [i for i in valid if resolved[i] and i not in base and i not in fresh]
+    def key(i):
+        x = features(i, masks, fresh, strict, writes, clock)
+        if len(x) != len(weights):
+            raise ValueError("Feature/weight mismatch")
+        return -sum(a*b for a,b in zip(x,weights)), i
+    positions = (ranked & base) | set(sorted(pool,key=key)[:k])
+    assert base - positions == base - ranked and len(positions) == len(ranked)
+    return positions
 
 
 def lock_gate(state, rates, base, ranked, targets, admissions, mode):
@@ -85,11 +105,12 @@ def counts(base, picked, masks, old_targets, admissions):
     )
 
 
-def request_counts(folder, task, rates):
+def request_counts(folder, task, rates, weights=None):
     totals = {}
     endpoints = (("oracle_zero_loss", 0), ("oracle_unconstrained_loss", None))
     for q, cap in BUDGETS:
-        for label, limit in [("zero_reserve", 0), (FROZEN, cap)] + [(s,cap) for s in LOCKED] + [
+        variants = LOCKED + ((POSITIONAL,) if weights is not None else ())
+        for label, limit in [("zero_reserve", 0), (FROZEN, cap)] + [(s,cap) for s in variants] + [
                 (label, limit) for limit in (cap, None) for label, _ in endpoints]:
             totals[q, label, limit] = Counter(
                 states=0, physical_q=0, mandatory_fresh=0, fresh_overflow_rows=0,
@@ -109,6 +130,8 @@ def request_counts(folder, task, rates):
             assert len(base) == min(len(valid), max(q, len(fresh)))
             points = [("zero_reserve", 0, base), (FROZEN, cap, frozen)]
             points.extend((s,cap,lock_gate(state,rates,base,frozen,old_targets,admissions,s)) for s in LOCKED)
+            if weights is not None:
+                points.append((POSITIONAL,cap,rerank_entrants(state,base,frozen,weights)))
             for limit in (cap, None):
                 for label, cost in endpoints:
                     picked = ceiling(base, fresh, masks, old_targets, admissions,
@@ -125,14 +148,14 @@ def request_counts(folder, task, rates):
     return totals
 
 
-def evaluate(folder, manifest, rates):
+def evaluate(folder, manifest, rates, weights=None):
     verified = json.loads((folder / "verified.json").read_text())
     if verified != dict(model="llada21", matched_requests=len(manifest)):
         raise ValueError("Expected verified native LLaDA traces for the complete manifest")
     requests, summary = [], defaultdict(Counter)
     for task in manifest:
         identity = {key: task[key] for key in ("index", "dataset", "task_id", "seed")}
-        for key, record in request_counts(folder, task, rates).items():
+        for key, record in request_counts(folder, task, rates, weights).items():
             requests.append(dict(**identity, **result_row(key, record)))
             summary[key].update(record)
     return requests, [result_row(key, record) for key, record in summary.items()]
@@ -147,10 +170,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", type=Path, required=True, help="verified native trace directory")
     parser.add_argument("--rates", type=Path, required=True, help="frozen exchange rates.json")
+    parser.add_argument("--hazard-weights", type=Path, help="also rerank entrants with the frozen calibration24 positional fit")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     manifest = json.loads(MANIFEST.read_text())["samples"]
-    requests, summary = evaluate(args.dir, manifest, read_rates(args.rates))
+    weights = read_weights(args.hazard_weights) if args.hazard_weights else None
+    requests, summary = evaluate(args.dir, manifest, read_rates(args.rates), weights)
     args.out.mkdir(parents=True, exist_ok=True)
     table(args.out / "requests.csv", requests)
     table(args.out / "summary.csv", summary)

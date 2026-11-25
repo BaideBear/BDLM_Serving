@@ -1,0 +1,7 @@
+metric,position_hits,history_hits,delta,lo95,hi95,requests_up,requests_down
+top-1,28,23,-5,-13,2,2,4
+top-4,88,82,-6,-12,0,1,5
+top-8,145,137,-8,-17,0,1,6
+Q4/1,9,8,-1,-4,2,1,2
+Q8/1,23,18,-5,-13,2,2,4
+Q16/2,56,46,-10,-19,-1,1,7

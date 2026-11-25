@@ -9,7 +9,6 @@ import string
 import unicodedata
 
 import numpy as np
-from tokenizers import Tokenizer
 
 from bdlm_serving.evaluation.frozen import MANIFEST, ROOT, sha
 from tools.edit_opportunity import evaluate, fit, load, shortlist
@@ -34,6 +33,8 @@ def lexical_class(text):
 
 
 def token_encoder(path):
+    from tokenizers import Tokenizer
+
     checkpoint = json.loads((ROOT/"benchmarks/checkpoints/llada21.json").read_text())
     expected = next(r["sha256"] for r in checkpoint if r["name"] == "tokenizer.json")
     if sha(path) != expected:
@@ -79,7 +80,8 @@ def write_rows(path, rows):
         w.writerows(rows)
 
 
-def main(cal, native, tokenizer, out):
+def run_ablation(cal, native, out, augmented, metadata, **load_options):
+    """Fit a positional comparator and one augmented arm on calibration24 only."""
     archived = ROOT/"experiments/t2t/calibrated/weights.json"
     if sha(cal/"weights.json") != sha(archived):
         raise ValueError("Unexpected calibration manifest")
@@ -88,24 +90,24 @@ def main(cal, native, tokenizer, out):
     artifact = json.loads(archived.read_text())
     train, test = artifact["samples"], json.loads(MANIFEST.read_text())["samples"]
     check_split(train, test)
-    arms = (("position", None), ("position_lexical", token_encoder(tokenizer)))
+    arms = (("position", {}), (augmented, load_options))
     weights = {}
-    for name, encode in arms:
-        paths = [load(cal/f"{t['index']:02d}.trace.jsonl.gz", t, old_token_features=encode) for t in train]
+    for name, options in arms:
+        paths = [load(cal/f"{t['index']:02d}.trace.jsonl.gz", t, **options) for t in train]
         weights[name] = fit(paths)
     np.testing.assert_allclose(weights["position"], artifact["weights"], rtol=1e-5, atol=1e-6)
 
     totals, rows = defaultdict(Counter), []
     for t in test:
         counts = {}
-        for name, encode in arms:
-            path = load(native/f"{t['index']:02d}.trace.jsonl.gz", t, old_token_features=encode)
+        for name, options in arms:
+            path = load(native/f"{t['index']:02d}.trace.jsonl.gz", t, **options)
             for metric, c in measurements(path, weights[name]):
                 counts[name, metric] = c
                 totals[name, metric].update(c)
                 rows.append(dict(index=t["index"], task_id=t["task_id"], model=name, metric=metric, **c))
         for metric in (key for arm, key in counts if arm == "position"):
-            a, b = counts["position", metric], counts["position_lexical", metric]
+            a, b = counts["position", metric], counts[augmented, metric]
             assert (a["targets"], a["seats"]) == (b["targets"], b["seats"])
     summary = [dict(model=name, metric=metric, **c, precision=c["hits"]/c["seats"],
                     recall=c["hits"]/c["targets"]) for (name, metric), c in totals.items()]
@@ -115,7 +117,13 @@ def main(cal, native, tokenizer, out):
     write_rows(out/"requests.csv", rows)
     write_rows(out/"summary.csv", summary)
     (out/"coefficients.json").write_text(json.dumps(
-        dict(classes=CLASSES, weights={k:v.tolist() for k,v in weights.items()}), indent=2)+"\n")
+        dict(**metadata, weights={k:v.tolist() for k,v in weights.items()}), indent=2)+"\n")
+    return rows, test
+
+
+def main(cal, native, tokenizer, out):
+    run_ablation(cal, native, out, "position_lexical", dict(classes=CLASSES),
+                 old_token_features=token_encoder(tokenizer))
 
 
 if __name__ == "__main__":

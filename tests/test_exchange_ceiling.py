@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from tools.exchange_ceiling import FROZEN, ceiling, counts, evaluate, lock_gate
+from tools.exchange_ceiling import FROZEN, ceiling, counts, evaluate, lock_gate, rerank_entrants
 
 
 def subsets(items):
@@ -13,6 +13,17 @@ def subsets(items):
 
 
 class ExchangeCeilingTest(unittest.TestCase):
+    def test_positional_rerank_changes_only_entrants_never_gate_or_victims(self):
+        state = (list(range(8)),[True,False,False,False,True,True,True,False],{0},set(),[1]*8,3)
+        weights = [0.,1.] + [0.]*23
+        base = {0,1,2,4}
+        for ranked, expected in ((base,base), ({0,1,4,5},{0,1,4,6}), ({0,1,2,5},{0,1,2,6}),
+                                 ({0,1,5,6},{0,1,5,6})):
+            self.assertEqual(rerank_entrants(state,base,ranked,weights),expected)
+        self.assertEqual(rerank_entrants(state,base,{0,1,2,6},[0.]*25),{0,1,2,5})
+        with self.assertRaisesRegex(ValueError,"mismatch"):
+            rerank_entrants(state,base,{0,1,2,5},weights[:-1])
+
     def test_fixed_gate_keeps_width_victim_type_and_original_gate(self):
         state = (list(range(7)),[True,False,False,False,True,True,True],{0},set(),[1]*7,3)
         rates = {("old",):.2, ("mask",):.3}

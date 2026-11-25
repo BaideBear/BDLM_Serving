@@ -18,8 +18,10 @@
 | 同一预测席位，保留它的 KV 与使用它的新采样分数，各自能否改变后续输出？ | [Gemma Q32 四组等席位对照、逐题差值与图](placement/one-seat/kv-factorial/README.md) |
 | 每一轮都只刷新新增旧位 KV，而不采样这些旧位，有没有端到端收益？ | [Gemma Q16/32/64/128 与原触发、零预留、IBS/OBS 对照](refresh/README.md) |
 | 风险证据较弱时把席位还给 MASK，能少牺牲多少推进位置？ | [原生逐题留出回放](placement/HAZARD-GATE.md) · [独立 24 题拟合、同一参数在线测试](calibrated/README.md) |
+| 记住近四轮可见的写入和编辑，是否更容易选中旧位 T2T？ | [同预算逐题回放及区间](calibrated/history/README.md)：Q4/8/16 实际预留席位分别少命中 1/5/10 次；不引入这组历史特征。 |
 | 如果同时估计旧位改写和被替换 MASK 的解码机会，真实运行有没有收益？ | [LLaDA 三预算、两种交换价格、逐题分账与图](exchange/README.md) |
 | 固定物理 Q 宽度，不丢本轮能解码的已选 MASK，最多能找回多少旧位编辑？ | [LLaDA 三档预算的透视上界，以及固定门控后换入/换出两端的消融](exchange/ceiling/README.md)。原生同状态回放，不是在线性能。 |
+| 只换候选排序、保留原门控与换出位置，已有位置预测器能否接近透视？ | [同前态实测](exchange/ceiling/README.md#candidate-only-positional-reranking)：Q4/8/16 命中 2/13/48，原规则 3/14/41，同条件透视 17/64/138；没有在多档同时改善。 |
 | Gemma 的高 KV 漂移旧行能否用上轮可见信息预测？换回填和换 MASK 的效果能否分开？ | [按整题五折的漂移名单](placement/native-kv/shortlist/README.md) · [单次条件换位的轨迹重建，不是新运行](placement/one-seat/conditional/README.md) |
 
 **双边换位最新实测：** 同预算零预留之外，只在旧位的预计改写足以补偿被换位置时动一个或两个物理席位。LLaDA Q4 编辑价值四倍为 26/30、TPF 3.424、效率 19.87%，对照为 25/30、3.338、19.97%。Q8 同一规则反而少对四题，Q16 逐题判分不变但 TPF 较低。不要把 Q4 的描述性收益外推到较高预算。
