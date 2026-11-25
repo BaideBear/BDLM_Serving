@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 
-from bdlm_serving.methods.t2t.exchange import choose, position_keys
+from bdlm_serving.methods.t2t.exchange import choose, position_keys, randomize_candidate
 from bdlm_serving.methods.t2t.protocol import Arm
 from tools.exchange_study import audit_pair
 
@@ -32,6 +32,24 @@ class ExchangeTest(unittest.TestCase):
         self.assertEqual(Arm.parse("16:0:14:hard_exchange_equal",32).edit,2)
         with self.assertRaises(ValueError):
             Arm.parse("16:0:14:hard_exchange_equal",256)
+
+    def test_randomize_candidates_only(self):
+        valid = range(9)
+        resolved = [False, True, False, False, True, True, True, True, True]
+        ranked = choose(valid, resolved, {1}, set(), [-1]*9, 2, 4, 2, self.rates, 4.)
+        observed = set()
+        for seed in range(100):
+            picked, reserved, doc = randomize_candidate(valid, resolved, {1}, *ranked, seed)
+            self.assertEqual(doc["base"], [0, 1, 2, 3])
+            self.assertEqual(doc["masked_victims"], [2, 3])
+            self.assertEqual(doc["pool"], [4, 5, 6, 7, 8])
+            self.assertEqual(set(picked), {0, 1} | set(reserved))
+            self.assertEqual(len(picked), 4)
+            observed.add(tuple(reserved))
+        self.assertEqual(len(observed), 10)
+        self.assertIn(tuple(ranked[1]), observed)  # collisions must be retained
+        self.assertEqual(randomize_candidate(valid, resolved, {1}, [0, 1], [], [], 2),
+                         ([0, 1], [], None))
 
     def test_first_physical_exchange_and_noop(self):
         event = dict(block=0,context_version=0,step_in_block=2,hard_clock=3,mandatory_fresh=1,

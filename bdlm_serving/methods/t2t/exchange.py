@@ -2,9 +2,12 @@
 from bisect import bisect_left
 import json
 import math
+from random import Random
 
 
 MODES = {"hard_exchange_equal": 1., "hard_exchange_edit4": 4.}
+PLACEBOS = {"hard_exchange_random_a": "a", "hard_exchange_random_b": "b"}
+ONLINE_MODES = {**MODES, **dict.fromkeys(PLACEBOS, 4.)}
 SCHEMA = "llada-b32-exchange-v1"
 
 
@@ -71,3 +74,21 @@ def choose(valid, resolved, fresh, strict, writes, clock, q, slots, rates, edit_
         reserve.append(candidate)
     assert len(base) == size and fresh <= base
     return sorted(base), sorted(reserve), offers
+
+
+def randomize_candidate(valid, resolved, fresh, ranked, reserved, offers, seed):
+    """Keep every accepted offer's victim and width; only its replacement is randomized."""
+    if not reserved:
+        return ranked, reserved, None
+    victims = sorted(v for _, v, accepted in offers if accepted)
+    original = (set(ranked) - set(reserved)) | set(victims)
+    pool = sorted(i for i in valid if resolved[i] and i not in fresh and i not in original)
+    if not set(reserved) <= set(pool) or len(victims) != len(reserved):
+        raise ValueError("Invalid ranked exchange")
+    random_old = sorted(Random(seed).sample(pool, len(reserved)))
+    picked = sorted((original - set(victims)) | set(random_old))
+    if len(picked) != len(ranked) or not set(fresh) <= set(picked):
+        raise ValueError("Placebo changed width or displaced a mandatory row")
+    return picked, random_old, dict(base=sorted(original), ranked=list(ranked), executed=picked,
+        victims=victims, pool=pool, fresh=sorted(fresh),
+        masked_victims=[v for v in victims if not resolved[v]])

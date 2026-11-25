@@ -1,6 +1,6 @@
 """Shared frozen30 protocol: one case list, explicit budgets, no free closure work."""
 from dataclasses import dataclass
-from .exchange import MODES as EXCHANGE
+from .exchange import ONLINE_MODES as EXCHANGE
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES
 

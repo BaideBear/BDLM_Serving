@@ -25,7 +25,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
-from .exchange import MODES as EXCHANGE
+from .exchange import ONLINE_MODES as EXCHANGE, PLACEBOS
 _HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD + tuple(EXCHANGE)
 
 
@@ -123,6 +123,7 @@ class SparseRequestState(RequestState):
     last_write: list[int] | None = None
     last_query: list[int] | None = None
     previous_strict: set = field(default_factory=set)
+    placebo_exchange: dict | None = None
 
 
 class _RankControl(History):
@@ -331,10 +332,15 @@ class LLaDASparseKernel(SerialKernel):
         edit_slots = self.q_budget - self.fresh_slots - self.mask_slots
         oracle = self.policy == "hard_oracle1"
         if self.policy in EXCHANGE:
-            from .exchange import choose
-            picked, reserved, _ = choose(list(editable), resolved, fresh, state.previous_strict,
-                state.last_write, len(state.events)+1, self.q_budget, edit_slots,
+            from .exchange import choose, randomize_candidate
+            clock = len(state.events)+1
+            picked, reserved, offers = choose(list(editable), resolved, fresh, state.previous_strict,
+                state.last_write, clock, self.q_budget, edit_slots,
                 self.exchange_rates, EXCHANGE[self.policy])
+            if self.policy in PLACEBOS:
+                tag = f"exchange-placebo:{PLACEBOS[self.policy]}:{state.selection_seed}:{state.block}:{clock}"
+                picked, reserved, state.placebo_exchange = randomize_candidate(
+                    editable, resolved, fresh, picked, reserved, offers, tag)
             return picked, reserved
         if self.policy in _HAZARD:
             from .hazard import choose
@@ -495,6 +501,9 @@ class LLaDASparseKernel(SerialKernel):
         certainty = h.certainty
         if hard:
             event = state.events[-1]
+            if state.placebo_exchange is not None:
+                event["placebo_exchange"] = state.placebo_exchange
+                state.placebo_exchange = None
             # Writes happen after Q at the same tick; last_write >= last_query
             # detects an input row whose latest write has not been queried.
             for i in changed:
