@@ -1,0 +1,17 @@
+arm,phase,ctrl_total,arm_total,total_delta,ctrl_matched,arm_matched,matched_delta,ctrl_remainder,arm_remainder,remainder_delta,excess_only_total_delta,excess_only_matched_delta,excess_only_remainder_delta
+fixed,bootstrap,413,438,25,344,344,0,69,94,25,24,0,24
+fixed,selected,1514,1712,198,1397,1494,97,117,218,101,342,238,104
+fixed,verify,552,570,18,464,451,-13,88,119,31,47,13,34
+fixed,commit,413,438,25,344,344,0,69,94,25,24,0,24
+gate,bootstrap,413,502,89,345,345,0,68,157,89,95,0,95
+gate,selected,1514,2298,784,1405,1576,171,109,722,613,841,194,647
+gate,verify,552,675,123,465,462,-3,87,213,126,147,10,137
+gate,commit,413,502,89,345,345,0,68,157,89,95,0,95
+geometry,bootstrap,413,454,41,344,344,0,69,110,41,50,0,50
+geometry,selected,1514,1853,339,1397,1483,86,117,370,253,507,221,286
+geometry,verify,552,633,81,464,504,40,88,129,41,89,33,56
+geometry,commit,413,454,41,344,344,0,69,110,41,50,0,50
+slack_geometry,bootstrap,413,585,172,343,343,0,70,242,172,182,0,182
+slack_geometry,selected,1514,4197,2683,1395,1548,153,119,2649,2530,2831,268,2563
+slack_geometry,verify,552,815,263,462,513,51,90,302,212,282,57,225
+slack_geometry,commit,413,585,172,343,343,0,70,242,172,182,0,182
