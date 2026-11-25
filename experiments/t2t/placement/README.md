@@ -25,7 +25,7 @@
 | 64 | 空位定向 / 随机 | 29 / 27 | 11.417 / 12.109 | 11.36% / 11.75% | 98.30 / 99.41 |
 | 64 | 触发定向 / 随机 | 27 / 27 | 11.364 / 12.036 | 11.28% / 11.76% | 98.49 / 99.16 |
 
-Q32 触发定向与随机分别有 428、494 个预留席位，严格 T2T **均为 0**。方向和成本取决于预算、分配方式；这不是“命中旧位 T2T 提升质量”的证据。[图（含同窗口 IBS/OBS）](figures/gemma-placement-study.svg) · [评分](gemma-online-summary.csv) · [实算 Q 拆分和预留命中](gemma-paired-cost.csv)。作图命令：`python -m tools.render_hard_study --study placement`。
+Q32 触发定向与随机分别有 428、494 个预留席位，严格 T2T **均为 0**。方向和成本取决于预算、分配方式；这不是“命中旧位 T2T 提升质量”的证据。[图（含同窗口 IBS/OBS）](figures/gemma-placement-study.svg) · [评分](gemma-online-summary.csv) · [实算 Q 拆分和预留命中](gemma-paired-cost.csv) · [原生相邻步 KV 漂移实测](native-kv/README.md)。作图命令：`python -m tools.render_hard_study --study placement`。
 
 ### LLaDA 的新排序
 
@@ -41,3 +41,7 @@ Q32 触发定向与随机分别有 428、494 个预留席位，严格 T2T **均�
 Q16 空位定向比随机命中更多旧位严格编辑（100/1,892 对 36/1,589），但少对 3 题；不应把严格编辑都当作有益编辑。[图（含同窗口 IBS/OBS）](figures/llada21-placement-study.svg) · [逐题配对](llada21-placement-comparison.csv) · [实算分账](llada21-paired-cost.csv)。
 
 [不依赖 logits 的几何规则](geometry-preregister.md) · [同状态回放的分母、命中及局限](geometry-results.md)。在线使用同一分配器：`hard_slack_geometry` 只在现有空位替换排序，`hard_geometry` 固定预留，可挤占 MASK 但保留至少一个可用的推进席位。原生 B32 全宽没有选位自由度。
+
+### 选择器的 CPU 代价
+
+先计算能否分配旧席位，没有可用名额时不计算全部候选分数；触发门控先过滤再排名。用 `tools/selector_cost.py` 在 n164 绑定一个 CPU 核，在原生轨迹的每个同 canvas 相邻状态轮流计时新旧选择器。LLaDA 1,713 个状态 × 16 个配置，Gemma 378 个状态 × 12 个配置，31,944 次比较的新旧 Q **及预留集合完全一致**。Gemma Q32 触发的中位数从 279 µs 到 52 µs，P95 从 547 µs 到 542 µs；LLaDA Q4 空位定向从 33.25 µs 到 9.65 µs，P95 从 50.38 µs 到 48.75 µs。该测试有原生全查历史，不代表在线调用频率；不含 GPU、包数据或同步开销，不是吞吐、延迟或 TPF 加速。[分配置 P50/P95](selector-cpu-us.csv)。

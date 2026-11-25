@@ -153,35 +153,31 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
     allocation = policy.removesuffix("_placebo")
     if policy == "hard_slack_geometry":
         allocation = "hard_slack"
-    if policy == "hard_noedit":
+    rank_pool = edit_pool
+    if allocation in ("hard_slack", "hard_trigger"):
+        masks = sum(not resolved[i] and i not in fresh for i in eligible)
+        slack = max(0, cap - len(fresh) - masks)
+        if allocation == "hard_trigger" and slack == 0 and previous_strict:
+            rank_pool = [i for i in edit_pool if any(0 < abs(i-j) <= 4
+                         and last_write[j] >= last_query[i] for j in previous_strict)]
+            edit_slots = min(edit_slots, 1)
+        else:
+            edit_slots = min(edit_slots, slack)
+    if not edit_slots or len(selected) == cap or not rank_pool:
         ranked = []
     elif policy == "hard_random":
         ranked = list(edit_pool)
         random.Random(f"{seed}:{clock}").shuffle(ranked)
     elif placebo:
         # The gate below needs eligibility, but not a score, for the seat count.
-        ranked = edit_pool
+        ranked = rank_pool
     elif policy in GEOMETRY_POLICIES:
         from .geometry import rank_old
-        ranked = rank_old(edit_pool, eligible, resolved, fresh, last_write,
+        ranked = rank_old(rank_pool, eligible, resolved, fresh, last_write,
                           last_query, clock, previous_strict)
     else:
-        scores = _frontier_scores(edit_pool, last_write, last_query, clock)
-        ranked = sorted(edit_pool, key=lambda i: (-scores[i], i))
-
-    if allocation in ("hard_slack", "hard_trigger"):
-        # Slack is measured before the first mandatory MASK was taken.
-        # Both policies spend slack first, so it never displaces a MASK.
-        masks = sum(not resolved[i] and i not in fresh for i in eligible)
-        slack = max(0, cap - len(fresh) - masks)
-        limit = min(edit_slots, slack)
-        if allocation == "hard_trigger" and slack == 0 and previous_strict:
-            # Release the extra seat to MASK unless a previous real substitution
-            # provides a dirty neighbour within four positions of an old row.
-            ranked = [i for i in ranked if any(0 < abs(i-j) <= 4
-                      and last_write[j] >= last_query[i] for j in previous_strict)]
-            limit = min(edit_slots, 1)
-        edit_slots = limit
+        scores = _frontier_scores(rank_pool, last_write, last_query, clock)
+        ranked = sorted(rank_pool, key=lambda i: (-scores[i], i))
     take = min(edit_slots, cap - len(selected), len(ranked))
     if placebo:
         # Uniform over ALL nonfresh old rows; matched count including the
