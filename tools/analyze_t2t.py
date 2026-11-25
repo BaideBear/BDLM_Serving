@@ -23,6 +23,7 @@ def replay(path, model, stats):
         plen = next(records)["prompt_length"] if ll else 0
         fold = "development" if idx % 10 < 7 else "holdout"
         previous = history = None
+        previous_edits = set()
         steps = edits = drops = drafts = first = 0
         for row in records:
             start, before, after, accepted = (row[k] for k in ("block","before","after","accepted"))
@@ -31,6 +32,7 @@ def replay(path, model, stats):
             valid = [i for i in range(b) if i+start >= plen]
             if previous is None or previous["block"] != start:
                 previous = None
+                previous_edits = set()
                 history = History([False]*b, [None]*b, [0]*b, set(), set())
             else:
                 assert previous["after"] == before and row["clock"] == previous["clock"] + (1 if ll else -1)
@@ -48,11 +50,21 @@ def replay(path, model, stats):
                 if not candidates:
                     continue
                 positives = len(targets.intersection(candidates))
-                for signal in SIGNALS:
-                    ranking = [] if signal=="uniform_expected" else history.rank(candidates,signal)
+                special = ("near_miss", "near_miss_gated", "gated_uniform_expected") if ll and pool == "outside_fresh" else ()
+                for signal in SIGNALS + special:
+                    random = signal.endswith("uniform_expected")
+                    if signal in special:
+                        nm = {i for i in candidates if previous["draft"][i] != before[i]
+                              and history.certainty[i] <= .5}
+                        rankable = candidates if signal == "near_miss" else nm
+                        ranking = sorted(rankable, key=lambda i: (i not in nm,
+                            min((abs(j-i) for j in previous_edits if j != i), default=b),
+                            history.certainty[i], i))
+                    else:
+                        ranking = candidates if random else history.rank(candidates,signal)
                     for k in (1,2,4,8):
-                        n = min(len(candidates), k)
-                        hits = n * positives / len(candidates) if signal=="uniform_expected" else len(targets.intersection(ranking[:n]))
+                        n = min(len(ranking), k)
+                        hits = n * positives / len(candidates) if random else len(targets.intersection(ranking[:n]))
                         for group in ("all",fold):
                             acc = stats[group,pool,signal,k]
                             for j,v in enumerate((hits,n,positives,len(candidates))):
@@ -61,6 +73,7 @@ def replay(path, model, stats):
                 [0 if i in fresh or not accepted[i] else history.streak[i]+1 for i in range(b)],
                 fresh | {i for i in resolved if not accepted[i]}, fresh)
             previous = row
+            previous_edits = targets
         return dict(index=idx,dataset=meta["dataset"],task_id=meta["task_id"],fold=fold,
                     denoise_steps=steps,admissions=first,t2t=edits,revoked=drops,draft_changes=drafts)
 
