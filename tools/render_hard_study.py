@@ -1,4 +1,4 @@
-"""Render the frozen-30 hard study and same-window IBS/OBS baselines to SVG."""
+"""Render frozen-30 hard or adaptive results with same-window controls to SVG."""
 import argparse
 from collections import defaultdict
 import csv
@@ -14,6 +14,10 @@ MODELS = {"llada21": ("LLaDA 2.1", 32), "gemma": ("DiffusionGemma", 256)}
 HARD = {"hard_noedit": "Hard no-edit", "hard_frontier": "Hard frontier",
         "hard_random": "Hard random"}
 HARD_POLICY = re.compile(r"(?:^|_)(hard_noedit|hard_frontier|hard_random)$")
+ADAPTIVE = {"hard_slack": ("Hard slack", "adaptive"),
+            "hard_trigger": ("Hard trigger", "adaptive"),
+            "hard_oracle1": ("Hard oracle1 (probes charged)", "oracle")}
+ADAPTIVE_POLICY = re.compile(r"(?:^|_)(hard_slack|hard_trigger|hard_oracle1)$")
 BASE_POLICY = re.compile(r"(ibs|obs)_(\d+)")
 
 
@@ -22,6 +26,7 @@ class Point:
     tpf: float
     correct: int
     efficiency: float
+    q_per_f: float
 
 
 def all_rows(path):
@@ -33,10 +38,12 @@ def all_rows(path):
 
 def point(row, efficiency_column):
     tpf, correct, efficiency = float(row["tpf"]), int(row["correct"]), float(row[efficiency_column])
+    q_per_f = float(row["q_per_f"])
     if (int(row["requests"]) != 30 or not 0 <= correct <= 30
-            or not math.isfinite(tpf) or tpf < 0 or not 0 <= efficiency <= 1):
+            or not math.isfinite(tpf) or tpf < 0 or not 0 <= efficiency <= 1
+            or not math.isfinite(q_per_f) or q_per_f <= 0):
         raise ValueError(f"invalid frozen-30 metrics: {row['model']} / {row['policy']}")
-    return Point(tpf, correct, efficiency)
+    return Point(tpf, correct, efficiency, q_per_f)
 
 
 def put(table, key, value):
@@ -81,15 +88,41 @@ def groups(path, model, width, baselines):
                 for p, value in matches:
                     name = label if len(matches) == 1 else p
                     rows.append((name, "hard", value))
-        if q <= width:
-            for mode in ("ibs", "obs"):
-                key = (model, q, mode)
-                if key in baselines:
-                    rows.append((f"{mode.upper()} (C={q})", mode, baselines[key]))
-        yield q, rows
+        yield q, rows + window_controls(model, q, width, baselines)
 
 
-def render(path, model, width, data):
+def window_controls(model, q, width, baselines):
+    return [(f"{mode.upper()} (C={q})", mode, baselines[model, q, mode])
+            for mode in ("ibs", "obs") if q <= width and (model, q, mode) in baselines]
+
+
+def adaptive_groups(path, hard, model, width, baselines):
+    online = defaultdict(dict)
+    for row in all_rows(path):
+        match = ADAPTIVE_POLICY.search(row["policy"])
+        if row["model"] != model or not match or int(row["requests"]) != 30:
+            continue
+        q = int(row["nominal_q"])
+        if not 1 <= q < width:
+            raise ValueError(f"{path}: unexpected adaptive nominal Q={q} for {row['policy']}")
+        put(online[q], match[1], point(row, "token_efficiency"))
+
+    noedit = {}
+    if online and hard.is_file():
+        for row in all_rows(hard):
+            match = HARD_POLICY.search(row["policy"])
+            if (row["model"] == model and match and match[1] == "hard_noedit"
+                    and int(row["requests"]) == 30 and int(row["nominal_q"]) in online):
+                put(noedit, int(row["nominal_q"]), point(row, "token_efficiency"))
+
+    for q, measured in sorted(online.items()):
+        rows = [("Hard no-edit (v1)", "hard", noedit[q])] if q in noedit else []
+        rows += [(name, kind, measured[mode]) for mode, (name, kind) in ADAPTIVE.items()
+                 if mode in measured]
+        yield q, rows + window_controls(model, q, width, baselines)
+
+
+def render(path, model, width, data, *, adaptive=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -110,23 +143,30 @@ def render(path, model, width, data):
         y += 1.5
 
     height = 1.7 + .29 * y
-    fig, axes = plt.subplots(1, 4, figsize=(13.4, height),
-                             gridspec_kw={"width_ratios": [1.28, 1, 1, 1]})
+    ratios = [1.28, 1, 1, 1, 1] if adaptive else [1.28, 1, 1, 1]
+    fig, axes = plt.subplots(1, len(ratios), figsize=(16.5 if adaptive else 13.4, height),
+                             gridspec_kw={"width_ratios": ratios})
     fig.subplots_adjust(left=.035, right=.98, top=1-1.12/height,
                         bottom=.40/height, wspace=.12)
-    fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  Hard selection (B{width})",
+    title = "Adaptive selection (v2)" if adaptive else "Hard selection"
+    fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  {title} (B{width})",
              fontsize=17, weight="bold", color="#172b38")
     fig.text(.035, 1-.53/height,
              "Frozen 30   |   IBS/OBS use the original window C = nominal Q, not matched physical Q.",
              fontsize=10, color="#50616e")
     notes = "Only measured rows are shown. TPF = mean request N/F; token efficiency = sum(N) / sum(Q)."
+    if adaptive:
+        notes += " Actual Q/F = sum(Q) / sum(F)."
+        if any(kind == "oracle" for _, _, kind, _ in points):
+            notes += " Oracle1 includes probe rows and forwards."
     if any(q > width for q, _ in data):
         notes += f" Q > {width} has no IBS/OBS comparison."
     fig.text(.035, .12/height, notes, fontsize=9, color="#50616e")
 
     ink = "#172b38"
     styles = {"hard": ("o", "#087b74"), "dense": ("D", "#42546c"),
-              "ibs": ("s", "#b05929"), "obs": ("^", "#794c96")}
+              "ibs": ("s", "#b05929"), "obs": ("^", "#794c96"),
+              "adaptive": ("o", "#246da2"), "oracle": ("X", "#aa465b")}
     for ax in axes:
         ax.set_ylim(y-.5, -.55)
         ax.set_yticks([])
@@ -144,10 +184,11 @@ def render(path, model, width, data):
     for line, name, kind, _ in points:
         names.text(.06, line, name, va="center", fontsize=10, color=styles[kind][1])
 
-    for ax, key, title, fmt in zip(
-        axes[1:], ("tpf", "correct", "efficiency"),
-        ("TPF", "Quality", "Token efficiency"), (".3f", "d", ".2%"),
-    ):
+    metrics = [("tpf", "TPF", ".3f"), ("correct", "Quality", "d"),
+               ("efficiency", "Token efficiency", ".2%")]
+    if adaptive:
+        metrics.append(("q_per_f", "Actual Q/F", ".2f"))
+    for ax, (key, title, fmt) in zip(axes[1:], metrics, strict=True):
         peak = 30 if key == "correct" else max(getattr(p, key) for _, _, _, p in points) or 1
         ax.set_xlim(-.04 * peak, 1.26 * peak)
         ax.set_title(title, loc="left", color=ink, weight="bold")
@@ -175,22 +216,29 @@ def render(path, model, width, data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
+    parser.add_argument("--study", choices=("hard", "adaptive"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
-    parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/hard/figures under root")
+    parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
     hard = args.root / "experiments/t2t/hard"
-    out = args.out_dir or hard / "figures"
+    study = hard.parent / args.study
+    adaptive = args.study == "adaptive"
+    out = args.out_dir or study / "figures"
     try:
         baselines = read_baselines(args.root / "experiments/baselines/summary.csv")
         for model in dict.fromkeys(args.model or MODELS):
             _, width = MODELS[model]
-            src = hard / f"{model}-online-summary.csv"
-            data = list(groups(src, model, width, baselines)) if src.is_file() else []
+            src = study / f"{model}-online-summary.csv"
+            data = []
+            if src.is_file():
+                source = (adaptive_groups(src, hard / src.name, model, width, baselines)
+                          if adaptive else groups(src, model, width, baselines))
+                data = list(source)
             if not data:
                 print(f"Skipping {model}: no eligible dataset=all rows in {src}", file=sys.stderr)
                 continue
-            path = out / f"{model}-hard-study.svg"
-            render(path, model, width, data)
+            path = out / f"{model}-{args.study}-study.svg"
+            render(path, model, width, data, adaptive=adaptive)
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))

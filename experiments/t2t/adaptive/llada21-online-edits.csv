@@ -1,2 +1,3 @@
 policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
 t2t_q16_f0_m15_hard_oracle1,30,3703,2539,760,0,391,369,0,,,,
+t2t_q16_f0_m14_hard_slack,30,3098,1963,780,0,363,417,0,,,,

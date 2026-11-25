@@ -5,3 +5,7 @@ t2t_q16_f0_m15_hard_oracle1,oracle_trial,407,6512
 t2t_q16_f0_m15_hard_oracle1,oracle_union,2162,63240
 t2t_q16_f0_m15_hard_oracle1,selected,2539,41776
 t2t_q16_f0_m15_hard_oracle1,verify,670,21440
+t2t_q16_f0_m14_hard_slack,bootstrap,482,15424
+t2t_q16_f0_m14_hard_slack,commit,482,15424
+t2t_q16_f0_m14_hard_slack,selected,1963,32632
+t2t_q16_f0_m14_hard_slack,verify,653,20896

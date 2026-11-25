@@ -8,10 +8,11 @@
 | [FlowBlock 前缀 KV](experiments/flowblock-prefix/) | 2.0、2.1、SDAR；同一模型、同一 W 的原版 FlowBlock 与前缀 KV，两者都列实测值，W=2/3/4 | [数值图](experiments/flowblock-prefix/figures/comparison.svg) · [配对差值](experiments/flowblock-prefix/comparisons.csv) |
 | [Optimus OBS 掩码](experiments/optimus-masked-obs/) | 2.1、SDAR；同一固定窗口的原 IBS、原 OBS、OBS+B32，窗口 4/8/16/32；直接对照是原 OBS | [数值图](experiments/optimus-masked-obs/figures/comparison.svg) · [配对差值](experiments/optimus-masked-obs/comparisons.csv) |
 | [预测下一轮 T2T](experiments/t2t/) | LLaDA 2.1 与 DiffusionGemma 的原生轨迹、预算分配与对照；离线命中率不等于在线性能 | [LLaDA 排名](experiments/t2t/llada21-rankings.csv) · [Gemma 排名](experiments/t2t/gemma-rankings.csv) |
+| [Hard-v1 在线配额](experiments/t2t/hard/) | LLaDA 2.1 B32 与 DiffusionGemma B256；只收已完成的冻结 30 题组，按同模型、同名义窗口与原始 IBS/OBS 对照 | [LLaDA SVG](experiments/t2t/hard/figures/llada21-hard-study.svg) · [Gemma SVG](experiments/t2t/hard/figures/gemma-hard-study.svg) · [宏平均与配对](experiments/t2t/hard/macro-paired.csv) |
 
 每组均为 GSM8K、MATH-500、HumanEval 各 10 题，不换题、不剔除失败与截断。TPF 是逐请求 `N/F` 的均值；token efficiency 是 `ΣN/ΣQ`；质量是正确数 `/30`。只计实际执行的解码 forward 和 Q，不计纯 prompt prefill；物理 Q（含批内 padding）另列。不同模型的 tokenizer、采样器与每次 forward 的成本不同，不能把 TPF 当作墙钟速度。
 
-共 **84 组独立实测、2,520 次请求**。同一次基线可以在两张表展示，但只计一次执行。真实重测保留各自的数值、运行来源与配对关系，不平均。LLaDA 2.0 的 Native B32 主基线是已完成块缓存 KV 的实测；HF 无缓存结果只作参考。
+前三项归档共 **84 组独立实测、2,520 次请求**，不含单独更新的 T2T 在线研究。同一次基线可以在两张表展示，但只计一次执行。真实重测保留各自的数值、运行来源与配对关系，不平均。LLaDA 2.0 的 Native B32 主基线是已完成块缓存 KV 的实测；HF 无缓存结果只作参考。
 
 **DiffusionGemma 26B-A4B（B=256）：[20 组基线合并图](experiments/baselines/figures/gemma-baselines.svg) · [对照表，含实测 Q/F](experiments/baselines/#diffusiongemma-26b-a4b) · [绘图 CSV](experiments/baselines/gemma-baselines.csv)**。图中并列 Native、FlowBlock W=1–4、B3，以及 4/8/16/32/64/128/256 七档固定窗口下的 Optimus IBS 和 OBS；同一窗口的两种模式相邻。
 
@@ -37,7 +38,7 @@ python tools/plot_summary.py /tmp/gemma-optimus.csv --out /tmp/gemma-optimus --t
 
 | 目录 | 用途 |
 |---|---|
-| [experiments](experiments/) | 三份正式结果：每份均含可读表、PNG/SVG、逐题与分数据集 CSV |
+| [experiments](experiments/) | 已归档的基线/控制器报告和 T2T 研究，含数值表、图与逐题 CSV |
 | [archive](archive/) | 按原始运行保留配置、原始数值和历史图，供追溯 |
 | [third_party](third_party/README.md) | 固定版本的 FlowBlock 和 Optimus 上游源码、许可与哈希 |
 | [methods](bdlm_serving/methods/) · [runtime](bdlm_serving/runtime/) | 控制器与模型执行适配；B3 是论文推导版本，非官方实现 |
