@@ -1,0 +1,5 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q16_f0_m14_hard_trigger_refresh,30,2167,2039,45,0,38,7,193,12190,2039,12190,38
+t2t_q128_f0_m112_hard_trigger_refresh,30,627,502,36,0,24,12,187,13719,502,13719,24
+t2t_q32_f0_m28_hard_trigger_refresh,30,1301,1170,44,0,32,12,179,13736,1170,13736,32
+t2t_q64_f0_m56_hard_trigger_refresh,30,933,801,34,0,24,10,184,13921,801,13921,24

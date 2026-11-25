@@ -12,9 +12,11 @@ def read(p):
         return list(csv.DictReader(f))
 
 
-def pair_rows(scores, baseline, run, model):
-    lookup = {(int(r["nominal_q"]), int(r["index"])):r for r in baseline
-              if r["model"] == model and r["policy"].endswith("_hard_noedit")}
+def pair_rows(scores, baseline, run, model, reference="hard_noedit"):
+    refs = [r for r in baseline if r["model"] == model and r["policy"].endswith("_" + reference)]
+    lookup = {(int(r["nominal_q"]), int(r["index"])):r for r in refs}
+    if len(lookup) != len(refs):
+        raise ValueError(f"Ambiguous same-budget reference for {reference}")
     by = defaultdict(list)
     for r in scores:
         if r["policy"] != "native":
@@ -23,6 +25,7 @@ def pair_rows(scores, baseline, run, model):
         assert {int(r["index"]) for r in rows} == set(range(30))
         n = f = q = same = wins = losses = 0
         hits = seats = df = dq = screens = screen_hits = 0
+        kv_only_rows = kv_only_steps = 0
         displaced = crowding_steps = hits_on_crowding = selected_steps = 0
         selected_q = fresh_q = mask_q = backfill_q = fresh_over = 0
         tpf, ref_tpf, ideal_tpf = [], [], []
@@ -61,6 +64,11 @@ def pair_rows(scores, baseline, run, model):
                     selected_steps += 1
                     es = event["reserved_extra_edit_positions"]
                     positives = event["reserved_strict_edit_positions"]
+                    if policy.endswith("_hard_trigger_refresh"):
+                        frozen = event["kv_refresh_only_positions"]
+                        assert set(frozen) <= set(es) and not set(frozen).intersection(positives)
+                        kv_only_rows += len(frozen)
+                        kv_only_steps += bool(frozen)
                     assert set(positives) <= set(es)
                     if model == "llada21":
                         mask_pool = event["masked_before"]
@@ -113,6 +121,8 @@ def pair_rows(scores, baseline, run, model):
         assert selected_q == fresh_q + mask_q + seats + backfill_q
         measured, reference = mean(tpf), mean(ref_tpf)
         yield dict(model=model, policy=policy, nominal_q=r["nominal_q"], requests=len(rows),
+                   **(dict(kv_only_rows=kv_only_rows, kv_only_steps=kv_only_steps,
+                           reference_policy=b["policy"]) if policy.endswith("_hard_trigger_refresh") else {}),
                    correct=correct, reference_correct=ref_correct, only_policy=wins, only_reference=losses,
                    tpf=measured, reference_tpf=reference, delta_tpf=measured-reference,
                    quality_up_tpf_not_lower=int(correct>ref_correct and measured>=reference),
@@ -132,11 +142,26 @@ def pair_rows(scores, baseline, run, model):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    for flag in ("scores","baseline","run","out"):
+    for flag in ("scores","baseline","out"):
         p.add_argument("--"+flag, type=Path, required=True)
+    p.add_argument("--run", type=Path, action="append", required=True)
+    p.add_argument("--reference", choices=("hard_noedit", "hard_trigger"), default="hard_noedit")
     p.add_argument("--model", choices=["llada21","gemma"], required=True)
     args = p.parse_args()
-    rows = list(pair_rows(read(args.scores), read(args.baseline), args.run, args.model))
+    scores, baseline = read(args.scores), read(args.baseline)
+    rows, used = [], set()
+    for run in args.run:
+        if len(args.run) == 1:
+            subset = scores
+        else:
+            names = set(json.loads((run/"run.json").read_text())["policies"])
+            if names & used:
+                raise ValueError("Duplicate policy across raw shards")
+            used.update(names)
+            subset = [r for r in scores if r["policy"] in names]
+        rows.extend(pair_rows(subset, baseline, run, args.model, args.reference))
+    if {r["policy"] for r in scores if r["policy"] != "native"} != {r["policy"] for r in rows}:
+        raise ValueError("Some scored policies have no matching raw run")
     if not rows:
         raise ValueError("No completed non-native policies")
     with args.out.open("w", newline="") as f:

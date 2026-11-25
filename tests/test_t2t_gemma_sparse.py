@@ -91,6 +91,23 @@ def test_factorial_snapshot_is_row_local_across_layers_and_parser_is_gemma_q32_o
                 Arm.parse(f"{q}:0:{q}:{mode}", width)
 
 
+def test_newly_added_kv_only_rows_keep_raw_scores_before_any_sampler_operation():
+    from bdlm_serving.methods.t2t.gemma_sparse import _publish_scores
+    from bdlm_serving.methods.t2t.protocol import Arm
+    old = torch.arange(18).reshape(1, 6, 3).clone()
+    idx = torch.tensor([0, 2, 4, 5])
+    measured = 100 + old.index_select(1, idx)
+    for freeze in (None, torch.tensor([2, 5])):
+        raw = old.clone()
+        _publish_scores(raw, idx, measured, freeze)
+        allowed = set(idx.tolist()) - (set(freeze.tolist()) if freeze is not None else set())
+        for i in range(6):
+            assert torch.equal(raw[:, i], old[:, i] + (100 if i in allowed else 0))
+    assert Arm.parse("32:0:28:hard_trigger_refresh", 256).edit == 4
+    with pytest.raises(ValueError):
+        Arm.parse("32:0:28:hard_trigger_refresh", 32)
+
+
 class _Encoder(nn.Module):
     def create_masks_for_generate(self, **kw):
         return {}

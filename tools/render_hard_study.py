@@ -289,7 +289,7 @@ def render(path, model, width, data, *, adaptive=False, placement=False, geometr
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
-    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry", "calibrated"), default="hard")
+    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry", "calibrated", "refresh"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
     parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
@@ -311,6 +311,19 @@ def main():
             elif args.study == "calibrated":
                 if model == "llada21" and src.is_file():
                     data = calibrated_groups(study,model,width,baselines)
+            elif args.study == "refresh" and src.is_file():
+                for row in all_rows(src):
+                    if not row["policy"].endswith("_hard_trigger_refresh"):
+                        continue
+                    q = int(row["nominal_q"])
+                    rows = [("Added row: KV only", "geometry", point(row, "token_efficiency"))]
+                    for ref, mode, label, kind in (("adaptive", "hard_trigger", "Original trigger", "adaptive"),
+                                                   ("hard", "hard_noedit", "No edit reserve", "hard")):
+                        name = f"t2t_q{q}_f0_m{q if ref == 'hard' else int(row['mask'])}_{mode}"
+                        other, = [x for x in all_rows(hard.parent / ref / src.name) if x["policy"] == name]
+                        rows.append((label, kind, point(other, "token_efficiency")))
+                    data.append((q, rows + window_controls(model,q,width,baselines)))
+                data.sort(key=lambda pair: pair[0])
             elif src.is_file():
                 source = (placement_groups(src, hard / src.name, hard.parent / "adaptive" / src.name,
                                            model, width, baselines) if args.study == "placement" else
@@ -322,7 +335,8 @@ def main():
                 continue
             path = out / f"{model}-{args.study}-study.svg"
             render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement",
-                   geometry=args.study == "geometry", calibrated=args.study == "calibrated")
+                   geometry=args.study == "geometry", calibrated=args.study == "calibrated",
+                   study_title="Repeated KV-only refresh of added rows" if args.study == "refresh" else None)
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))

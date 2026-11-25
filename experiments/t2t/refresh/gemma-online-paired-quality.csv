@@ -1,0 +1,5 @@
+policy,reference,equal_nominal_q,both_correct,only_policy_correct,only_reference_correct,neither_correct,delta_correct
+t2t_q16_f0_m14_hard_trigger_refresh,native,0,26,1,2,1,-1
+t2t_q128_f0_m112_hard_trigger_refresh,native,0,27,1,1,1,0
+t2t_q32_f0_m28_hard_trigger_refresh,native,0,27,2,1,0,1
+t2t_q64_f0_m56_hard_trigger_refresh,native,0,26,1,2,1,-1

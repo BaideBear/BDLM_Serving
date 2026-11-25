@@ -38,6 +38,8 @@ class Arm:
             return obj
         if block == 32:
             modes += ("hard_hazard_gate", "hard_hazard_fixed")
+        elif block == 256:
+            modes += ("hard_trigger_refresh",)
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
         if selection.startswith("hard_") and obj.fresh != 0:

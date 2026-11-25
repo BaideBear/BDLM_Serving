@@ -177,6 +177,13 @@ def _advance(h, before, after, accepted, picked, margin):
     return History(accepted, certainty, streak, fresh | revoked, fresh), (len(admits), len(edits), len(revoked))
 
 
+def _publish_scores(raw, index, measured, freeze_index):
+    previous = raw.index_select(1, freeze_index) if freeze_index is not None else None
+    raw.index_copy_(1, index, measured)
+    if previous is not None:
+        raw.index_copy_(1, freeze_index, previous)
+
+
 @contextmanager
 def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted",
                  signal="uncertain", selection_seed=0):
@@ -196,7 +203,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
-    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL) or signal not in (
+    refresh_only = policy == "hard_trigger_refresh"
+    if policy not in ("targeted", "random", "noedit", "fresh_random", "hard_trigger_refresh", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -247,7 +255,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         else:
             stage = "selected"
         previous_clock = clock
-        hard = policy in _HARD_POLICIES or audit is not None
+        hard = policy in _HARD_POLICIES or audit is not None or refresh_only
         if hard:
             hard_clock += 1
         selected = stage == "selected"
@@ -255,12 +263,21 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         mandatory_fresh = len(prev_fresh)
         reserved, overflow = [], 0
         candidate = stale_kv = None
+        frozen_rows = []
         edit_slots = q_budget - fresh_slots - mask_slots
         if selected and hard:
             (picked, reserved, mandatory_fresh, fresh_selected,
              overflow, edit_slots) = _hard_pick(
-                h, width, q_budget, fresh_slots, mask_slots, "hard_noedit" if audit else policy,
+                h, width, q_budget, fresh_slots, mask_slots,
+                "hard_noedit" if audit else "hard_trigger" if refresh_only else policy,
                 selection_seed, hard_clock, last_write, last_query, previous_strict)
+            if refresh_only and reserved:
+                neutral, *_ = _hard_pick(h, width, q_budget, 0, q_budget, "hard_noedit",
+                    selection_seed, hard_clock, last_write, last_query, previous_strict)
+                frozen_rows = sorted(set(picked) - set(neutral))
+                if (not set(frozen_rows) <= set(reserved) or set(frozen_rows) & h.fresh
+                        or any(not h.resolved[i] for i in frozen_rows)):
+                    raise RuntimeError("Refresh-only mode may freeze only newly reserved old rows")
             if audit:
                 picked, reserved = audit.choose(picked, all_rows, h.resolved, h.fresh, last_write,
                     last_query, hard_clock, q_budget, "gemma", selection_seed, previous_strict)
@@ -280,6 +297,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                         candidate = audit.current["candidate"]
                         assert candidate in picked and candidate not in h.fresh and h.resolved[candidate]
                         stale_kv = bank.candidate_state(candidate, clone=True)
+                        if policy[-1] == "d":
+                            frozen_rows = [candidate]
                         audit.current.update(pre_row_sha256=digest(stale_kv),
                             persist_kv=policy[-2] == "k", use_score=policy[-1] == "k")
         else:
@@ -291,6 +310,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if bank is not None:
             bank.begin(picked, canvas.device)
             index = bank.index
+            freeze_index = index.new_tensor(frozen_rows) if frozen_rows else None
             forward = kw["decoder_forward"]
 
             def measured(**args):
@@ -305,11 +325,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                         or len(bank.visited) != len(model.model.decoder.layers)):
                     raise RuntimeError("Selected decoder Q did not reach all layers and head")
                 if selected:
-                    old_raw = (raw[:, candidate:candidate+1].clone()
-                               if candidate is not None and policy[-1] == "d" else None)
-                    raw.index_copy_(1, index, out.logits)
-                    if old_raw is not None:
-                        raw[:, candidate:candidate+1].copy_(old_raw)
+                    _publish_scores(raw, index, out.logits, freeze_index)
                 else:
                     raw = out.logits.detach().clone()
                 # The pinned native temperature processor is out-of-place.
@@ -320,8 +336,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if selected:
             active = torch.zeros_like(canvas, dtype=torch.bool)
             active.index_fill_(1, index, True)
-            if candidate is not None and policy[-1] == "d":
-                active[:, candidate] = False
+            if frozen_rows:
+                active.index_fill_(1, freeze_index, False)
             old_acceptance = sampler.accepted_token_mask.clone()
             stopper = kw["diffusion_stopping_criteria"]
             if stopper is not None:
@@ -396,6 +412,10 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                 overflow=overflow,
                 hard_clock=hard_clock,
             )
+        if refresh_only:
+            record["kv_refresh_only_positions"] = frozen_rows
+            if any(before_ids[i] != after_ids[i] or previous.resolved[i] != accepted[i] for i in frozen_rows):
+                raise RuntimeError("KV-only refresh leaked a token or acceptance update")
         if audit:
             record["trajectory_sha256"] = canvas_digest(after_ids, accepted)
             record["accepted_sha256"] = canvas_digest(after_ids, accepted, accepted_only=True)
