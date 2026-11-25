@@ -1,0 +1,13 @@
+{
+  "model": "diffusiongemma",
+  "checkpoint": "google/diffusiongemma-26B-A4B-it",
+  "revision": "cd40195554d3cfcb56f34b9adfb66efc790ed5b6",
+  "policies": ["native256"],
+  "transformers": "5.12.0",
+  "attention": "sdpa",
+  "experts": "grouped_mm",
+  "dtype": "bfloat16",
+  "canvas": 256,
+  "cap": 2048,
+  "batch_size": 1
+}

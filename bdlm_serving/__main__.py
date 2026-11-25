@@ -43,6 +43,9 @@ def main():
     g.add_argument("--samples", type=Path, required=True)
     g.add_argument("--output", type=Path, required=True)
     g.add_argument("--batch-size", type=int, help="defaults to the experiment's archived batch size")
+    dg = actions.add_parser("diffusiongemma-native", help="run native DiffusionGemma on frozen30")
+    for name in ("checkpoint", "samples", "output"):
+        dg.add_argument("--" + name, type=Path, required=True)
     s = actions.add_parser("score", help="score a completed run; requires the Linux sandbox for HumanEval")
     s.add_argument("--output", type=Path, required=True)
     s.add_argument("--samples", type=Path, required=True)
@@ -52,6 +55,9 @@ def main():
         print(f"Restored and verified: {args.output}")
     elif args.action == "score":
         score_run(args.output, args.samples)
+    elif args.action == "diffusiongemma-native":
+        from .runtime.diffusiongemma import run_native
+        run_native(args)
     else:
         from .generation import run
         if args.batch_size is not None and args.batch_size < 1:
