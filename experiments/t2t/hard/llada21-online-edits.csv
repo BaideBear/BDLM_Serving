@@ -1,0 +1,4 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q16_f0_m16_hard_noedit,30,2479,1514,582,0,257,325,0,,,,
+t2t_q16_f0_m14_hard_frontier,30,3246,2117,880,0,475,405,0,,,,
+t2t_q16_f0_m14_hard_random,30,3405,2269,731,0,336,395,0,,,,

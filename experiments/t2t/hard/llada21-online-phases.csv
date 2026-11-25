@@ -1,0 +1,13 @@
+policy,phase,F,Q
+t2t_q16_f0_m16_hard_noedit,bootstrap,413,13216
+t2t_q16_f0_m16_hard_noedit,commit,413,13216
+t2t_q16_f0_m16_hard_noedit,selected,1514,25226
+t2t_q16_f0_m16_hard_noedit,verify,552,17664
+t2t_q16_f0_m14_hard_frontier,bootstrap,482,15424
+t2t_q16_f0_m14_hard_frontier,commit,482,15424
+t2t_q16_f0_m14_hard_frontier,selected,2117,35026
+t2t_q16_f0_m14_hard_frontier,verify,647,20704
+t2t_q16_f0_m14_hard_random,bootstrap,471,15072
+t2t_q16_f0_m14_hard_random,commit,471,15072
+t2t_q16_f0_m14_hard_random,selected,2269,37510
+t2t_q16_f0_m14_hard_random,verify,665,21280

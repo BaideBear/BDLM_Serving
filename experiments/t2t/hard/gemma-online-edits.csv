@@ -1,0 +1,14 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q64_f0_m64_hard_noedit,30,848,720,30,0,21,9,163,13253,720,13253,20
+t2t_q64_f0_m56_hard_frontier,30,921,793,34,0,23,11,181,13691,793,13691,23
+t2t_q64_f0_m56_hard_random,30,878,747,19,0,12,7,163,13709,747,13709,11
+t2t_q128_f0_m128_hard_noedit,30,608,486,21,0,13,8,158,13550,486,13550,13
+t2t_q128_f0_m112_hard_frontier,30,649,526,25,0,12,13,172,13437,526,13437,12
+t2t_q128_f0_m112_hard_random,30,686,560,45,0,24,21,167,13465,560,13465,23
+t2t_q32_f0_m32_hard_noedit,30,1361,1231,34,0,24,10,208,14123,1231,14123,24
+t2t_q32_f0_m28_hard_frontier,30,1462,1326,50,0,39,11,169,13790,1326,13790,38
+t2t_q32_f0_m28_hard_random,30,1422,1289,48,0,39,9,151,13370,1289,13370,39
+t2t_q16_f0_m16_hard_noedit,30,1944,1821,45,0,35,10,164,13092,1821,13092,35
+t2t_q16_f0_m14_hard_frontier,30,2553,2413,55,0,46,9,178,12602,2413,12602,34
+t2t_q16_f0_m14_hard_random,30,2240,2108,57,0,47,10,260,12479,2108,12479,41
+t2t_q256_f0_m256_hard_noedit,30,431,0,10,0,0,0,186,0,0,,
