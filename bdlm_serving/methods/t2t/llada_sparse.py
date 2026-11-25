@@ -9,7 +9,7 @@ steps retain stale unselected intra-block KV; full verification and final commit
 always recompute from the committed prefix. No future blocks are evaluated.
 """
 from contextlib import ExitStack
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import random
 
 import torch
@@ -22,7 +22,8 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 
 _GATED = ("near_miss", "gate_random")
-_HARD = ("hard_frontier", "hard_random", "hard_noedit")
+_HARD = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack",
+         "hard_trigger", "hard_oracle1")
 
 
 @dataclass
@@ -85,9 +86,10 @@ class _AuditedDenseCache(BatchCache):
 
 
 class _SelectedCache(DynamicCache):
-    def __init__(self, resident, selected, start, end):
+    def __init__(self, resident, selected, start, end, *, shadow=False):
         super().__init__()
         self.resident, self.selected, self.start = resident, selected, start
+        self.shadow = shadow
         self.visible_end = end  # rectangular-mask adapter protocol
         self.writes = []
 
@@ -100,6 +102,8 @@ class _SelectedCache(DynamicCache):
             raise RuntimeError(f"Unexpected selected KV rows/order at layer {layer_idx}")
         self.writes.append((layer_idx, k.shape[-2], v.shape[-2]))
         key, value = self.resident[layer_idx]
+        if self.shadow:
+            return key.index_copy(-2, self.selected, k), value.index_copy(-2, self.selected, v)
         key.index_copy_(-2, self.selected, k)
         value.index_copy_(-2, self.selected, v)
         return key, value
@@ -114,6 +118,7 @@ class SparseRequestState(RequestState):
     gate_evidence: _GateEvidence | None = None
     last_write: list[int] | None = None
     last_query: list[int] | None = None
+    previous_strict: set = field(default_factory=set)
 
 
 class _RankControl(History):
@@ -312,11 +317,17 @@ class LLaDASparseKernel(SerialKernel):
         from bdlm_serving.methods.t2t.frontier import select_hard
 
         edit_slots = self.q_budget - self.fresh_slots - self.mask_slots
+        oracle = self.policy == "hard_oracle1"
         picked, reserved = select_hard(
             list(editable), resolved, fresh, state.last_write, state.last_query,
-            len(state.events) + 1, self.q_budget, edit_slots, self.policy,
-            state.selection_seed,
+            len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,
+            "hard_noedit" if oracle else self.policy, state.selection_seed,
+            **({"previous_strict": state.previous_strict} if self.policy == "hard_trigger" else {}),
         )
+        if oracle:
+            from .shadow import screened_swap
+            picked, reserved = screened_swap(picked, resolved, fresh, editable,
+                lambda rows, pool, stage: self._shadow_probe(state, rows, pool, stage))
         picked, reserved = list(picked), list(reserved)
         if (len(picked) != min(self.q_budget, len(editable))
                 or picked != sorted(set(picked))
@@ -325,6 +336,27 @@ class LLaDASparseKernel(SerialKernel):
                 or not set(reserved).issubset(set(picked) - fresh)):
             raise RuntimeError("select_hard returned invalid B32 positions")
         return picked, reserved
+
+    def _shadow_probe(self, state, rows, pool, stage):
+        # Diagnostic forwards read the live pre-step tokens and resident KV;
+        # they never update that cache, the token canvas, or the real RNG.
+        start = state.block * 32
+        pos = torch.tensor(rows, dtype=torch.long, device=state.x.device) + start
+        scratch = replace(state, events=[], last_query=None)
+        cache = _SelectedCache(state.resident, pos, start, start+32, shadow=True)
+        logits = self._execute(scratch, pos, start+32, cache, "diagnostic", stage, False)
+        proposed, confidence = self._sample(scratch, logits)
+        old = state.x.index_select(1, pos)[0]
+        ok = ((old != state.mask_id) & (proposed[0] != state.mask_id) & (proposed[0] != old)
+              & (confidence[0] > state.config["editing_threshold"]))
+        pool = set(pool)
+        hits = {i: float(c) for i, hit, c in zip(rows, ok.tolist(), confidence[0].tolist())
+                if hit and i in pool}
+        event, = scratch.events
+        event.update(diagnostic=True, hard_clock=len(state.events)+1,
+                     screened_candidates=len(pool), screen_hits=len(hits))
+        state.events.append(event)
+        return hits
 
     def _sample(self, state, logits):
         with REFERENCE_RNG_LOCK, torch.random.fork_rng(devices=self._rng_devices()):
@@ -349,6 +381,7 @@ class LLaDASparseKernel(SerialKernel):
                 state.history, state.resident, state.force_mask_next = None, None, False
                 state.gate_evidence = None
                 state.last_write = state.last_query = None
+                state.previous_strict.clear()
             return action
 
         start = state.block * 32
@@ -428,6 +461,9 @@ class LLaDASparseKernel(SerialKernel):
             for i in changed:
                 state.last_write[i] = event["hard_clock"]
             strict = {i for i in fresh if resolved[i]}
+            state.previous_strict = strict
+            if self.policy == "hard_oracle1" and not set(hard_reserved) <= strict:
+                raise RuntimeError("Exact-width shadow swap failed to reproduce a strict T2T")
             event.update(
                 hard_strict_edits=len(strict),
                 reserved_extra_edit_positions=[start+i for i in hard_reserved],

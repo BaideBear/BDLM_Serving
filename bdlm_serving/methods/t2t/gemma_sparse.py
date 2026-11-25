@@ -26,7 +26,7 @@ from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
-_HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit")
+_HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack", "hard_trigger")
 
 
 @dataclass
@@ -83,7 +83,7 @@ def _pick(h, budget, fresh, mask, policy, signal, rng):
 
 
 def _hard_pick(h, width, q_budget, fresh_slots, mask_slots, policy, seed,
-               clock, last_write, last_query):
+               clock, last_write, last_query, previous_strict=()):
     """Delegate sparse seats to frontier.select_hard, enforcing mandatory fresh.
 
     The selector sees only measured per-block metadata. Every position that was
@@ -100,7 +100,7 @@ def _hard_pick(h, width, q_budget, fresh_slots, mask_slots, policy, seed,
     positions, reserved = select_hard(
         list(range(width)), list(h.resolved), set(mandatory),
         list(last_write), list(last_query), clock, q_budget, edit_slots,
-        policy, seed)
+        policy, seed, **({"previous_strict": previous_strict} if policy == "hard_trigger" else {}))
     positions, reserved = list(positions), list(reserved)
     assert positions == sorted(set(positions)), "select_hard positions must be sorted unique"
     assert all(type(i) is int and 0 <= i < width for i in positions), \
@@ -200,13 +200,14 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     h = raw = previous_clock = block = None
     last_write = last_query = None
     hard_clock = 0
+    previous_strict = set()
     need_check = False
     closed = True
     ledger = GemmaLedger()
 
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed
-        nonlocal last_write, last_query, hard_clock
+        nonlocal last_write, last_query, hard_clock, previous_strict
         canvas, prior_draft = kw["current_canvas"], kw["argmax_canvas"]
         pos, sc = kw["decoder_position_ids"], kw["self_conditioning_logits"]
         prefix = kw["input_ids"].shape[1]
@@ -222,6 +223,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             h = History([False]*width, [None]*width, [0]*width, set(), set())
             block, need_check, closed, raw = prefix, False, False, None
             last_write, last_query, hard_clock = [-1]*width, [-1]*width, 0
+            previous_strict = set()
             stage = "bootstrap"
         elif closed or clock != previous_clock - 1:
             raise RuntimeError("Non-native denoising clock")
@@ -244,7 +246,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             (picked, reserved, mandatory_fresh, fresh_selected,
              overflow, edit_slots) = _hard_pick(
                 h, width, q_budget, fresh_slots, mask_slots, policy,
-                selection_seed, hard_clock, last_write, last_query)
+                selection_seed, hard_clock, last_write, last_query, previous_strict)
         else:
             picked = (_pick(h, q_budget, fresh_slots, mask_slots, policy, signal, rng)
                       if selected else all_rows)
@@ -317,6 +319,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                             if previous.resolved[i] and accepted[i]
                             and before_ids[i] != after_ids[i]}
             reserved_strict = sorted(set(reserved) & strict_edits)
+            previous_strict = strict_edits
         record = dict(
             block=block, clock=clock, stage=stage, q=q, positions=picked.copy(),
             selected_fresh=sum(i in previous.fresh for i in picked),

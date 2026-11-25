@@ -63,7 +63,8 @@ __all__ = ["select_hard"]
 
 
 RADIUS = 32
-_POLICIES = ("hard_frontier", "hard_random", "hard_noedit")
+_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack",
+             "hard_trigger")
 
 
 def _frontier_scores(edit_pool, last_write, last_query, clock, radius=RADIUS):
@@ -90,7 +91,7 @@ def _frontier_scores(edit_pool, last_write, last_query, clock, radius=RADIUS):
 
 
 def select_hard(editable, resolved, fresh, last_write, last_query, clock,
-                budget, edit_slots, policy, seed):
+                budget, edit_slots, policy, seed, *, previous_strict=()):
     """Return ``(sorted_positions, reserved_extra_edit_positions)``.
 
     ``editable`` is the block-local eligible set.  ``resolved`` is a block-long
@@ -154,6 +155,19 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
         scores = _frontier_scores(edit_pool, last_write, last_query, clock)
         ranked = sorted(edit_pool, key=lambda i: (-scores[i], i))
 
+    if policy in ("hard_slack", "hard_trigger"):
+        # Slack is measured before the first mandatory MASK was taken.
+        # Both policies spend slack first, so it never displaces a MASK.
+        masks = sum(not resolved[i] and i not in fresh for i in eligible)
+        slack = max(0, cap - len(fresh) - masks)
+        limit = min(edit_slots, slack)
+        if policy == "hard_trigger" and slack == 0 and previous_strict:
+            # Release the extra seat to MASK unless a previous real substitution
+            # provides a dirty neighbour within four positions of an old row.
+            ranked = [i for i in ranked if any(0 < abs(i-j) <= 4
+                      and last_write[j] >= last_query[i] for j in previous_strict)]
+            limit = min(edit_slots, 1)
+        edit_slots = limit
     take = min(edit_slots, cap - len(selected), len(ranked))
     reserved = ranked[:take]
     selected.update(reserved)
