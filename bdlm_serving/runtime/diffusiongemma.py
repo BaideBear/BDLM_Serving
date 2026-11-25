@@ -2,7 +2,7 @@
 import hashlib
 import json
 import math
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, nullcontext
 
 from ..evaluation.frozen import ROOT, load_tasks
 
@@ -76,7 +76,7 @@ def account(events, suffix, prompt_len, canvas, cap, eos, special, pad, native_t
         eos=stop is not None, truncated=stop is None)
 
 
-def run_native(args, before_cuda=None):
+def run_native(args, before_cuda=None, trace_request=None):
     import torch
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
@@ -113,7 +113,9 @@ def run_native(args, before_cuda=None):
         for task, data in zip(tasks, inputs, strict=True):
             data = data.to(model.device)
             torch.manual_seed(task["seed"])
-            with observe(model) as events:
+            with observe(model) as events, (
+                trace_request(model, task) if trace_request is not None else nullcontext()
+            ):
                 out = model.generate(**data, max_new_tokens=plan["cap"])
             prompt = data["input_ids"]
             plen = prompt.shape[1]
