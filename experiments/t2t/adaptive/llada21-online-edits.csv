@@ -1,3 +1,8 @@
 policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
 t2t_q16_f0_m15_hard_oracle1,30,3703,2539,760,0,391,369,0,,,,
 t2t_q16_f0_m14_hard_slack,30,3098,1963,780,0,363,417,0,,,,
+t2t_q16_f0_m14_hard_trigger,30,2669,1652,717,0,354,363,0,,,,
+t2t_q8_f0_m7_hard_slack,30,3474,2372,608,0,203,405,0,,,,
+t2t_q8_f0_m7_hard_trigger,30,3289,2242,665,0,267,398,0,,,,
+t2t_q4_f0_m3_hard_slack,30,4877,3824,558,0,179,379,0,,,,
+t2t_q4_f0_m3_hard_trigger,30,4601,3560,602,0,204,398,0,,,,

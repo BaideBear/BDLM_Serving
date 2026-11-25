@@ -20,4 +20,26 @@
 
 **读表及复算。** [LLaDA 指标](llada21-online-summary.csv) · [逐请求](llada21-online-requests.csv) · [工作量与内部配对](llada21-paired-cost.csv)。与原始 IBS/OBS 比较时，除了名义窗口须同时查看双方实际 Q/F；不要把免费探针的诊断值与基线性能作对比。[首轮固定分配、随机和原始基线](../hard/README.md) · [离线机会与探针协议](../FRONTIER.md)。
 
+### 两种可运行策略的完整结果
+
+单元格为 **质量（正确数/30）· TPF**。零预留仍可在中性回填行上自然编辑。“空位”只改变原本多余席位的排序；“触发”在上次真正发生了严格编辑时，才允许在其邻近位置占用最多一席 MASK。下表各数值点均已跑完 30 题；原生全宽与单块/双块 Q64 见末行说明。
+
+| 模型 | 名义 Q | 零预留 | 只用空位 | 编辑触发 |
+|---|---:|---:|---:|---:|
+| LLaDA 2.1 | 4 | 25 · 3.338 | **26 · 3.342** | 25 · 3.427 |
+| LLaDA 2.1 | 8 | 26 · 4.201 | 24 · 4.260 | 26 · 4.107 |
+| LLaDA 2.1 | 16 | 27 · 4.890 | 24 · 4.811 | 26 · 4.860 |
+| DiffusionGemma | 16 | 28 · 5.064 | 28 · 5.089 | 27 · 5.176 |
+| DiffusionGemma | 32 | 28 · 7.980 | 29 · 7.842 | **29 · 8.111** |
+| DiffusionGemma | 64 | 30 · 11.996 | 29 · 11.417 | 27 · 11.364 |
+| DiffusionGemma | 128 | 29 · 16.621 | 28 · 17.349 | 28 · 17.331 |
+
+完整宽度没有额外选位自由度。LLaDA Q32 和单个 B32 下的 Q64 都是 26 · 5.728；[真正双 B32 的 Q64](../dual64/README.md)是 24 · 5.609。Gemma Q256 是 28 · 24.284。
+
+**收益及限制。** 在零预留之上，LLaDA Q4 空位策略多对 1 题不丢题，TPF 仅 +0.00475；实际 Q/F 12.54对 12.13，效率 19.90% 对 19.97%。296 个预留席位命中 17 次严格编辑，从未挤掉 MASK。Gemma Q32 触发策略多对 2 题、少对 1 题，TPF +0.131；实际 Q/F 60.02 对 58.93，效率 12.97% 对 13.00%。1,167 个选位轮中仅 16 轮挤掉 1 个 MASK；428 个预留席位**没有一个直接发生严格 T2T**。选位改变了缓存刷新和后续路径，但本实验没有测 KV 变化幅度，不能宣称质量差由 KV 变化解释。两点仅是多配置筛选后的 30 题观察，不是相同物理工作量或跨题集的优势证明。
+
+**同窗口 Optimus 对照。** LLaDA Q4：原 IBS/OBS 各为 18 · 1.434 / 22 · 1.541，实际 Q/F 3.94 / 4.09，效率 36.02% / 35.98%。Gemma Q32：原 IBS/OBS 各为 27 · 6.872 / 26 · 6.307，实际 Q/F 33.27 / 35.31，效率 17.66% / 14.66%。两组候选的质量和 TPF 均高于同名义窗口的 IBS/OBS，实际每 forward 计算的 Q 也更多，token efficiency 更低。
+
+[LLaDA 全指标图](figures/llada21-adaptive-study.svg) · [Gemma 全指标图](figures/gemma-adaptive-study.svg) · [Gemma 指标](gemma-online-summary.csv) · [逐请求](gemma-online-requests.csv) · [工作量与内部配对](gemma-paired-cost.csv)。`displaced_mask_rows` 是在当前策略自己的前置状态和实际选位宽度上，与优先计算 MASK 相比少给了多少个 MASK 席位；它不是两条已分叉轨迹的全程差值。作图：`python tools/render_hard_study.py --study adaptive`。
+
 每个策略只有全部 30 题运行完、身份和工作量均通过校验才公开计分。运行参数例：`--arm 16:0:14:hard_slack --arm 16:0:14:hard_trigger --arm 16:0:15:hard_oracle1`（最后一个仅支持 LLaDA）。`tools/t2t_results.py` 从新运行目录生成计分表；再运行 `python -m tools.selection_effect --model llada21 --run RUN --scores experiments/t2t/adaptive/llada21-online-requests.csv --baseline experiments/t2t/hard/llada21-online-requests.csv --out experiments/t2t/adaptive/llada21-paired-cost.csv`。

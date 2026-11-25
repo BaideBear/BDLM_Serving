@@ -23,6 +23,7 @@ def pair_rows(scores, baseline, run, model):
         assert {int(r["index"]) for r in rows} == set(range(30))
         n = f = q = same = wins = losses = 0
         hits = seats = df = dq = screens = screen_hits = 0
+        displaced = crowding_steps = hits_on_crowding = selected_steps = 0
         tpf, ref_tpf, ideal_tpf = [], [], []
         ref_q = ref_f = ref_n = correct = ref_correct = 0
         diagnostic = policy.endswith("_hard_oracle1")
@@ -43,6 +44,7 @@ def pair_rows(scores, baseline, run, model):
             assert (fi, qi) == (sum(data["forwards_by_phase"].values()), sum(data["q_by_phase"].values()))
             di = dqi = 0
             stages = Counter()
+            last_block = prev_resolved = None
             for event in data["events"]:
                 stage = event["stage"]
                 if stage.startswith("oracle_"):
@@ -55,13 +57,34 @@ def pair_rows(scores, baseline, run, model):
                     screen_hits += event["screen_hits"] if stage == "oracle_union" else 0
                     stages[stage] += 1
                 if stage == "selected":
+                    selected_steps += 1
                     es = event["reserved_extra_edit_positions"]
                     positives = event["reserved_strict_edit_positions"]
                     assert set(positives) <= set(es)
+                    if model == "llada21":
+                        mask_pool = event["masked_before"]
+                        mask_seats = event["selected_masked_before"]
+                        physical = event["physical_q"]
+                    else:
+                        assert last_block == event["block"] and prev_resolved is not None
+                        mask_pool = 256 - prev_resolved
+                        mask_seats = event["selected_mask"]
+                        physical = event["q"]
+                    missed = min(mask_pool, physical - event["mandatory_fresh"]) - mask_seats
+                    assert 0 <= missed <= len(es)
+                    if policy.endswith("_hard_slack"):
+                        assert missed == 0
+                    if policy.endswith(("_hard_trigger","_hard_oracle1")):
+                        assert missed <= 1
+                    displaced += missed
+                    crowding_steps += bool(missed)
+                    hits_on_crowding += len(positives) if missed else 0
                     if diagnostic:
                         assert es == positives and len(es) <= 1
                     hits += len(positives)
                     seats += len(es)
+                if model == "gemma":
+                    last_block, prev_resolved = event["block"], event["resolved"]
             assert di == sum(data["forwards_by_phase"].get(s,0) for s in ("oracle_union","oracle_trial"))
             assert dqi == sum(data["q_by_phase"].get(s,0) for s in ("oracle_union","oracle_trial"))
             tpf.append(ni/fi)
@@ -84,6 +107,8 @@ def pair_rows(scores, baseline, run, model):
                    N=n, F=f, Q=q, q_per_f=q/f, reference_q_per_f=ref_q/ref_f,
                    token_efficiency=n/q, reference_token_efficiency=ref_n/ref_q,
                    reserved_seats=seats, reserved_strict_hits=hits, oracle_F=df, oracle_Q=dq,
+                   selected_steps=selected_steps, displaced_mask_rows=displaced,
+                   steps_displacing_mask=crowding_steps, reserved_hits_on_displacing_steps=hits_on_crowding,
                    union_candidates=screens, union_hits=screen_hits,
                    # Still this rollout's outputs, NOT a possible deployed rate.
                    idealized_tpf_without_probes=mean(ideal_tpf) if diagnostic else "",

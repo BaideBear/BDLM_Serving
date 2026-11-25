@@ -1,0 +1,9 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q64_f0_m56_hard_slack,30,904,771,52,0,41,11,177,13357,771,13357,41
+t2t_q64_f0_m56_hard_trigger,30,905,771,52,0,39,13,185,13387,771,13387,39
+t2t_q16_f0_m14_hard_slack,30,1934,1811,42,0,33,9,170,13010,1811,13010,33
+t2t_q16_f0_m14_hard_trigger,30,2322,2187,43,0,37,6,192,12459,2187,12459,37
+t2t_q32_f0_m28_hard_slack,30,1368,1231,48,0,35,13,201,14010,1231,14010,35
+t2t_q32_f0_m28_hard_trigger,30,1297,1167,41,0,30,11,175,13722,1167,13722,30
+t2t_q128_f0_m112_hard_slack,30,589,472,16,0,12,4,160,13605,472,13605,12
+t2t_q128_f0_m112_hard_trigger,30,590,474,22,0,16,6,174,13675,474,13675,16
