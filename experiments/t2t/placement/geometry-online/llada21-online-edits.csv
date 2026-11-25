@@ -1,0 +1,6 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q8_f0_m7_hard_slack_geometry,30,3519,2448,688,0,257,431,0,,,,
+t2t_q16_f0_m14_hard_slack_geometry,30,5597,4197,913,0,359,554,0,,,,
+t2t_q16_f0_m14_hard_geometry,30,2940,1853,803,0,406,397,0,,,,
+t2t_q4_f0_m3_hard_slack_geometry,30,4585,3561,495,0,156,339,0,,,,
+t2t_q8_f0_m7_hard_slack_placebo,30,3256,2217,659,0,242,417,0,,,,
