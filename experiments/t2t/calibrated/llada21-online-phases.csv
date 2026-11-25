@@ -1,0 +1,9 @@
+policy,phase,F,Q
+t2t_q16_f0_m14_hard_hazard_fixed,bootstrap,438,14016
+t2t_q16_f0_m14_hard_hazard_fixed,commit,438,14016
+t2t_q16_f0_m14_hard_hazard_fixed,selected,1712,28588
+t2t_q16_f0_m14_hard_hazard_fixed,verify,570,18240
+t2t_q16_f0_m14_hard_hazard_gate,bootstrap,502,16064
+t2t_q16_f0_m14_hard_hazard_gate,commit,502,16064
+t2t_q16_f0_m14_hard_hazard_gate,selected,2298,37954
+t2t_q16_f0_m14_hard_hazard_gate,verify,675,21600

@@ -167,7 +167,22 @@ def geometry_groups(folder, model, width, baselines):
         yield q, rows + window_controls(model, q, width, baselines)
 
 
-def render(path, model, width, data, *, adaptive=False, placement=False, geometry=False):
+def calibrated_groups(folder, model, width, baselines):
+    sources = (("calibrated","hard_hazard_gate","Risk gate: 5%", "adaptive"),
+               ("calibrated","hard_hazard_fixed","Risk rank: fixed", "hard"),
+               ("hard","hard_noedit","No edit reserve", "hard"),
+               ("hard","hard_random","Fixed: random", "placebo"),
+               ("placement/geometry-online","hard_geometry","Fixed: geometry", "geometry"))
+    rows = []
+    for src, mode, label, style in sources:
+        p = folder.parent/src/f"{model}-online-summary.csv"
+        expected = f"t2t_q16_f0_m{16 if mode=='hard_noedit' else 14}_{mode}"
+        record, = [r for r in all_rows(p) if r["policy"] == expected]
+        rows.append((label,style,point(record,"token_efficiency")))
+    return [(16, rows + window_controls(model,16,width,baselines))]
+
+
+def render(path, model, width, data, *, adaptive=False, placement=False, geometry=False, calibrated=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -198,6 +213,8 @@ def render(path, model, width, data, *, adaptive=False, placement=False, geometr
         title = "Matched old-position controls"
     if geometry:
         title = "Geometry vs matched old-position controls"
+    if calibrated:
+        title = "Independent positional risk calibration"
     fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  {title} (B{width})",
              fontsize=17, weight="bold", color="#172b38")
     fig.text(.035, 1-.53/height,
@@ -261,12 +278,16 @@ def render(path, model, width, data, *, adaptive=False, placement=False, geometr
     with matplotlib.rc_context({"svg.fonttype": "none", "svg.hashsalt": "hard-study"}):
         fig.savefig(path, metadata={"Date": None})
     plt.close(fig)
+    if path.suffix == ".svg":
+        # The SVG backend emits trailing blanks on multiline path coordinates.
+        svg = path.read_text(encoding="utf-8")
+        path.write_text(re.sub(r"[ \t]+\n", "\n", svg), encoding="utf-8")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
-    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry"), default="hard")
+    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry", "calibrated"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
     parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
@@ -285,6 +306,9 @@ def main():
             if args.study == "geometry":
                 if model == "llada21" and (study / "arms.csv").is_file():
                     data = list(geometry_groups(study, model, width, baselines))
+            elif args.study == "calibrated":
+                if model == "llada21" and src.is_file():
+                    data = calibrated_groups(study,model,width,baselines)
             elif src.is_file():
                 source = (placement_groups(src, hard / src.name, hard.parent / "adaptive" / src.name,
                                            model, width, baselines) if args.study == "placement" else
@@ -296,7 +320,7 @@ def main():
                 continue
             path = out / f"{model}-{args.study}-study.svg"
             render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement",
-                   geometry=args.study == "geometry")
+                   geometry=args.study == "geometry", calibrated=args.study == "calibrated")
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))
