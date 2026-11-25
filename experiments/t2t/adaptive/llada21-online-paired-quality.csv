@@ -1,0 +1,2 @@
+policy,reference,equal_nominal_q,both_correct,only_policy_correct,only_reference_correct,neither_correct,delta_correct
+t2t_q16_f0_m15_hard_oracle1,native,0,24,1,2,3,-1
