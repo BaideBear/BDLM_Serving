@@ -10,8 +10,8 @@ from statistics import mean
 from types import SimpleNamespace
 
 from tools.exchange_placebo_report import (
-    ARM_ORDER, REFERENCES, build_report, context_rows, load_manifest, main,
-    paired_rows, request_rows, summary_rows, validate_totals,
+    ARM_ORDER, REFERENCES, age_tables, build_report, context_rows, load_manifest, main,
+    paired_rows, read_csv, request_rows, summary_rows, validate_totals,
 )
 
 
@@ -78,6 +78,13 @@ def write_manifest(path):
                     task_id=f"{DATASETS[i // 10]}/{i}", seed=17000 + i)
                for i in range(30)]
     path.write_text(json.dumps(dict(samples=samples)))
+
+
+def check_generated_diff(out):
+    # Use only the generated fixture directory's disposable index.
+    subprocess.run(["git", "init", "-q", str(out)], check=True)
+    subprocess.run(["git", "-C", str(out), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(out), "diff", "--cached", "--check"], check=True)
 
 
 def fixture(root):
@@ -321,12 +328,150 @@ class ExchangePlaceboReportTest(unittest.TestCase):
                     self.assertNotIn("/home", text, name)
                     self.assertNotIn("n164", text, name)
                     self.assertNotIn(str(args.out), text, name)
-            subprocess.run(["git", "init", "-q", str(outputs[0])], check=True)
-            subprocess.run(["git", "-C", str(outputs[0]), "add", "-A"], check=True)
-            result = subprocess.run(
-                ["git", "-C", str(outputs[0]), "diff", "--cached", "--check"],
-                capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            check_generated_diff(outputs[0])
+
+
+def age_fixture(root):
+    args = fixture(root)
+    args.age_measured = root / "n164-private-age-input"
+    arms = {}
+    for q, salt, correct, n, f in ((4, "a", 26, 100, 10), (4, "b", 27, 105, 10),
+                                   (8, "a", 27, 130, 12), (8, "b", 26, 135, 12)):
+        policy = f"t2t_q{q}_f0_m{q-1}_hard_exchange_oldhalf_{salt}"
+        rows = make_rows(q, policy, q - 1, correct_upto(correct), n, f)
+        if (q, salt) == (4, "a"):
+            rows[0]["correct"], rows[26]["correct"] = 0, 1  # one loss, two wins vs zero
+        for row in rows:
+            row["physical_Q"] += row["F"]
+        arms[policy] = rows[::-1]  # pairing is by manifest identity, not CSV order
+    write_arm_dir(args.age_measured, arms)
+    return args, arms
+
+
+def age_cli(args, out):
+    return ["--age-measured", str(args.age_measured), "--measured", str(args.measured),
+            "--ranked", str(args.ranked), "--manifest", str(args.manifest),
+            "--model", MODEL, "--out", str(out)]
+
+
+class ExchangeAgeReportTest(unittest.TestCase):
+    def test_age_cli_outputs(self):
+        with tempfile.TemporaryDirectory() as d:
+            args, arms = age_fixture(Path(d))
+            main(age_cli(args, args.out))
+            points = read_csv(args.out / "exchange-age-summary.csv")
+            results = read_csv(args.out / "exchange-age-paired.csv")
+            svg = (args.out / "exchange-age-01.svg").read_text()
+            md = (args.out / "exchange-age-report.md").read_text()
+            self.assertEqual({p.name for p in args.out.iterdir()}, {
+                "exchange-age-summary.csv", "exchange-age-paired.csv",
+                "exchange-age-01.svg", "exchange-age-report.md"})
+            self.assertEqual(len(points), 12)
+            self.assertEqual({(p["nominal_q"], p["arm"]) for p in points}, {
+                (q, arm) for q in ("4", "8") for arm in (*ARM_ORDER, "oldhalf_a", "oldhalf_b")})
+            self.assertTrue(all(p["requests"] == "30" and p["dataset"] == "all" for p in points + results))
+            for p in points:
+                if p["policy"] in arms:
+                    rows = arms[p["policy"]]
+                    for key in ("correct", "N", "F", "Q", "physical_Q"):
+                        self.assertEqual(int(p[key]), sum(r[key] for r in rows))
+                    self.assertAlmostEqual(float(p["macro_tpf"]), mean(r["N"] / r["F"] for r in rows))
+                    self.assertAlmostEqual(float(p["physical_efficiency"]), int(p["N"]) / int(p["physical_Q"]))
+            self.assertEqual(len(results), 8)
+            by_pair = {(r["nominal_q"], r["salt"], r["reference"]): r for r in results}
+            self.assertEqual(set(by_pair), {(q, s, ref) for q in ("4", "8") for s in "ab"
+                                           for ref in (f"placebo_{s}", "zero")})
+            by_arm = {(p["nominal_q"], p["arm"]): p for p in points}
+            for (q, salt, ref), r in by_pair.items():
+                old, other = by_arm[q, f"oldhalf_{salt}"], by_arm[q, ref]
+                for key, delta in (("macro_tpf", "delta_tpf"), ("physical_efficiency", "delta_physical_efficiency"),
+                                   ("correct", "delta_correct"), ("Q", "delta_Q"), ("physical_Q", "delta_physical_Q")):
+                    self.assertAlmostEqual(float(r[delta]), float(old[key]) - float(other[key]))
+                self.assertEqual(r["budget_pass"], "1" if q == "4" else "0")
+                self.assertEqual(r["salt_pass"], "0" if (q, salt) == ("8", "b") else "1")
+            r = by_pair["4", "a", "zero"]
+            self.assertEqual((r["wins"], r["losses"], r["delta_correct"]), ("2", "1", "1"))
+            self.assertIn("+1", svg)
+            self.assertIn(f"{float(r['delta_tpf']):+.4f}", svg)
+            self.assertIn("| Q4/1 | PASS | PASS | **PASS** |", md)
+            self.assertIn("| Q8/1 | PASS | FAIL | **FAIL** |", md)
+            # Absolute input paths and source basenames are not public identifiers.
+            repeat = Path(d) / "repeat"
+            main(age_cli(args, repeat))
+            for p in args.out.iterdir():
+                self.assertEqual(p.read_bytes(), (repeat / p.name).read_bytes())
+                text = p.read_text()
+                for private in (str(Path(d)), args.age_measured.name, "/data1/", "/home/"):
+                    self.assertNotIn(private, text)
+                self.assertEqual(text, "\n".join(line.rstrip() for line in text.rstrip().splitlines()) + "\n")
+            check_generated_diff(args.out)
+
+    def test_age_uses_historical_controls_and_separate_output(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            args, _ = age_fixture(root)
+            # Earlier measured tables may also contain a noedit arm; ignore it.
+            for kind in ("requests", "summary"):
+                name = f"{MODEL}-online-{kind}.csv"
+                history = read_csv(args.ranked / name)
+                zero = [r for r in history if r["policy"].endswith("noedit")]
+                write_csv(root / "hard" / name, zero)
+                write_csv(args.ranked / name, [r for r in history if not r["policy"].endswith("noedit")])
+                write_csv(args.measured / name, read_csv(args.measured / name) + zero)
+            points, _ = age_tables(args)
+            self.assertEqual({(r["arm"], r["source"]) for r in points}, {
+                ("zero", "hard"), ("ranked", "ranked"), ("placebo_a", "measured"),
+                ("placebo_b", "measured"), ("oldhalf_a", "age_measured"), ("oldhalf_b", "age_measured")})
+            args.out.mkdir()
+            sentinel = args.out / "exchange-placebo-report.md"
+            sentinel.write_text("existing report\n")
+            with self.assertRaises(SystemExit) as error:
+                main(age_cli(args, args.out))
+            self.assertEqual(error.exception.code, 2)
+            self.assertEqual(list(args.out.iterdir()), [sentinel])
+            self.assertEqual(sentinel.read_text(), "existing report\n")
+
+    def test_each_comparison_constrains_budget(self):
+        # Each case fails just one requirement that the other checks would miss.
+        cases = [("b", 26, 105, "placebo_b"),  # correct below own uniform, above zero
+                 ("b", 27, 104, "placebo_b"),  # TPF below own uniform, above zero
+                 ("a", 26, 99, "zero"),       # TPF below zero, above own uniform
+                 ("a", 25, 100, "zero")]      # correct tied with zero
+        for salt, correct, n, ref in cases:
+            with self.subTest(salt=salt, correct=correct, n=n), tempfile.TemporaryDirectory() as d:
+                args, arms = age_fixture(Path(d))
+                policy = f"t2t_q4_f0_m3_hard_exchange_oldhalf_{salt}"
+                arms[policy] = make_rows(4, policy, 3, correct_upto(correct), n, 10)
+                write_arm_dir(args.age_measured, arms)
+                _, pairs = age_tables(args)
+                q4 = [r for r in pairs if r["nominal_q"] == 4]
+                self.assertEqual([(r["salt"], r["reference"]) for r in q4 if not r["comparison_pass"]],
+                                 [(salt, ref)])
+                self.assertTrue(all(not r["budget_pass"] for r in q4))
+
+    def test_incomplete_age_tables_do_not_write(self):
+        for failure, message in (("absent", "hard_exchange_oldhalf_b"), ("task", "frozen30"),
+                                 ("summary", "disagrees"), ("uniform", "hard_exchange_random_a")):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as d:
+                args, _ = age_fixture(Path(d))
+                directory = args.measured if failure == "uniform" else args.age_measured
+                filename = "summary" if failure == "summary" else "requests"
+                path = directory / f"{MODEL}-online-{filename}.csv"
+                rows = read_csv(path)
+                if failure in ("absent", "uniform"):
+                    suffix = "oldhalf_b" if failure == "absent" else "random_a"
+                    rows = [r for r in rows if r["nominal_q"] != "8" or not r["policy"].endswith(suffix)]
+                elif failure == "task":
+                    rows[-1]["task_id"] = "wrong"
+                else:
+                    next(r for r in rows if r["dataset"] == "all")["physical_Q"] = "1"
+                write_csv(path, rows)
+                with self.assertRaisesRegex(ValueError, message):
+                    age_tables(args)
+                with self.assertRaises(SystemExit) as result:
+                    main(age_cli(args, args.out))
+                self.assertEqual(result.exception.code, 2)
+                self.assertFalse(args.out.exists())
 
 
 if __name__ == "__main__":

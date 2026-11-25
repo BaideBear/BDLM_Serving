@@ -1,0 +1,17 @@
+policy,phase,F,Q
+t2t_q4_f0_m3_hard_exchange_oldhalf_a,bootstrap,484,15488
+t2t_q4_f0_m3_hard_exchange_oldhalf_a,commit,484,15488
+t2t_q4_f0_m3_hard_exchange_oldhalf_a,selected,4662,22263
+t2t_q4_f0_m3_hard_exchange_oldhalf_a,verify,724,23168
+t2t_q4_f0_m3_hard_exchange_oldhalf_b,bootstrap,459,14688
+t2t_q4_f0_m3_hard_exchange_oldhalf_b,commit,459,14688
+t2t_q4_f0_m3_hard_exchange_oldhalf_b,selected,3951,19374
+t2t_q4_f0_m3_hard_exchange_oldhalf_b,verify,631,20192
+t2t_q8_f0_m7_hard_exchange_oldhalf_a,bootstrap,446,14272
+t2t_q8_f0_m7_hard_exchange_oldhalf_a,commit,446,14272
+t2t_q8_f0_m7_hard_exchange_oldhalf_a,selected,2405,21769
+t2t_q8_f0_m7_hard_exchange_oldhalf_a,verify,645,20640
+t2t_q8_f0_m7_hard_exchange_oldhalf_b,bootstrap,451,14432
+t2t_q8_f0_m7_hard_exchange_oldhalf_b,commit,451,14432
+t2t_q8_f0_m7_hard_exchange_oldhalf_b,selected,2526,22766
+t2t_q8_f0_m7_hard_exchange_oldhalf_b,verify,691,22112

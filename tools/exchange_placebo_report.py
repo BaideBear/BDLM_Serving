@@ -17,12 +17,16 @@ Inputs
     zero-reserve control.
 ``--out``
     Output directory.
+``--age-measured``
+    Optional separate scored directory for both old-half salts. Switches to the
+    Q4/Q8 age report; --measured then supplies the earlier uniform salts only.
+    Use a separate --out directory. No original placebo files are generated.
 
-The zero-reserve control is resolved in this order: ``--ranked`` requests,
+In placebo mode the zero-reserve control is resolved in this order: ``--ranked`` requests,
 ``--measured`` requests, then the sibling ``hard`` study requests
 (``<ranked>/../hard/<model>-online-requests.csv``), which is where the published
-exchange study keeps its historical no-reserve control.  The resolved source is
-recorded in every output table.
+exchange study keeps its historical no-reserve control. Age mode uses only
+the historical directories for controls. Source roles are recorded in the summary.
 """
 
 from __future__ import annotations
@@ -50,7 +54,9 @@ ARM_LABEL = {"zero": "zero reserve", "ranked": "ranked edit4",
              "placebo_a": "placebo a", "placebo_b": "placebo b"}
 ARM_SUFFIX = {"zero": "hard_noedit", "ranked": "hard_exchange_edit4",
               "placebo_a": "hard_exchange_random_a",
-              "placebo_b": "hard_exchange_random_b"}
+              "placebo_b": "hard_exchange_random_b",
+              "oldhalf_a": "hard_exchange_oldhalf_a",
+              "oldhalf_b": "hard_exchange_oldhalf_b"}
 FIG_LABEL = {"zero": "zero", "ranked": "ranked edit4",
              "placebo_a": "placebo a", "placebo_b": "placebo b"}
 REFERENCES = ("zero", "placebo_a", "placebo_b")
@@ -242,11 +248,17 @@ def resolve_ranked(measured, ranked, model, q, expected):
     raise ValueError(f"Missing ranked hard_exchange_edit4 at Q{q}: looked in {ranked}, {measured}")
 
 
+def required_arm(model, q, arm, expected, *sources):
+    for role, directory in sources:
+        found = find_arm(directory, model, q, arm, expected, role)
+        if found is not None:
+            return found
+    raise ValueError(f"Missing {ARM_SUFFIX[arm]} at Q{q} in "
+                     + ", ".join(str(directory) for _, directory in sources))
+
+
 def resolve_placebo(measured, model, q, arm, expected):
-    found = find_arm(measured, model, q, arm, expected, "measured")
-    if found is None:
-        raise ValueError(f"Missing {ARM_SUFFIX[arm]} at Q{q} in {measured}")
-    return found
+    return required_arm(model, q, arm, expected, ("measured", measured))
 
 
 def pair(ranked, reference, reference_name, q):
@@ -438,22 +450,20 @@ def request_rows(report):
     return rows
 
 
-def summary_rows(report):
-    rows = []
-    for q in report.qs:
-        for arm in ARM_ORDER:
-            a = report.arms[q][arm]
-            s = a.summary
-            rows.append(dict(
-                model=report.model, nominal_q=q, arm=arm, policy=a.policy,
+def arm_summary(a):
+    s = a.summary
+    return dict(model=a.requests[0]["model"], nominal_q=a.q, arm=a.name, policy=a.policy,
                 source=a.source, dataset="all", requests=s["requests"], correct=s["correct"],
                 failed=s["failed"], truncated=s["truncated"], N=s["N"], F=s["F"],
                 Q=s["Q"], physical_Q=s["physical_Q"], macro_tpf=s["tpf"],
                 token_efficiency=s["token_efficiency"],
                 physical_efficiency=s["physical_efficiency"],
                 q_per_f=s["q_per_f"], physical_q_per_f=s["physical_q_per_f"],
-                max_q=s["max_q"], summary_checked=1))
-    return rows
+                max_q=s["max_q"], summary_checked=1)
+
+
+def summary_rows(report):
+    return [arm_summary(report.arms[q][arm]) for q in report.qs for arm in ARM_ORDER]
 
 
 def paired_rows(report):
@@ -572,8 +582,15 @@ def plot_study(path, report):
             ax.set_xlim(-.6, 34.0)
         else:
             ax.set_xlim(0, max(high * 1.28, .01))
+    save_figure(fig, path, "exchange-placebo")
+
+
+def save_figure(fig, path, salt):
+    import matplotlib
+    import matplotlib.pyplot as plt
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    with matplotlib.rc_context({"svg.fonttype": "none", "svg.hashsalt": "exchange-placebo"}):
+    with matplotlib.rc_context({"svg.fonttype": "none", "svg.hashsalt": salt}):
         fig.savefig(path, metadata={"Date": None})
     plt.close(fig)
     if path.suffix == ".svg":
@@ -650,15 +667,7 @@ def plot_delta(path, report):
                         fontsize=8.5, color=color, zorder=4)
         limit = max(abs(min(values)), abs(max(values)), 1e-9)
         ax.set_xlim(-limit * 2.0, limit * 2.0)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with matplotlib.rc_context({"svg.fonttype": "none", "svg.hashsalt": "exchange-placebo-delta"}):
-        fig.savefig(path, metadata={"Date": None})
-    plt.close(fig)
-    if path.suffix == ".svg":
-        lines = [line.rstrip() for line in path.read_text(encoding="utf-8").splitlines()]
-        while lines and not lines[-1]:
-            lines.pop()
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    save_figure(fig, path, "exchange-placebo-delta")
 
 
 def render_markdown(report, out):
@@ -845,10 +854,126 @@ def write_report(report, out):
         json.dumps(run, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def age_tables(args):
+    if set(args.qs or (4, 8)) != {4, 8}:
+        raise ValueError("The age report requires both Q4 and Q8")
+    expected = load_manifest(args.manifest)
+    points, pairs = [], []
+    history = ("ranked", args.ranked.resolve())
+    for q in (4, 8):
+        zero = required_arm(args.model, q, "zero", expected, history,
+                            ("hard", history[1].parent / "hard"))
+        ranked = required_arm(args.model, q, "ranked", expected, history)
+        points.extend((arm_summary(zero), arm_summary(ranked)))
+        budget_pairs = []
+        for salt in ("a", "b"):
+            uniform = resolve_placebo(args.measured, args.model, q, f"placebo_{salt}", expected)
+            old = required_arm(args.model, q, f"oldhalf_{salt}", expected,
+                               ("age_measured", args.age_measured))
+            points.extend((arm_summary(uniform), arm_summary(old)))
+            salt_pairs = []
+            for ref in (uniform, zero):
+                p, _ = pair(old, ref, ref.name, q)
+                # Apply the rule to the unrounded point estimates, including ties.
+                correct_ok = p["delta_correct"] > 0 if ref is zero else p["delta_correct"] >= 0
+                passes = correct_ok and old.summary["tpf"] >= ref.summary["tpf"]
+                salt_pairs.append(dict(
+                    model=args.model, nominal_q=q, salt=salt, dataset="all", arm=old.name,
+                    reference=ref.name, requests=p["requests"], wins=p["only_ranked_correct"],
+                    losses=p["only_reference_correct"], both_correct=p["both_correct"],
+                    neither_correct=p["neither_correct"], delta_correct=p["delta_correct"],
+                    delta_tpf=p["delta_tpf"], delta_N=p["delta_N"], delta_F=p["delta_F"],
+                    delta_Q=p["delta_Q"], delta_physical_Q=p["delta_physical_Q"],
+                    delta_physical_efficiency=p["delta_physical_efficiency"],
+                    comparison_pass=int(passes)))
+            salt_pass = all(r["comparison_pass"] for r in salt_pairs)
+            budget_pairs.extend(dict(r, salt_pass=int(salt_pass)) for r in salt_pairs)
+        budget_pass = all(r["salt_pass"] for r in budget_pairs)
+        pairs.extend(dict(r, budget_pass=int(budget_pass)) for r in budget_pairs)
+    return points, pairs
+
+
+def age_pair_label(row):
+    salt = row["salt"].upper()
+    ref = "zero" if row["reference"] == "zero" else f"uniform {salt}"
+    return f"Q{row['nominal_q']}/1   old-half {salt} vs {ref}"
+
+
+def plot_age(path, pairs):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 4.6), sharey=True)
+    fig.subplots_adjust(left=.29, right=.96, top=.79, bottom=.12, wspace=.20)
+    fig.suptitle("Figure 1. Old-half candidate minus reference", fontweight="bold")
+    axes[0].set_yticks(range(len(pairs)), [age_pair_label(r) for r in pairs], fontsize=9)
+    axes[0].invert_yaxis()
+    for ax, key, label, fmt in zip(axes, ("delta_correct", "delta_tpf"),
+                                   ("Change in correct / 30", "Change in macro TPF"),
+                                   ("+d", "+.4f")):
+        values = [r[key] for r in pairs]
+        span = max(abs(v) for v in values) or 1
+        ax.set(xlim=(-1.85 * span, 1.85 * span), title=label)
+        ax.axvline(0, lw=.8, color="#a1a8ae")
+        for y, (r, v) in enumerate(zip(pairs, values)):
+            color = "#087b74" if r["salt"] == "a" else "#246da2"
+            ax.scatter(v, y, s=28, color=color)
+            ax.annotate(format(v, fmt), (v, y), xytext=(5 if v >= 0 else -5, 0),
+                        textcoords="offset points", va="center",
+                        ha="left" if v >= 0 else "right", fontsize=9, color=color)
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+    save_figure(fig, path, "exchange-age-01")
+
+
+def write_age_report(args):
+    out = args.out.resolve()
+    if out in {args.ranked.resolve(), args.ranked.resolve().parent / "hard",
+               args.measured.resolve(), args.age_measured.resolve()} or any(
+                   out.glob("exchange-placebo-*")):
+        raise ValueError("Use a separate --out directory for the age report")
+    points, pairs = age_tables(args)  # Validate every arm before writing anything.
+    lines = [f"# {MODEL_LABEL.get(args.model, args.model)}: old-half candidate selection", "",
+             "Each salt uses the same frozen 30 requests; salts are never pooled. "
+             "`placebo_a/b` are the earlier uniform draws. Ranked edit4 is context only. "
+             "Direct strict edits and gate/victim checks belong to the separate event audit.", "",
+             "A budget passes only if **both** salts beat zero on correct count, match or "
+             "beat zero on macro TPF, and match or beat their own uniform salt on both. "
+             "The rule uses unrounded point estimates.", "",
+             "| Budget | Salt A | Salt B | Budget result |", "|---|---|---|---|"]
+    verdict = {0: "FAIL", 1: "PASS"}
+    for q in (4, 8):
+        a, b = [r for r in pairs if r["nominal_q"] == q and r["reference"] == "zero"]
+        lines.append(f"| Q{q}/1 | {verdict[a['salt_pass']]} | {verdict[b['salt_pass']]} "
+                     f"| **{verdict[a['budget_pass']]}** |")
+    lines += ["", "| Budget | Arm | Correct / 30 | Macro TPF | Physical efficiency | N | F | Q | Physical Q |",
+              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
+    for p in points:
+        lines.append("| Q{nominal_q} | {arm} | {correct} | {macro_tpf:.4f} | "
+                     "{physical_efficiency:.2%} | {N:,} | {F:,} | {Q:,} | {physical_Q:,} |".format(**p))
+    lines += ["", "Macro TPF = mean request N/F; physical efficiency = total N / total physical Q.", "",
+              "![Figure 1. Paired changes in correctness and TPF](exchange-age-01.svg)", "",
+              "[Point estimates](exchange-age-summary.csv) · "
+              "[Matched wins/losses, work deltas and decisions](exchange-age-paired.csv)", "",
+              "```bash", "python -m tools.exchange_placebo_report --age-measured \"$AGE_MEASURED\" "
+              "--measured \"$UNIFORM_MEASURED\" --ranked \"$RANKED\" --out \"$AGE_OUT\""
+              + (" --model \"$MODEL\"" if args.model != "llada21" else "")
+              + (" --manifest \"$MANIFEST\"" if args.manifest.resolve() != DEFAULT_MANIFEST else ""),
+              "```", ""]
+    out.mkdir(parents=True, exist_ok=True)
+    plot_age(out / "exchange-age-01.svg", pairs)
+    table(out / "exchange-age-summary.csv", points)
+    table(out / "exchange-age-paired.csv", pairs)
+    (out / "exchange-age-report.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--measured", type=Path, required=True,
-                        help="tools.t2t_results output directory for this round")
+                        help="tools.t2t_results output directory for the uniform placebo arms")
+    parser.add_argument("--age-measured", type=Path,
+                        help="scored old-half A/B directory; write a separate Q4/Q8 age report")
     parser.add_argument("--ranked", type=Path, default=DEFAULT_RANKED,
                         help="published exchange directory (default: experiments/t2t/exchange)")
     parser.add_argument("--out", type=Path, required=True)
@@ -864,6 +989,9 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.age_measured is not None:
+            write_age_report(args)
+            return
         report = build_report(args)
         write_report(report, args.out.resolve())
     except ValueError as exc:

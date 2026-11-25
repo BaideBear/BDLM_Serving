@@ -3,6 +3,8 @@ import json
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
+from random import Random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -207,6 +209,105 @@ def manifest_for(*maps):
         {"index": index, "task_id": data["task_id"],
          "dataset": data["dataset"], "seed": data["seed"]}
         for index, data in sorted(merged.items())]}
+
+
+def oldhalf_policy(budget, salt):
+    return "t2t_q%d_f0_m%d_hard_exchange_oldhalf_%s" % (
+        budget, MASK_SLOTS[budget], salt)
+
+
+def oldhalf_arm(budget, salt, rates="r"):
+    name = oldhalf_policy(budget, salt)
+    parsed = parse_policy(name)
+    return ArmData(policy=name, budget=budget, fresh=parsed["fresh"],
+                   mask=parsed["mask"], selection=parsed["selection"],
+                   kind="oldhalf_" + salt, width=WIDTH, model="llada21",
+                   sources=["oldhalf-run"], rates=rates)
+
+
+def uniform_arm(budget, salt, rates="r"):
+    name = policy(budget, salt)
+    parsed = parse_policy(name)
+    return ArmData(policy=name, budget=budget, fresh=parsed["fresh"],
+                   mask=parsed["mask"], selection=parsed["selection"],
+                   kind="random_" + salt, width=WIDTH, model="llada21",
+                   sources=["uniform-run"], rates=rates)
+
+
+def oldhalf_scenario(budget=4, salt="a", seed=None, all_tied=False,
+                     index=0, block=1, strict_hit=False, force=None):
+    offset = block * WIDTH
+    base = list(range(budget))
+    victim = budget - 1
+    ranked = sorted((set(base) - {victim}) | {budget})
+    pool = list(range(budget, budget + 4))
+    start = bootstrap(budget, block, 2)
+    common = [start]
+    last = [-1] * WIDTH
+    for position in start["absolute_positions"]:
+        last[position - offset] = start["hard_clock"]
+    if not all_tied:
+        warm = selected_event(budget, pool[1:], block=block, clock=3)
+        common.append(warm)
+        for position in warm["absolute_positions"]:
+            last[position - offset] = warm["hard_clock"]
+    clock = 4 if not all_tied else 3
+    if seed is None:
+        seed = 17000 + index
+    force = force or ("same" if all_tied else "fork")
+    chosen = uniform = draw = None
+    for candidate_seed in range(seed, seed + 500):
+        tag = "exchange-placebo:%s:%s:%d:%d" % (
+            salt, candidate_seed, block, clock)
+        ordered = sorted(pool, key=last.__getitem__)
+        m = (len(pool) + 1) // 2
+        cutoff = last[ordered[m - 1]]
+        if cutoff == last[ordered[0]] == last[ordered[-1]]:
+            draw = list(pool)
+        else:
+            older = [i for i in ordered if last[i] < cutoff]
+            tied = [i for i in ordered if last[i] == cutoff]
+            draw = sorted(older + Random(tag + ":half-tie").sample(
+                tied, m - len(older)))
+        chosen = Random(tag).sample(draw, 1)[0]
+        uniform = Random(tag).sample(pool, 1)[0]
+        if (force == "fork" and chosen != uniform and uniform != budget) or (
+                force == "same" and chosen == uniform):
+            seed = candidate_seed
+            break
+    else:
+        raise AssertionError("Could not force old-half draw relation")
+    old_executed = sorted((set(base) - {victim}) | {chosen})
+    uniform_executed = sorted((set(base) - {victim}) | {uniform})
+    old_doc = dict(
+        base=base, ranked=ranked, executed=old_executed, victims=[victim],
+        pool=pool, fresh=[], masked_victims=[victim], draw_pool=draw,
+        last_query=[last[position] for position in pool])
+    uniform_doc = dict(
+        base=base, ranked=ranked, executed=uniform_executed,
+        victims=[victim], pool=pool, fresh=[], masked_victims=[victim])
+    edited = 1 if strict_hit else 0
+    hard = 1 if strict_hit else 0
+    old_event = selected_event(
+        budget, old_executed, block=block, clock=clock,
+        reserved=[offset + chosen],
+        strict=[offset + chosen] if strict_hit else [],
+        doc=old_doc, edited=edited, hard_strict=hard)
+    uniform_event = selected_event(
+        budget, uniform_executed, block=block, clock=clock,
+        reserved=[offset + uniform],
+        strict=[offset + uniform] if strict_hit else [],
+        doc=uniform_doc, edited=edited, hard_strict=hard)
+    new = result(deepcopy(common) + [old_event],
+                 policy_name=oldhalf_policy(budget, salt), index=index)
+    new["seed"] = seed
+    reference = result(deepcopy(common) + [uniform_event],
+                       policy_name=policy(budget, salt), index=index)
+    reference["seed"] = seed
+    meta = dict(seed=seed, chosen=chosen, uniform=uniform, draw=draw,
+                last_query={position: last[position] for position in pool},
+                clock=clock, block=block, all_tied=all_tied)
+    return new, reference, oldhalf_arm(budget, salt), uniform_arm(budget, salt), meta
 
 
 class ExchangePlaceboAuditTest(unittest.TestCase):
@@ -710,6 +811,233 @@ class ExchangePlaceboAuditTest(unittest.TestCase):
                 if row["run"]:
                     self.assertFalse(row["run"].startswith("/"))
                     self.assertNotIn("..", row["run"])
+
+
+    def oldhalf_audit(self, scenario_result, index=0):
+        new, reference, arm, ref_arm, meta = scenario_result
+        row, violations = audit_request(
+            new, reference, arm, ref_arm, index, "oldhalf", oldhalf=True)
+        row["violations"] = "; ".join(violations)
+        return row, meta
+
+    def test_oldhalf_tie_sample_and_first_fork(self):
+        row, meta = self.oldhalf_audit(oldhalf_scenario(4, "a", index=0))
+        self.assertEqual(row["violations"], "")
+        self.assertEqual(row["forked"], 1)
+        self.assertEqual(row["first_fork"], 2)
+        self.assertEqual(row["first_q_split"], 2)
+        self.assertEqual(row["first_fork_victim"], "mask")
+        self.assertEqual(row["first_fork_ranked_replay"], "metadata-ok")
+        self.assertEqual(row["age_swaps"], 1)
+        self.assertEqual(row["age_tie_sampled_swaps"], 1)
+        self.assertEqual(row["age_all_tied_swaps"], 0)
+        self.assertEqual(row["first_fork_draw_pool_size"], 2)
+        self.assertEqual(row["first_fork_all_tied"], 0)
+        self.assertEqual(row["swaps_mask"], 1)
+        self.assertEqual(row["generation_forwards"], 3)
+        self.assertEqual(row["generation_query_rows"], 39)
+        self.assertEqual(row["first_fork_new_reserved_rows"],
+                         str(WIDTH + meta["chosen"]))
+        self.assertEqual(row["first_fork_ranked_reserved_rows"],
+                         str(WIDTH + meta["uniform"]))
+
+    def test_oldhalf_q8_uses_same_algorithm(self):
+        row, _ = self.oldhalf_audit(oldhalf_scenario(8, "b", index=0))
+        self.assertEqual(row["violations"], "")
+        self.assertEqual(row["budget"], 8)
+        self.assertEqual(row["age_swaps"], 1)
+        self.assertEqual(row["first_fork_draw_pool_size"], 2)
+        self.assertEqual(row["first_fork_pool_size"], 4)
+        self.assertEqual(row["first_fork_base_size"], 8)
+
+    def test_oldhalf_all_tied_keeps_original_pool(self):
+        row, _ = self.oldhalf_audit(
+            oldhalf_scenario(4, "a", index=0, all_tied=True))
+        self.assertEqual(row["violations"], "")
+        self.assertEqual(row["forked"], 0)
+        self.assertEqual(row["nondivergent"], 1)
+        self.assertEqual(row["outputs_identical"], 1)
+        self.assertEqual(row["physical_fq_identical"], 1)
+        self.assertEqual(row["age_swaps"], 1)
+        self.assertEqual(row["age_all_tied_swaps"], 1)
+        self.assertEqual(row["age_tie_sampled_swaps"], 0)
+        self.assertEqual(row["age_draw_pool_rows"], 4)
+        self.assertEqual(row["first_fork_victim"], "none")
+
+    def test_oldhalf_wrong_last_query_is_flagged(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        new["events"][-1]["placebo_exchange"]["last_query"][0] += 1
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("logged last_query mismatch" in item
+                            for item in violations))
+
+    def test_oldhalf_wrong_draw_pool_is_flagged(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        doc = new["events"][-1]["placebo_exchange"]
+        doc["draw_pool"] = list(doc["pool"])
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("draw_pool does not match" in item
+                            for item in violations))
+
+    def test_oldhalf_restricted_pool_draw_is_checked(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        event = new["events"][-1]
+        doc = event["placebo_exchange"]
+        outside = [position for position in doc["pool"]
+                   if position not in doc["draw_pool"]][0]
+        executed = sorted((set(doc["base"]) - set(doc["victims"]))
+                          | {outside})
+        doc["executed"] = executed
+        event["absolute_positions"] = sorted(WIDTH + p for p in executed)
+        event["reserved_extra_edit_positions"] = [WIDTH + outside]
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("restricted-pool draw mismatch" in item
+                            for item in violations))
+
+    def test_oldhalf_all_tied_must_keep_pool(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(
+            4, "a", all_tied=True)
+        doc = new["events"][-1]["placebo_exchange"]
+        doc["draw_pool"] = doc["draw_pool"][:2]
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("all-tied draw did not keep original pool" in item
+                            for item in violations))
+
+    def test_oldhalf_fork_compares_ranked_metadata_not_positions(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertEqual(violations, [])
+        reference["events"][-1]["placebo_exchange"]["pool"] = \
+            reference["events"][-1]["placebo_exchange"]["pool"][:-1]
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("ranked metadata mismatch: pool" in item
+                            for item in violations))
+
+    def test_oldhalf_pre_fork_audit_fields_ignored(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        reference["events"][1]["placebo_exchange"] = {"audit_only": True}
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertEqual(violations, [])
+
+    def test_oldhalf_pre_fork_history_mismatch_is_flagged(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(4, "a")
+        reference["events"][1]["masked_before"] += 1
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("pre-divergence history mismatch" in item
+                            for item in violations))
+
+    def test_oldhalf_no_fork_requires_work_output_parity(self):
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(
+            4, "a", all_tied=True)
+        new["output_ids"] = [99]
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("nondivergent output mismatch" in item
+                            for item in violations))
+        new, reference, arm, ref_arm, _ = oldhalf_scenario(
+            4, "a", all_tied=True)
+        new["generation_query_rows"] += 1
+        _, violations = audit_request(new, reference, arm, ref_arm, 0,
+                                      "oldhalf", oldhalf=True)
+        self.assertTrue(any("nondivergent physical F/Q mismatch" in item
+                            for item in violations))
+
+    def test_oldhalf_cli_totals_and_age_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a0 = oldhalf_scenario(4, "a", index=0, seed=17001)
+            a1 = oldhalf_scenario(4, "a", index=1, seed=17002)
+            b0 = oldhalf_scenario(4, "b", index=0, seed=17001)
+            b1 = oldhalf_scenario(4, "b", index=1, seed=17002)
+            oldhalf_run = write_run(root / "oldhalf", run_specs(
+                (oldhalf_policy(4, "a"), {0: a0[0], 1: a1[0]}),
+                (oldhalf_policy(4, "b"), {0: b0[0], 1: b1[0]})))
+            reference_run = write_run(root / "reference", run_specs(
+                (policy(4, "a"), {0: a0[1], 1: a1[1]}),
+                (policy(4, "b"), {0: b0[1], 1: b1[1]})))
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps(manifest_for(
+                {0: a0[0], 1: a1[0]})))
+            out = root / "audit.csv"
+            code = main(["--old-half", "--ranked", str(reference_run),
+                         "--run", str(oldhalf_run), "--out", str(out),
+                         "--manifest", str(manifest), "--budget", "4"])
+            self.assertEqual(code, 0)
+            with out.open() as stream:
+                rows = list(csv.DictReader(stream))
+            requests = [row for row in rows if row["row_type"] == "request"]
+            self.assertEqual(len(requests), 4)
+            self.assertTrue(all(row["age_swaps"] == "1" for row in requests))
+            self.assertTrue(all(row["generation_query_rows"]
+                                for row in requests))
+            totals = [row for row in rows if row["row_type"] == "total"]
+            overall = [row for row in totals if row["group"] == "all"][0]
+            self.assertEqual(overall["age_swaps"], "4")
+            self.assertEqual(overall["generation_query_rows"],
+                             str(sum(int(row["generation_query_rows"])
+                                     for row in requests)))
+            data = out.read_bytes()
+            self.assertNotIn(b"\r\n", data)
+            self.assertNotIn(b"/data1/", data)
+            self.assertNotIn(b"n164", data)
+
+    def test_oldhalf_missing_arm_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a0 = oldhalf_scenario(4, "a", index=0)
+            b0 = oldhalf_scenario(4, "b", index=0)
+            oldhalf_run = write_run(root / "oldhalf",
+                                    run_specs((oldhalf_policy(4, "a"),
+                                               {0: a0[0]})))
+            reference_run = write_run(root / "reference", run_specs(
+                (policy(4, "a"), {0: a0[1]}),
+                (policy(4, "b"), {0: b0[1]})))
+            for allow_missing in (False, True):
+                with self.assertRaisesRegex(ValueError, "Missing old-half arm"):
+                    audit_paths([reference_run], [oldhalf_run], budgets=(4,),
+                                manifest=manifest_for({0: a0[0]}),
+                                oldhalf=True, allow_missing=allow_missing)
+
+    def test_oldhalf_salt_mismatch_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a0 = oldhalf_scenario(4, "a", index=0)
+            b0 = oldhalf_scenario(4, "b", index=0)
+            oldhalf_run = write_run(root / "oldhalf", run_specs(
+                (oldhalf_policy(4, "a"), {0: a0[0]}),
+                (oldhalf_policy(4, "b"), {0: b0[0]})))
+            reference_run = write_run(root / "reference",
+                                      run_specs((policy(4, "b"), {0: b0[1]})))
+            with self.assertRaisesRegex(ValueError,
+                                        "uniform random_a reference"):
+                audit_paths([reference_run], [oldhalf_run], budgets=(4,),
+                            manifest=manifest_for({0: a0[0]}), oldhalf=True)
+
+    def test_oldhalf_rejects_other_budget(self):
+        with self.assertRaisesRegex(ValueError, "only Q4 and Q8"):
+            audit_paths(["unused"], ["unused"], budgets=(16,), oldhalf=True)
+
+    def test_oldhalf_rejects_edit4_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a0 = oldhalf_scenario(4, "a", index=0)
+            b0 = oldhalf_scenario(4, "b", index=0)
+            oldhalf_run = write_run(root / "oldhalf", run_specs(
+                (oldhalf_policy(4, "a"), {0: a0[0]}),
+                (oldhalf_policy(4, "b"), {0: b0[0]})))
+            reference_run = write_run(root / "reference",
+                                      run_specs((ranked_policy(4), {0: a0[1]})))
+            with self.assertRaisesRegex(ValueError, "No old-half reference"):
+                audit_paths([reference_run], [oldhalf_run], budgets=(4,),
+                            manifest=manifest_for({0: a0[0]}), oldhalf=True)
 
 
 if __name__ == "__main__":

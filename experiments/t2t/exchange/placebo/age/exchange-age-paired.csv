@@ -1,0 +1,9 @@
+model,nominal_q,salt,dataset,arm,reference,requests,wins,losses,both_correct,neither_correct,delta_correct,delta_tpf,delta_N,delta_F,delta_Q,delta_physical_Q,delta_physical_efficiency,comparison_pass,salt_pass,budget_pass
+llada21,4,a,all,oldhalf_a,placebo_a,30,2,0,23,5,2,-0.0066968305741570274,166,625,3624,3624,-0.007201640151494937,0,0,0
+llada21,4,a,all,oldhalf_a,zero,30,1,1,24,4,0,0.040542101351746226,43,361,3740,3740,-0.009209793887903217,0,0,0
+llada21,4,b,all,oldhalf_b,placebo_b,30,0,0,25,5,0,0.04232752385318394,656,94,1920,1920,0.004046900329618297,1,0,0
+llada21,4,b,all,oldhalf_b,zero,30,0,0,25,5,0,0.08416504508230098,-692,-493,-3725,-3725,0.0007498761957621669,0,0,0
+llada21,8,a,all,oldhalf_a,placebo_a,30,0,1,26,3,-1,-0.0338702724826291,-1251,-697,-8659,-8659,0.004654147389690971,0,0,0
+llada21,8,a,all,oldhalf_a,zero,30,1,1,25,3,0,-0.09356258943104231,471,292,4438,4438,-0.005413534131869152,0,0,0
+llada21,8,b,all,oldhalf_b,placebo_b,30,0,1,27,2,-1,-0.07836580174027792,88,88,1254,1254,-0.001956775591049037,0,0,0
+llada21,8,b,all,oldhalf_b,zero,30,1,0,26,3,1,-0.0668066204874381,700,469,7227,7227,-0.009390664567401924,0,0,0

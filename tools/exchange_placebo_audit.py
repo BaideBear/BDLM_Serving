@@ -51,6 +51,20 @@ indices come from the manifest, so a request missing from both sides is still
 reported.  ``--allow-missing`` relaxes the completion marker for a live run,
 but a missing placebo arm is always an error.  The public CSV is written with
 LF line endings, and the ``run`` column uses directory basenames only.
+
+``--old-half`` selects the cache-age experiment.  ``--run`` must contain
+``oldhalf_a``/``oldhalf_b`` and ``--ranked`` must contain the matching
+``random_a``/``random_b`` references at Q4 and/or Q8.  Each actual age swap is
+checked independently: block-local ``last_query`` is reconstructed from the
+physical Q events since that block's bootstrap, the logged pool timestamps are
+compared, and the frozen oldest-half draw is replayed with the
+``exchange_placebo:{salt}:{seed}:{block}:{clock}`` tag and ``:half-tie``
+suffix.  An all-tied pool must be returned unchanged; otherwise the boundary
+ties and restricted draw must match.  The swap must not change physical width
+or victims.  At the first physical fork the ranked metadata in the two logs is
+compared doc-to-doc (never ranked positions against the uniform arm's actual
+positions), along with pool/victims and all pre-fork history after ignoring
+audit-only fields.  If no fork occurs, work and output parity is required.
 """
 from __future__ import annotations
 
@@ -674,6 +688,196 @@ def _plain_absolute(value):
         return []
 
 
+def _int_values(value, label, violations):
+    if not isinstance(value, (list, tuple)):
+        violations.append("%s: not an integer list" % label)
+        return []
+    out = []
+    for item in value:
+        try:
+            out.append(_as_int(item))
+        except ValueError:
+            violations.append("%s: non-integer value %r" % (label, item))
+            return []
+    return out
+
+
+def _reconstruct_last_query(events, tick, block, width):
+    start = None
+    for position in range(tick - 1, -1, -1):
+        event = events[position]
+        if event.get("block") == block and event.get("stage") == "bootstrap":
+            start = position
+            break
+    if start is None:
+        return None
+    last = [-1] * width
+    for position in range(start, tick):
+        event = events[position]
+        clock = event.get("hard_clock")
+        if clock is None:
+            return None
+        for absolute in event.get("absolute_positions", []):
+            try:
+                local = _as_int(absolute) - block * width
+            except ValueError:
+                continue
+            if 0 <= local < width:
+                last[local] = clock
+    return last
+
+
+def _oldest_half_audit(pool, last_query, seed):
+    ordered = sorted(pool, key=last_query.__getitem__)
+    m = (len(pool) + 1) // 2
+    if last_query[ordered[0]] < 0:
+        raise ValueError("old candidate has no observed Q")
+    cutoff = last_query[ordered[m - 1]]
+    if cutoff == last_query[ordered[0]] == last_query[ordered[-1]]:
+        return list(pool), True, m, 0, len(pool)
+    older = [i for i in ordered if last_query[i] < cutoff]
+    tied = [i for i in ordered if last_query[i] == cutoff]
+    draw = sorted(older + Random(seed + ":half-tie").sample(
+        tied, m - len(older)))
+    return draw, False, m, len(older), len(tied)
+
+
+def _age_metrics(event, events, tick, width, salt, seed, label, violations):
+    doc = event.get("placebo_exchange")
+    if not isinstance(doc, dict):
+        violations.append("%s: missing age placebo_exchange" % label)
+        return None
+    if "draw_pool" not in doc or "last_query" not in doc:
+        violations.append("%s: missing draw_pool/last_query age digest" % label)
+        return None
+    pool = _position_list(doc.get("pool"), label + ".pool", violations, width)
+    draw_pool = _position_list(
+        doc.get("draw_pool"), label + ".draw_pool", violations, width)
+    logged = _int_values(doc.get("last_query"), label + ".last_query",
+                         violations)
+    block = _field_int(event, "block", label, violations)
+    clock = _field_int(event, "hard_clock", label, violations)
+    if block is None or clock is None:
+        return None
+    last_query = _reconstruct_last_query(events, tick, block, width)
+    if last_query is None:
+        violations.append("%s: cannot recover last_query since bootstrap"
+                          % label)
+        return None
+    if len(logged) != len(pool):
+        violations.append("%s: logged last_query width differs from pool"
+                          % label)
+    else:
+        for slot, position in enumerate(pool):
+            if logged[slot] != last_query[position]:
+                violations.append(
+                    "%s: logged last_query mismatch at local %d"
+                    % (label, position))
+                break
+    timestamps = [last_query[position] for position in pool]
+    if any(value < 0 for value in timestamps):
+        violations.append("%s: unobserved pool timestamp" % label)
+        return None
+    tag = "exchange-placebo:%s:%s:%d:%d" % (salt, seed, block, clock)
+    try:
+        expected, all_tied, m, older_count, tie_count = _oldest_half_audit(
+            pool, last_query, tag)
+    except (ValueError, IndexError) as error:
+        violations.append("%s: oldest-half replay failed (%s)"
+                          % (label, error))
+        return None
+    if expected != draw_pool:
+        violations.append("%s: draw_pool does not match oldest-half replay"
+                          % label)
+    ordered = sorted(pool, key=last_query.__getitem__)
+    all_equal = (len(pool) > 0
+                 and last_query[ordered[0]] == last_query[ordered[-1]])
+    if all_equal != all_tied:
+        violations.append("%s: all-tied flag disagrees with timestamps"
+                          % label)
+    if all_tied:
+        if draw_pool != sorted(pool):
+            violations.append("%s: all-tied draw did not keep original pool"
+                              % label)
+    else:
+        cutoff = last_query[ordered[m - 1]]
+        older = [i for i in ordered if last_query[i] < cutoff]
+        tied = [i for i in ordered if last_query[i] == cutoff]
+        if len(draw_pool) != m:
+            violations.append("%s: oldest-half draw width is not m"
+                              % label)
+        if not set(older) <= set(draw_pool):
+            violations.append("%s: oldest-half draw lost an older row"
+                              % label)
+        if not set(draw_pool) <= set(older) | set(tied):
+            violations.append("%s: oldest-half draw left the cutoff pool"
+                              % label)
+        if len(set(draw_pool) & set(tied)) != m - len(older):
+            violations.append("%s: oldest-half tie sample count differs"
+                              % label)
+        if len(tied) < m - len(older):
+            violations.append("%s: insufficient boundary ties" % label)
+    base = set(doc.get("base", []))
+    executed = set(doc.get("executed", []))
+    reserved = sorted(executed - base)
+    if len(reserved) != 1:
+        violations.append("%s: age exchange requires exactly one seat"
+                          % label)
+    try:
+        drawn = sorted(Random(tag).sample(draw_pool, len(reserved)))
+    except ValueError as error:
+        violations.append("%s: restricted-pool draw failed (%s)"
+                          % (label, error))
+        drawn = []
+    if drawn != reserved:
+        violations.append("%s: restricted-pool draw mismatch" % label)
+    if not (len(doc.get("base", [])) == len(doc.get("ranked", []))
+            == len(doc.get("executed", []))):
+        violations.append("%s: age exchange changed physical width" % label)
+    if sorted(base - set(doc.get("ranked", []))) != sorted(
+            doc.get("victims", [])):
+        violations.append("%s: age exchange changed victims" % label)
+    physical = len(doc.get("executed", []))
+    for key in ("physical_q", "actual_q", "q_tokens"):
+        if event.get(key) is not None and event[key] != physical:
+            violations.append("%s: age exchange %s mismatch" % (label, key))
+    layers = event.get("layer_physical_q")
+    if isinstance(layers, list) and any(value != physical for value in layers):
+        violations.append("%s: age exchange layer_physical_q mismatch" % label)
+    return dict(all_tied=all_tied, draw_pool_size=len(draw_pool),
+                pool_size=len(pool), m=m, older_count=older_count,
+                tie_count=tie_count, reserved=reserved)
+
+
+def _audit_oldhalf_fork(new_event, reference_event, new_metrics,
+                        reference_metrics, age, width, violations, row):
+    if new_metrics is None or reference_metrics is None:
+        violations.append("oldhalf fork: missing one placebo_exchange digest")
+        row["first_fork_ranked_replay"] = "missing"
+        return
+    for key in STRUCTURAL_FIELDS:
+        if new_event.get(key, MISSING) != reference_event.get(key, MISSING):
+            violations.append("oldhalf fork structural mismatch: %s" % key)
+    ok = True
+    for key in ("base", "ranked", "victims", "pool", "fresh",
+                "masked_victims"):
+        left = sorted(new_metrics.get(key, []))
+        right = sorted(reference_metrics.get(key, []))
+        if left != right:
+            violations.append(
+                "oldhalf fork ranked metadata mismatch: %s" % key)
+            ok = False
+    row["first_fork_ranked_replay"] = "metadata-ok" if ok else "mismatch"
+    row["first_fork_swaps"] = len(new_metrics["victims"])
+    row["first_fork_gate"] = len(new_metrics["victims"])
+    row["first_fork_base_size"] = len(new_metrics["base"])
+    row["first_fork_pool_size"] = len(new_metrics["pool"])
+    row["first_fork_width"] = width
+    if age is not None:
+        row["first_fork_draw_pool_size"] = age["draw_pool_size"]
+        row["first_fork_all_tied"] = int(age["all_tied"])
+
+
 def _result_comparison(new, archived):
     mismatches = []
     output_ok = True
@@ -834,7 +1038,8 @@ def _audit_fork(new_event, archived_event, metrics, width, violations, row):
     row["first_fork_width"] = width
 
 
-def audit_request(new, archived, arm, reference, index, label, sample=None):
+def audit_request(new, archived, arm, reference, index, label, sample=None,
+                  oldhalf=False):
     violations = _metadata_violations(new, archived, arm, reference)
     if sample is not None:
         violations.extend(_manifest_violations(new, sample, label + " new"))
@@ -844,6 +1049,7 @@ def audit_request(new, archived, arm, reference, index, label, sample=None):
                kind=arm.kind, budget=arm.budget, index=index,
                dataset=new.get("dataset", ""), task_id=new.get("task_id", ""),
                status=new.get("status", ""))
+    row.update(_work_row(new))
     width = arm.width
     new_events = _common_events(new)
     old_events = _common_events(archived)
@@ -851,6 +1057,7 @@ def audit_request(new, archived, arm, reference, index, label, sample=None):
         violations.append("missing event history")
 
     doc_events = {}
+    age_doc_events = {}
     first_swap = None
     totals = Counter()
     collision_rows = []
@@ -875,6 +1082,16 @@ def audit_request(new, archived, arm, reference, index, label, sample=None):
         reserved_rows.extend(metrics["reserved"])
         collision_rows.extend(metrics["collisions"])
         direct_strict_rows.extend(metrics["direct_strict"])
+        if oldhalf:
+            age = _age_metrics(
+                event, new_events, tick, width, oldhalf_salt(arm.kind),
+                new.get("seed"), label + " tick %d age" % tick, violations)
+            if age is not None:
+                age_doc_events[tick] = age
+                totals["age_swaps"] += 1
+                totals["age_all_tied_swaps"] += int(age["all_tied"])
+                totals["age_tie_sampled_swaps"] += int(not age["all_tied"])
+                totals["age_draw_pool_rows"] += age["draw_pool_size"]
 
     common = min(len(new_events), len(old_events))
     q_split = None
@@ -919,10 +1136,23 @@ def audit_request(new, archived, arm, reference, index, label, sample=None):
     row["reserved_rows"] = ";".join(map(str, sorted(reserved_rows)))
     row["collision_rows"] = ";".join(map(str, sorted(collision_rows)))
     row["direct_strict_rows"] = ";".join(map(str, sorted(direct_strict_rows)))
+    row["age_swaps"] = totals["age_swaps"]
+    row["age_all_tied_swaps"] = totals["age_all_tied_swaps"]
+    row["age_tie_sampled_swaps"] = totals["age_tie_sampled_swaps"]
+    row["age_draw_pool_rows"] = totals["age_draw_pool_rows"]
 
     if q_split is not None:
-        _audit_fork(new_events[q_split], old_events[q_split],
-                    doc_events.get(q_split), width, violations, row)
+        if oldhalf:
+            reference_metrics = _doc_metrics(
+                old_events[q_split], width,
+                label + " reference fork", violations)
+            _audit_oldhalf_fork(
+                new_events[q_split], old_events[q_split],
+                doc_events.get(q_split), reference_metrics,
+                age_doc_events.get(q_split), width, violations, row)
+        else:
+            _audit_fork(new_events[q_split], old_events[q_split],
+                        doc_events.get(q_split), width, violations, row)
     else:
         row["first_fork_ranked_replay"] = "" if not forked else "missing"
 
@@ -963,6 +1193,10 @@ def audit_request(new, archived, arm, reference, index, label, sample=None):
             row["first_fork_base_size"] = len(metrics["base"])
             row["first_fork_pool_size"] = len(metrics["pool"])
             row["first_fork_width"] = width
+            age = age_doc_events.get(fork_tick)
+            if oldhalf and age is not None:
+                row["first_fork_draw_pool_size"] = age["draw_pool_size"]
+                row["first_fork_all_tied"] = int(age["all_tied"])
         else:
             for key in ("first_fork_swaps", "first_fork_gate",
                         "first_fork_base_size", "first_fork_pool_size",
@@ -1018,10 +1252,15 @@ def _totals(rows):
                 requests=0, forked=0, nondivergent=0,
                 swap_events=0, swaps_total=0, swaps_mask=0, swaps_old=0,
                 collisions=0, direct_strict_hits=0,
+                output_tokens=0, generation_forwards=0,
+                generation_query_rows=0,
+                generation_physical_padded_rows=0, prefill_rows=0,
+                age_swaps=0, age_all_tied_swaps=0,
+                age_tie_sampled_swaps=0, age_draw_pool_rows=0,
                 first_fork_mask=0, first_fork_old=0, first_fork_mixed=0,
                 first_fork_unknown=0, first_fork_none=0,
                 first_fork_new_strict_hits=0,
-                first_fork_ranked_strict_hits=0,
+                first_fork_ranked_strict_hits=0, first_fork_ranked_ok=0,
                 fork_at_first_swap=0, violation_requests=0, violations=0)
         return groups[key]
 
@@ -1039,9 +1278,16 @@ def _totals(rows):
             total["nondivergent"] += int(row.get("nondivergent") or 0)
             for key in ("swap_events", "swaps_total", "swaps_mask", "swaps_old",
                         "collisions", "direct_strict_hits",
+                        "output_tokens", "generation_forwards",
+                        "generation_query_rows",
+                        "generation_physical_padded_rows", "prefill_rows",
+                        "age_swaps", "age_all_tied_swaps",
+                        "age_tie_sampled_swaps", "age_draw_pool_rows",
                         "first_fork_new_strict_hits",
                         "first_fork_ranked_strict_hits"):
                 total[key] += int(row.get(key) or 0)
+            if row.get("first_fork_ranked_replay") in ("ok", "metadata-ok"):
+                total["first_fork_ranked_ok"] += 1
             victim = row.get("first_fork_victim", "")
             if victim in ("mask", "old", "mixed", "unknown", "none"):
                 total["first_fork_" + victim] += 1
@@ -1077,26 +1323,46 @@ def _require_arms(new, archived, budgets, mode="placebo"):
 
 
 def audit_paths(ranked_paths, run_paths, budgets=(4, 8), allow_missing=False,
-                manifest=None):
+                manifest=None, oldhalf=False):
     budgets = tuple(sorted(set(int(budget) for budget in budgets)))
+    mode = "oldhalf" if oldhalf else "placebo"
+    if oldhalf and any(budget not in OLDHALF_BUDGETS for budget in budgets):
+        raise ValueError("Old-half audit supports only Q4 and Q8")
     expected = _load_manifest(manifest)
     strict = not allow_missing
     if strict and expected is None:
         raise ValueError(
             "strict audit requires benchmarks/frozen30/manifest.json "
             "or an explicit --manifest")
-    archived, new = discover(ranked_paths, run_paths, budgets)
-    _require_arms(new, archived, budgets)
+    archived, new = discover(ranked_paths, run_paths, budgets, mode=mode)
+    _require_arms(new, archived, budgets, mode=mode)
     records = []
+    new_side = "old-half" if oldhalf else "placebo"
+    ref_side = "reference" if oldhalf else "archived"
     for arm in sorted(new, key=lambda item: (item.budget, item.kind, item.policy)):
-        reference = select_reference(archived, arm)
-        if rank_tag(reference.selection) != "edit4":
+        reference = select_reference(archived, arm, mode=mode)
+        if oldhalf:
+            salt = oldhalf_salt(arm.kind)
+            if arm.selection != "hard_exchange_oldhalf_" + salt:
+                raise ValueError("Old-half arm selection is not canonical: %s"
+                                 % arm.policy)
+            expected_selection = "hard_exchange_random_" + salt
+            if (reference.kind != "random_" + salt
+                    or reference.selection != expected_selection):
+                raise ValueError("Old-half %s requires %s reference"
+                                 % (arm.policy, expected_selection))
+            for candidate in (arm, reference):
+                if (candidate.width != 32 or candidate.fresh != 0
+                        or candidate.mask != candidate.budget - 1):
+                    raise ValueError(
+                        "Old-half audit requires B32, fresh=0, one edit seat")
+        elif rank_tag(reference.selection) != "edit4":
             raise ValueError(
                 "Placebo arm %s requires an archived edit4 reference"
                 % arm.policy)
         if not reference.files:
-            raise ValueError("Archived reference %s has no requests"
-                             % reference.policy)
+            raise ValueError("%s reference %s has no requests"
+                             % (ref_side, reference.policy))
         reference_errors = _environment_violations(
             reference, require_completion=strict)
         arm_errors = ["reference %s: %s" % (reference.policy, message)
@@ -1119,15 +1385,15 @@ def audit_paths(ranked_paths, run_paths, budgets=(4, 8), allow_missing=False,
             if index not in arm.files and index not in reference.files:
                 if not allow_missing:
                     records.append(_missing_row(
-                        arm, index, "placebo and archived"))
+                        arm, index, new_side + " and " + ref_side))
                 continue
             if index not in arm.files:
                 if not allow_missing:
-                    records.append(_missing_row(arm, index, "placebo"))
+                    records.append(_missing_row(arm, index, new_side))
                 continue
             if index not in reference.files:
                 if not allow_missing:
-                    records.append(_missing_row(arm, index, "archived"))
+                    records.append(_missing_row(arm, index, ref_side))
                 continue
             try:
                 current = _read_json(arm.files[index])
@@ -1141,7 +1407,8 @@ def audit_paths(ranked_paths, run_paths, budgets=(4, 8), allow_missing=False,
                 records.append((row, [message]))
                 continue
             row, violations = audit_request(
-                current, base, arm, reference, index, label, sample=sample)
+                current, base, arm, reference, index, label, sample=sample,
+                oldhalf=oldhalf)
             records.append((row, violations))
 
     rows = []
@@ -1164,6 +1431,7 @@ def audit_paths(ranked_paths, run_paths, budgets=(4, 8), allow_missing=False,
         violations=messages,
         violation_requests=sum(1 for row in rows if row.get("violations")),
         strict=strict,
+        mode=mode,
         budgets=list(budgets),
         arms=sorted({(row.get("budget"), row.get("kind"))
                      for row in request_rows}),
@@ -1187,9 +1455,9 @@ def write_csv(path, rows, totals):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ranked", type=Path, action="append", required=True,
-                        help="historical ranked raw run directory; repeatable")
+                        help="reference raw run directory; repeatable for Q4/Q8")
     parser.add_argument("--run", type=Path, action="append", required=True,
-                        help="candidate-placebo raw run directory; repeatable")
+                        help="candidate raw run directory; repeatable")
     parser.add_argument("--out", type=Path, required=True,
                         help="CSV output path")
     parser.add_argument("--budget", type=int, action="append",
@@ -1198,12 +1466,15 @@ def main(argv=None):
                         help="skip missing requests instead of reporting them")
     parser.add_argument("--manifest", type=Path,
                         help="frozen30 manifest path (default: repository manifest)")
+    parser.add_argument("--old-half", action="store_true",
+                        help="audit oldhalf_a/b against uniform random_a/b references")
     args = parser.parse_args(argv)
     budgets = tuple(args.budget) if args.budget else (4, 8)
     try:
         rows, totals, summary = audit_paths(
             args.ranked, args.run, budgets=budgets,
-            allow_missing=args.allow_missing, manifest=args.manifest)
+            allow_missing=args.allow_missing, manifest=args.manifest,
+            oldhalf=args.old_half)
     except (OSError, ValueError) as error:
         print("exchange placebo audit: %s" % error, file=sys.stderr)
         return 2
