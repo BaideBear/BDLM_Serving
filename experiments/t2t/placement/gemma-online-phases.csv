@@ -1,0 +1,17 @@
+policy,phase,F,Q
+t2t_q32_f0_m28_hard_trigger_placebo,bootstrap,55,14080
+t2t_q32_f0_m28_hard_trigger_placebo,reencode,25,6400
+t2t_q32_f0_m28_hard_trigger_placebo,selected,1166,39317
+t2t_q32_f0_m28_hard_trigger_placebo,verify,74,18944
+t2t_q32_f0_m28_hard_slack_placebo,bootstrap,57,14592
+t2t_q32_f0_m28_hard_slack_placebo,reencode,27,6912
+t2t_q32_f0_m28_hard_slack_placebo,selected,1231,41412
+t2t_q32_f0_m28_hard_slack_placebo,verify,75,19200
+t2t_q64_f0_m56_hard_trigger_placebo,bootstrap,56,14336
+t2t_q64_f0_m56_hard_trigger_placebo,reencode,26,6656
+t2t_q64_f0_m56_hard_trigger_placebo,selected,738,48553
+t2t_q64_f0_m56_hard_trigger_placebo,verify,75,19200
+t2t_q64_f0_m56_hard_slack_placebo,bootstrap,56,14336
+t2t_q64_f0_m56_hard_slack_placebo,reencode,26,6656
+t2t_q64_f0_m56_hard_slack_placebo,selected,732,48182
+t2t_q64_f0_m56_hard_slack_placebo,verify,75,19200

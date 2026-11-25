@@ -16,14 +16,14 @@ import torch
 from transformers.cache_utils import DynamicCache
 
 from bdlm_serving.methods.t2t.planner import History, allocate
-from bdlm_serving.methods.t2t.frontier import HARD_POLICIES
+from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 
 _GATED = ("near_miss", "gate_random")
-_HARD = HARD_POLICIES + ("hard_oracle1",)
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",)
 
 
 @dataclass
@@ -322,7 +322,7 @@ class LLaDASparseKernel(SerialKernel):
             list(editable), resolved, fresh, state.last_write, state.last_query,
             len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,
             "hard_noedit" if oracle else self.policy, state.selection_seed,
-            **({"previous_strict": state.previous_strict} if self.policy.startswith("hard_trigger") else {}),
+            previous_strict=state.previous_strict,
         )
         if oracle:
             from .shadow import screened_swap

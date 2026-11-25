@@ -8,9 +8,9 @@ only the resolved mask, the mandatory fresh set, and two event clocks:
 ``last_query[i]``  last step at which position ``i`` was actually queried
                     (``-1`` if never).
 
-A write happens after the computation of its step.  Therefore a neighbour
-written at step ``t`` is already visible to a candidate whose last query was
-also ``t``: the frontier test is ``last_write[j] >= last_query[i]``.  Using
+A write happens after the computation of its step.  Therefore a neighbour's
+new value is not yet reflected in a candidate whose last query was at that
+same step: the frontier test is ``last_write[j] >= last_query[i]``.  Using
 ``>`` would drop every same-round compute-then-write neighbour.
 
 For every non-fresh resolved edit candidate ``i``::
@@ -59,12 +59,13 @@ from __future__ import annotations
 import random
 
 
-__all__ = ["select_hard", "HARD_POLICIES"]
+__all__ = ["select_hard", "HARD_POLICIES", "GEOMETRY_POLICIES"]
 
 
 RADIUS = 32
 HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack",
                  "hard_trigger", "hard_slack_placebo", "hard_trigger_placebo")
+GEOMETRY_POLICIES = ("hard_geometry", "hard_slack_geometry")
 
 
 def _frontier_scores(edit_pool, last_write, last_query, clock, radius=RADIUS):
@@ -102,8 +103,8 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
 
     ``budget`` is the nominal Q.  ``edit_slots`` is the number of non-fresh
     resolved seats reserved for editing; ``hard_noedit`` requires zero.
-    ``policy`` is one of ``hard_frontier``, ``hard_random``, ``hard_noedit``.
-    ``seed`` is used only by ``hard_random``.
+    See ``HARD_POLICIES`` and the B32-only ``GEOMETRY_POLICIES``.
+    ``seed`` is used only by random placement, including matched placebos.
 
     The second return value contains only the explicitly reserved edit seats,
     not edit positions selected later by shared backfill.  This lets a caller
@@ -120,8 +121,10 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
         raise ValueError("every fresh position must be editable")
     if budget < 0 or edit_slots < 0:
         raise ValueError("budget and edit_slots must be non-negative")
-    if policy not in HARD_POLICIES:
+    if policy not in HARD_POLICIES + GEOMETRY_POLICIES:
         raise ValueError(f"unknown hard policy: {policy}")
+    if policy in GEOMETRY_POLICIES and block != 32:
+        raise ValueError("geometry is registered only for B32")
     if policy == "hard_noedit" and edit_slots:
         raise ValueError("hard_noedit requires edit_slots=0")
     if policy != "hard_noedit" and not edit_slots:
@@ -148,6 +151,8 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
                  if resolved[i] and i not in fresh and i not in selected]
     placebo = policy.endswith("_placebo")
     allocation = policy.removesuffix("_placebo")
+    if policy == "hard_slack_geometry":
+        allocation = "hard_slack"
     if policy == "hard_noedit":
         ranked = []
     elif policy == "hard_random":
@@ -156,6 +161,10 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
     elif placebo:
         # The gate below needs eligibility, but not a score, for the seat count.
         ranked = edit_pool
+    elif policy in GEOMETRY_POLICIES:
+        from .geometry import rank_old
+        ranked = rank_old(edit_pool, eligible, resolved, fresh, last_write,
+                          last_query, clock, previous_strict)
     else:
         scores = _frontier_scores(edit_pool, last_write, last_query, clock)
         ranked = sorted(edit_pool, key=lambda i: (-scores[i], i))

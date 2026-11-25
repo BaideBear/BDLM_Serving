@@ -24,6 +24,7 @@ def pair_rows(scores, baseline, run, model):
         n = f = q = same = wins = losses = 0
         hits = seats = df = dq = screens = screen_hits = 0
         displaced = crowding_steps = hits_on_crowding = selected_steps = 0
+        selected_q = fresh_q = mask_q = backfill_q = fresh_over = 0
         tpf, ref_tpf, ideal_tpf = [], [], []
         ref_q = ref_f = ref_n = correct = ref_correct = 0
         diagnostic = policy.endswith("_hard_oracle1")
@@ -72,9 +73,19 @@ def pair_rows(scores, baseline, run, model):
                         physical = event["q"]
                     missed = min(mask_pool, physical - event["mandatory_fresh"]) - mask_seats
                     assert 0 <= missed <= len(es)
-                    if policy.endswith("_hard_slack"):
+                    fresh = event["mandatory_fresh"]
+                    backfill = physical - fresh - mask_seats - len(es)
+                    assert backfill >= 0
+                    selected_q += physical
+                    fresh_q += fresh
+                    mask_q += mask_seats
+                    backfill_q += backfill
+                    budget = int(r["nominal_q"])
+                    assert max(0, physical-budget) == max(0, fresh-budget)
+                    fresh_over += max(0, fresh-budget)
+                    if "_hard_slack" in policy:
                         assert missed == 0
-                    if policy.endswith(("_hard_trigger","_hard_oracle1")):
+                    if "_hard_trigger" in policy or diagnostic:
                         assert missed <= 1
                     displaced += missed
                     crowding_steps += bool(missed)
@@ -99,6 +110,7 @@ def pair_rows(scores, baseline, run, model):
             df += di
             dq += dqi
         assert wins+losses+same == len(rows)
+        assert selected_q == fresh_q + mask_q + seats + backfill_q
         measured, reference = mean(tpf), mean(ref_tpf)
         yield dict(model=model, policy=policy, nominal_q=r["nominal_q"], requests=len(rows),
                    correct=correct, reference_correct=ref_correct, only_policy=wins, only_reference=losses,
@@ -108,6 +120,9 @@ def pair_rows(scores, baseline, run, model):
                    token_efficiency=n/q, reference_token_efficiency=ref_n/ref_q,
                    reserved_seats=seats, reserved_strict_hits=hits, oracle_F=df, oracle_Q=dq,
                    selected_steps=selected_steps, displaced_mask_rows=displaced,
+                   selected_Q=selected_q, mandatory_Q=fresh_q, mask_Q=mask_q,
+                   neutral_backfill_Q=backfill_q, mandatory_overflow_Q=fresh_over,
+                   nonsparse_nondiagnostic_Q=q-selected_q-dq,
                    steps_displacing_mask=crowding_steps, reserved_hits_on_displacing_steps=hits_on_crowding,
                    union_candidates=screens, union_hits=screen_hits,
                    # Still this rollout's outputs, NOT a possible deployed rate.

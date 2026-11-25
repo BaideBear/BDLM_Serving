@@ -35,3 +35,23 @@ def test_trigger_placebo_can_choose_outside_gate_and_never_force_an_empty_gate()
     assert pick("hard_trigger_placebo", 1, set())[1] == []
     for width in (32, 256):
         assert Arm.parse("4:0:3:hard_trigger_placebo", width).edit == 1
+
+
+def test_geometry_changes_only_old_placement_and_is_b32_only():
+    import pytest
+    rng = Random(48)
+    for mode, base in (("hard_slack_geometry", "hard_slack"),
+                       ("hard_geometry", "hard_frontier")):
+        for _ in range(300):
+            r = [rng.uniform(0, 1) < .8 for _ in range(32)]
+            fresh = {i for i in range(32) if r[i] and rng.random() < .12}
+            prev = {i for i in fresh if rng.random() < .3}
+            args = (range(32), r, fresh, [7 if i in fresh else 3 for i in range(32)],
+                    [rng.randrange(-1, 8) for _ in range(32)], 8, 16, 2)
+            a, ar = select_hard(*args, base, 0, previous_strict=prev)
+            b, br = select_hard(*args, mode, 0, previous_strict=prev)
+            assert fresh <= set(b) and len(a) == len(b) and len(ar) == len(br)
+            assert [i for i in a if not r[i]] == [i for i in b if not r[i]]
+        assert Arm.parse("16:0:14:"+mode, 32).edit == 2
+        with pytest.raises(ValueError):
+            Arm.parse("16:0:14:"+mode, 256)

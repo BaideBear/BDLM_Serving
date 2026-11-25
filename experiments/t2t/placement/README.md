@@ -8,6 +8,25 @@
 
 ### 物理工作量
 
+完整运行的 `*-paired-cost.csv` 含以下分账：`selected_Q = mandatory_Q + mask_Q + reserved_seats + neutral_backfill_Q`；全程 `Q = selected_Q + nonsparse_nondiagnostic_Q + oracle_Q`。`mandatory_overflow_Q` 是 fresh 单独超过名义 Q 的部分，已经包含在 `selected_Q` 中。[定向组的分账](../adaptive/)和随机组使用相同公式。这里的“零预留”仍允许共享的中性旧行回填。
+
 [LLaDA 成本对照](llada21-work-envelope.csv) · [Gemma 成本对照](gemma-work-envelope.csv)。以此前两个正例为对象，逐个与原始 IBS/OBS 的每个已归档窗口比较。名义窗口、总物理 Q、`ΣQ/ΣF`、逐请求实际 Q 不超过对方的题数分别报告。不插值，不把不同窗口当成同窗口，也不将行数当成实测耗时。这不是强行给 Q 加上限的实验。
 
 同时满足质量严格更高、TPF 不降、总 Q 和平均 Q/F 都不增加的比较中，LLaDA Q4 空位组仅对原始 IBS16 达成这一条件，而且只有 11/30 题的总 Q 没有增加；Gemma Q32 触发组对任何已测 IBS/OBS 均未满足四项条件。两种方法相对各自**同名义窗口**的改进不能直接外推为相同工作量的收益。
+
+### DiffusionGemma：120 个新增请求
+
+| 名义 Q | 对照 | 质量（正确/30） | TPF | Token efficiency | 实际 Q/F |
+|---|---|---:|---:|---:|---:|
+| 32 | 零预留 | 28 | 7.980 | 13.00% | 58.93 |
+| 32 | 空位定向 / 随机 | 29 / 29 | 7.842 / 7.936 | 12.71% / 12.91% | 59.96 / 59.08 |
+| 32 | 触发定向 / 随机 | 29 / 28 | 8.111 / 7.994 | 12.97% / 12.95% | 60.02 / 59.65 |
+| 64 | 零预留 | 30 | 11.996 | 11.73% | 99.59 |
+| 64 | 空位定向 / 随机 | 29 / 27 | 11.417 / 12.109 | 11.36% / 11.75% | 98.30 / 99.41 |
+| 64 | 触发定向 / 随机 | 27 / 27 | 11.364 / 12.036 | 11.28% / 11.76% | 98.49 / 99.16 |
+
+Q32 触发定向与随机分别有 428、494 个预留席位，严格 T2T **均为 0**。方向和成本取决于预算、分配方式；这不是“命中旧位 T2T 提升质量”的证据。[图（含同窗口 IBS/OBS）](figures/gemma-placement-study.svg) · [评分](gemma-online-summary.csv) · [实算 Q 拆分和预留命中](gemma-paired-cost.csv)。作图命令：`python -m tools.render_hard_study --study placement`。
+
+### LLaDA 的新排序
+
+[不依赖 logits 的几何规则](geometry-preregister.md) · [同状态回放的分母、命中及局限](geometry-results.md)。在线使用同一分配器：`hard_slack_geometry` 只在现有空位替换排序，`hard_geometry` 固定预留，可挤占 MASK 但保留至少一个可用的推进席位。原生 B32 全宽没有选位自由度。

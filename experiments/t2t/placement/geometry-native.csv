@@ -1,0 +1,6 @@
+q,allocation,edit_cap,selected_steps,dense_steps,strict_targets_all,old_targets_all,old_targets_selected,reserved_rows,geometry_reserved_hits,frontier_reserved_hits,uniform_expected_reserved_hits,geometry_old_hits_selected,zero_old_hits_selected,geometry_old_hits_all,geometry_total_hits_all,different_query_set_steps,mask_rows_lost_vs_zero
+4,slack,1,1170,974,754,311,191,56,2,2,0.652235,2,0,122,565,56,0
+8,slack,1,1170,974,754,311,191,190,10,6,2.159958,10,0,130,573,185,0
+16,slack,2,1170,974,754,311,191,949,34,34,12.056284,36,7,156,599,472,0
+16,fixed,2,1170,974,754,311,191,1688,54,46,21.200000,56,7,176,619,837,739
+32,dense,0,0,2144,754,311,0,0,0,0,0.000000,0,0,311,754,0,0

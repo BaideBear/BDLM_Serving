@@ -122,7 +122,28 @@ def adaptive_groups(path, hard, model, width, baselines):
         yield q, rows + window_controls(model, q, width, baselines)
 
 
-def render(path, model, width, data, *, adaptive=False):
+def placement_groups(path, hard, adaptive, model, width, baselines):
+    points = defaultdict(dict)
+    for p, suffixes in [(path, ("hard_slack_placebo", "hard_trigger_placebo")),
+                        (adaptive, ("hard_slack", "hard_trigger")),
+                        (hard, ("hard_noedit",))]:
+        for row in all_rows(p):
+            mode = next((s for s in suffixes if row["policy"].endswith("_" + s)), None)
+            if mode and row["model"] == model:
+                put(points[int(row["nominal_q"])], mode, point(row, "token_efficiency"))
+    for q, measured in sorted(points.items()):
+        if not any(m.endswith("_placebo") for m in measured):
+            continue
+        rows = [(label, kind, measured[m]) for m, label, kind in (
+            ("hard_noedit", "No edit reserve", "hard"),
+            ("hard_slack", "Slack: frontier", "adaptive"),
+            ("hard_slack_placebo", "Slack: random", "placebo"),
+            ("hard_trigger", "Trigger: frontier", "adaptive"),
+            ("hard_trigger_placebo", "Trigger: random", "placebo")) if m in measured]
+        yield q, rows + window_controls(model, q, width, baselines)
+
+
+def render(path, model, width, data, *, adaptive=False, placement=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -149,6 +170,8 @@ def render(path, model, width, data, *, adaptive=False):
     fig.subplots_adjust(left=.035, right=.98, top=1-1.12/height,
                         bottom=.40/height, wspace=.12)
     title = "Adaptive selection (v2)" if adaptive else "Hard selection"
+    if placement:
+        title = "Matched old-position controls"
     fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  {title} (B{width})",
              fontsize=17, weight="bold", color="#172b38")
     fig.text(.035, 1-.53/height,
@@ -166,7 +189,8 @@ def render(path, model, width, data, *, adaptive=False):
     ink = "#172b38"
     styles = {"hard": ("o", "#087b74"), "dense": ("D", "#42546c"),
               "ibs": ("s", "#b05929"), "obs": ("^", "#794c96"),
-              "adaptive": ("o", "#246da2"), "oracle": ("X", "#aa465b")}
+              "adaptive": ("o", "#246da2"), "oracle": ("X", "#aa465b"),
+              "placebo": ("P", "#596165"), "geometry": ("D", "#216c55")}
     for ax in axes:
         ax.set_ylim(y-.5, -.55)
         ax.set_yticks([])
@@ -216,13 +240,13 @@ def render(path, model, width, data, *, adaptive=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
-    parser.add_argument("--study", choices=("hard", "adaptive"), default="hard")
+    parser.add_argument("--study", choices=("hard", "adaptive", "placement"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
     parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
     hard = args.root / "experiments/t2t/hard"
     study = hard.parent / args.study
-    adaptive = args.study == "adaptive"
+    adaptive = args.study != "hard"
     out = args.out_dir or study / "figures"
     try:
         baselines = read_baselines(args.root / "experiments/baselines/summary.csv")
@@ -231,14 +255,16 @@ def main():
             src = study / f"{model}-online-summary.csv"
             data = []
             if src.is_file():
-                source = (adaptive_groups(src, hard / src.name, model, width, baselines)
+                source = (placement_groups(src, hard / src.name, hard.parent / "adaptive" / src.name,
+                                           model, width, baselines) if args.study == "placement" else
+                          adaptive_groups(src, hard / src.name, model, width, baselines)
                           if adaptive else groups(src, model, width, baselines))
                 data = list(source)
             if not data:
                 print(f"Skipping {model}: no eligible dataset=all rows in {src}", file=sys.stderr)
                 continue
             path = out / f"{model}-{args.study}-study.svg"
-            render(path, model, width, data, adaptive=adaptive)
+            render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement")
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))
