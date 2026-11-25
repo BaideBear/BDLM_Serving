@@ -1,0 +1,4 @@
+policy,requests,anchors,watched_rows,observations,row_observations,anchor_admissions
+t2t_q4_f0_m4_hard_once_base,30,28,48,99,183,35
+t2t_q4_f0_m4_hard_once_rank,30,28,48,95,175,35
+t2t_q4_f0_m4_hard_once_random,30,28,48,100,185,35
