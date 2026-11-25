@@ -21,7 +21,7 @@ from bdlm_serving.methods.t2t.frontier import select_hard
 from bdlm_serving.methods.t2t.hazard import features
 
 
-def load(path, task, *, old_token_features=None, history_factory=None):
+def load(path, task, *, old_token_features=None, history_factory=None, context_features=None):
     """Append optional old-row features; only completed transitions reach history."""
     steps = []
     with gzip.open(path, "rt") as f:
@@ -45,6 +45,10 @@ def load(path, task, *, old_token_features=None, history_factory=None):
             phase = "bootstrap" if new else "verify" if not masks else "selected"
             # Freeze the decision features before exposing this step's labels.
             x = np.asarray([features(i, masks, fresh, strict, write, clock) for i in old])
+            if old and context_features is not None:
+                extra = context_features(old, [before[i] for i in old],
+                                         [(j, before[j]) for j in sorted(fresh)], x)
+                x = np.column_stack((x, extra))
             if old and old_token_features is not None:
                 extra = [old_token_features(before[i]) for i in old]
                 x = np.column_stack((x, extra))

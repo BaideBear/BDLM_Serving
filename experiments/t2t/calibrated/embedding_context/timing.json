@@ -1,0 +1,10 @@
+{
+  "dataset": "calibration24",
+  "selected_states_with_old": 1035,
+  "old_candidates": 16092,
+  "cached_rows": 772,
+  "miss_read_project_normalize_ms": 32.764319,
+  "cold_sweep_ms": 83.717844,
+  "warm_sweep_median_ms": 38.593849,
+  "warm_us_per_state": 37.28874299516908
+}

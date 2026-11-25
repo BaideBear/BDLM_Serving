@@ -1,0 +1,7 @@
+metric,seats,targets,position_hits,context_hits,delta,requests_up,requests_down
+Q4/1,452,191,9,12,3,3,1
+Q8/1,710,191,23,30,7,5,0
+Q16/2,1688,191,56,59,3,5,4
+top-1,880,191,28,37,9,6,0
+top-4,3437,191,88,94,6,7,3
+top-8,6533,191,145,148,3,3,3

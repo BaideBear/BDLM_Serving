@@ -1,0 +1,7 @@
+metric,base_hits,token_hits,targets,seats,requests_up,requests_equal,requests_down
+top-1,28,28,191,880,1,28,1
+top-4,88,89,191,3437,4,21,5
+top-8,145,140,191,6533,2,22,6
+Q4/1,9,9,191,452,2,26,2
+Q8/1,23,22,191,710,1,27,2
+Q16/2,56,43,191,1688,1,22,7
