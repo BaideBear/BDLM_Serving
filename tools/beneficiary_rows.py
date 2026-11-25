@@ -7,6 +7,7 @@ only. Padding repeats state, not work. Base output IDs are references, not truth
 import argparse
 from collections import Counter
 from pathlib import Path
+from statistics import mean
 
 from tools.causal_seat_report import MODES, inspect, require
 from tools.conditional_seat import (DATASETS, DEFAULT_MANIFEST, DEFAULT_RUNS, STRATA,
@@ -140,11 +141,15 @@ def summarize(records, pairs):
                     for stratum in STRATA:
                         sub = [r for r in group if dataset in ("all", r["dataset"]) and
                                stratum in ("all", r["stratum"])]
+                        waits = [r[prefix + "stable_wait_sum"] / r["eligible"] for r in sub if r["eligible"]]
                         result.append(dict(model=group[0]["model"], dataset=dataset, stratum=stratum,
                             row_kind=kind, measure=key, comparison=name, requests=len(sub),
                             anchors=sum(r["stratum"] != "none" for r in sub),
                             eligible_requests=sum(r["eligible"] > 0 for r in sub),
                             watched=sum(r["watched"] for r in sub), eligible=sum(r["eligible"] for r in sub),
+                            request_mean_stable_wait=mean(waits) if waits else "",
+                            requests_faster=sum(w < 0 for w in waits) if key == "pair" else "",
+                            requests_slower=sum(w > 0 for w in waits) if key == "pair" else "",
                             **{k: sum(r[prefix + k] for r in sub) for k in COUNTS}))
     return result
 
