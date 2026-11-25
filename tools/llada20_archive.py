@@ -124,23 +124,51 @@ def draw_figure(name, policies, summaries):
     import matplotlib.pyplot as plt
     import numpy as np
     (DEST/"figures").mkdir(exist_ok=True)
-    fig, axes = plt.subplots(1,3,figsize=(12,max(4.2,len(policies)*.41+1.4)),layout="constrained")
-    fig.suptitle("FlowBlock dense and PrefixCache on frozen30" if name == "flowblock_prefix"
-                 else "LLaDA 2.0-mini and 2.1-mini on frozen30", fontsize=13)
+    height = len(policies)*.54 + 1.65
+    fig, axes = plt.subplots(1,3,figsize=(14.4,height))
+    fig.subplots_adjust(left=.125, right=.988, top=1-1.22/height, bottom=.42/height, wspace=.12)
+    fig.text(.014,1-.28/height,"FlowBlock vs PrefixCache" if name == "flowblock_prefix"
+             else "LLaDA 2.0-mini vs 2.1-mini", fontsize=18, weight="bold", va="center")
+    fig.text(.014,1-.58/height,"Same 30 requests  |  10 GSM8K, 10 MATH-500, 10 HumanEval",
+             fontsize=10, va="center", color="#435163")
     y = np.arange(len(policies))
-    for ax,key,title,k in zip(axes,("mean_tpf","efficiency","correct"),
-                              ("Mean request TPF","Request token efficiency (%)","Correct / 30"),(1,100,1)):
+    names = {"native32":"Native B32","b3_native32":"B3 B32"}
+    for w in (1,2,3,4):
+        names[f"flow_w{w}"], names[f"prefix_w{w}"] = f"FlowBlock W={w}", f"PrefixCache W={w}"
+    for mode in ("ibs","obs"):
+        for w in (4,8,16,32):
+            names[f"optimus_{mode}_c{w}"] = f"Optimus {mode.upper()}={w}"
+    for ax,key,title,k,fmt in zip(axes,("mean_tpf","efficiency","correct"),
+                                  ("Mean request TPF","Token efficiency (request Q)","Quality"),
+                                  (1,100,1),(".3f",".2f",".0f")):
+        peak = 0
+        for i in range(0,len(policies),2):
+            ax.axhspan(i-.5,i+.5,color="#f4f6f8",zorder=0,linewidth=0)
         for j,(model,color,label) in enumerate((("llada20","#138077","2.0-mini"),("llada21","#ad4f2c","2.1-mini"))):
             lookup={r["policy"]:r[key] for r in summaries if r["dataset"]=="all" and r["model"]==model}
-            ax.barh(y+(.17 if j else -.17),[k*lookup[p] for p in policies],height=.32,color=color,label=label)
-        ax.set_yticks(y, [p.replace("optimus_","").replace("_c"," ").replace("_w"," W") for p in policies] if ax is axes[0] else [""]*len(policies))
+            values = [k*lookup[p] for p in policies]
+            suffix = {"correct":"/30","efficiency":"%","mean_tpf":""}[key]
+            labels = [format(v,fmt)+suffix for v in values]
+            bars = ax.barh(y+(.2 if j else -.2),values,height=.32,color=color,label=label)
+            ax.bar_label(bars,labels=labels,padding=3,fontsize=9.5,color="#17212c")
+            peak = max(peak,max(values))
+        ax.set_yticks(y,[names[p] for p in policies] if ax is axes[0] else [""]*len(y))
+        ax.set_xlim(0,peak*1.23)
         if key == "correct":
-            ax.set_xlim(0,30)
-        ax.invert_yaxis()
-        ax.set_title(title,fontsize=11)
-        ax.spines[["top","right","left"]].set_visible(False)
-    axes[-1].legend(loc="lower right",bbox_to_anchor=(1,1.08),ncol=2,frameon=False)
-    fig.savefig(DEST/f"figures/{name}.png",dpi=165)
+            ax.set_xlim(0,36)
+            ax.set_xticks([0,10,20,30])
+        ax.set_ylim(len(y)-.5,-.5)
+        ax.set_title(title,fontsize=12,loc="left",weight="bold",pad=9)
+        ax.spines[["top","right","left","bottom"]].set_visible(False)
+        ax.tick_params(axis="both",length=0,labelsize=10,pad=5)
+        ax.set_axisbelow(True)
+        ax.grid(axis="x",color="#dce3e7",linewidth=.65)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles,labels,loc="center right",bbox_to_anchor=(.988,1-.42/height),
+               ncol=2,frameon=False,fontsize=11)
+    with matplotlib.rc_context({"svg.fonttype":"none","svg.hashsalt":"llada-frozen30"}):
+        fig.savefig(DEST/f"figures/{name}.png",dpi=165)
+        fig.savefig(DEST/f"figures/{name}.svg",metadata={"Date":None})
     plt.close(fig)
 
 
