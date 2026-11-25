@@ -10,6 +10,7 @@
 | 名义 Q64 与实际执行 64 行是否相同？ | [LLaDA 双 B32 的 Q64 实测](dual64/README.md) |
 | 同样的 MASK 与刷新席位下，是选位有效，还是随机也一样？ | [匹配席位的随机对照、实际 Q 成本与几何排序](placement/README.md) |
 | 固定的十档预算中，哪档相对同 Q 零预留能做到质量提高且 TPF 不降？ | [十档判定](budget-verdicts.csv) · [完整配置、物理工作与同 Q 差值](budget-index.csv) |
+| 实际算过的 Q 中，必刷、MASK、显式预留旧行、普通旧行回填各有多少？ | [原种子 17 组实测行数](physical-split.csv)。四列之和等于 `selected_Q`，再加 `other_Q` 才是端到端 `total_Q`；`overflow_Q` 已含在选位工作中，不重复相加。|
 | 在完全相同的前置状态只换一个物理 Q，第一次分叉发生在哪里？ | [单席干预结果](placement/one-seat/README.md) · [协议](placement/one-seat/PREREG.md) |
 | 同一预测席位，保留它的 KV 与使用它的新采样分数，各自能否改变后续输出？ | [Gemma Q32 四组等席位对照、逐题差值与图](placement/one-seat/kv-factorial/README.md) |
 | 每一轮都只刷新新增旧位 KV，而不采样这些旧位，有没有端到端收益？ | [Gemma Q16/32/64/128 与原触发、零预留、IBS/OBS 对照](refresh/README.md) |
