@@ -10,7 +10,7 @@ LLaDA‑2.1-mini 与 SDAR‑8B‑Chat-b32 的单请求解码实验。核心问�
 
 每个“模型 × 配置 × 实验”均使用**同一组 30 题**：GSM8K、MATH‑500、HumanEval 各 10 题。三组共 **1,380 次独立请求执行**。第三组表中的 480 条 IBS/OBS 对照来自第一组，没有重跑。每个实验目录含 `config.json`、逐请求 `requests.csv`、汇总 `summary.csv`、原始结果图及其来源摘要。
 
-[DiffusionGemma 26B-A4B 原生推理](experiments/diffusiongemma-native/)复用同一套 30 题和评分器。独立记录去噪与 canvas 重新编码的 F/Q；未验证的数值不纳入历史表格。
+[DiffusionGemma 26B-A4B 原生推理](experiments/diffusiongemma-native/)复用同一套 30 题和评分器。已实测 30/30：质量 **28/30**，TPF **24.284**，token efficiency **8.42%**。连同前三组共 1,410 次独立请求执行。不同模型的 tokenizer 和每次 forward 的成本不同，TPF 不等于墙钟速度。
 
 **比较口径。** 同一模型内，TPF、质量和 token efficiency 直接跨 batch 比较。TPF 取逐请求 `N/F` 的均值；质量为 30 题正确数；token efficiency 用 `ΣN/ΣQ`，不是逐请求比例的均值。`Q` 是实际送算的请求行数，另报 `physical_Q`（含批内 padding）。窗口是名义配置，不是硬 Q 上限。batch 记录用于复现和解释 padding；不据此比较墙钟吞吐。
 

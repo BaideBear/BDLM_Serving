@@ -12,3 +12,4 @@ jobs:
           python-version: "3.12"
       - run: python tools/verify_results.py
       - run: python -m unittest discover -s tests -p test_diffusiongemma.py
+      - run: python tools/diffusiongemma_results.py

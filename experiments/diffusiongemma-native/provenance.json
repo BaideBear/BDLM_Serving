@@ -1,0 +1,40 @@
+{
+  "model": "google/diffusiongemma-26B-A4B-it",
+  "hf_revision": "cd40195554d3cfcb56f34b9adfb66efc790ed5b6",
+  "torch": "2.9.0+cu128",
+  "transformers": "5.12.0",
+  "gpu": "NVIDIA H800 PCIe",
+  "dtype": "bfloat16",
+  "attention": "sdpa",
+  "experts": "grouped_mm",
+  "batch_size": 1,
+  "generation_cap": 2048,
+  "canvas": 256,
+  "generation_config": {
+    "max_new_tokens": 256,
+    "max_length": null,
+    "max_denoising_steps": 48,
+    "sampler_config": {
+      "entropy_bound": 0.1,
+      "_cls_name": "EntropyBoundSamplerConfig"
+    },
+    "t_min": 0.4,
+    "t_max": 0.8,
+    "stability_threshold": 1,
+    "confidence_threshold": 0.005,
+    "cache_implementation": null,
+    "cache_config": null,
+    "bos_token_id": null,
+    "pad_token_id": 0,
+    "eos_token_id": [
+      1,
+      106,
+      50
+    ],
+    "_from_model_config": null,
+    "transformers_version": "5.12.0"
+  },
+  "samples_sha256": "f209b05847e4eae40b8c92779691de76415b408257e0b22b72b81fda0e0eabd5",
+  "scorer_version": "fixed-baselines-v1",
+  "score_csv_sha256": "0d7a982de8394fd870fd21cfe2eae0317ee7b367f2bb3c05c71bddd9a6755099"
+}
