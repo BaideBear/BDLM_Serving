@@ -59,9 +59,11 @@ class PrefixBackend(NativeBackend):
         absolute = torch.arange(start, start+width, device=self.device)
         raw = self.controller.raw_tokens.data
         tokens = raw[0].index_select(0, position_ids[0])
-        for slot in range(width//32):
-            block = (start//32)+slot
-            lo, hi = slot*32, (slot+1)*32
+        size = self.controller.block_size
+        assert width % size == 0 and start % size == 0
+        for slot in range(width//size):
+            block = (start//size)+slot
+            lo, hi = slot*size, (slot+1)*size
             # Preserve original extra/inactive window work; no second optimization.
             if start+hi > raw.shape[1]:
                 continue
@@ -72,7 +74,7 @@ class PrefixBackend(NativeBackend):
                 assert torch.equal(now[:prefix], old[:prefix]), "Retired token edited"
                 eligible = (now != self.controller.owner.decoder.mask_id) & (now == old)
                 bad = (~eligible).nonzero().flatten()
-                leading = int(bad[0]) if bad.numel() else 32
+                leading = int(bad[0]) if bad.numel() else size
                 prefix = max(prefix, leading)
             self.prefixes[block] = prefix
             self.skipped[lo:lo+prefix] = True
@@ -117,8 +119,8 @@ class PrefixBackend(NativeBackend):
             "cache_layer_rows": cache.layer_rows,
             "absolute_positions": position_ids[0, selected].tolist(),
             "removed_positions": position_ids[0, self.skipped].tolist(),
-            "block_prefixes": [self.prefixes.get(start//32+s, 0)
-                               for s in range(width//32)],
+            "block_prefixes": [self.prefixes.get(start//size+s, 0)
+                               for s in range(width//size)],
             "original_key_mask_verified": True,
         })
         return types.SimpleNamespace(logits=full_logits, past_key_values=cache.present)
@@ -135,7 +137,7 @@ class FlowBlockPrefix(FlowBlockControl):
         def joint(owner, logits, tokens, prompt_mask, post_edit, finished, active):
             slot = self.backend.slot
             self.backend.slot += 1
-            frozen = self.backend.skipped[slot*32:(slot+1)*32][None]
+            frozen = self.backend.skipped[slot*self.block_size:(slot+1)*self.block_size][None]
 
             def sample(values):
                 # Full block shape preserves SDAR's per-block RNG consumption.

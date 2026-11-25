@@ -61,7 +61,8 @@ def test_fixed_streaming(kind, mode, chunk):
     assert any(e["edited"] for e in generation) == (kind == "llada21")
 
 
-def test_retired_queries_never_reach_transformer():
+@pytest.mark.parametrize("size", [32, 256])
+def test_retired_queries_never_reach_transformer(size):
     class Backend:
         config = types.SimpleNamespace(vocab_size=128)
         model = types.SimpleNamespace(layers=[1])
@@ -74,21 +75,21 @@ def test_retired_queries_never_reach_transformer():
             kw["past_key_values"].update(torch.zeros(1, 1, q, 2), torch.zeros(1, 1, q, 2), 0)
             return types.SimpleNamespace(logits=torch.zeros(1, q, 128))
     native = Backend()
-    raw = torch.full((1, 96), 127)
-    owner = types.SimpleNamespace(raw_tokens=types.SimpleNamespace(data=raw),
+    raw = torch.full((1, 3*size), 127)
+    owner = types.SimpleNamespace(block_size=size, raw_tokens=types.SimpleNamespace(data=raw),
             owner=types.SimpleNamespace(decoder=types.SimpleNamespace(mask_id=127)))
     b = PrefixBackend(native, owner, True)
     def call():
-        return b(None, inputs_embeds=torch.zeros(1, 64, 4), position_ids=torch.arange(32, 96)[None],
-                 use_cache=True, past_key_values=types.SimpleNamespace(_data=torch.zeros(1, 2, 1, 1, 128, 2)),
-                 attention_mask=torch.ones(1, 64, 128, dtype=torch.bool), replace_position=(0, 0))
+        return b(None, inputs_embeds=torch.zeros(1, 2*size, 4), position_ids=torch.arange(size, 3*size)[None],
+                 use_cache=True, past_key_values=types.SimpleNamespace(_data=torch.zeros(1, 2, 1, 1, 4*size, 2)),
+                 attention_mask=torch.ones(1, 2*size, 4*size, dtype=torch.bool), replace_position=(0, 0))
     call()
-    raw[0, 32:36] = 5
+    raw[0, size:size+4] = 5
     call()
-    raw[0, 33] = 6
+    raw[0, size+1] = 6
     call()
     call()
-    assert native.calls == [64, 64, 63, 60]
+    assert native.calls == [2*size, 2*size, 2*size-1, 2*size-4]
     assert b.prefixes[1] == 4
     assert not set(b.events[-1]["absolute_positions"]) & set(b.events[-1]["removed_positions"])
 

@@ -1,0 +1,8 @@
+{
+  "block_size": 256,
+  "flowblock_windows": [1, 2, 3, 4],
+  "flowblock_spawn_threshold": 0.8,
+  "include_b3": true,
+  "batch_size": 1,
+  "cap": 2048
+}

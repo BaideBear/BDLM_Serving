@@ -113,7 +113,10 @@ class NativeBackend:
 
 class FlowBlockControl:
     def __init__(self, native, window, mask_id, eos_id, config, gate="acceptance_ratio",
-                 ignore_prompt_eos=False):
+                 ignore_prompt_eos=False, *, block_size=32):
+        if type(block_size) is not int or block_size < 1:
+            raise ValueError("block_size must be a positive integer")
+        self.block_size = block_size
         self.backend = NativeBackend(native)
         self.raw_tokens = None
         base = control_directory("FlowBlock")
@@ -143,6 +146,7 @@ class FlowBlockControl:
             "ignore_prompt_eos": ignore_prompt_eos,
             "backend": "Native Transformers shared-backend adapter; not official fused speed",
             "gate": gate, "gate_threshold": .8,
+            "block_size": block_size, "window": window,
         }
 
         def prefill(model, tokens, cache, positions, mask, limit, block):
@@ -200,7 +204,7 @@ class FlowBlockControl:
     @torch.inference_mode()
     def run(self, prompt, gen_length):
         self.owner.cache_factory.max_length = prompt.shape[1]+gen_length
-        official_return = self.generate(prompt, gen_length=gen_length, block_length=32)
+        official_return = self.generate(prompt, gen_length=gen_length, block_length=self.block_size)
         return self.raw_tokens.data, self.backend.events, {
             "official_metrics": self.owner.last_generation_metrics,
             "official_return_length": official_return.shape[1],

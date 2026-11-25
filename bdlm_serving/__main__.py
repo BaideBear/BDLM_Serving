@@ -43,9 +43,17 @@ def main():
     g.add_argument("--samples", type=Path, required=True)
     g.add_argument("--output", type=Path, required=True)
     g.add_argument("--batch-size", type=int, help="defaults to the experiment's archived batch size")
+    g.add_argument("--block-size", type=int, help="FlowBlock block length in tokens; independent of W")
     dg = actions.add_parser("diffusiongemma-native", help="run native DiffusionGemma on frozen30")
     for name in ("checkpoint", "samples", "output"):
         dg.add_argument("--" + name, type=Path, required=True)
+    wave = actions.add_parser("diffusiongemma-wave", help="run FlowBlock and B3 on DiffusionGemma")
+    for name in ("checkpoint", "samples", "output"):
+        wave.add_argument("--" + name, type=Path, required=True)
+    wave.add_argument("--config", type=Path, default=ROOT/"experiments/diffusiongemma-wave/config.json")
+    wave.add_argument("--block-size", type=int, help="override config; must match checkpoint canvas_length")
+    wave.add_argument("--flowblock-windows", type=int, nargs="+", help="fixed window(s), in blocks")
+    wave.add_argument("--native-reference", type=Path, help="require W=1 output IDs and forwards to match")
     s = actions.add_parser("score", help="score a completed run; requires the Linux sandbox for HumanEval")
     s.add_argument("--output", type=Path, required=True)
     s.add_argument("--samples", type=Path, required=True)
@@ -58,12 +66,19 @@ def main():
     elif args.action == "diffusiongemma-native":
         from .runtime.diffusiongemma import run_native
         run_native(args)
+    elif args.action == "diffusiongemma-wave":
+        from .runtime.diffusiongemma_wave import run_wave
+        run_wave(args)
     else:
         from .generation import run
         if args.batch_size is not None and args.batch_size < 1:
             parser.error("--batch-size must be positive")
         tasks = load_tasks(args.samples)
         plan = json.loads((ROOT / "experiments" / args.experiment / "config.json").read_text())
+        if args.block_size is not None:
+            if args.block_size < 1 or "flowblock_block_size" not in plan:
+                parser.error("--block-size requires a positive value and a FlowBlock experiment")
+            plan["flowblock_block_size"] = args.block_size
         for entry in json.loads((ROOT / "benchmarks/checkpoints" / (args.model+".json")).read_text()):
             file = args.checkpoint / entry["name"]
             if (file.stat().st_size != entry["bytes"] or

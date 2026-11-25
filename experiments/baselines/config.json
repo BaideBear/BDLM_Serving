@@ -1,4 +1,5 @@
 {
+  "flowblock_block_size": 32,
   "batch_size": 1,
   "mix_policies": false,
   "policies": [

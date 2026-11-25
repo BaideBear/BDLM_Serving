@@ -94,7 +94,8 @@ def run(args, tasks, plan):
                     "confidence_threshold": .9, "editing_threshold": 2., "max_post_steps": 0}
                 klass = FlowBlockControl if policy.startswith("flow") else FlowBlockPrefix
                 flags = {"enabled": not policy.startswith("disabled")} if klass is FlowBlockPrefix else {}
-                engine = klass(facade, int(policy[-1]), mask_id, eos[0], config,
+                engine = klass(facade, int(policy.split("_w")[-1]), mask_id, eos[0], config,
+                               block_size=plan["flowblock_block_size"],
                                ignore_prompt_eos=args.model == "sdar", **flags)
                 raw, events, extra = engine.run(prompt, cap)
                 extra["model_sampler"] = "greedy" if args.model == "llada21" else "SDAR .6/top20/p.95"
