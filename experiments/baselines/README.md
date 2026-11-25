@@ -1,6 +1,6 @@
 # 全部基线
 
-四个模型的 Native、FlowBlock W=1/2/3/4、B3，以及已测的 Optimus IBS/OBS 固定窗口 4/8/16/32。Gemma 用 B=256，其他三个模型用 B=32。Gemma 未测 Optimus。B3 为仓库适配，不是官方实现。
+四个模型的 Native、FlowBlock W=1/2/3/4、B3，以及已测的 Optimus IBS/OBS 固定窗口 4/8/16/32。Gemma 用 B=256，IBS/OBS 还覆盖 64/128/256；其他三个模型用 B=32。B3 为仓库适配，不是官方实现。
 
 每个数值来自同一组 30 题（GSM8K、MATH-500、HumanEval 各 10）。TPF = 逐题 N/F 的均值；token efficiency = ΣN/ΣQ；质量 = 正确数/30。Q 是实际计算的请求行；纯 prompt prefill 单列，不计入 F/Q。失败及触及长度上限的请求均保留。
 
@@ -72,6 +72,8 @@
 
 ## DiffusionGemma 26B-A4B
 
+[IBS 与 OBS 的配对数值图](figures/gemma-optimus.svg) · [可直接编辑和重画的 CSV](gemma-optimus.csv) · [Gemma 的采样适配与实测 Q 口径](../../archive/diffusiongemma-optimus/)。
+
 | 策略 | 实测 Q/F | TPF | Token efficiency | 质量 | 运行来源 |
 |---|---:|---:|---:|---:|---|
 | Native B256 | 256.00 | 24.284 | 8.42% | 28/30 | [diffusiongemma-native](../../archive/diffusiongemma-native/) |
@@ -80,5 +82,19 @@
 | FlowBlock W=3 | 741.16 | 23.290 | 2.77% | 29/30 | [diffusiongemma-wave](../../archive/diffusiongemma-wave/) |
 | FlowBlock W=4 | 983.58 | 23.342 | 2.09% | 29/30 | [diffusiongemma-wave](../../archive/diffusiongemma-wave/) |
 | B3 | 291.16 | 26.252 | 8.30% | 27/30 | [diffusiongemma-wave](../../archive/diffusiongemma-wave/) |
+| IBS C=4 | 4.85 | 1.213 | 24.68% | 18/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=8 | 9.41 | 2.161 | 22.60% | 25/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=16 | 18.13 | 3.557 | 19.28% | 24/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=32 | 33.27 | 6.872 | 17.66% | 27/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=64 | 63.02 | 11.007 | 15.41% | 29/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=128 | 110.94 | 16.471 | 13.15% | 25/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| IBS C=256 | 198.77 | 23.045 | 9.20% | 27/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=4 | 4.88 | 1.223 | 24.74% | 20/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=8 | 9.57 | 2.240 | 23.54% | 27/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=16 | 18.48 | 3.563 | 18.42% | 26/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=32 | 35.31 | 6.307 | 14.66% | 26/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=64 | 68.18 | 10.562 | 12.16% | 28/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=128 | 131.46 | 16.523 | 8.25% | 28/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
+| OBS C=256 | 256.02 | 22.531 | 7.02% | 27/30 | [diffusiongemma-optimus](../../archive/diffusiongemma-optimus/) |
 
 两次真实测得的 W2/W3 不合并，配对重测单独标记。W4 若只在配对实验测过，即引用那一次。LLaDA 2.0 缓存 Native 的末块 commit 亦计入；HF uncached 是独立参考，不作为 Native 基线。[缓存版逐阶段计数](../../archive/llada20-cached-b32/requests.csv)。

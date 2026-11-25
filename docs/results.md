@@ -5,6 +5,7 @@
 | 研究问题 | 正式表 | 数值标注图 |
 |---|---|---|
 | Native、FlowBlock、B3 和 Optimus 各自表现如何？ | [四个模型的全部基线](../experiments/baselines/) | [基线图](../experiments/baselines/figures/comparison.svg) |
+| 在 DiffusionGemma 原生 B256 上，IBS 与 OBS 的固定窗口如何取舍？ | [七档同题对照 CSV](../experiments/baselines/gemma-optimus.csv) | [IBS / OBS 数值图](../experiments/baselines/figures/gemma-optimus.svg) |
 | 在 FlowBlock 的同一窗口内，缓存块内前缀是否有效？ | [原版对前缀 KV，W=2/3/4](../experiments/flowblock-prefix/) | [配对图](../experiments/flowblock-prefix/figures/comparison.svg) |
 | 限制跨块注意力后，OBS 如何变化？ | [IBS、原 OBS、OBS+B32，窗口 4/8/16/32](../experiments/optimus-masked-obs/) | [三方案图](../experiments/optimus-masked-obs/figures/comparison.svg) |
 

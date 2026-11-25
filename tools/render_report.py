@@ -6,13 +6,13 @@ from collections import Counter
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from result_catalog import BASE, PREFIX, OBS, MODELS, ORDER, CHUNKS, ROOT, collect, tables, pairs
+from result_catalog import BASE, PREFIX, OBS, MODELS, ORDER, CHUNKS, GEMMA_CHUNKS, ROOT, collect, tables, pairs
 
 TITLES = {BASE:"全部基线", PREFIX:"FlowBlock：块内前缀 KV 缓存", OBS:"Optimus：OBS 跨块注意力掩码"}
 EN = {BASE:"Baseline results", PREFIX:"FlowBlock: per-block prefix KV", OBS:"Optimus: block-causal OBS"}
 SCOPE = {
     BASE:"四个模型的 Native、FlowBlock W=1/2/3/4、B3，以及已测的 Optimus IBS/OBS 固定窗口 4/8/16/32。"
-         "Gemma 用 B=256，其他三个模型用 B=32。Gemma 未测 Optimus。B3 为仓库适配，不是官方实现。",
+         "Gemma 用 B=256，IBS/OBS 还覆盖 64/128/256；其他三个模型用 B=32。B3 为仓库适配，不是官方实现。",
     PREFIX:"在原版 packed FlowBlock 的每个块内，已编码且未再修改的连续前缀保留 KV、不再算 Q；块间掩码和窗口推进不变。"
            "直接对照为**同模型、同 W、同批实验的原版 FlowBlock**。Gemma 未测此前缀缓存。",
     OBS:"只在原 OBS 可见性上叠加原生 B32 的块间自回归掩码，不裁剪超窗 Q。**原 OBS 是直接对照**，"
@@ -55,6 +55,10 @@ def report(study, allrows, paired):
         if not rows:
             continue
         lines += ["## "+model, ""]
+        if m == "gemma" and study == BASE:
+            lines += ["[IBS 与 OBS 的配对数值图](figures/gemma-optimus.svg) · "
+                      "[可直接编辑和重画的 CSV](gemma-optimus.csv) · "
+                      "[Gemma 的采样适配与实测 Q 口径](../../archive/diffusiongemma-optimus/)。",""]
         if study == BASE:
             lines += ["| 策略 | 实测 Q/F | TPF | Token efficiency | 质量 | 运行来源 |",
                       "|---|---:|---:|---:|---:|---|"]
@@ -177,6 +181,17 @@ def build(check=False):
         if direct:
             files["comparisons.csv"] = csv_text(direct)
         folder = ROOT/"experiments"/study
+        if study == BASE:
+            lookup = {r["policy"]:r for r in overall if r["model"]=="gemma"}
+            cells = [(f"C={c}",[lookup[f"{m}_{c}"] for m in ("ibs","obs")]) for c in GEMMA_CHUNKS]
+            manual = [dict(row=label,series=mode,tpf=r["tpf"],token_efficiency_pct=r["efficiency"]*100,
+                           correct=r["correct"]) for label,rr in cells for mode,r in zip(("IBS","OBS"),rr)]
+            files["gemma-optimus.csv"] = csv_text(manual)
+            opt_grid = (["IBS","OBS"],cells)
+            opt_fig = folder/"figures/gemma-optimus"
+            if not check:
+                chart(opt_fig,study,opt_grid,title="DiffusionGemma B256: Optimus IBS vs OBS")
+            verify_figure(opt_fig,opt_grid)
         if not check:
             folder.mkdir(parents=True,exist_ok=True)
         for name_, text in files.items():

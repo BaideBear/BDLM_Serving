@@ -10,5 +10,6 @@
 | [llada20-frozen30](llada20-frozen30/) | 2.0 的原 17 组，包括前缀 KV 和 HF 无缓存参考 |
 | [llada20-cached-b32](llada20-cached-b32/) | 2.0 缓存版 Native B32；有逐阶段 F/Q |
 | [diffusiongemma-native](diffusiongemma-native/) · [diffusiongemma-wave](diffusiongemma-wave/) | Gemma B256 的原生推理、FlowBlock W1–4 与 B3；wave 中的 Native 为复用 |
+| [diffusiongemma-optimus](diffusiongemma-optimus/) | Gemma B256 的固定 IBS/OBS，名义 C=4/8/16/32/64/128/256；逐题记录实际 decoder、encoder 重编码及跨界开销 |
 
 历史对比图与原始实验说明保留在对应目录；新的对比请引用正式结果。

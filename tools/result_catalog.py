@@ -10,8 +10,10 @@ BASE, PREFIX, OBS = "baselines", "flowblock-prefix", "optimus-masked-obs"
 L20, CACHE, GN, GW = "llada20-frozen30", "llada20-cached-b32", "diffusiongemma-native", "diffusiongemma-wave"
 MODELS = {"llada20": "LLaDA 2.0-mini", "llada21": "LLaDA 2.1-mini", "sdar": "SDAR-8B", "gemma": "DiffusionGemma 26B-A4B"}
 CHUNKS = (4, 8, 16, 32)
+GEMMA_CHUNKS = (*CHUNKS, 64, 128, 256)
+GO = "diffusiongemma-optimus"
 ORDER = ["native", *(f"flow_w{w}" for w in range(1, 5)), "b3",
-         *(f"{m}_{c}" for m in ("ibs", "obs") for c in CHUNKS), "hf_uncached"]
+         *(f"{m}_{c}" for m in ("ibs", "obs") for c in GEMMA_CHUNKS), "hf_uncached"]
 
 
 def read(path):
@@ -35,7 +37,7 @@ def collect():
     manifest = json.loads((ROOT/"benchmarks/frozen30/manifest.json").read_text())["samples"]
     tasks = {int(t["index"]): t for t in manifest}
     raw = defaultdict(dict)
-    for run in (BASE, PREFIX, OBS, L20, CACHE, GN, GW):
+    for run in (BASE, PREFIX, OBS, L20, CACHE, GN, GW, GO):
         for r in read(ROOT/"archive"/run/"requests.csv"):
             model = r.get("model", "llada20" if run in (L20, CACHE) else "gemma")
             orig = (r["arm"]+"_"+r["cap"]) if run == OBS else r.get("policy", "native256")
@@ -74,10 +76,11 @@ def collect():
         for p in ORDER:
             if p == "hf_uncached" and m != "llada20":
                 continue
-            if m == "gemma" and p.startswith(("obs_", "ibs_")):
+            opt = p.startswith(("obs_", "ibs_"))
+            if m != "gemma" and opt and int(p.split("_")[1]) not in CHUNKS:
                 continue
             if m == "gemma":
-                src = GN if p == "native" else GW
+                src = GO if opt else GN if p == "native" else GW
             elif m == "llada20":
                 src = CACHE if p == "native" else L20
             else:
@@ -97,7 +100,7 @@ def collect():
     measured = {(t["run"], t["model"], t["policy"]) for groups in studies.values() for t, _ in groups}
     aliases = {k for k in raw if (k[0] == OBS and not k[2].startswith("bobs_"))
                or (k[0] == GW and k[2] == "native")}
-    assert measured == raw.keys()-aliases and len(measured) == 70
+    assert measured == raw.keys()-aliases and len(measured) == 84
     return studies
 
 
