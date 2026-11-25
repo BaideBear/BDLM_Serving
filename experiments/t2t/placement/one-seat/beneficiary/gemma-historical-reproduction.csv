@@ -1,0 +1,4 @@
+policy,requests,anchors,watched_rows,observations,row_observations,anchor_admissions
+t2t_q32_f0_m32_hard_once_base,30,26,491,252,5716,250
+t2t_q32_f0_m32_hard_once_rank,30,26,491,241,5480,257
+t2t_q32_f0_m32_hard_once_random,30,26,491,251,5725,253
