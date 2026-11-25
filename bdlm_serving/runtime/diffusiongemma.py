@@ -98,13 +98,16 @@ def run_native(args, before_cuda=None):
     cfg = model.generation_config
     if canvas != plan["canvas"] or cfg.max_denoising_steps != 48:
         raise ValueError("Unexpected native configuration")
+    effective = cfg.to_dict()
+    if hasattr(effective.get("sampler_config"), "to_dict"):
+        effective["sampler_config"] = effective["sampler_config"].to_dict()
+    meta = dict(plan, torch=str(torch.__version__), gpu=torch.cuda.get_device_name(),
+                effective_generation_config=effective)
     args.output.mkdir(exist_ok=False, parents=True)
+    (args.output / "run.json").write_text(json.dumps(meta, indent=2))
     if before_cuda is not None:
         before_cuda(model)
     model.to("cuda")
-    meta = dict(plan, torch=str(torch.__version__), gpu=torch.cuda.get_device_name(),
-                effective_generation_config=cfg.to_dict())
-    (args.output / "run.json").write_text(json.dumps(meta, indent=2))
     policy, = plan["policies"]
     with torch.inference_mode():
         for task, data in zip(tasks, inputs, strict=True):
