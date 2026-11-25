@@ -1,0 +1,25 @@
+model,check,scope,passed,detail
+llada21,fixed_question_list,manifest+base/rank/random/noedit,1,30/30; 10 gsm8k + 10 math500 + 10 humaneval; index/task_id/seed match
+llada21,base_reproduces_noedit,30 requests,1,30/30; all non-policy fields and noedit event fields equal
+llada21,same_state_anchor_plan,30 requests,1,28 anchors + 2 none; prefixes/anchor/plan/pre_sha256/post_rng_sha256 equal
+llada21,rank_swap_exact,anchored requests,1,28/28; exactly one victim->candidate swap
+llada21,random_swap_exact,anchored requests,1,28/28; exactly one victim->random_candidate swap
+llada21,stratum_consistent,anchored requests,1,victim in masks <=> stratum=mask on all anchored requests
+llada21,metric_identities,30 requests x 4 arms,1,tpf=N/F and token_efficiency=N/Q on every selected row
+llada21,conditional_splice_exact,all policies,1,every policy row is the measured base/rank/random row object; match=>rank; no-match=>base; none=>base
+llada21,published_question_list,manifest+published,1,OK
+llada21,uncond_rank_matches_published,all,1,OK
+llada21,uncond_random_matches_published,all,1,OK
+llada21,causal_requests_match_published,30x3 pairs,1,OK
+gemma,fixed_question_list,manifest+base/rank/random/noedit,1,30/30; 10 gsm8k + 10 math500 + 10 humaneval; index/task_id/seed match
+gemma,base_reproduces_noedit,30 requests,1,30/30; all non-policy fields and noedit event fields equal
+gemma,same_state_anchor_plan,30 requests,1,26 anchors + 4 none; prefixes/anchor/plan/pre_sha256/post_rng_sha256 equal
+gemma,rank_swap_exact,anchored requests,1,26/26; exactly one victim->candidate swap
+gemma,random_swap_exact,anchored requests,1,26/26; exactly one victim->random_candidate swap
+gemma,stratum_consistent,anchored requests,1,victim in masks <=> stratum=mask on all anchored requests
+gemma,metric_identities,30 requests x 4 arms,1,tpf=N/F and token_efficiency=N/Q on every selected row
+gemma,conditional_splice_exact,all policies,1,every policy row is the measured base/rank/random row object; match=>rank; no-match=>base; none=>base
+gemma,published_question_list,manifest+published,1,OK
+gemma,uncond_rank_matches_published,all,1,OK
+gemma,uncond_random_matches_published,all,1,OK
+gemma,causal_requests_match_published,30x3 pairs,1,OK
