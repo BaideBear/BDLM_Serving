@@ -17,7 +17,7 @@ correct / 30. Request Q excludes batch padding; physical Q includes it.
 
 | Policy | LLaDA 2.0 setup |
 |---|---|
-| Original Native B32 | Actual checkpoint `generate`, 32 steps, M2T > .95, default EOS check at block end. `temperature=0` in this checkpoint still performs multinomial sampling. No T2T. Full visible prefix rows are **really recomputed** and are charged. The published 2.1 Native is a committed-prefix-cache implementation; native Q is not a weights-only comparison. |
+| HF generate B32 (uncached reference) | Actual checkpoint `generate`, 32 steps, M2T > .95, default EOS check at block end. `temperature=0` in this checkpoint still performs multinomial sampling. No T2T. Full visible prefix rows are recomputed and charged. The 2.1 native row is a different, committed-prefix KV implementation. |
 | FlowBlock W=1/2/3/4 | Packed upstream controller, greedy top-1, M2T > .95, acceptance-ratio spawn .8, no T2T/post-edit. Counts physical verification/commit forwards. |
 | FlowBlock PrefixCache W=2/3/4 | Same settings as dense, but skip each block's stable leading input positions only after encoding their final values. Preserve KV; exclude skipped rows before the transformer. |
 | Optimus IBS and OBS, each fixed 4/8/16/32 | Original selected-position and unmasking controllers, top-1 M2T threshold .9, no T2T on 2.0. |
@@ -27,6 +27,23 @@ M2T thresholds and T2T differ across model versions; the cross-model study
 compares these **configured inference systems**, not isolated weight changes.
 Dense W=2/3/4 on 2.1 comes from the paired PrefixCache study when comparing
 with PrefixCache, including W=4 which was absent from the original 13-arm figure.
+
+**Native/B32 correction.** The 2.0 and 2.1 `native32` IDs in the historical
+CSV name different execution paths. The table and chart now separate them.
+2.0 HF `generate`: 14,651 delivered tokens / 4,302,240 query rows = 0.3405%.
+This is **not** the efficiency of cached B32 on LLaDA 2.0. The authors'
+[deployment notes](https://github.com/inclusionAI/LLaDA2.X#deployment-and-usage)
+and [dInfer](https://github.com/inclusionAI/dInfer) describe cache reuse.
+We do not yet report a cached 2.0 native frozen30 result.
+
+An independent CPU boundary probe with full BF16 weights observed QKV
+projection inputs and outputs in all 20 layers. With 63 prompt tokens,
+HF `generate` passed 64 then 96 rows. Replaying the same 96 input IDs using
+the repository's rectangular-mask adapter required 64 rows to build the
+committed prefix, then 32 live Q rows attending to 96 KV positions. The
+active top-1 predictions matched at 32/32 positions on this step; logits
+were not bitwise identical, and this is not an end-to-end quality test.
+Reproduce with `PYTHONPATH=. python tools/probe_llada20_native_q.py "$LLADA20"`.
 
 ```bash
 python -m bdlm_serving run --experiment llada20-frozen30 --model llada20 \

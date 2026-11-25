@@ -124,15 +124,18 @@ def draw_figure(name, policies, summaries):
     import matplotlib.pyplot as plt
     import numpy as np
     (DEST/"figures").mkdir(exist_ok=True)
-    height = len(policies)*.54 + 1.65
+    # The two historical "native32" observations are distinct baselines.
+    slots = [(p, m) for p in policies for m in (("llada20", "llada21") if p == "native32" else (None,))]
+    height = len(slots)*.54 + 1.65
     fig, axes = plt.subplots(1,3,figsize=(14.4,height))
     fig.subplots_adjust(left=.125, right=.988, top=1-1.22/height, bottom=.42/height, wspace=.12)
     fig.text(.014,1-.28/height,"FlowBlock vs PrefixCache" if name == "flowblock_prefix"
              else "LLaDA 2.0-mini vs 2.1-mini", fontsize=18, weight="bold", va="center")
     fig.text(.014,1-.58/height,"Same 30 requests  |  10 GSM8K, 10 MATH-500, 10 HumanEval",
              fontsize=10, va="center", color="#435163")
-    y = np.arange(len(policies))
+    y = np.arange(len(slots))
     names = {"native32":"Native B32","b3_native32":"B3 B32"}
+    native_labels = {"llada20": "HF uncached B32", "llada21": "KV-cached B32"}
     for w in (1,2,3,4):
         names[f"flow_w{w}"], names[f"prefix_w{w}"] = f"FlowBlock W={w}", f"PrefixCache W={w}"
     for mode in ("ibs","obs"):
@@ -142,17 +145,20 @@ def draw_figure(name, policies, summaries):
                                   ("Mean request TPF","Token efficiency (request Q)","Quality"),
                                   (1,100,1),(".3f",".2f",".0f")):
         peak = 0
-        for i in range(0,len(policies),2):
+        for i in range(0,len(slots),2):
             ax.axhspan(i-.5,i+.5,color="#f4f6f8",zorder=0,linewidth=0)
         for j,(model,color,label) in enumerate((("llada20","#138077","2.0-mini"),("llada21","#ad4f2c","2.1-mini"))):
             lookup={r["policy"]:r[key] for r in summaries if r["dataset"]=="all" and r["model"]==model}
-            values = [k*lookup[p] for p in policies]
+            ys = [i + ((.2 if j else -.2) if m is None else 0)
+                  for i, (p,m) in enumerate(slots) if m in (None,model)]
+            values = [k*lookup[p] for p,m in slots if m in (None,model)]
             suffix = {"correct":"/30","efficiency":"%","mean_tpf":""}[key]
             labels = [format(v,fmt)+suffix for v in values]
-            bars = ax.barh(y+(.2 if j else -.2),values,height=.32,color=color,label=label)
+            bars = ax.barh(ys,values,height=.32,color=color,label=label)
             ax.bar_label(bars,labels=labels,padding=3,fontsize=9.5,color="#17212c")
             peak = max(peak,max(values))
-        ax.set_yticks(y,[names[p] for p in policies] if ax is axes[0] else [""]*len(y))
+        ax.set_yticks(y,[native_labels[m] if m is not None else names[p] for p,m in slots]
+                      if ax is axes[0] else [""]*len(y))
         ax.set_xlim(0,peak*1.23)
         if key == "correct":
             ax.set_xlim(0,36)
@@ -177,11 +183,21 @@ def write_markdown(summaries):
     lines = ["# Frozen30 results: LLaDA 2.0-mini and 2.1-mini", "",
              "Each entry is **2.0 / 2.1** for the same 30 requests. "
              "TPF is a mean across requests; pooled TPF weights by forwards. "
-             "Efficiency is delivered tokens divided by request Q, or physical Q when indicated.", "",
+             "Efficiency is delivered tokens divided by request Q, or physical Q when indicated. "
+             "The two B32 reference implementations are listed separately; a dash means not measured.", "",
              "| Policy | Quality / 30 | Mean TPF | Pooled TPF | Request efficiency | Physical efficiency |",
              "|---|---:|---:|---:|---:|---:|"]
     for p in DISPLAY:
         a, b = (lookup[m, p] for m in ("llada20", "llada21"))
+        if p == "native32":
+            for label, row, first in (("HF generate B32 (uncached)", a, True),
+                                      ("Committed-prefix KV B32", b, False)):
+                fields = [f'{row[k]:{fmt}}' for k, fmt in (
+                    ("correct","d"),("mean_tpf",".3f"),("pooled_tpf",".3f"),
+                    ("efficiency",".2%"),("physical_efficiency",".2%"))]
+                lines.append("| " + " | ".join([label, *[
+                    v+" / -" if first else "- / "+v for v in fields]]) + " |")
+            continue
         fields = [f'{a[k]:{fmt}} / {b[k]:{fmt}}' for k, fmt in (
             ("correct","d"), ("mean_tpf",".3f"), ("pooled_tpf",".3f"),
             ("efficiency",".2%"), ("physical_efficiency",".2%"))]

@@ -1,10 +1,11 @@
 # Frozen30 results: LLaDA 2.0-mini and 2.1-mini
 
-Each entry is **2.0 / 2.1** for the same 30 requests. TPF is a mean across requests; pooled TPF weights by forwards. Efficiency is delivered tokens divided by request Q, or physical Q when indicated.
+Each entry is **2.0 / 2.1** for the same 30 requests. TPF is a mean across requests; pooled TPF weights by forwards. Efficiency is delivered tokens divided by request Q, or physical Q when indicated. The two B32 reference implementations are listed separately; a dash means not measured.
 
 | Policy | Quality / 30 | Mean TPF | Pooled TPF | Request efficiency | Physical efficiency |
 |---|---:|---:|---:|---:|---:|
-| `native32` | 25 / 26 | 3.936 / 5.728 | 2.606 / 4.976 | 0.34% / 15.55% | 0.34% / 15.55% |
+| HF generate B32 (uncached) | 25 / - | 3.936 / - | 2.606 / - | 0.34% / - | 0.34% / - |
+| Committed-prefix KV B32 | - / 26 | - / 5.728 | - / 4.976 | - / 15.55% | - / 15.55% |
 | `flow_w1` | 29 / 26 | 3.411 / 7.042 | 2.663 / 5.717 | 8.32% / 17.87% | 8.32% / 17.87% |
 | `flow_w2` | 28 / 27 | 3.964 / 9.262 | 2.745 / 6.626 | 4.29% / 10.35% | 4.29% / 5.94% |
 | `prefix_w2` | 25 / 23 | 3.865 / 7.300 | 2.280 / 4.102 | 4.48% / 8.00% | 3.71% / 3.25% |
