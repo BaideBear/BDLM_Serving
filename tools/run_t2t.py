@@ -15,6 +15,7 @@ def parse_args():
         p.add_argument("--" + key, required=True, type=Path)
     p.add_argument("--arm", action="append", help="Q:fresh:mask:selection; repeatable")
     p.add_argument("--hazard-weights", type=Path, help="One frozen positional ranker shared by all 30 requests")
+    p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
     return p.parse_args()
 
 
@@ -35,6 +36,11 @@ def main(args, prepare=None):
             a.budget >= block and a.selection != "hard_noedit" for a in arms):
         raise ValueError("Require distinct arms; use one hard_noedit saturation control at or above width")
     extra = {}
+    if any(a.selection.startswith("hard_exchange_") for a in arms):
+        from bdlm_serving.evaluation.frozen import sha
+        from bdlm_serving.methods.t2t.exchange import read_rates
+        read_rates(getattr(args, "exchange_rates", None))
+        extra["exchange_rates_sha256"] = sha(args.exchange_rates)
     if any(a.selection.startswith("hard_hazard_") for a in arms):
         from bdlm_serving.evaluation.frozen import sha
         from bdlm_serving.methods.t2t.hazard import read_weights

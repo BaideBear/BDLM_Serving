@@ -1,0 +1,13 @@
+q,cap,mode,victim,states,offers,swaps,candidate_event_swapped,victim_event_swapped,both_events_swapped,candidate_event_declined,victim_event_declined
+4,1,hard_exchange_edit4,mask,1170,396,9,0,3,0,6,150
+4,1,hard_exchange_edit4,old,1170,56,56,3,0,0,0,0
+4,1,hard_exchange_equal,mask,1170,396,0,0,0,0,6,153
+4,1,hard_exchange_equal,old,1170,56,56,3,0,0,0,0
+8,1,hard_exchange_edit4,mask,1170,520,77,6,13,1,8,165
+8,1,hard_exchange_edit4,old,1170,188,188,8,0,0,0,0
+8,1,hard_exchange_equal,mask,1170,520,1,0,0,0,14,178
+8,1,hard_exchange_equal,old,1170,188,188,8,0,0,0,0
+16,2,hard_exchange_edit4,mask,1170,496,208,10,24,2,2,65
+16,2,hard_exchange_edit4,old,1170,940,931,27,3,0,0,0
+16,2,hard_exchange_equal,mask,1170,381,18,3,1,0,7,73
+16,2,hard_exchange_equal,old,1170,940,931,27,3,0,0,0

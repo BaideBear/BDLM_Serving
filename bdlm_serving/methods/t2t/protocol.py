@@ -1,5 +1,6 @@
 """Shared frozen30 protocol: one case list, explicit budgets, no free closure work."""
 from dataclasses import dataclass
+from .exchange import MODES as EXCHANGE
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import GEMMA_FACTORIAL, MODES
 
@@ -37,7 +38,7 @@ class Arm:
                 raise ValueError("One-seat studies use 4:0:4 (B32) or 32:0:32 (B256)")
             return obj
         if block == 32:
-            modes += ("hard_hazard_gate", "hard_hazard_fixed")
+            modes += ("hard_hazard_gate", "hard_hazard_fixed", *EXCHANGE)
         elif block == 256:
             modes += ("hard_trigger_refresh",)
         if selection not in modes:

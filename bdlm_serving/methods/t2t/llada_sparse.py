@@ -25,7 +25,8 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD
+from .exchange import MODES as EXCHANGE
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD + tuple(EXCHANGE)
 
 
 @dataclass
@@ -177,7 +178,8 @@ class LLaDASparseKernel(SerialKernel):
     """
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
-                 policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None):
+                 policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None,
+                 exchange_rates=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
@@ -197,6 +199,9 @@ class LLaDASparseKernel(SerialKernel):
         self.q_budget, self.fresh_slots, self.mask_slots = q_budget, fresh_slots, mask_slots
         self.policy, self.signal, self.selection_seed = policy, signal, selection_seed
         self.hazard_weights = hazard_weights
+        self.exchange_rates = exchange_rates
+        if policy in EXCHANGE and not exchange_rates:
+            raise ValueError("Missing exchange calibration")
         if policy in _HAZARD and (hazard_weights is None or len(hazard_weights) != 25):
             raise ValueError("Missing frozen hazard calibration")
 
@@ -325,6 +330,12 @@ class LLaDASparseKernel(SerialKernel):
 
         edit_slots = self.q_budget - self.fresh_slots - self.mask_slots
         oracle = self.policy == "hard_oracle1"
+        if self.policy in EXCHANGE:
+            from .exchange import choose
+            picked, reserved, _ = choose(list(editable), resolved, fresh, state.previous_strict,
+                state.last_write, len(state.events)+1, self.q_budget, edit_slots,
+                self.exchange_rates, EXCHANGE[self.policy])
+            return picked, reserved
         if self.policy in _HAZARD:
             from .hazard import choose
             return choose(list(editable), resolved, fresh, state.last_write, state.previous_strict,
