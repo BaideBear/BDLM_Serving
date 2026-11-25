@@ -61,7 +61,8 @@ def main():
     for model, budgets in (("llada21",(4,8,16,32,64)), ("gemma",(16,32,64,128,256))):
         measured, request_data = {}, {}
         for d in ("hard", "adaptive", "placement", "placement/geometry-online", "calibrated",
-                  "calibrated/embedding_context/rollout", "refresh", "exchange"):
+                  "calibrated/embedding_context/rollout", "calibrated/embedding_context/gated",
+                  "refresh", "exchange"):
             path = root / d / f"{model}-online-summary.csv"
             if not path.exists():
                 continue
