@@ -1,0 +1,12 @@
+{
+  "flowblock_block_size": 32,
+  "batch_size": 32,
+  "mix_policies": false,
+  "policies": [
+    "flow_w4", "prefix_w4", "flow_w2", "prefix_w2", "flow_w3", "prefix_w3",
+    "flow_w1", "b3_native32",
+    "optimus_ibs_c4", "optimus_ibs_c8", "optimus_ibs_c16", "optimus_ibs_c32",
+    "optimus_obs_c4", "optimus_obs_c8", "optimus_obs_c16", "optimus_obs_c32",
+    "native32"
+  ]
+}

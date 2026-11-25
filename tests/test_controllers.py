@@ -121,6 +121,12 @@ def test_flowblock_tiny_model():
     torch.manual_seed(1729)
     model = AutoModelForCausalLM.from_config(cfg, trust_remote_code=True, attn_implementation="sdpa").eval()
     install_llada_rectangular_mask(model, allow_selected_cache=True)
+    import inspect
+    if "threshold" in inspect.signature(model.generate).parameters and "editing_threshold" not in inspect.signature(model.generate).parameters:
+        # 2.0's checkpoint sampler calls multinomial, even at T=0. Qualify
+        # the actual greedy FlowBlock adapter, not two independent draws.
+        from bdlm_serving.runtime.batch import DirectModelFacade
+        model = DirectModelFacade(types.SimpleNamespace(model=model, kind="llada20"), "tiny", 1729)
     config = dict(confidence_threshold=1., editing_threshold=2., max_post_steps=0)
     for length in (32, 43):
         prompt = torch.randint(1, 120, (1, length))

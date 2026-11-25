@@ -145,7 +145,19 @@ class ModelFacade:
         confidence = probability.gather(-1, token)
         return token.view(shape), confidence.view(shape)
 
+    def llada20_sample(self, logits):
+        # Checkpoint temperature=0 bypasses scaling, not multinomial sampling.
+        shape = logits.shape[:-1]
+        prob = logits.reshape(-1, logits.shape[-1]).softmax(-1)
+        token = torch.multinomial(prob, 1, generator=self.generator)
+        return token.view(shape), prob.gather(-1, token).view(shape)
+
     def _sample_with_temperature_topk_topp(self, logits, **kwargs):
+        if self.batcher.kind == "llada20":
+            # This entry point is FlowBlock's temperature-zero top-1 control.
+            ids = logits.argmax(-1)
+            p = logits.float().softmax(-1).gather(-1, ids.unsqueeze(-1)).squeeze(-1)
+            return ids, p
         if self.batcher.kind == "sdar":
             return self.sdar_sample(logits)
         return self.native._sample_with_temperature_topk_topp(logits, **kwargs)

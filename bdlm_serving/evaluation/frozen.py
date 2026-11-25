@@ -9,7 +9,11 @@ MANIFEST = ROOT / "benchmarks/frozen30/manifest.json"
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_tasks(path):

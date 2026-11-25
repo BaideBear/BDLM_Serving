@@ -6,7 +6,7 @@ import time
 import types
 
 
-def run(args, tasks, plan):
+def run(args, tasks, plan, before_cuda=None):
     import torch
     from bdlm_serving.methods.optimus.boundary import BoundaryModel
     import transformers.utils as utils
@@ -36,7 +36,9 @@ def run(args, tasks, plan):
     model = AutoModelForCausalLM.from_pretrained(
         model_path, trust_remote_code=True, local_files_only=True,
         dtype=torch.bfloat16, attn_implementation="sdpa").eval()
-    if args.model == "llada21":
+    is_llada = args.model in ("llada20", "llada21")
+    checkpoint_forward = model.model.forward if args.model == "llada20" else None
+    if is_llada:
         install_llada_rectangular_mask(model, allow_selected_cache=True)
         mask_id, eos = tokenizer.convert_tokens_to_ids("<|mask|>"), [tokenizer.eos_token_id]
     else:
@@ -47,9 +49,14 @@ def run(args, tasks, plan):
         if isinstance(eos, int):
             eos = [eos]
 
-    model.to("cuda")
+    if before_cuda:
+        before_cuda(model)
+    else:
+        model.to("cuda")
     model._erqw_execution_binding = args.model + "/fixed-baselines"
     llada_config = {"confidence_threshold": .5, "editing_threshold": .5, "max_post_steps": 16}
+    if args.model == "llada20":
+        llada_config = {"confidence_threshold": .95, "editing_threshold": 1., "max_post_steps": 0}
     sdar_config = {"threshold": .9, "temperature": .6, "top_k": 20, "top_p": .95}
     special = set(tokenizer.all_special_ids) | {mask_id} | set(eos)
     encoded = {}
@@ -76,6 +83,10 @@ def run(args, tasks, plan):
                 except RuntimeError as error:
                     raw, events, extra, request_failure = capture_optimus_progress_failure(error, engine)
                 extra["native_b32_decode_mask"] = True
+            elif policy == "native32" and args.model == "llada20":
+                from bdlm_serving.runtime.llada20 import checkpoint_generate
+                raw, events, extra = checkpoint_generate(model, checkpoint_forward, facade, prompt,
+                                                         cap, seed, mask_id, eos[0])
             elif policy == "native32":
                 engine = SerialKernel(facade, args.model, sampler)
                 state = engine.create(prompt, llada_config if args.model == "llada21" else sdar_config,
@@ -90,7 +101,7 @@ def run(args, tasks, plan):
                 except RuntimeError as error:
                     raw, events, extra, request_failure = capture_optimus_progress_failure(error, engine)
             elif policy.startswith(("flow", "prefix", "disabled")):
-                config = llada_config if args.model == "llada21" else {
+                config = llada_config if is_llada else {
                     "confidence_threshold": .9, "editing_threshold": 2., "max_post_steps": 0}
                 klass = FlowBlockControl if policy.startswith("flow") else FlowBlockPrefix
                 flags = {"enabled": not policy.startswith("disabled")} if klass is FlowBlockPrefix else {}
@@ -98,14 +109,17 @@ def run(args, tasks, plan):
                                block_size=plan["flowblock_block_size"],
                                ignore_prompt_eos=args.model == "sdar", **flags)
                 raw, events, extra = engine.run(prompt, cap)
-                extra["model_sampler"] = "greedy" if args.model == "llada21" else "SDAR .6/top20/p.95"
+                extra["model_sampler"] = "greedy" if is_llada else "SDAR .6/top20/p.95"
             elif policy == "b3_native32" and args.model == "llada21":
                 engine = NativeB3Kernel(facade, promotion_post="carry", entropy_promotion="reset")
                 state = engine.create(prompt, llada_config, cap, seed, mask_id, eos, cached=True)
                 engine.run(state)
                 raw, events, extra = state.x, state.events, {"paper_derived": True, "block_size": 32}
             elif policy == "b3_native32":
-                engine = SDARB3(facade, facade.sdar_sample)
+                if args.model == "llada20":
+                    engine = SDARB3(facade, facade.llada20_sample, threshold=.95, kind="llada20")
+                else:
+                    engine = SDARB3(facade, facade.sdar_sample)
                 raw, events, extra = engine.run(prompt, cap, seed, mask_id, eos)
             else:
                 raise ValueError(f"Unknown policy: {policy}")
@@ -159,16 +173,23 @@ def run(args, tasks, plan):
             return path
 
     cls = {"baselines": ForwardBatcher, "flowblock-prefix": AuditedBatcher,
-           "optimus-masked-obs": PhaseBatcher}[args.experiment]
+           "optimus-masked-obs": PhaseBatcher, "llada20-frozen30": AuditedBatcher}[args.experiment]
     batcher = cls(model, args.model, args.batch_size or plan["batch_size"])
     arms = plan["policies"]
     groups = [arms] if plan["mix_policies"] else [[p] for p in arms]
     try:
         for group in groups:
+            print("starting", group, flush=True)
             gc.collect()
             torch.cuda.empty_cache()
-            batcher.run([lambda t=t, p=p: invoke(batcher, t, p, 2048, "formal")
-                         for p in group for t in tasks])
+            jobs = [lambda t=t, p=p: invoke(batcher, t, p, 2048, "formal")
+                    for p in group for t in tasks]
+            if args.model == "llada20" and group == ["native32"]:
+                for job in jobs:
+                    job()
+            else:
+                batcher.run(jobs)
+            print("finished", group, flush=True)
     finally:
         if hasattr(batcher, "close"):
             batcher.close()
