@@ -1,0 +1,10 @@
+{
+  "study": "flowblock-prefix-b32-v2-20261124",
+  "source_sha256": {
+    "summary.csv": "9550c1502f03d34eac903e9438c86e340292b051ab998964e12295424f11742e",
+    "requests.csv": "3b2a20eb4f1d9fca9be94c527ee0e80daf10530390c76947a030111b79992742",
+    "FlowBlock_前缀缓存_结果总览.png": "fdb888cae3d9ce06ab03030822a6ef8b659c42308612181d72792376578fdc13",
+    "tradeoff.png": "d3814730d0400d4ecbca2afb0b0193cd01ce76c021df28ccb827e2d2eb4b9527",
+    "paired_requests.csv": "bb2d279566fecf73fbe91ff437d660d3c356145c619156434db4b5e93a52ffdc"
+  }
+}

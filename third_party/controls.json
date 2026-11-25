@@ -1,0 +1,17 @@
+{
+  "FlowBlock": {
+    "directory": "dInfer/python/dinfer/decoding",
+    "files": {
+      "flowblock_packed.py": "7445d6865bfd9199795be8535546a49e1f9452f4a8b900e10317d5c6256b74ac",
+      "generate_uniform.py": "ab8ac8d633eeb86736ee68a79dd2136a4a9b6d7a7d35ab8dc020c1c784ea3165",
+      "utils.py": "a1e6751397180a30ef07e653c13f96ff173ca235e67c3135584439cc5c30b016"
+    }
+  },
+  "Optimus": {
+    "directory": "engine/lmdeploy/pytorch/strategies/dllm",
+    "files": {
+      "unmasking.py": "bbc3c3328e5497aa08aed6e04150ab0383f95dc06b4ff570a69adaed4a769746",
+      "sequence.py": "99c80047d517113579e04fd57443471a759a738dc30b206ba1342e0d4f9b3da2"
+    }
+  }
+}

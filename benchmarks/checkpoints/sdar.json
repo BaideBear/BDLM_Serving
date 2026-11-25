@@ -1,0 +1,78 @@
+[
+  {
+    "name": "added_tokens.json",
+    "bytes": 727,
+    "sha256": "6e81b0b78e49ced21e68b7ed551a29afc3bde018b06df356692c4df94f753d93"
+  },
+  {
+    "name": "config.json",
+    "bytes": 1088,
+    "sha256": "41cd57f096e860c654353d7aa6f4e19285159879e30d0bb984c3434d803e2f74"
+  },
+  {
+    "name": "configuration_sdar.py",
+    "bytes": 11241,
+    "sha256": "eb2830b7c5841c05ad4450b8b15a968703afc890e432e12f2b0f1eb1625720c6"
+  },
+  {
+    "name": "generation_config.json",
+    "bytes": 239,
+    "sha256": "2325da0f15bb848e018c5ae071b7943332e9f871d6b60e2ed22ca97d4cb993d2"
+  },
+  {
+    "name": "model-00001-of-00004.safetensors",
+    "bytes": 4902257696
+  },
+  {
+    "name": "model-00002-of-00004.safetensors",
+    "bytes": 4915960368
+  },
+  {
+    "name": "model-00003-of-00004.safetensors",
+    "bytes": 4983068496
+  },
+  {
+    "name": "model-00004-of-00004.safetensors",
+    "bytes": 1580230264
+  },
+  {
+    "name": "model.safetensors.index.json",
+    "bytes": 32878,
+    "sha256": "3649bb967710edc0f995e3839a363a069482a1688216f87745248966751d0221"
+  },
+  {
+    "name": "modeling_sdar.py",
+    "bytes": 37497,
+    "sha256": "1b274a20da0952ea3f2d07274669da8a94a70f6c3c1614366b4d8e5128c9eb7a"
+  },
+  {
+    "name": "special_tokens_map.json",
+    "bytes": 630,
+    "sha256": "8d7a2b508e7325a93b5cc9e6908397ad8865df49bed7af20ff8d90b57fabff7b"
+  },
+  {
+    "name": "tokenization_qwen2.py",
+    "bytes": 13964,
+    "sha256": "ce10fa3509652ad56a39b62dbafddb5441db1916f3b3525c7f2d5a302e4e6be4"
+  },
+  {
+    "name": "tokenization_qwen2_fast.py",
+    "bytes": 5247,
+    "sha256": "958d73f75598d7df843b36cf124068d471af9d76d17fe38e2fa8a0b46157bdb1"
+  },
+  {
+    "name": "tokenizer.json",
+    "bytes": 7031645,
+    "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539"
+  },
+  {
+    "name": "tokenizer_config.json",
+    "bytes": 10005,
+    "sha256": "96d86b69328269b178513cfee56d66d90f26a93a3ee8c2444dfbae4df7d07403"
+  },
+  {
+    "name": "vocab.json",
+    "bytes": 2776833,
+    "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+  }
+]

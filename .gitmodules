@@ -1,0 +1,6 @@
+[submodule "third_party/FlowBlock"]
+	path = third_party/FlowBlock
+	url = https://github.com/Red-EAD/FlowBlock.git
+[submodule "third_party/Optimus"]
+	path = third_party/Optimus
+	url = https://github.com/dubcyfor3/Optimus.git

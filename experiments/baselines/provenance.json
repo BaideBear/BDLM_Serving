@@ -1,0 +1,8 @@
+{
+  "study": "fixed-baselines-20261124",
+  "source_sha256": {
+    "summary.csv": "76ec240eee10718773f6f7adf9093abd6f48e0a33299cea2490bcd1acd885ba2",
+    "requests.csv": "20486e2b78a55ec8b01e2d1a7eea98fbf164c03ce71e9bc6c1bd10f31e4df55e",
+    "baseline_comparison.png": "1b1bc2e793b5a1595eab6ba72bb1d6c5ad5742fce8a844420b83575dd45fb9b9"
+  }
+}

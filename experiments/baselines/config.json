@@ -1,0 +1,19 @@
+{
+  "batch_size": 1,
+  "mix_policies": false,
+  "policies": [
+    "native32",
+    "optimus_ibs_c4",
+    "optimus_ibs_c8",
+    "optimus_ibs_c16",
+    "optimus_ibs_c32",
+    "optimus_obs_c4",
+    "optimus_obs_c8",
+    "optimus_obs_c16",
+    "optimus_obs_c32",
+    "flow_w1",
+    "flow_w2",
+    "flow_w3",
+    "b3_native32"
+  ]
+}

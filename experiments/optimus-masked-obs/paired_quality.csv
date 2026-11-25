@@ -1,0 +1,17 @@
+model,cap,control,gained,lost,identical_output,gained_tasks,lost_tasks
+llada21,4,obs,2,1,5,test/intermediate_algebra/1797.json;HumanEval/138,HumanEval/19
+llada21,4,ibs,5,0,5,gsm8k/493;test/precalculus/807.json;test/number_theory/631.json;test/intermediate_algebra/1797.json;test/number_theory/1090.json,
+llada21,8,obs,3,3,2,gsm8k/493;test/number_theory/631.json;HumanEval/19,test/precalculus/807.json;test/precalculus/881.json;HumanEval/138
+llada21,8,ibs,1,3,2,gsm8k/1112,test/precalculus/807.json;HumanEval/18;HumanEval/138
+llada21,16,obs,1,3,4,HumanEval/19,gsm8k/493;test/number_theory/631.json;test/precalculus/881.json
+llada21,16,ibs,1,3,4,HumanEval/19,gsm8k/493;test/number_theory/631.json;test/precalculus/881.json
+llada21,32,obs,5,1,2,gsm8k/664;test/number_theory/631.json;test/precalculus/881.json;HumanEval/19;HumanEval/64,HumanEval/138
+llada21,32,ibs,1,1,1,test/precalculus/881.json,test/intermediate_algebra/1797.json
+sdar,4,obs,3,0,8,test/precalculus/881.json;test/algebra/2476.json;HumanEval/90,
+sdar,4,ibs,1,4,5,test/number_theory/631.json,test/geometry/456.json;test/intermediate_algebra/955.json;HumanEval/19;HumanEval/115
+sdar,8,obs,1,1,11,test/intermediate_algebra/955.json,test/precalculus/881.json
+sdar,8,ibs,2,2,9,test/number_theory/631.json;test/intermediate_algebra/955.json,test/precalculus/881.json;HumanEval/115
+sdar,16,obs,2,1,7,test/algebra/2476.json;HumanEval/19,test/number_theory/631.json
+sdar,16,ibs,2,1,8,gsm8k/1029;HumanEval/19,test/number_theory/631.json
+sdar,32,obs,3,2,7,gsm8k/1029;test/counting_and_probability/666.json;test/intermediate_algebra/955.json,test/number_theory/631.json;HumanEval/74
+sdar,32,ibs,2,3,7,test/intermediate_algebra/955.json;HumanEval/19,test/number_theory/631.json;HumanEval/74;HumanEval/115

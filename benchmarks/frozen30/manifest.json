@@ -1,0 +1,252 @@
+{
+  "selection_seed": 20261124,
+  "scorer_version": "fixed-baselines-v1",
+  "samples_sha256": "f209b05847e4eae40b8c92779691de76415b408257e0b22b72b81fda0e0eabd5",
+  "source_sha256": {
+    "archive/gsm8k-test.parquet": "ee7b8da9e381df27b9e3f7758a159ab2bdaa4dbaa910546cbbc47e0cb44e4f59",
+    "archive/fixed-baselines-20261124/math500-test.jsonl": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+    "archive/fixed-baselines-20261124/HumanEval.jsonl.gz": "b796127e635a67f93fb35c04f4cb03cf06f38c8072ee7cee8833d7bee06979ef"
+  },
+  "samples": [
+    {
+      "index": 0,
+      "source_index": 167,
+      "task_id": "gsm8k/167",
+      "dataset": "gsm8k",
+      "seed": 17000,
+      "prompt_sha256": "81c021baac0e112592fe8c5738b3008728ea3f0700eca0b15cd4f8ac0976e754"
+    },
+    {
+      "index": 1,
+      "source_index": 251,
+      "task_id": "gsm8k/251",
+      "dataset": "gsm8k",
+      "seed": 17001,
+      "prompt_sha256": "49628f8c2722cc097f770872d4d497477966094344778bd7f341d1055ebd01fd"
+    },
+    {
+      "index": 2,
+      "source_index": 442,
+      "task_id": "gsm8k/442",
+      "dataset": "gsm8k",
+      "seed": 17002,
+      "prompt_sha256": "69e64fa56ba345c1e728e648963d2783da2d379557c465f8dc312d0752f49d1c"
+    },
+    {
+      "index": 3,
+      "source_index": 493,
+      "task_id": "gsm8k/493",
+      "dataset": "gsm8k",
+      "seed": 17003,
+      "prompt_sha256": "47c493fe4d26db3273e75d3b171465f6b505db79b3e1d618fbac507120426f83"
+    },
+    {
+      "index": 4,
+      "source_index": 514,
+      "task_id": "gsm8k/514",
+      "dataset": "gsm8k",
+      "seed": 17004,
+      "prompt_sha256": "8a813de93cb48502f2d6ccd61c6efae2109ee8a931a8e3fbeccb387b095a3183"
+    },
+    {
+      "index": 5,
+      "source_index": 664,
+      "task_id": "gsm8k/664",
+      "dataset": "gsm8k",
+      "seed": 17005,
+      "prompt_sha256": "3933a56abe11391df8a2bf25033fbe40a195c421d350f3e409e382677a7811ae"
+    },
+    {
+      "index": 6,
+      "source_index": 1029,
+      "task_id": "gsm8k/1029",
+      "dataset": "gsm8k",
+      "seed": 17006,
+      "prompt_sha256": "bdfba30096df0974d0f14d9535b52ac53fe36ed4c033e3b8d0f51a79fa206cb1"
+    },
+    {
+      "index": 7,
+      "source_index": 1057,
+      "task_id": "gsm8k/1057",
+      "dataset": "gsm8k",
+      "seed": 17007,
+      "prompt_sha256": "829f58df5ce418e59cb9c4eb205229beb01ff52a668ab401267714f652745c56"
+    },
+    {
+      "index": 8,
+      "source_index": 1112,
+      "task_id": "gsm8k/1112",
+      "dataset": "gsm8k",
+      "seed": 17008,
+      "prompt_sha256": "803abe5f9b29c07681b1d9c24e7d1fd22031e23d469e4dc7d13d37be18beb017"
+    },
+    {
+      "index": 9,
+      "source_index": 1162,
+      "task_id": "gsm8k/1162",
+      "dataset": "gsm8k",
+      "seed": 17009,
+      "prompt_sha256": "0f8cf40b99e3f9225e45d4cb526c2ef50c1c51ccb27e6a585749f8cd91589621"
+    },
+    {
+      "index": 10,
+      "source_index": 0,
+      "task_id": "test/precalculus/807.json",
+      "dataset": "math500",
+      "seed": 17010,
+      "prompt_sha256": "0ecfd0c589ecf631626c3cecdf23b983d8f8dcc0c791934c98025733c5db394c"
+    },
+    {
+      "index": 11,
+      "source_index": 29,
+      "task_id": "test/counting_and_probability/666.json",
+      "dataset": "math500",
+      "seed": 17011,
+      "prompt_sha256": "c171bbad83841e46486ff1f2ba66675cb926492f0e2ab6a9d39dc6cfe9577ff5"
+    },
+    {
+      "index": 12,
+      "source_index": 38,
+      "task_id": "test/algebra/24.json",
+      "dataset": "math500",
+      "seed": 17012,
+      "prompt_sha256": "2f4961d44c633c591a5fa0e9b1143c7081c011b485565a6b05033a33350c9168"
+    },
+    {
+      "index": 13,
+      "source_index": 72,
+      "task_id": "test/geometry/456.json",
+      "dataset": "math500",
+      "seed": 17013,
+      "prompt_sha256": "a4ab9f2ad8792378941d498f3957e5564f6efac58dbf87168cbc5af5367748a9"
+    },
+    {
+      "index": 14,
+      "source_index": 287,
+      "task_id": "test/number_theory/631.json",
+      "dataset": "math500",
+      "seed": 17014,
+      "prompt_sha256": "ede7fcff04e7f1e6f14037ecb23b4538bca0b13c414ad8ece5934284459d07dd"
+    },
+    {
+      "index": 15,
+      "source_index": 298,
+      "task_id": "test/precalculus/881.json",
+      "dataset": "math500",
+      "seed": 17015,
+      "prompt_sha256": "ab06cbad47c062fd08b7420e555eb6091f7ab4359d68b9d669a4b2586c738d82"
+    },
+    {
+      "index": 16,
+      "source_index": 371,
+      "task_id": "test/intermediate_algebra/955.json",
+      "dataset": "math500",
+      "seed": 17016,
+      "prompt_sha256": "0ec409fdfbc689ff8fb147cef81af002e4d3da34546f1d438e38f73f1c1ccf85"
+    },
+    {
+      "index": 17,
+      "source_index": 409,
+      "task_id": "test/intermediate_algebra/1797.json",
+      "dataset": "math500",
+      "seed": 17017,
+      "prompt_sha256": "2bdd392997a563ed3231620c30d974c397eb1f3b74d83ea44fc960a9a36dd7bf"
+    },
+    {
+      "index": 18,
+      "source_index": 453,
+      "task_id": "test/algebra/2476.json",
+      "dataset": "math500",
+      "seed": 17018,
+      "prompt_sha256": "5ef9a3bb48f64390e65471f088b50dbb1cc999d7da1e6ea45f36110a5acbe13e"
+    },
+    {
+      "index": 19,
+      "source_index": 482,
+      "task_id": "test/number_theory/1090.json",
+      "dataset": "math500",
+      "seed": 17019,
+      "prompt_sha256": "4cdffac77fe7ce8aac19a202c05a232fd3ef03c89ce1b4feb40ce3d39fe16037"
+    },
+    {
+      "index": 20,
+      "source_index": 6,
+      "task_id": "HumanEval/6",
+      "dataset": "humaneval",
+      "seed": 17020,
+      "prompt_sha256": "514734fb70325358271f369a0fb62dbcfb27e03f4a0648f13edf9a6aa6c176d4"
+    },
+    {
+      "index": 21,
+      "source_index": 18,
+      "task_id": "HumanEval/18",
+      "dataset": "humaneval",
+      "seed": 17021,
+      "prompt_sha256": "ea61490107658c861deb8f13d9dbee7f9134f89cb95e4dbb76ca19be5ddfeab5"
+    },
+    {
+      "index": 22,
+      "source_index": 19,
+      "task_id": "HumanEval/19",
+      "dataset": "humaneval",
+      "seed": 17022,
+      "prompt_sha256": "f8997c83341ee9f2bc79b785c4eedcb51651109bc94385b59737b67b0c81c7c8"
+    },
+    {
+      "index": 23,
+      "source_index": 64,
+      "task_id": "HumanEval/64",
+      "dataset": "humaneval",
+      "seed": 17023,
+      "prompt_sha256": "e55087ae16882acc6490bacdbf667fa94843536097e04a4d48eb6815cfb6ef9c"
+    },
+    {
+      "index": 24,
+      "source_index": 74,
+      "task_id": "HumanEval/74",
+      "dataset": "humaneval",
+      "seed": 17024,
+      "prompt_sha256": "6e4e08586ea02744371400798e4de1998f140630a05187b040c6d13510f8852c"
+    },
+    {
+      "index": 25,
+      "source_index": 90,
+      "task_id": "HumanEval/90",
+      "dataset": "humaneval",
+      "seed": 17025,
+      "prompt_sha256": "e626a6e1569ef5dc812ed99f55fa5a855b6ab78a03f36b1340d26c827020da52"
+    },
+    {
+      "index": 26,
+      "source_index": 115,
+      "task_id": "HumanEval/115",
+      "dataset": "humaneval",
+      "seed": 17026,
+      "prompt_sha256": "b6872289c0526ef71f1e25159f801fefcd661da7959728fa74e93ba6a986f5e3"
+    },
+    {
+      "index": 27,
+      "source_index": 138,
+      "task_id": "HumanEval/138",
+      "dataset": "humaneval",
+      "seed": 17027,
+      "prompt_sha256": "df1f4af252031615c4f293be99e697c121b507509e559a10702bd3712c8a3e23"
+    },
+    {
+      "index": 28,
+      "source_index": 150,
+      "task_id": "HumanEval/150",
+      "dataset": "humaneval",
+      "seed": 17028,
+      "prompt_sha256": "29cf28dde72d7e4913c9a765a5b48e34fed75c9cfa73756eab5fe2100043f07f"
+    },
+    {
+      "index": 29,
+      "source_index": 163,
+      "task_id": "HumanEval/163",
+      "dataset": "humaneval",
+      "seed": 17029,
+      "prompt_sha256": "961bf231094a32ebd9ff14eccaf87dbbf90558a202536c2c146a639e0940d507"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "batch_size": 32,
+  "mix_policies": true,
+  "policies": [
+    "flow_w2",
+    "flow_w3",
+    "flow_w4",
+    "prefix_w2",
+    "prefix_w3",
+    "prefix_w4"
+  ]
+}

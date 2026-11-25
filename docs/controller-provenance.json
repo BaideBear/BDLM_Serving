@@ -1,0 +1,78 @@
+{
+  "methods.flowblock.control": {
+    "original_module": "flowblock_control",
+    "original_sha256": "e8f0513fe72949bfe44df113493b9a5f3542ce9863ea09306fb915b03d576c40"
+  },
+  "methods.flowblock.prefix_cache": {
+    "original_module": "flowblock_prefix",
+    "original_sha256": "3b852826607115d5dbdb6098f478036449966bf8609b2089d631027bd83c9ae6"
+  },
+  "methods.optimus.upstream": {
+    "original_module": "optimus_control",
+    "original_sha256": "c11f1d771be84405bc3588ef783abaac99cbcd2e83d1251957cc5ec856ca1d97"
+  },
+  "methods.optimus.fixed": {
+    "original_module": "fixed_baseline_controls",
+    "original_sha256": "38d0afec99e99f6839a65cdf131306119a5e0726de05f98dd80d6f9768b33377"
+  },
+  "methods.b3.sdar": {
+    "original_module": "fixed_baseline_controls",
+    "original_sha256": "38d0afec99e99f6839a65cdf131306119a5e0726de05f98dd80d6f9768b33377"
+  },
+  "methods.optimus.boundary": {
+    "original_module": "obs_native_boundary",
+    "original_sha256": "d7dcdfe6e3287ff0e567ad83040d079b93a107486c0f43635ca76fe439569edc"
+  },
+  "methods.b3.aligned": {
+    "original_module": "b3_aligned_kernel",
+    "original_sha256": "0bace9e22c436ee838c9c5e124f4450ee6739635ce1d4181c8ef86e7afdca2db"
+  },
+  "methods.b3.gate": {
+    "original_module": "b3_gate",
+    "original_sha256": "b457fde0b705311eb9d20e23ea94a674a36633978609b65b0812d5e492280b31"
+  },
+  "methods.b3.llada": {
+    "original_module": "llada_native_b3",
+    "original_sha256": "62ca33c6a8f1636e30f87a037268e2f49e7f0d87d90921b211724fc0110a7d1d"
+  },
+  "runtime.rolling": {
+    "original_module": "retirement_kernel",
+    "original_sha256": "8f1e0d6025f4440d682c7877305aa43d96c71b227f272f6cd61a8482b1b64610"
+  },
+  "runtime.tiled": {
+    "original_module": "absolute_tiled",
+    "original_sha256": "3dc9f8b827a45d94bf816380b015c65d3e5f75e589bc72693cb92dfb936574e1"
+  },
+  "runtime.rng": {
+    "original_module": "rng_scope",
+    "original_sha256": "c1f2df8a7d9fb64649120b7b4750594b4baf21c04ac5f967e4098d2fd9cac682"
+  },
+  "runtime.serial": {
+    "original_module": "serial_kernel",
+    "original_sha256": "49fbd66ebcc4ec59e15cae77c9abcc2fb9fa51316aff964a59a15eeb3e41a16c"
+  },
+  "runtime.batch": {
+    "original_module": "fixed_baseline_batch",
+    "original_sha256": "49d9952961837a6f9b00a6fdf999741f19f4cc3b3398a0a78805dec4dca8c542"
+  },
+  "runtime.audited_batch": {
+    "original_module": "flowblock_prefix_batch",
+    "original_sha256": "75d28027e861bd75566a393eac3df217308bb76b9ab29ad58396e6be2d2d7a62"
+  },
+  "runtime.timing": {
+    "original_module": "epbq_batch_timing",
+    "original_sha256": "2707eb1f28a1cde927284cdf1bc260df5b0e5cc508a26e38dec53579e0bc6d02"
+  },
+  "runtime.phase_batch": {
+    "original_module": "strict_budget_batch",
+    "original_sha256": "ce06e268b83bf453c608d72265b9e58e198764db89ff593d9f86dd38fe1d638d"
+  },
+  "evaluation.outcomes": {
+    "original_module": "fixed_baseline_outcomes",
+    "original_sha256": "77075e3aa04cb27ba5f7e812ef3d0e5868a3b0c7ff59b0985cc7d2b556e3b2fc"
+  },
+  "runtime.sdar_numerics": {
+    "original_module": "sdar_numerical_protocol",
+    "original_sha256": "6f64c51877b0d79ef1254d207473b55fb4ae724f9accac321a44044158bc604c"
+  }
+}

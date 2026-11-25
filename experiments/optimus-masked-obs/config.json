@@ -1,0 +1,10 @@
+{
+  "batch_size": 32,
+  "mix_policies": false,
+  "policies": [
+    "optimus_bobs_c4",
+    "optimus_bobs_c8",
+    "optimus_bobs_c16",
+    "optimus_bobs_c32"
+  ]
+}

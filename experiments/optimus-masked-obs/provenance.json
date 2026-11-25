@@ -1,0 +1,11 @@
+{
+  "study": "obs-b32-nominal-20261125",
+  "source_sha256": {
+    "summary.csv": "d75ad82f54dcc81c23fb419886bb83521af9ed4ae162ca11f003fb487c7c4e28",
+    "requests.csv": "0f159a29b9229a17a40c37d68422970ce0fca9f0a14cab567d85eb22ff3fbc04",
+    "comparison.png": "b86a0d63a34427f2426fbd6c61a78e8f67aa63eea5ad61242e90af4cf2c825ee",
+    "LLaDA-2.1.png": "9f863c868f735bc5047e95e2b97115362d5dc95f19a18f93341e7797b21db3dd",
+    "SDAR.png": "a5e8da648aa72962fbd60aa15d6e79de4f931fc725d5994adb173772246aa01a",
+    "paired_quality.csv": "f0a2e7d3ae4d51544541982057562498155ff7ba17cd258402e06090ed386cf0"
+  }
+}
