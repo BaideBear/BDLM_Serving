@@ -5,7 +5,7 @@ Each entry is **2.0 / 2.1** for the same 30 requests. TPF is a mean across reque
 | Policy | Quality / 30 | Mean TPF | Pooled TPF | Request efficiency | Physical efficiency |
 |---|---:|---:|---:|---:|---:|
 | HF generate B32 (uncached) | 25 / - | 3.936 / - | 2.606 / - | 0.34% / - | 0.34% / - |
-| Committed-prefix KV B32 | - / 26 | - / 5.728 | - / 4.976 | - / 15.55% | - / 15.55% |
+| Committed-prefix KV B32 | 29 / 26 | 3.444 / 5.728 | 2.673 / 4.976 | 8.35% / 15.55% | 8.35% / 15.55% |
 | `flow_w1` | 29 / 26 | 3.411 / 7.042 | 2.663 / 5.717 | 8.32% / 17.87% | 8.32% / 17.87% |
 | `flow_w2` | 28 / 27 | 3.964 / 9.262 | 2.745 / 6.626 | 4.29% / 10.35% | 4.29% / 5.94% |
 | `prefix_w2` | 25 / 23 | 3.865 / 7.300 | 2.280 / 4.102 | 4.48% / 8.00% | 3.71% / 3.25% |
@@ -23,6 +23,16 @@ Each entry is **2.0 / 2.1** for the same 30 requests. TPF is a mean across reque
 | `optimus_obs_c16` | 23 / 24 | 3.498 / 3.395 | 2.506 / 2.819 | 15.65% / 17.56% | 15.38% / 17.56% |
 | `optimus_obs_c32` | 26 / 21 | 4.302 / 4.179 | 2.725 / 2.938 | 8.53% / 9.17% | 8.49% / 9.17% |
 
+## LLaDA 2.0-mini: cached B32 accounting
+
+| Phase | Forwards | Actual Q | Included in decoding metrics? |
+|---|---:|---:|:---:|
+| Prompt-only prefill | 30 | 3,008 | No |
+| Denoise | 4,348 | 139,136 | Yes |
+| Commit (including terminal blocks) | 428 | 13,696 | Yes |
+
+Actual QKV projection widths checked in every layer on every forward. Single-request execution; no batch padding. Both cached systems include the terminal commit. [Per-request phase counts](../llada20-cached-b32/requests.csv).
+
 ## FlowBlock on 2.0: cost per request and per batch
 
 | W | Policy | Delivered N | Forwards | Request Q | Physical Q | Q/forward | Quality / 30 |
@@ -34,7 +44,7 @@ Each entry is **2.0 / 2.1** for the same 30 requests. TPF is a mean across reque
 | 4 | flow | 15,867 | 6,291 | 805,248 | 805,248 | 128.00 | 26 |
 | 4 | prefix | 16,152 | 6,799 | 781,041 | 848,386 | 114.88 | 24 |
 
-Includes truncated and failed requests, with their actual costs. These are request-level decoding metrics, not measurements of wall-clock throughput. Native 2.0 recomputes its prefix; Native 2.1 uses a committed-prefix KV cache. Padding depends on the archived batch schedule.
+Includes truncated and failed requests, with their actual costs. These are request-level decoding metrics, not measurements of wall-clock throughput. Only the separate 2.0 HF uncached reference recomputes its prefix. Padding depends on the archived batch schedule.
 
 ![Three-metric comparison](figures/comparison.png)
 

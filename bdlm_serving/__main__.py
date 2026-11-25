@@ -5,7 +5,8 @@ from pathlib import Path
 
 from .evaluation.frozen import ROOT, load_tasks, restore, sha
 
-STUDIES = ("baselines", "flowblock-prefix", "optimus-masked-obs", "llada20-frozen30")
+STUDIES = ("baselines", "flowblock-prefix", "optimus-masked-obs", "llada20-frozen30",
+           "llada20-cached-b32")
 
 
 def score_run(folder, samples):
@@ -71,8 +72,8 @@ def main():
         run_wave(args)
     else:
         from .generation import run
-        if (args.model == "llada20") != (args.experiment == "llada20-frozen30"):
-            parser.error("Use llada20 with the llada20-frozen30 experiment")
+        if (args.model == "llada20") != (args.experiment in ("llada20-frozen30", "llada20-cached-b32")):
+            parser.error("Use llada20 with a llada20 experiment")
         if args.batch_size is not None and args.batch_size < 1:
             parser.error("--batch-size must be positive")
         tasks = load_tasks(args.samples)

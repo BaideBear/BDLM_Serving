@@ -14,7 +14,7 @@ LLaDA 2.0-mini、LLaDA 2.1-mini、SDAR-8B-Chat-b32 与 DiffusionGemma 的单请�
 
 [Gemma 模型归档](experiments/diffusiongemma/)另含 FlowBlock W=1/2/3/4 与 B3，共新增 150 次执行。[三指标图](experiments/diffusiongemma-wave/figures/comparison.png)包含 Native 对照。
 
-[LLaDA 2.0-mini 与 2.1-mini 对照](experiments/llada20-frozen30/)含 17 个配置、510 次新增执行，2.1 对照复用原始归档：[三指标总表](experiments/llada20-frozen30/results.md) · [对比图](experiments/llada20-frozen30/figures/comparison.png) · [W=2/3/4 前缀缓存的 Q 与 forward 成本分解](experiments/llada20-frozen30/flowblock-pairs.md)。不同版本的推理配置并不完全相同，尤其是 Native 的前缀重算与缓存。
+[LLaDA 2.0-mini 与 2.1-mini 对照](experiments/llada20-frozen30/)含原 17 组和[补测的缓存版 Native B32](experiments/llada20-cached-b32/)，共 540 次 2.0 请求执行；2.1 复用历史实测。[三指标总表](experiments/llada20-frozen30/results.md) · [数值标注图](experiments/llada20-frozen30/figures/comparison.png) · [W=2/3/4 前缀缓存的 Q 与 forward 成本分解](experiments/llada20-frozen30/flowblock-pairs.md)。两版 Native 均按已完成块缓存 KV、当前块每次实算 32 Q 对照；2.0 原 HF 无缓存入口另列，不作为 2.0 Native 的效率。
 
 **比较口径。** 同一模型内，TPF、质量和 token efficiency 直接跨 batch 比较。TPF 取逐请求 `N/F` 的均值；质量为 30 题正确数；token efficiency 用 `ΣN/ΣQ`，不是逐请求比例的均值。`Q` 是实际送算的请求行数，另报 `physical_Q`（含批内 padding）。窗口是名义配置，不是硬 Q 上限。batch 记录用于复现和解释 padding；不据此比较墙钟吞吐。
 

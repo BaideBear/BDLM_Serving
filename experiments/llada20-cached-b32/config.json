@@ -1,0 +1,8 @@
+{
+  "policies": ["native32_cached"],
+  "batch_size": 1,
+  "mix_policies": false,
+  "terminal_commit": true,
+  "block_size": 32,
+  "generation_cap": 2048
+}

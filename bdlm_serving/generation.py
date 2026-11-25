@@ -83,6 +83,9 @@ def run(args, tasks, plan, before_cuda=None):
                 except RuntimeError as error:
                     raw, events, extra, request_failure = capture_optimus_progress_failure(error, engine)
                 extra["native_b32_decode_mask"] = True
+            elif policy == "native32_cached" and args.model == "llada20":
+                from bdlm_serving.runtime.llada20_cached import cached_generate
+                raw, events, extra = cached_generate(model, facade, prompt, cap, seed, mask_id, eos[0])
             elif policy == "native32" and args.model == "llada20":
                 from bdlm_serving.runtime.llada20 import checkpoint_generate
                 raw, events, extra = checkpoint_generate(model, checkpoint_forward, facade, prompt,
@@ -173,7 +176,8 @@ def run(args, tasks, plan, before_cuda=None):
             return path
 
     cls = {"baselines": ForwardBatcher, "flowblock-prefix": AuditedBatcher,
-           "optimus-masked-obs": PhaseBatcher, "llada20-frozen30": AuditedBatcher}[args.experiment]
+           "optimus-masked-obs": PhaseBatcher, "llada20-frozen30": AuditedBatcher,
+           "llada20-cached-b32": AuditedBatcher}[args.experiment]
     batcher = cls(model, args.model, args.batch_size or plan["batch_size"])
     arms = plan["policies"]
     groups = [arms] if plan["mix_policies"] else [[p] for p in arms]
@@ -184,7 +188,7 @@ def run(args, tasks, plan, before_cuda=None):
             torch.cuda.empty_cache()
             jobs = [lambda t=t, p=p: invoke(batcher, t, p, 2048, "formal")
                     for p in group for t in tasks]
-            if args.model == "llada20" and group == ["native32"]:
+            if args.model == "llada20" and group in (["native32"], ["native32_cached"]):
                 for job in jobs:
                     job()
             else:

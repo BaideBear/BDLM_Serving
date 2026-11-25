@@ -81,6 +81,10 @@ def export(run):
 
 
 PREFIX = [f"{p}_w{w}" for w in (2,3,4) for p in ("flow","prefix")]
+CACHED = ROOT/"experiments/llada20-cached-b32"
+HF = "native32_hf_uncached"
+KV = "native32_cached"
+REPORT = [HF, KV, *DISPLAY[1:]]
 
 
 def render():
@@ -88,10 +92,15 @@ def render():
     sources = {name: [r for r in read(ROOT/f"experiments/{name}/requests.csv")
                       if r["model"] == "llada21"] for name in ("baselines","flowblock-prefix")}
     comparisons, summaries, pairs = [], [], []
-    for p in DISPLAY:
+    hf = group(current, "native32")
+    for dataset in ("all", "gsm8k", "math500", "humaneval"):
+        summaries.append(dict(model="llada20",policy=HF,dataset=dataset, **metrics(
+            hf if dataset == "all" else [r for r in hf if r["dataset"] == dataset])))
+    for p in REPORT[1:]:
         source = "flowblock-prefix" if p.startswith("prefix") or p in {
             "flow_w2","flow_w3","flow_w4"} else "baselines"
-        a,b = group(current,p),group(sources[source],p)
+        a = group(read(CACHED/"requests.csv"),p) if p == KV else group(current,p)
+        b = group(sources[source],"native32" if p == KV else p)
         for aa,bb in zip(a,b):
             pairs.append(dict(policy=p, index=aa["index"], dataset=aa["dataset"], task_id=aa["task_id"],
                               correct20=boolean(aa["correct"]), correct21=boolean(bb["correct"])))
@@ -114,7 +123,7 @@ def render():
     write(DEST/"prefix_deltas.csv", prefix_deltas(current, sources["flowblock-prefix"]))
     write_markdown(summaries)
     write_prefix_markdown(summaries)
-    draw_figure("comparison", DISPLAY, summaries)
+    draw_figure("comparison", REPORT, summaries)
     draw_figure("flowblock_prefix", PREFIX, summaries)
 
 
@@ -124,8 +133,7 @@ def draw_figure(name, policies, summaries):
     import matplotlib.pyplot as plt
     import numpy as np
     (DEST/"figures").mkdir(exist_ok=True)
-    # The two historical "native32" observations are distinct baselines.
-    slots = [(p, m) for p in policies for m in (("llada20", "llada21") if p == "native32" else (None,))]
+    slots = [(p, "llada20" if p == HF else None) for p in policies]
     height = len(slots)*.54 + 1.65
     fig, axes = plt.subplots(1,3,figsize=(14.4,height))
     fig.subplots_adjust(left=.125, right=.988, top=1-1.22/height, bottom=.42/height, wspace=.12)
@@ -134,7 +142,7 @@ def draw_figure(name, policies, summaries):
     fig.text(.014,1-.58/height,"Same 30 requests  |  10 GSM8K, 10 MATH-500, 10 HumanEval",
              fontsize=10, va="center", color="#435163")
     y = np.arange(len(slots))
-    names = {"native32":"Native B32","b3_native32":"B3 B32"}
+    names = {KV:"KV-cached B32","b3_native32":"B3 B32"}
     native_labels = {"llada20": "HF uncached B32", "llada21": "KV-cached B32"}
     for w in (1,2,3,4):
         names[f"flow_w{w}"], names[f"prefix_w{w}"] = f"FlowBlock W={w}", f"PrefixCache W={w}"
@@ -187,21 +195,30 @@ def write_markdown(summaries):
              "The two B32 reference implementations are listed separately; a dash means not measured.", "",
              "| Policy | Quality / 30 | Mean TPF | Pooled TPF | Request efficiency | Physical efficiency |",
              "|---|---:|---:|---:|---:|---:|"]
-    for p in DISPLAY:
-        a, b = (lookup[m, p] for m in ("llada20", "llada21"))
-        if p == "native32":
-            for label, row, first in (("HF generate B32 (uncached)", a, True),
-                                      ("Committed-prefix KV B32", b, False)):
-                fields = [f'{row[k]:{fmt}}' for k, fmt in (
-                    ("correct","d"),("mean_tpf",".3f"),("pooled_tpf",".3f"),
-                    ("efficiency",".2%"),("physical_efficiency",".2%"))]
-                lines.append("| " + " | ".join([label, *[
-                    v+" / -" if first else "- / "+v for v in fields]]) + " |")
+    for p in REPORT:
+        a = lookup["llada20", p]
+        if p == HF:
+            fields = [f'{a[k]:{fmt}} / -' for k, fmt in (
+                ("correct","d"),("mean_tpf",".3f"),("pooled_tpf",".3f"),
+                ("efficiency",".2%"),("physical_efficiency",".2%"))]
+            lines.append("| " + " | ".join(["HF generate B32 (uncached)", *fields]) + " |")
             continue
+        b = lookup["llada21", p]
         fields = [f'{a[k]:{fmt}} / {b[k]:{fmt}}' for k, fmt in (
             ("correct","d"), ("mean_tpf",".3f"), ("pooled_tpf",".3f"),
             ("efficiency",".2%"), ("physical_efficiency",".2%"))]
-        lines.append("| " + " | ".join([f"`{p}`", *fields]) + " |")
+        lines.append("| " + " | ".join(["Committed-prefix KV B32" if p == KV else f"`{p}`", *fields]) + " |")
+    counts = read(CACHED/"requests.csv")
+    total = lambda k: sum(int(r[k]) for r in counts)
+    lines += ["", "## LLaDA 2.0-mini: cached B32 accounting", "",
+              "| Phase | Forwards | Actual Q | Included in decoding metrics? |",
+              "|---|---:|---:|:---:|",
+              f"| Prompt-only prefill | {total('prefill_f'):,} | {total('prefill_rows'):,} | No |",
+              f"| Denoise | {total('denoise_f'):,} | {total('denoise_q'):,} | Yes |",
+              f"| Commit (including terminal blocks) | {total('commit_f'):,} | {total('commit_q'):,} | Yes |",
+              "", "Actual QKV projection widths checked in every layer on every forward. "
+              "Single-request execution; no batch padding. Both cached systems include the terminal commit. "
+              "[Per-request phase counts](../llada20-cached-b32/requests.csv)."]
     lines += ["", "## FlowBlock on 2.0: cost per request and per batch", "",
               "| W | Policy | Delivered N | Forwards | Request Q | Physical Q | Q/forward | Quality / 30 |",
               "|---:|---|---:|---:|---:|---:|---:|---:|"]
@@ -212,7 +229,7 @@ def write_markdown(summaries):
                          f"{r['physical_q']:,} | {r['q_per_forward']:.2f} | {r['correct']} |")
     lines += ["", "Includes truncated and failed requests, with their actual costs. "
               "These are request-level decoding metrics, not measurements of wall-clock throughput. "
-              "Native 2.0 recomputes its prefix; Native 2.1 uses a committed-prefix KV cache. "
+              "Only the separate 2.0 HF uncached reference recomputes its prefix. "
               "Padding depends on the archived batch schedule.", "",
               "![Three-metric comparison](figures/comparison.png)", "",
               "![Dense and cached W=2/3/4](figures/flowblock_prefix.png)"]
@@ -283,7 +300,11 @@ def write_prefix_markdown(summaries):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, help="optional private scored run")
+    parser.add_argument("--cached-run", type=Path, help="separate scored 30-request cached B32 run")
     args = parser.parse_args()
     if args.run:
         export(args.run)
+    if args.cached_run:
+        from llada20_cached_audit import export_cached
+        export_cached(args.cached_run, CACHED/"requests.csv", MANIFEST)
     render()

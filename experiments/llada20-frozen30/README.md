@@ -1,14 +1,14 @@
 # LLaDA 2.0-mini and 2.1-mini: frozen30
 
-Seventeen arms use the exact same 10 GSM8K, 10 MATH-500 and 10 HumanEval
+The original seventeen arms and the added cached B32 arm use the exact same 10 GSM8K, 10 MATH-500 and 10 HumanEval
 requests, seeds and 2048-token output cap as the original LLaDA 2.1 experiment.
 No strict Q cap, sample substitutions or retry of individual failed responses.
 The primary metrics are mean request TPF, pooled token efficiency, and
 correct / 30. Request Q excludes batch padding; physical Q includes it.
 
-[All 17 measured configurations: 2.0 vs 2.1](results.md) ·
+[Full results: 2.0 vs 2.1, plus the separate uncached HF reference](results.md) ·
 [Three-metric comparison chart](figures/comparison.png) ·
-[2.0 per-request counts and correctness](requests.csv) ·
+[Original 17 arms](requests.csv) · [Cached B32 request and phase counts](../llada20-cached-b32/requests.csv) ·
 [Summary by dataset](summary.csv) · [Matched model comparisons](comparison.csv).
 
 [Dense vs PrefixCache: all W=2/3/4 pairs on both models](flowblock-pairs.md) ·
@@ -17,6 +17,7 @@ correct / 30. Request Q excludes batch padding; physical Q includes it.
 
 | Policy | LLaDA 2.0 setup |
 |---|---|
+| Committed-prefix KV B32 | Same 2.0 checkpoint sampler and stopping rules as the HF reference. Only one live block is forwarded. Re-encode the final tokens on every block commit, including the last. Every decoding forward is measured at all 20 QKV projections. |
 | HF generate B32 (uncached reference) | Actual checkpoint `generate`, 32 steps, M2T > .95, default EOS check at block end. `temperature=0` in this checkpoint still performs multinomial sampling. No T2T. Full visible prefix rows are recomputed and charged. The 2.1 native row is a different, committed-prefix KV implementation. |
 | FlowBlock W=1/2/3/4 | Packed upstream controller, greedy top-1, M2T > .95, acceptance-ratio spawn .8, no T2T/post-edit. Counts physical verification/commit forwards. |
 | FlowBlock PrefixCache W=2/3/4 | Same settings as dense, but skip each block's stable leading input positions only after encoding their final values. Preserve KV; exclude skipped rows before the transformer. |
@@ -34,7 +35,7 @@ CSV name different execution paths. The table and chart now separate them.
 This is **not** the efficiency of cached B32 on LLaDA 2.0. The authors'
 [deployment notes](https://github.com/inclusionAI/LLaDA2.X#deployment-and-usage)
 and [dInfer](https://github.com/inclusionAI/dInfer) describe cache reuse.
-We do not yet report a cached 2.0 native frozen30 result.
+The [cached 2.0 native frozen30 rerun](../llada20-cached-b32/) supplies the like-for-like Q accounting. Summary tables use `native32_cached` for both cached baselines, and `native32_hf_uncached` for the distinct 2.0 reference. The historical raw CSV IDs are unchanged.
 
 An independent CPU boundary probe with full BF16 weights observed QKV
 projection inputs and outputs in all 20 layers. With 63 prompt tokens,
@@ -52,7 +53,7 @@ python -m bdlm_serving score --samples "$FROZEN30" --output "$NEW_RUN"
 python tools/llada20_archive.py --run "$NEW_RUN"
 ```
 
-Native runs request-by-request, using the original checkpoint's square additive
-mask; batching is used for the adapted controllers. Only the latter use the
-rectangular binary-mask adapter. The checkpoint manifest includes all seven
+Both 2.0 Native runs execute request-by-request. Uncached HF uses its square additive
+mask; cached B32 forwards only the needed rectangle from that mask. Other controllers
+use batching. The checkpoint manifest includes all seven
 shard hashes. Weights, responses and cluster logs are not public artifacts.
