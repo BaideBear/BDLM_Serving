@@ -1,5 +1,6 @@
 """Shared frozen30 protocol: one case list, explicit budgets, no free closure work."""
 from dataclasses import dataclass
+from .frontier import HARD_POLICIES
 
 
 @dataclass(frozen=True)
@@ -26,8 +27,7 @@ class Arm:
         saturated = block == 32 and obj == cls(64, 0, 64, "hard_noedit")
         if (not 1 <= obj.budget <= block and not saturated) or min(obj.fresh, obj.mask, obj.edit) < 0:
             raise ValueError(f"Invalid Q or quota: {text}")
-        modes = ("targeted", "random", "noedit", "hard_frontier", "hard_random", "hard_noedit",
-                 "hard_slack", "hard_trigger") + (("near_miss", "gate_random", "hard_oracle1") if block == 32
+        modes = ("targeted", "random", "noedit", *HARD_POLICIES) + (("near_miss", "gate_random", "hard_oracle1") if block == 32
                                                     else ("fresh_random",) if block == 256 else ())
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")

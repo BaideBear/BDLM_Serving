@@ -26,7 +26,7 @@ from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
-_HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack", "hard_trigger")
+from .frontier import HARD_POLICIES as _HARD_POLICIES
 
 
 @dataclass
@@ -100,7 +100,7 @@ def _hard_pick(h, width, q_budget, fresh_slots, mask_slots, policy, seed,
     positions, reserved = select_hard(
         list(range(width)), list(h.resolved), set(mandatory),
         list(last_write), list(last_query), clock, q_budget, edit_slots,
-        policy, seed, **({"previous_strict": previous_strict} if policy == "hard_trigger" else {}))
+        policy, seed, **({"previous_strict": previous_strict} if policy.startswith("hard_trigger") else {}))
     positions, reserved = list(positions), list(reserved)
     assert positions == sorted(set(positions)), "select_hard positions must be sorted unique"
     assert all(type(i) is int and 0 <= i < width for i in positions), \

@@ -59,12 +59,12 @@ from __future__ import annotations
 import random
 
 
-__all__ = ["select_hard"]
+__all__ = ["select_hard", "HARD_POLICIES"]
 
 
 RADIUS = 32
-_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack",
-             "hard_trigger")
+HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit", "hard_slack",
+                 "hard_trigger", "hard_slack_placebo", "hard_trigger_placebo")
 
 
 def _frontier_scores(edit_pool, last_write, last_query, clock, radius=RADIUS):
@@ -120,7 +120,7 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
         raise ValueError("every fresh position must be editable")
     if budget < 0 or edit_slots < 0:
         raise ValueError("budget and edit_slots must be non-negative")
-    if policy not in _POLICIES:
+    if policy not in HARD_POLICIES:
         raise ValueError(f"unknown hard policy: {policy}")
     if policy == "hard_noedit" and edit_slots:
         raise ValueError("hard_noedit requires edit_slots=0")
@@ -146,22 +146,27 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
     # 2. Reserve edit seats from the non-fresh resolved pool.
     edit_pool = [i for i in eligible
                  if resolved[i] and i not in fresh and i not in selected]
+    placebo = policy.endswith("_placebo")
+    allocation = policy.removesuffix("_placebo")
     if policy == "hard_noedit":
         ranked = []
     elif policy == "hard_random":
         ranked = list(edit_pool)
         random.Random(f"{seed}:{clock}").shuffle(ranked)
+    elif placebo:
+        # The gate below needs eligibility, but not a score, for the seat count.
+        ranked = edit_pool
     else:
         scores = _frontier_scores(edit_pool, last_write, last_query, clock)
         ranked = sorted(edit_pool, key=lambda i: (-scores[i], i))
 
-    if policy in ("hard_slack", "hard_trigger"):
+    if allocation in ("hard_slack", "hard_trigger"):
         # Slack is measured before the first mandatory MASK was taken.
         # Both policies spend slack first, so it never displaces a MASK.
         masks = sum(not resolved[i] and i not in fresh for i in eligible)
         slack = max(0, cap - len(fresh) - masks)
         limit = min(edit_slots, slack)
-        if policy == "hard_trigger" and slack == 0 and previous_strict:
+        if allocation == "hard_trigger" and slack == 0 and previous_strict:
             # Release the extra seat to MASK unless a previous real substitution
             # provides a dirty neighbour within four positions of an old row.
             ranked = [i for i in ranked if any(0 < abs(i-j) <= 4
@@ -169,7 +174,12 @@ def select_hard(editable, resolved, fresh, last_write, last_query, clock,
             limit = min(edit_slots, 1)
         edit_slots = limit
     take = min(edit_slots, cap - len(selected), len(ranked))
-    reserved = ranked[:take]
+    if placebo:
+        # Uniform over ALL nonfresh old rows; matched count including the
+        # trigger's gate, not constrained to positions near the prior edit.
+        reserved = random.Random(f"placebo:{seed}:{clock}").sample(edit_pool, take)
+    else:
+        reserved = ranked[:take]
     selected.update(reserved)
 
     # 3. Give the remaining seats to MASK, in neutral positional order.
