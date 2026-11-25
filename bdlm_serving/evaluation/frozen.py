@@ -7,6 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "benchmarks/frozen30/manifest.json"
 
+# Predeclared additive offset for a repeat run over the identical task set.
+# Applying the same offset to every request changes only the seed, never the
+# prompt, reference, identifier, ordering, or any other task field.
+REPEAT_SEED_OFFSET = 1_000_003
+
 
 def sha(path):
     digest = hashlib.sha256()
@@ -16,10 +21,24 @@ def sha(path):
     return digest.hexdigest()
 
 
-def load_tasks(path):
+def load_tasks(path, *, seed_offset=0):
+    """Load the frozen task list with an optional same-task seed offset.
+
+    ``seed_offset`` is added to every request's ``seed`` after the archived
+    samples snapshot has been verified.  The task set is otherwise unchanged:
+    prompts, references, source rows, identifiers, and ordering are preserved.
+    The default of zero reproduces the archived seeds exactly.
+    """
+    if isinstance(seed_offset, bool) or not isinstance(seed_offset, int):
+        raise TypeError("seed_offset must be an int")
+    if seed_offset < 0:
+        raise ValueError("seed_offset must be non-negative")
     if sha(path) != json.loads(MANIFEST.read_text())["samples_sha256"]:
         raise ValueError("samples.json does not match the archived 30-request manifest")
-    return json.loads(path.read_text())["samples"]
+    tasks = json.loads(path.read_text())["samples"]
+    if seed_offset == 0:
+        return tasks
+    return [{**task, "seed": task["seed"] + seed_offset} for task in tasks]
 
 
 def restore(raw_dir, output):

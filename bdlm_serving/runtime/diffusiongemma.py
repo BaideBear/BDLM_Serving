@@ -76,7 +76,8 @@ def account(events, suffix, prompt_len, canvas, cap, eos, special, pad, native_t
         eos=stop is not None, truncated=stop is None)
 
 
-def run_native(args, before_cuda=None, trace_request=None):
+def run_native(args, before_cuda=None, trace_request=None, seed_offset=0):
+    """Run pinned native DiffusionGemma and return archived-format request rows."""
     import torch
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
@@ -84,7 +85,7 @@ def run_native(args, before_cuda=None, trace_request=None):
     plan = json.loads((STUDY / "config.json").read_text())
     if transformers.__version__ != plan["transformers"]:
         raise ValueError(f"This protocol requires transformers=={plan['transformers']}")
-    tasks = load_tasks(args.samples)
+    tasks = load_tasks(args.samples, seed_offset=seed_offset)
     check_snapshot(args.checkpoint)
     processor = AutoProcessor.from_pretrained(args.checkpoint, local_files_only=True)
     tok = processor.tokenizer
@@ -103,12 +104,16 @@ def run_native(args, before_cuda=None, trace_request=None):
         effective["sampler_config"] = effective["sampler_config"].to_dict()
     meta = dict(plan, torch=str(torch.__version__), gpu=torch.cuda.get_device_name(),
                 effective_generation_config=effective)
+    if seed_offset:
+        meta["seed_offset"] = seed_offset
+        meta["seed_mapping"] = "same_task_seed_plus_offset"
     args.output.mkdir(exist_ok=False, parents=True)
     (args.output / "run.json").write_text(json.dumps(meta, indent=2))
     if before_cuda is not None:
         before_cuda(model)
     model.to("cuda")
     policy, = plan["policies"]
+    rows = []
     with torch.inference_mode():
         for task, data in zip(tasks, inputs, strict=True):
             data = data.to(model.device)
@@ -132,6 +137,8 @@ def run_native(args, before_cuda=None, trace_request=None):
             tmp = path.with_suffix(".tmp")
             tmp.write_text(json.dumps(row, ensure_ascii=False))
             tmp.replace(path)
+            rows.append(row)
             print(f"{task['index']:02d} {task['dataset']} N={counts['output_tokens']} "
                   f"F={counts['generation_forwards']} Q={counts['generation_query_rows']}", flush=True)
             del out
+    return rows
