@@ -1,6 +1,7 @@
 """Shared frozen30 protocol: one case list, explicit budgets, no free closure work."""
 from dataclasses import dataclass
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
+from .seat_audit import MODES
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,10 @@ class Arm:
             raise ValueError(f"Invalid Q or quota: {text}")
         modes = ("targeted", "random", "noedit", *HARD_POLICIES) + (("near_miss", "gate_random", "hard_oracle1", *GEOMETRY_POLICIES) if block == 32
                                                     else ("fresh_random",) if block == 256 else ())
+        if selection in MODES:
+            if (block, obj.budget) not in ((32, 4), (256, 32)) or obj.fresh or obj.edit:
+                raise ValueError("One-seat studies use 4:0:4 (B32) or 32:0:32 (B256)")
+            return obj
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
         if selection.startswith("hard_") and obj.fresh != 0:

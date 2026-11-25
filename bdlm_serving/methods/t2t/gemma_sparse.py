@@ -27,6 +27,7 @@ from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
 from .frontier import HARD_POLICIES as _HARD_POLICIES
+from .seat_audit import MODES, SeatAudit, canvas_digest, digest
 
 
 @dataclass
@@ -187,7 +188,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
-    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES) or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES, *MODES) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -204,6 +205,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     need_check = False
     closed = True
     ledger = GemmaLedger()
+    audit = SeatAudit(policy) if policy in MODES else None
 
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed
@@ -234,7 +236,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         else:
             stage = "selected"
         previous_clock = clock
-        hard = policy in _HARD_POLICIES
+        hard = policy in _HARD_POLICIES or audit is not None
         if hard:
             hard_clock += 1
         selected = stage == "selected"
@@ -245,8 +247,23 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if selected and hard:
             (picked, reserved, mandatory_fresh, fresh_selected,
              overflow, edit_slots) = _hard_pick(
-                h, width, q_budget, fresh_slots, mask_slots, policy,
+                h, width, q_budget, fresh_slots, mask_slots, "hard_noedit" if audit else policy,
                 selection_seed, hard_clock, last_write, last_query, previous_strict)
+            if audit:
+                picked, reserved = audit.choose(picked, all_rows, h.resolved, h.fresh, last_write,
+                    last_query, hard_clock, q_budget, "gemma", selection_seed, previous_strict)
+                if audit.current:
+                    stopper = kw["diffusion_stopping_criteria"]
+                    layers = kw["past_key_values"].layers
+                    fingerprint = digest(canvas, prior_draft, kw["input_ids"], pos, sc, raw,
+                        kw["finished_denoising"], kw["sampler"].accepted_token_mask,
+                        getattr(stopper, "argmax_canvas_history", None), torch.get_rng_state(),
+                        torch.cuda.get_rng_state(canvas.device), block, clock, hard_clock, last_write,
+                        last_query, h.resolved, sorted(h.fresh), sorted(previous_strict),
+                        [(i, *bank.buffers[i]) for i in sorted(bank.buffers)],
+                        [(layer.keys, layer.values, getattr(layer, "cumulative_length", None))
+                         for layer in layers])
+                    audit.begin(fingerprint, bank.buffers[15], 0)
         else:
             picked = (_pick(h, q_budget, fresh_slots, mask_slots, policy, signal, rng)
                       if selected else all_rows)
@@ -341,6 +358,13 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                 overflow=overflow,
                 hard_clock=hard_clock,
             )
+        if audit:
+            record["trajectory_sha256"] = canvas_digest(after_ids, accepted)
+            record["accepted_sha256"] = canvas_digest(after_ids, accepted, accepted_only=True)
+            if audit.current:
+                audit.end(record, after_ids, accepted, before_ids, previous.resolved, bank.buffers[15])
+                record["intervention"]["post_rng_sha256"] = digest(torch.get_rng_state(),
+                    torch.cuda.get_rng_state(canvas.device))
         ledger.trace.append(record)
         return after, draft, new_sc, finished
 

@@ -17,13 +17,14 @@ from transformers.cache_utils import DynamicCache
 
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
+from .seat_audit import MODES, SeatAudit, canvas_digest, digest
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 
 _GATED = ("near_miss", "gate_random")
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",)
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES
 
 
 @dataclass
@@ -111,6 +112,7 @@ class _SelectedCache(DynamicCache):
 
 @dataclass
 class SparseRequestState(RequestState):
+    seat_audit: SeatAudit | None = None
     history: History | None = None
     resident: tuple | None = None
     selection_seed: int = 0
@@ -201,6 +203,7 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("Prompt cannot contain the generation mask ID")
         base = super().create(input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True)
         return SparseRequestState(**vars(base),
+                                  seat_audit=SeatAudit(self.policy) if self.policy in MODES else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
 
     def _execute(self, state, positions, end, cache, phase, stage, store):
@@ -321,9 +324,19 @@ class LLaDASparseKernel(SerialKernel):
         picked, reserved = select_hard(
             list(editable), resolved, fresh, state.last_write, state.last_query,
             len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,
-            "hard_noedit" if oracle else self.policy, state.selection_seed,
+            "hard_noedit" if oracle or state.seat_audit else self.policy, state.selection_seed,
             previous_strict=state.previous_strict,
         )
+        if state.seat_audit:
+            picked, reserved = state.seat_audit.choose(
+                picked, editable, resolved, fresh, state.last_write, state.last_query,
+                len(state.events)+1, self.q_budget, "llada21", state.selection_seed, state.previous_strict)
+            if state.seat_audit.current:
+                fingerprint = digest(state.x, state.cache.to_legacy_cache(), state.resident,
+                    state.rng_cpu, state.rng_cuda, state.block, state.step_in_block, state.post_steps,
+                    state.committed_end, state.context_version, state.prompt_length, state.last_write,
+                    state.last_query, sorted(fresh), sorted(state.previous_strict), resolved)
+                state.seat_audit.begin(fingerprint, state.resident[15], state.block * 32)
         if oracle:
             from .shadow import screened_swap
             picked, reserved = screened_swap(picked, resolved, fresh, editable,
@@ -452,6 +465,12 @@ class LLaDASparseKernel(SerialKernel):
         h = state.history
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]
+        if state.seat_audit:
+            state.events[-1]["trajectory_sha256"] = canvas_digest(after, now_resolved)
+            state.events[-1]["accepted_sha256"] = canvas_digest(after, now_resolved, accepted_only=True)
+            if state.seat_audit.current:
+                state.seat_audit.end(state.events[-1], after, now_resolved, before, resolved, state.resident[15])
+                state.events[-1]["intervention"]["post_rng_sha256"] = digest(state.rng_cpu, state.rng_cuda)
         fresh = {i for i in changed if now_resolved[i]}
         certainty = h.certainty
         if hard:
