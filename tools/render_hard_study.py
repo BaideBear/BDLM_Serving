@@ -182,7 +182,7 @@ def calibrated_groups(folder, model, width, baselines):
     return [(16, rows + window_controls(model,16,width,baselines))]
 
 
-def render(path, model, width, data, *, adaptive=False, placement=False, geometry=False, calibrated=False):
+def render(path, model, width, data, *, adaptive=False, placement=False, geometry=False, calibrated=False, study_title=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -215,6 +215,8 @@ def render(path, model, width, data, *, adaptive=False, placement=False, geometr
         title = "Geometry vs matched old-position controls"
     if calibrated:
         title = "Independent positional risk calibration"
+    if study_title:
+        title = study_title
     fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  {title} (B{width})",
              fontsize=17, weight="bold", color="#172b38")
     fig.text(.035, 1-.53/height,

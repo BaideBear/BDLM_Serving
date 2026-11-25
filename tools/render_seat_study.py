@@ -55,7 +55,29 @@ def render(out, root=ROOT):
         '<g font-family="Arial, sans-serif">' + "".join(items) + '</g></svg>', encoding="utf-8")
 
 
+def render_factorial(out, root=ROOT):
+    from tools.render_hard_study import render as render_points
+    baselines = read_baselines(root / "experiments/baselines/summary.csv")
+    model, q = "gemma", 32
+    rows = [(f"Optimus {mode.upper()}{q}", mode, baselines[model, q, mode]) for mode in ("ibs", "obs")]
+    def get(folder, arm):
+        return single(folder/"gemma-online-summary.csv", "t2t_q32_f0_m32_hard_once_" + arm)
+    rows.append(("No reserved seat", "hard", get(out.parent, "base")))
+    rows.append(("Uniform single swap", "placebo", get(out.parent, "random")))
+    for code, desc in (("kk", "Keep KV, use score"), ("dk", "Restore KV, use score"),
+                       ("kd", "Keep KV, freeze score"), ("dd", "Restore KV, freeze score")):
+        rows.append((desc, "geometry" if code[0] == "k" else "adaptive", get(out, code)))
+    render_points(out/"factorial.svg", model, 256, [(q, rows)], adaptive=True,
+                  study_title="One predicted seat: KV persistence vs sampling")
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--out", type=Path, default=ROOT / "experiments/t2t/placement/one-seat")
-    render(p.parse_args().out)
+    p.add_argument("--out", type=Path)
+    p.add_argument("--factorial", action="store_true")
+    args = p.parse_args()
+    folder = ROOT / "experiments/t2t/placement/one-seat"
+    if args.factorial:
+        render_factorial(args.out or folder/"kv-factorial")
+    else:
+        render(args.out or folder)

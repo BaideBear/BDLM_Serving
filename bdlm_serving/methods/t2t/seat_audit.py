@@ -4,6 +4,7 @@ import json
 
 
 MODES = ("hard_once_base", "hard_once_rank", "hard_once_random")
+GEMMA_FACTORIAL = tuple("hard_once_" + k + s for k in "kd" for s in "kd")
 _KEY = dict(zip(MODES, ("base", "targeted", "random")))
 
 

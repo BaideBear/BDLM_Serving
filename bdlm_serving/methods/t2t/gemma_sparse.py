@@ -27,7 +27,7 @@ from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
 from .frontier import HARD_POLICIES as _HARD_POLICIES
-from .seat_audit import MODES, SeatAudit, canvas_digest, digest
+from .seat_audit import GEMMA_FACTORIAL, MODES, SeatAudit, canvas_digest, digest
 
 
 @dataclass
@@ -154,6 +154,14 @@ class _CanvasKV(Resident):
             )
         return super().extend(layer, q, k, v)
 
+    def candidate_state(self, row, *, clone=False):
+        views = [t[..., row:row+1, :] for layer in sorted(self.buffers) for t in self.buffers[layer]]
+        return [v.clone() for v in views] if clone else views
+
+    def other_state(self, row):
+        return [view for layer in sorted(self.buffers) for t in self.buffers[layer]
+                for view in (t[..., :row, :], t[..., row+1:, :])]
+
 
 def _advance(h, before, after, accepted, picked, margin):
     """Only consecutive accepted, changed sample IDs count as T2T."""
@@ -188,7 +196,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
-    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES, *MODES) or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -205,7 +213,10 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     need_check = False
     closed = True
     ledger = GemmaLedger()
-    audit = SeatAudit(policy) if policy in MODES else None
+    factorial = policy in GEMMA_FACTORIAL
+    if factorial and (width, q_budget, fresh_slots, mask_slots) != (256, 32, 0, 32):
+        raise ValueError("Candidate persistence study requires Gemma 32:0:32")
+    audit = SeatAudit("hard_once_rank") if factorial else SeatAudit(policy) if policy in MODES else None
 
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed
@@ -243,6 +254,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         prev_fresh = sorted(h.fresh) if hard else []
         mandatory_fresh = len(prev_fresh)
         reserved, overflow = [], 0
+        candidate = stale_kv = None
         edit_slots = q_budget - fresh_slots - mask_slots
         if selected and hard:
             (picked, reserved, mandatory_fresh, fresh_selected,
@@ -264,6 +276,12 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                         [(layer.keys, layer.values, getattr(layer, "cumulative_length", None))
                          for layer in layers])
                     audit.begin(fingerprint, bank.buffers[15], 0)
+                    if factorial:
+                        candidate = audit.current["candidate"]
+                        assert candidate in picked and candidate not in h.fresh and h.resolved[candidate]
+                        stale_kv = bank.candidate_state(candidate, clone=True)
+                        audit.current.update(pre_row_sha256=digest(stale_kv),
+                            persist_kv=policy[-2] == "k", use_score=policy[-1] == "k")
         else:
             picked = (_pick(h, q_budget, fresh_slots, mask_slots, policy, signal, rng)
                       if selected else all_rows)
@@ -287,7 +305,11 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                         or len(bank.visited) != len(model.model.decoder.layers)):
                     raise RuntimeError("Selected decoder Q did not reach all layers and head")
                 if selected:
+                    old_raw = (raw[:, candidate:candidate+1].clone()
+                               if candidate is not None and policy[-1] == "d" else None)
                     raw.index_copy_(1, index, out.logits)
+                    if old_raw is not None:
+                        raw[:, candidate:candidate+1].copy_(old_raw)
                 else:
                     raw = out.logits.detach().clone()
                 # The pinned native temperature processor is out-of-place.
@@ -298,6 +320,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if selected:
             active = torch.zeros_like(canvas, dtype=torch.bool)
             active.index_fill_(1, index, True)
+            if candidate is not None and policy[-1] == "d":
+                active[:, candidate] = False
             old_acceptance = sampler.accepted_token_mask.clone()
             stopper = kw["diffusion_stopping_criteria"]
             if stopper is not None:
@@ -314,6 +338,20 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             new_sc = torch.where(active.unsqueeze(-1), new_sc, sc)
             sampler.accepted_token_mask = torch.where(active, sampler.accepted_token_mask, old_acceptance)
             finished = torch.zeros_like(finished)
+        if candidate is not None:
+            row = bank.candidate_state(candidate)
+            p = audit.current
+            p["forward_row_sha256"] = digest(row)
+            if not p["persist_kv"]:
+                for storage, old in zip(row, stale_kv, strict=True):
+                    storage.copy_(old)
+            p["after_row_sha256"] = digest(row)
+            if p["after_row_sha256"] != p["forward_row_sha256" if p["persist_kv"] else "pre_row_sha256"]:
+                raise RuntimeError("Candidate persistence control failed")
+            p["post_other_kv_sha256"] = digest(bank.other_state(candidate))
+            p["post_nonkv_sha256"] = digest(raw, after, draft, new_sc, sampler.accepted_token_mask,
+                proposed_stop, finished, getattr(stopper, "argmax_canvas_history", None))
+            p["action_rows"] = torch.where(active[0])[0].tolist()
         need_check = selected and proposed_stop
         closed = not selected and (clock == 1 or proposed_stop)
         before_ids, after_ids = canvas[0].tolist(), after[0].tolist()

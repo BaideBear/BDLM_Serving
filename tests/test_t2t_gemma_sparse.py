@@ -67,6 +67,30 @@ def test_resident_full_visible_tail_and_multiple_layers():
         assert torch.equal(b, a + 100)
 
 
+def test_factorial_snapshot_is_row_local_across_layers_and_parser_is_gemma_q32_only():
+    from bdlm_serving.methods.t2t.seat_audit import GEMMA_FACTORIAL, digest
+    from bdlm_serving.methods.t2t.protocol import Arm
+    bank = _CanvasKV(4)
+    bank.buffers = {j: tuple(torch.arange(24).reshape(1, 2, 4, 3) + j + k
+                             for k in range(2)) for j in (2, 0)}
+    for i in (0, 2, 3):
+        views = bank.candidate_state(i)
+        snap = bank.candidate_state(i, clone=True)
+        rest = digest(bank.other_state(i))
+        for v in views:
+            v.add_(7)
+        assert digest(views) != digest(snap)
+        assert digest(bank.other_state(i)) == rest
+        for v, old in zip(views, snap, strict=True):
+            v.copy_(old)
+        assert digest(views) == digest(snap)
+    for mode in GEMMA_FACTORIAL:
+        assert Arm.parse(f"32:0:32:{mode}", 256).selection == mode
+        for q, width in ((4, 32), (32, 32), (16, 256)):
+            with pytest.raises(ValueError):
+                Arm.parse(f"{q}:0:{q}:{mode}", width)
+
+
 class _Encoder(nn.Module):
     def create_masks_for_generate(self, **kw):
         return {}
