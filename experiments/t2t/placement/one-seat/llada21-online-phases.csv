@@ -1,0 +1,13 @@
+policy,phase,F,Q
+t2t_q4_f0_m4_hard_once_base,bootstrap,483,15456
+t2t_q4_f0_m4_hard_once_base,commit,483,15456
+t2t_q4_f0_m4_hard_once_base,selected,4386,21243
+t2t_q4_f0_m4_hard_once_base,verify,641,20512
+t2t_q4_f0_m4_hard_once_rank,bootstrap,481,15392
+t2t_q4_f0_m4_hard_once_rank,commit,481,15392
+t2t_q4_f0_m4_hard_once_rank,selected,4364,21131
+t2t_q4_f0_m4_hard_once_rank,verify,639,20448
+t2t_q4_f0_m4_hard_once_random,bootstrap,481,15392
+t2t_q4_f0_m4_hard_once_random,commit,481,15392
+t2t_q4_f0_m4_hard_once_random,selected,4361,21127
+t2t_q4_f0_m4_hard_once_random,verify,647,20704

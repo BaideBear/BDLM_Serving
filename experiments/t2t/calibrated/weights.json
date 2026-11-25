@@ -1,0 +1,225 @@
+{
+  "schema": "llada-positional-hazard-v1",
+  "weights": [
+    -5.344906287868686,
+    0.39561505769698235,
+    -0.08988198632811009,
+    -0.017941537464556578,
+    0.16046850228920925,
+    0.46465994581408304,
+    0.2532640052543712,
+    -0.028734286220946426,
+    0.1648875876273015,
+    0.27838450134589443,
+    -0.16983129879275427,
+    0.5708712104556337,
+    0.5974728890374095,
+    -0.29117402584616187,
+    0.18614676297551108,
+    1.1428740802057293,
+    0.1113564640096814,
+    -0.5876254380601377,
+    0.20484869555526844,
+    -0.6643821361153887,
+    0.5360061836885889,
+    0.42543425051170924,
+    -0.21747009360790479,
+    1.0541969004718608,
+    0.1096134728814141
+  ],
+  "samples": [
+    {
+      "index": 0,
+      "source_index": 868,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/868",
+      "seed": 18100,
+      "prompt_sha256": "a8c9924082826ecacd36e48f260390b97daa4c3df98120ef149739b85e4e850e"
+    },
+    {
+      "index": 1,
+      "source_index": 425,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/425",
+      "seed": 18101,
+      "prompt_sha256": "d5795482b15e079fd17a4dcbc2f1e2f7e65bea9c395e93f5586f9d15ea7dea87"
+    },
+    {
+      "index": 2,
+      "source_index": 781,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/781",
+      "seed": 18102,
+      "prompt_sha256": "6f457e97e411ae210d54ca45be21f1753d78524fcca89b596a6b0ddc4fac494e"
+    },
+    {
+      "index": 3,
+      "source_index": 906,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/906",
+      "seed": 18103,
+      "prompt_sha256": "7148a6d646d67f67ec5106b310b73bb404c86a3ba4577645354518350cace072"
+    },
+    {
+      "index": 4,
+      "source_index": 39,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/39",
+      "seed": 18104,
+      "prompt_sha256": "98807011991afbb64c2c0cf168ac43ce115eb2a338b7b70d35ca541ee4bac3e9"
+    },
+    {
+      "index": 5,
+      "source_index": 1118,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/1118",
+      "seed": 18105,
+      "prompt_sha256": "9730ad32f058bc90128b8d298eee8b29216c0748ff12e9927665768b00bc443a"
+    },
+    {
+      "index": 6,
+      "source_index": 890,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/890",
+      "seed": 18106,
+      "prompt_sha256": "af1841125a85f92007853294391a0a60f62f2dc971b3add6970a1acfdb760415"
+    },
+    {
+      "index": 7,
+      "source_index": 1212,
+      "dataset": "gsm8k",
+      "task_id": "calibration/gsm8k/1212",
+      "seed": 18107,
+      "prompt_sha256": "9cb9b7a9c2096454a58c9037123d262bae6c193a3f3ae3fd65aee03a11098c48"
+    },
+    {
+      "index": 8,
+      "source_index": 78,
+      "dataset": "math500",
+      "task_id": "calibration/math500/78",
+      "seed": 18108,
+      "prompt_sha256": "0a23bd8403abdb5732d5bf7e778cd398d5d4b76568fbf4c13af40e9dbc3ae914"
+    },
+    {
+      "index": 9,
+      "source_index": 489,
+      "dataset": "math500",
+      "task_id": "calibration/math500/489",
+      "seed": 18109,
+      "prompt_sha256": "0c19ba275e10da1a7b41801cb0c83e7d1c3967a58562264a67ed85e2916e5c22"
+    },
+    {
+      "index": 10,
+      "source_index": 184,
+      "dataset": "math500",
+      "task_id": "calibration/math500/184",
+      "seed": 18110,
+      "prompt_sha256": "39e7f467b0d0cefd47e7394545ad5a664297ddbf1c638abce984f250328ade20"
+    },
+    {
+      "index": 11,
+      "source_index": 166,
+      "dataset": "math500",
+      "task_id": "calibration/math500/166",
+      "seed": 18111,
+      "prompt_sha256": "0ef06e839c66c1151e67cedb1cbe7a2c7b9bf1566fc49376895edb0707f4a4a7"
+    },
+    {
+      "index": 12,
+      "source_index": 296,
+      "dataset": "math500",
+      "task_id": "calibration/math500/296",
+      "seed": 18112,
+      "prompt_sha256": "50fa420f2b629b0f39a4c0193772ffa414706c2acb3832432f3a36a985fda5df"
+    },
+    {
+      "index": 13,
+      "source_index": 97,
+      "dataset": "math500",
+      "task_id": "calibration/math500/97",
+      "seed": 18113,
+      "prompt_sha256": "00061e4f4473f16e25d7ee52577494c28d55d917a64fdf1f67d73cb3e9f744fa"
+    },
+    {
+      "index": 14,
+      "source_index": 252,
+      "dataset": "math500",
+      "task_id": "calibration/math500/252",
+      "seed": 18114,
+      "prompt_sha256": "402e7a3a07ed98d8c471a530027353652f9f5ba54ae9dcdb9357c96f520eb04c"
+    },
+    {
+      "index": 15,
+      "source_index": 226,
+      "dataset": "math500",
+      "task_id": "calibration/math500/226",
+      "seed": 18115,
+      "prompt_sha256": "8318050e0b50025d33f12535f1fe0c2f78afec9f7d5eb623ddd5548432a895cf"
+    },
+    {
+      "index": 16,
+      "source_index": 60,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/60",
+      "seed": 18116,
+      "prompt_sha256": "1c37c4497d3d88b7d38f0b88f9fb3aedace4c3d7994a5ae9a20612e464c02cc6"
+    },
+    {
+      "index": 17,
+      "source_index": 49,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/49",
+      "seed": 18117,
+      "prompt_sha256": "a9a71ba0e9adf8658736d18591f02ab6531d46e90eb3b30db949d06f45383655"
+    },
+    {
+      "index": 18,
+      "source_index": 38,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/38",
+      "seed": 18118,
+      "prompt_sha256": "3b2923b965ac77e4ab9537eb8eb7f9bb4ff12a69dab9c9c92ec8d62f51609a7c"
+    },
+    {
+      "index": 19,
+      "source_index": 58,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/58",
+      "seed": 18119,
+      "prompt_sha256": "7d49921ffd98ef0e13aeb71e9fe797786b613f4185c593cb13df6b661501d34a"
+    },
+    {
+      "index": 20,
+      "source_index": 148,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/148",
+      "seed": 18120,
+      "prompt_sha256": "28d59a1f41435757ad8ce4b951b12cf2c6794f328a1b3b1f35e9e87b0e3227f8"
+    },
+    {
+      "index": 21,
+      "source_index": 77,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/77",
+      "seed": 18121,
+      "prompt_sha256": "31c0174d1198aa5cb883b059346c87e29dd2d61710b5792ed3ec75df6585532d"
+    },
+    {
+      "index": 22,
+      "source_index": 8,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/8",
+      "seed": 18122,
+      "prompt_sha256": "f0458386fb6476009e53144ad9414dcef16b3e98841346fdda22b00fc9664852"
+    },
+    {
+      "index": 23,
+      "source_index": 156,
+      "dataset": "humaneval",
+      "task_id": "calibration/humaneval/156",
+      "seed": 18123,
+      "prompt_sha256": "16e72a104400c315939d475827c378e9cf3967b27009906ee9937f3daa095b9e"
+    }
+  ],
+  "calibration_old_positives": 169
+}

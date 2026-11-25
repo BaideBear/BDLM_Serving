@@ -1,0 +1,4 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q4_f0_m4_hard_once_base,30,5510,4386,528,0,170,358,0,,,,
+t2t_q4_f0_m4_hard_once_rank,30,5484,4364,539,0,174,365,0,,,,
+t2t_q4_f0_m4_hard_once_random,30,5489,4361,558,0,175,383,0,,,,

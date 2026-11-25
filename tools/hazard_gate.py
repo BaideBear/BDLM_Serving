@@ -7,7 +7,7 @@ from pathlib import Path
 
 from scipy.special import expit
 
-from tools.edit_opportunity import fit, load
+from tools.edit_opportunity import fit, load, shortlist
 from bdlm_serving.evaluation.frozen import MANIFEST
 
 
@@ -32,17 +32,21 @@ def compare(valid, masks, old, fresh, ranked, positives, q, cap, threshold):
         physical_selected=len(selected))
 
 
-def main(raw, out, weights=None):
+def main(raw, out, weights=None, shortlist_out=None):
     assert json.loads((raw/"verified.json").read_text()) == dict(model="llada21",matched_requests=30)
     tasks = json.loads(MANIFEST.read_text())["samples"]
     paths = [load(raw / f"{t['index']:02d}.trace.jsonl.gz",t) for t in tasks]
     data = defaultdict(Counter)
+    curve = defaultdict(Counter)
     if weights:
         from bdlm_serving.methods.t2t.hazard import read_weights
         frozen_weights = read_weights(weights)
     for fold in range(5):
         w = frozen_weights if weights else fit([path for i,path in enumerate(paths) if i%5 != fold])
         for i in range(fold,30,5):
+            if shortlist_out is not None:
+                for k,c in shortlist(paths[i],w).items():
+                    curve[k].update(c)
             for phase,valid,masks,old,fresh,_,_,x,labels in paths[i]:
                 if phase != "selected":
                     continue
@@ -64,6 +68,13 @@ def main(raw, out, weights=None):
         writer = csv.DictWriter(f,rows[0],lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    if shortlist_out is not None:
+        rows = [dict(top_k=k, **c, recall=c["hits"]/c["positives"], precision=c["hits"]/c["seats"])
+                for k,c in sorted(curve.items())]
+        with shortlist_out.open("w",newline="") as f:
+            writer = csv.DictWriter(f,rows[0],lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
 
 
 if __name__ == "__main__":
@@ -71,5 +82,6 @@ if __name__ == "__main__":
     for k in ("raw","out"):
         p.add_argument("--"+k, type=Path, required=True)
     p.add_argument("--weights", type=Path, help="Use a single, independently calibrated coefficient vector")
+    p.add_argument("--shortlist", type=Path, help="Save unrestricted ranked-candidate coverage separately")
     a = p.parse_args()
-    main(a.raw,a.out,a.weights)
+    main(a.raw,a.out,a.weights,a.shortlist)
