@@ -24,7 +24,8 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 
 _GATED = ("near_miss", "gate_random")
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES
+_HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD
 
 
 @dataclass
@@ -176,7 +177,7 @@ class LLaDASparseKernel(SerialKernel):
     """
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
-                 policy="ranked", signal="uncertain", selection_seed=None):
+                 policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
@@ -195,6 +196,9 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("No native LLaDA2.1 QKV projections")
         self.q_budget, self.fresh_slots, self.mask_slots = q_budget, fresh_slots, mask_slots
         self.policy, self.signal, self.selection_seed = policy, signal, selection_seed
+        self.hazard_weights = hazard_weights
+        if policy in _HAZARD and (hazard_weights is None or len(hazard_weights) != 25):
+            raise ValueError("Missing frozen hazard calibration")
 
     def create(self, input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True):
         if not cached or input_ids.ndim != 2 or input_ids.shape[0] != 1:
@@ -321,6 +325,11 @@ class LLaDASparseKernel(SerialKernel):
 
         edit_slots = self.q_budget - self.fresh_slots - self.mask_slots
         oracle = self.policy == "hard_oracle1"
+        if self.policy in _HAZARD:
+            from .hazard import choose
+            return choose(list(editable), resolved, fresh, state.last_write, state.previous_strict,
+                len(state.events)+1, self.q_budget, edit_slots, self.hazard_weights,
+                .05 if self.policy == "hard_hazard_gate" else 0.)
         picked, reserved = select_hard(
             list(editable), resolved, fresh, state.last_write, state.last_query,
             len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,

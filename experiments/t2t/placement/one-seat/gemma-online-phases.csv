@@ -1,0 +1,13 @@
+policy,phase,F,Q
+t2t_q32_f0_m32_hard_once_base,bootstrap,58,14848
+t2t_q32_f0_m32_hard_once_base,reencode,28,7168
+t2t_q32_f0_m32_hard_once_base,selected,1231,41410
+t2t_q32_f0_m32_hard_once_base,verify,72,18432
+t2t_q32_f0_m32_hard_once_rank,bootstrap,56,14336
+t2t_q32_f0_m32_hard_once_rank,reencode,26,6656
+t2t_q32_f0_m32_hard_once_rank,selected,1165,39444
+t2t_q32_f0_m32_hard_once_rank,verify,74,18944
+t2t_q32_f0_m32_hard_once_random,bootstrap,56,14336
+t2t_q32_f0_m32_hard_once_random,reencode,26,6656
+t2t_q32_f0_m32_hard_once_random,selected,1194,40196
+t2t_q32_f0_m32_hard_once_random,verify,74,18944

@@ -14,6 +14,7 @@ def parse_args():
     for key in ("checkpoint", "samples", "output", "reference"):
         p.add_argument("--" + key, required=True, type=Path)
     p.add_argument("--arm", action="append", help="Q:fresh:mask:selection; repeatable")
+    p.add_argument("--hazard-weights", type=Path, help="One frozen positional ranker shared by all 30 requests")
     return p.parse_args()
 
 
@@ -33,9 +34,15 @@ def main(args, prepare=None):
     if len(set(arms)) != len(arms) or any(
             a.budget >= block and a.selection != "hard_noedit" for a in arms):
         raise ValueError("Require distinct arms; use one hard_noedit saturation control at or above width")
+    extra = {}
+    if any(a.selection.startswith("hard_hazard_") for a in arms):
+        from bdlm_serving.evaluation.frozen import sha
+        from bdlm_serving.methods.t2t.hazard import read_weights
+        read_weights(getattr(args,"hazard_weights",None))
+        extra["hazard_weights_sha256"] = sha(args.hazard_weights)
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
-        block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms]))
+        block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms], **extra))
     run = load_backend(args, prepare)
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy

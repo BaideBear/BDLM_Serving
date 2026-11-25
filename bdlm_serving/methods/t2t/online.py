@@ -56,6 +56,10 @@ def llada_backend(args, prepare):
     mask = tok.convert_tokens_to_ids("<|mask|>")
     special = set(tok.all_special_ids) | set(eos) | {mask}
     cfg = dict(confidence_threshold=.5, editing_threshold=.5, max_post_steps=16)
+    weights = None
+    if getattr(args, "hazard_weights", None):
+        from .hazard import read_weights
+        weights = read_weights(args.hazard_weights)
 
     @torch.inference_mode()
     def run(task, arm):
@@ -70,7 +74,7 @@ def llada_backend(args, prepare):
             # Additional differential check of per-step logits/RNG/KV, not study work.
             qualify_full_budget(model, *parameters, reference=ref)
         opts = {} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask, policy=arm.selection)
-        kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, **opts)
+        kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, hazard_weights=weights, **opts)
         state = kernel.create(*parameters)
         kernel.run(state)
         path = state.events

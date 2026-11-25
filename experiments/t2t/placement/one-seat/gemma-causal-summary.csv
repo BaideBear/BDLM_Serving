@@ -1,0 +1,13 @@
+model,pair,stratum,n,anchors,final_changed,immediate_canvas,immediate_accepted,later_accepted,wins,losses,delta_N,delta_F,delta_Q
+gemma,random_vs_base,all,30,26,13,13,11,8,0,0,-212,-39,-1726
+gemma,random_vs_base,slack,17,17,5,4,4,6,0,0,-43,-17,-789
+gemma,random_vs_base,mask,9,9,8,9,7,2,0,0,-169,-22,-937
+gemma,random_vs_base,none,4,0,0,0,0,0,0,0,0,0,0
+gemma,rank_vs_base,all,30,26,14,16,12,8,1,1,-283,-68,-2478
+gemma,rank_vs_base,slack,17,17,5,7,7,4,0,1,-171,-26,-749
+gemma,rank_vs_base,mask,9,9,9,9,5,4,1,0,-112,-42,-1729
+gemma,rank_vs_base,none,4,0,0,0,0,0,0,0,0,0,0
+gemma,rank_vs_random,all,30,26,10,14,14,5,1,1,-71,-29,-752
+gemma,rank_vs_random,slack,17,17,2,9,9,2,0,1,-128,-9,40
+gemma,rank_vs_random,mask,9,9,8,5,5,3,1,0,57,-20,-792
+gemma,rank_vs_random,none,4,0,0,0,0,0,0,0,0,0,0

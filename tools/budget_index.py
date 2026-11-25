@@ -10,7 +10,7 @@ def main():
     rows, overview = [], []
     for model, budgets in (("llada21",(4,8,16,32,64)), ("gemma",(16,32,64,128,256))):
         measured = {}
-        for d in ("hard", "adaptive", "placement", "placement/geometry-online"):
+        for d in ("hard", "adaptive", "placement", "placement/geometry-online", "calibrated"):
             path = root / d / f"{model}-online-summary.csv"
             if not path.exists():
                 continue

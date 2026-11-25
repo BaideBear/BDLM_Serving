@@ -18,22 +18,7 @@ from scipy.special import expit
 
 from bdlm_serving.evaluation.frozen import MANIFEST
 from bdlm_serving.methods.t2t.frontier import select_hard
-
-
-def features(i, masks, fresh, strict, write, clock):
-    """All arguments describe observations available before the current forward."""
-    def proximity(group):
-        d = min((abs(i-j) for j in group if i != j), default=64)
-        return [float(d <= k) for k in (1, 2, 4, 8)]
-    age = clock-write[i] if write[i] >= 0 else 64
-    near_mask, near_fresh = proximity(masks), proximity(fresh)
-    return [1., i/31., len(masks)/32., len(fresh)/32., *near_mask, *near_fresh,
-            *proximity(strict), *[float(age <= k) for k in (2, 3, 4, 8)],
-            float(any(0 < j-i <= 4 for j in fresh)),
-            float(any(0 < i-j <= 4 for j in fresh)),
-            near_mask[2]*near_fresh[2],
-            sum(abs(i-j) <= 4 for j in fresh)/8.,
-            float(bool(strict))]
+from bdlm_serving.methods.t2t.hazard import features
 
 
 def load(path, task):

@@ -34,6 +34,8 @@ class Arm:
             if (block, obj.budget) not in ((32, 4), (256, 32)) or obj.fresh or obj.edit:
                 raise ValueError("One-seat studies use 4:0:4 (B32) or 32:0:32 (B256)")
             return obj
+        if block == 32:
+            modes += ("hard_hazard_gate", "hard_hazard_fixed")
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
         if selection.startswith("hard_") and obj.fresh != 0:

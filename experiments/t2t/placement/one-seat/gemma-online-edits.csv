@@ -1,0 +1,4 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q32_f0_m32_hard_once_base,30,1361,1231,34,0,24,10,208,14123,1231,14123,24
+t2t_q32_f0_m32_hard_once_rank,30,1295,1165,36,0,29,7,221,13880,1165,13880,29
+t2t_q32_f0_m32_hard_once_random,30,1324,1194,39,0,30,9,241,13838,1194,13838,30
