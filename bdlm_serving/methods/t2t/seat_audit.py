@@ -4,8 +4,10 @@ import json
 
 
 MODES = ("hard_once_base", "hard_once_rank", "hard_once_random")
+GEMMA_CONDITIONAL = "hard_once_mask"
 GEMMA_FACTORIAL = tuple("hard_once_" + k + s for k in "kd" for s in "kd")
 _KEY = dict(zip(MODES, ("base", "targeted", "random")))
+_KEY[GEMMA_CONDITIONAL] = "conditional_mask"
 
 
 def digest(*items):
@@ -58,7 +60,10 @@ class SeatAudit:
             return base, []
         if list(base) != plan["base"]:
             raise ValueError("One-seat control differs from physical noedit selection")
-        picked = plan[self.mode]
+        key = self.mode
+        if key == "conditional_mask":
+            key = "targeted" if plan["stratum"] == "mask" else "base"
+        picked = plan[key]
         self.used = True
         self.current = dict(plan, executed=picked)
         return picked, sorted(set(picked) - set(base))
@@ -75,6 +80,12 @@ class SeatAudit:
         rows, idx, before = self.before
         p["after_sha256"] = canvas_digest(ids, resolved)
         p["after_admissions"] = sum(not a and b for a, b in zip(prior_resolved, resolved))
+        victim = p["victim"]
+        p["victim_queried"] = victim in p["executed"]
+        p["victim_unresolved_before"] = not prior_resolved[victim]
+        p["victim_accepted"] = bool(not prior_resolved[victim] and resolved[victim])
+        if p["victim_accepted"] and not p["victim_queried"]:
+            raise ValueError("Skipped victim became accepted")
         p["strict_rows"] = [i for i in rows if resolved[i] and prior_resolved[i]
                             and ids[i] != prior_ids[i]]
         p["revoked_rows"] = [i for i in rows if prior_resolved[i] and not resolved[i]]

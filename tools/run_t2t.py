@@ -16,6 +16,8 @@ def parse_args():
     p.add_argument("--arm", action="append", help="Q:fresh:mask:selection; repeatable")
     p.add_argument("--hazard-weights", type=Path, help="One frozen positional ranker shared by all 30 requests")
     p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
+    p.add_argument("--seed-offset", type=int, default=0,
+                   help="Paired seed repeat on the same cases; requires matching native references")
     return p.parse_args()
 
 
@@ -30,7 +32,8 @@ def main(args, prepare=None):
     from bdlm_serving.methods.t2t.online import load_backend
     ll = args.model == "llada21"
     block = 32 if ll else 256
-    tasks = load_tasks(args.samples)
+    offset = getattr(args, "seed_offset", 0)
+    tasks = load_tasks(args.samples, seed_offset=offset) if offset else load_tasks(args.samples)
     arms = [Arm.parse(s, block) for s in args.arm] if args.arm else matrix(args.model)
     if len(set(arms)) != len(arms) or any(
             a.budget >= block and a.selection != "hard_noedit" for a in arms):
@@ -48,7 +51,8 @@ def main(args, prepare=None):
         extra["hazard_weights_sha256"] = sha(args.hazard_weights)
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
-        block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms], **extra))
+        block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms],
+        seed_offset=offset, **extra))
     run = load_backend(args, prepare)
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy

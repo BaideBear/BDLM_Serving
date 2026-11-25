@@ -34,3 +34,35 @@ def test_diagnostic_arms_do_not_change_normal_quota_validation():
             assert Arm.parse(f"{q}:0:{q}:hard_once_{mode}", b).budget == q
         with pytest.raises(ValueError):
             Arm.parse(f"{q}:0:{q-1}:hard_once_rank", b)
+
+
+@pytest.mark.parametrize("stratum,expected", [("slack", [0, 1]), ("mask", [0, 2])])
+def test_conditional_consumes_first_legal_anchor(monkeypatch, stratum, expected):
+    calls = []
+
+    def plan(*args, **kwargs):
+        calls.append(1)
+        return dict(base=[0, 1], targeted=[0, 2], stratum=stratum)
+
+    monkeypatch.setattr("bdlm_serving.methods.t2t.intervention.plan_seat", plan)
+    audit = SeatAudit("hard_once_mask")
+    args = ([0, 1], [], [], [], [], [], 0, 32, "gemma", 1, [])
+    assert audit.choose(*args)[0] == expected
+    assert audit.choose(*args) == ([0, 1], [])
+    assert calls == [1]
+    assert Arm.parse("32:0:32:hard_once_mask", 256).budget == 32
+    with pytest.raises(ValueError):
+        Arm.parse("4:0:4:hard_once_mask", 32)
+
+
+@pytest.mark.parametrize("resolved,accepted", [(False, False), (True, True)])
+def test_victim_admission_uses_acceptance_not_renoised_id(resolved, accepted):
+    a = SeatAudit("hard_once_base")
+    a.current = dict(victim=0, candidate=1, random_candidate=1, executed=[0])
+    bank = tuple(torch.ones((1, 2, 2, 3)) for _ in range(2))
+    a.begin("same", bank, 0)
+    event = {}
+    a.end(event, [13, 2], [resolved, True], [12, 2], [False, True], bank)
+    s = event["intervention"]
+    assert s["victim_queried"] and s["victim_unresolved_before"]
+    assert s["victim_accepted"] is accepted

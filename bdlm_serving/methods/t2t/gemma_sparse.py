@@ -27,7 +27,7 @@ from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
 from .frontier import HARD_POLICIES as _HARD_POLICIES
-from .seat_audit import GEMMA_FACTORIAL, MODES, SeatAudit, canvas_digest, digest
+from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES, SeatAudit, canvas_digest, digest
 
 
 @dataclass
@@ -204,7 +204,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
     refresh_only = policy == "hard_trigger_refresh"
-    if policy not in ("targeted", "random", "noedit", "fresh_random", "hard_trigger_refresh", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL) or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random", "hard_trigger_refresh", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL, GEMMA_CONDITIONAL) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -222,9 +222,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     closed = True
     ledger = GemmaLedger()
     factorial = policy in GEMMA_FACTORIAL
-    if factorial and (width, q_budget, fresh_slots, mask_slots) != (256, 32, 0, 32):
-        raise ValueError("Candidate persistence study requires Gemma 32:0:32")
-    audit = SeatAudit("hard_once_rank") if factorial else SeatAudit(policy) if policy in MODES else None
+    if (factorial or policy == GEMMA_CONDITIONAL) and (width, q_budget, fresh_slots, mask_slots) != (256, 32, 0, 32):
+        raise ValueError("This one-seat policy requires Gemma 32:0:32")
+    audit = SeatAudit("hard_once_rank") if factorial else SeatAudit(policy) if policy in (*MODES, GEMMA_CONDITIONAL) else None
 
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed
