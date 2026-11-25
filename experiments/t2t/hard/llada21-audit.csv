@@ -1,0 +1,12 @@
+model,policy,selection,budget,fresh,mask,edit,requests,prefill_f,prefill_q,bootstrap_f,bootstrap_q,selected_steps,selected_q,selected_max_q,selected_over_steps,selected_over_rows,selected_overflow_rows,verify_f,verify_q,commit_f,commit_q,reencode_f,reencode_q,dense_f,dense_q,reserved_seats,reserved_hits,reserved_hit_rate,strict_edits,fresh_edits,nonfresh_edits,selected_fresh_required,selected_fresh_hit,fresh_exact,fresh_evidence,fresh_chain_ok,fresh_verified,saturation,ok,violations,first_violation
+llada21,t2t_q16_f0_m16_hard_noedit,hard_noedit,16,0,16,0,30,30,3008,413,13216,1514,25226,31,113,2876,1068,552,17664,413,13216,,,0,0,0,0,,582,,,8150,,0,none,1,0,0,1,0,
+llada21,t2t_q16_f0_m14_hard_frontier,hard_frontier,16,0,14,2,30,30,3008,482,15424,2117,35026,31,139,3444,1220,647,20704,482,15424,,,0,0,3505,118,0.0337,880,,,10550,,0,none,1,0,0,1,0,
+llada21,t2t_q16_f0_m14_hard_random,hard_random,16,0,14,2,30,30,3008,471,15072,2269,37510,31,145,3592,1272,665,21280,471,15072,,,0,0,3815,44,0.0115,731,,,10396,,0,none,1,0,0,1,0,
+llada21,t2t_q8_f0_m8_hard_noedit,hard_noedit,8,0,8,0,30,30,3008,429,13728,2210,20435,31,220,4527,2767,582,18624,429,13728,,,0,0,0,0,,605,,,9204,,0,none,1,0,0,1,0,
+llada21,t2t_q8_f0_m7_hard_frontier,hard_frontier,8,0,7,1,30,30,3008,453,14496,2516,22960,31,236,4732,2844,614,19648,453,14496,,,0,0,2121,71,0.0335,696,,,10072,,0,none,1,0,0,1,0,
+llada21,t2t_q8_f0_m7_hard_random,hard_random,8,0,7,1,30,30,3008,452,14464,2346,21615,31,234,4731,2859,618,19776,452,14464,,,0,0,1969,31,0.0157,632,,,9595,,0,none,1,0,0,1,0,
+llada21,t2t_q4_f0_m4_hard_noedit,hard_noedit,4,0,4,0,30,30,3008,483,15456,4386,21243,31,288,4851,3699,641,20512,483,15456,,,0,0,0,0,,528,,,11154,,0,none,1,0,0,1,0,
+llada21,t2t_q4_f0_m3_hard_frontier,hard_frontier,4,0,3,1,30,30,3008,455,14560,4076,20194,31,279,5006,3890,586,18752,455,14560,,,0,0,3579,85,0.0237,625,,,10214,,0,none,1,0,0,1,0,
+llada21,t2t_q4_f0_m3_hard_random,hard_random,4,0,3,1,30,30,3008,446,14272,3935,19471,31,264,4787,3731,585,18720,446,14272,,,0,0,3472,31,0.0089,552,,,9778,,0,none,1,0,0,1,0,
+llada21,t2t_q32_f0_m32_hard_noedit,hard_noedit,32,0,32,0,30,30,3008,431,13792,0,0,0,0,0,0,543,17376,431,13792,,,1170,37440,0,0,,754,,,0,,0,none,1,0,0,1,0,
+llada21,t2t_q64_f0_m64_hard_noedit,hard_noedit,64,0,64,0,30,30,3008,431,13792,0,0,0,0,0,0,543,17376,431,13792,,,1170,37440,0,0,,754,,,0,,0,none,1,0,1,1,0,

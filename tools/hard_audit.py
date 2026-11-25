@@ -220,6 +220,13 @@ def audit_request(result, arm, model, width):
     work_rows = []
     edited_total = 0
     budget = int(arm["budget"])
+    if budget > width:
+        expected = {"nominal_q": budget, "executable_width": width}
+        if model != "llada21" or (budget, width, arm["selection"]) != (64, 32, "hard_noedit") \
+                or result.get("single_block_saturation") != expected:
+            _bad(violations, "missing or inconsistent single_block_saturation")
+        else:
+            budget = width
     previous_clock = None
     previous_clock_block = None
 

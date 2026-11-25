@@ -388,15 +388,18 @@ class HardAuditTest(unittest.TestCase):
     def test_saturation_label_and_unverified_row(self):
         arm = audit.parse_policy("t2t_q64_f0_m64_hard_noedit")
         events = [
-            llada_event("prefill", 0, 32, range(32), 0, budget=64, clock=1),
+            llada_event("prefill", 0, 32, range(32), 0, budget=32, clock=1),
             llada_event("bootstrap", 0, 32, range(32), 0, accepted=2, edited=0,
-                        masked_before=32, masked_after=30, budget=64, clock=2),
+                        masked_before=32, masked_after=30, budget=32, clock=2),
             llada_event("selected", 0, 32, range(32), 2, accepted=0, edited=0,
-                        masked_before=30, masked_after=30, budget=64, clock=3),
-            llada_event("commit", 0, 32, range(32), 0, budget=64, clock=4),
+                        masked_before=30, masked_after=30, budget=32, clock=3),
+            llada_event("commit", 0, 32, range(32), 0, budget=32, clock=4),
         ]
+        result = llada_result(events)
+        self.assertTrue(audit.audit_arm("llada21", arm, [result], 32)[1])
+        result["single_block_saturation"] = dict(nominal_q=64, executable_width=32)
         counters, violations = audit.audit_arm(
-            "llada21", arm, [llada_result(events)], 32)
+            "llada21", arm, [result], 32)
         self.assertEqual(violations, [])
         row = audit.summary_row("llada21", arm, counters, violations, 1, 32)
         self.assertEqual(row["saturation"], 1)
