@@ -258,6 +258,17 @@ def propensity_counts(event, seed, salt):
                    expected_collisions=1/k, singleton=int(k==1))
 
 
+def half_weight(chosen_time, pool_times, oldest):
+    """Policy/draw probability ratio; ties have equal fractional inclusion."""
+    k = len(pool_times)
+    m = (k + 1) // 2
+    tied = pool_times.count(chosen_time)
+    if not tied:
+        raise ValueError("Chosen timestamp absent")
+    ahead = sum(x < chosen_time if oldest else x > chosen_time for x in pool_times)
+    return (k / m) * min(1.,max(0.,(m-ahead)/tied))
+
+
 def propensity(runs, folder, manifest):
     from random import Random
     import numpy as np
@@ -279,21 +290,34 @@ def propensity(runs, folder, manifest):
                 if row["policy"] != policy or any(row[k] != task[k] for k in ("index","task_id","seed","dataset")):
                     raise ValueError("Wrong request")
                 parts = {s:Counter() for s in ("all","mask","backfill")}
+                last, block = {}, None
                 for e in row["events"]:
-                    if "placebo_exchange" not in e:
-                        if e.get("reserved_extra_edit_positions"):
-                            raise ValueError("Missing randomized-action record")
-                        continue
-                    c = propensity_counts(e, row["seed"], suffix)
-                    parts["all"].update(c)
-                    parts["mask" if e["placebo_exchange"]["masked_victims"] else "backfill"].update(c)
+                    if e["stage"] == "bootstrap":
+                        last, block = {}, e["block"]
+                    if "placebo_exchange" in e:
+                        c = propensity_counts(e, row["seed"], suffix)
+                        a = e["placebo_exchange"]
+                        chosen, = set(a["executed"]) - set(a["base"])
+                        if e["stage"] != "selected" or block != e["block"]:
+                            raise ValueError("Unexpected sparse decision")
+                        times = [last[i] for i in a["pool"]]
+                        c.update(age_informative=int(min(times) != max(times)),
+                                 oldest_hits=c["uniform_hits"]*half_weight(last[chosen],times,True),
+                                 newest_hits=c["uniform_hits"]*half_weight(last[chosen],times,False))
+                        parts["all"].update(c)
+                        parts["mask" if a["masked_victims"] else "backfill"].update(c)
+                    elif e.get("reserved_extra_edit_positions"):
+                        raise ValueError("Missing randomized-action record")
+                    if e["stage"] in ("selected","bootstrap"):
+                        last.update((i-32*block,e["hard_clock"]) for i in e["absolute_positions"])
                 for s,c in parts.items():
                     groups[q,suffix,s][i] = c
     if seen != {(q,s) for q in (4,8) for s in ("a","b")}:
         raise ValueError("Expected both budgets and both random streams")
     totals = []
     fields = ("decisions","uniform_hits","collisions","collision_hits","weighted_hits",
-              "weighted_support","squared_weights","expected_collisions","singleton")
+              "weighted_support","squared_weights","expected_collisions","singleton",
+              "age_informative","oldest_hits","newest_hits")
     for (q,salt,stratum), data in sorted(groups.items()):
         rows = [data[t["index"]] for t in manifest]
         for t,c in zip(manifest,rows,strict=True):
@@ -303,18 +327,22 @@ def propensity(runs, folder, manifest):
         rng = Random(17594)
         samples = [[data[t["index"]] for t in manifest if t["dataset"]==d] for d in ("gsm8k","math500","humaneval")]
         assert all(len(v)==10 for v in samples)
-        diffs = []
+        diffs,age_diffs = [],[]
         for _ in range(2000):
             draw = [r for group in samples for r in rng.choices(group,k=len(group))]
             denom = sum(r["decisions"] for r in draw)
             if denom:
                 diffs.append(sum(r["weighted_hits"]-r["uniform_hits"] for r in draw)/denom)
+                age_diffs.append(sum(r["oldest_hits"]-r["newest_hits"] for r in draw)/denom)
         n = c["decisions"]
         bounds = np.percentile(diffs,[2.5,97.5]).tolist() if diffs else ["",""]
+        age_bounds = np.percentile(age_diffs,[2.5,97.5]).tolist() if age_diffs else ["",""]
         totals.append(dict(q=q,salt=salt,stratum=stratum,**{k:c[k] for k in fields},
             uniform_rate=c["uniform_hits"]/n if n else "", ranked_ipw_rate=c["weighted_hits"]/n if n else "",
             rank_minus_uniform=(c["weighted_hits"]-c["uniform_hits"])/n if n else "",
             delta_lo=bounds[0],delta_hi=bounds[1],
+            oldest_rate=c["oldest_hits"]/n if n else "", newest_rate=c["newest_hits"]/n if n else "",
+            oldest_minus_newest_lo=age_bounds[0],oldest_minus_newest_hi=age_bounds[1],
             effective_matches=c["weighted_support"]**2/c["squared_weights"] if c["squared_weights"] else 0))
     folder.mkdir(parents=True,exist_ok=True)
     table(folder/"candidate-propensity.csv", totals)

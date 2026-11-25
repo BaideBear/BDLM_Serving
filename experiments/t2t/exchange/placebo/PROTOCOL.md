@@ -36,3 +36,26 @@ under uniform pseudo-random assignment, not as unobserved labels, full policy
 evaluation, or an unbiased finite-sample trajectory estimate. Report A/B
 separately and bootstrap whole requests within each dataset for descriptive
 dispersion; this does not reflect policy search, unseen tasks, or model seeds.
+
+Additional sparse-state analysis fixed during the second random streams, before
+reading their reward/score totals: reconstruct last physical query time from
+earlier forwards in the same block. Estimate strict-hit rates if drawing uniformly
+from the oldest or newest `ceil(K/2)` eligible rows, keeping the original gate
+and victim. Split ties fractionally at the boundary; all-tied states have weight
+one in both arms. Importance weights are at most two. Report all states (including
+singletons), the number of age-informative states, weighted rates and a paired
+request interval. This is candidate screening, not a deployed controller. Require
+the oldest-minus-newest contrast to be positive in each budget and each stream
+before considering a dedicated cache-age rollout; do not select other cutoffs.
+
+Direct follow-up after all four contrasts passed: execute that exact oldest-half
+policy at Q4 and Q8, for draw salts A and B separately, on the original frozen30.
+Retain the same 4x gate, victim and one-entering-seat cap. Choose a uniform set of
+boundary ties with the base random key plus `:half-tie`, then use the original
+key on the sorted restricted pool. If all times tie, sample the full pool: same
+marginal distribution and exact original draw. Reset clocks at each B32 and log
+each pool, prior times and actual physical rows. Compare each stream to its own
+uniform run, the original rank and zero reserve. Do not pick the better salt.
+Advance a budget as a quality/TPF candidate only if in **both** salts it answers
+more than zero reserve with macro TPF no lower, and neither metric drops versus
+its corresponding uniform arm. Keep all costs regardless of the outcome.

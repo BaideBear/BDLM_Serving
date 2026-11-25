@@ -1,13 +1,35 @@
 import unittest
 from copy import deepcopy
 
-from bdlm_serving.methods.t2t.exchange import choose, position_keys, randomize_candidate
+from bdlm_serving.methods.t2t.exchange import choose, oldest_half, position_keys, randomize_candidate
 from bdlm_serving.methods.t2t.protocol import Arm
-from tools.exchange_study import audit_pair, propensity_counts
+from tools.exchange_study import audit_pair, half_weight, propensity_counts
 
 
 class ExchangeTest(unittest.TestCase):
     rates = {("old",):.2, ("mask",):.5}
+
+    def test_oldest_only_changes_the_sampling_pool(self):
+        pool = [1,2,3,4]
+        for seed in map(str,range(12)):
+            draw = oldest_half(pool,[0,8,2,8,9],seed)
+            self.assertEqual(len(draw),2)
+            self.assertIn(2,draw)
+            self.assertNotIn(4,draw)
+            self.assertEqual(oldest_half(pool,[0,8,8,8,8],seed),pool)
+        with self.assertRaisesRegex(ValueError,"no observed"):
+            oldest_half(pool,[0,8,8,8,-1],"a")
+
+    def test_half_age_weights_are_normalized_and_tie_symmetric(self):
+        for times in ([1],[1]*5,[1,2,3,4],[1,2,2,2,3],[1,1,1,2,2]):
+            for old in (True,False):
+                w = [half_weight(t,times,old) for t in times]
+                self.assertAlmostEqual(sum(w),len(times))
+                self.assertLessEqual(max(w),2)
+                if min(times) == max(times):
+                    self.assertEqual(w,[1]*len(times))
+        self.assertAlmostEqual(half_weight(2,[1,2,2,2,3],True),10/9)
+        self.assertEqual(half_weight(4,[1,2,3,4],True),0)
 
     def test_relative_price_and_immune_first_mask(self):
         args = (list(range(6)),[False,True,False,False,True,True],{1},set(),[-1]*6,2,4,2,self.rates)

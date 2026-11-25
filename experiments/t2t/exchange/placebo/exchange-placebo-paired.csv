@@ -1,0 +1,7 @@
+model,nominal_q,dataset,reference,reference_policy,reference_source,requests,only_ranked_correct,only_reference_correct,both_correct,neither_correct,delta_correct,delta_tpf,delta_tpf_positive,delta_tpf_negative,delta_tpf_zero,delta_N,delta_F,delta_Q,delta_physical_Q,delta_token_efficiency,delta_physical_efficiency,delta_q_per_f
+llada21,4,all,zero,t2t_q4_f0_m4_hard_noedit,hard,30,1,0,25,4,1,0.08654570557451141,11,8,11,-566,-402,-2496,-2496,-0.0009643934252583364,-0.0009643934252583364,0.42539362756817845
+llada21,4,all,placebo_a,t2t_q4_f0_m3_hard_exchange_random_a,measured,30,3,0,23,4,3,0.03930677364860815,13,8,9,-443,-138,-2612,-2612,0.0010437603111499438,0.0010437603111499438,-0.1536049055724078
+llada21,4,all,placebo_b,t2t_q4_f0_m3_hard_exchange_random_b,measured,30,1,0,25,4,1,0.04470818434539437,10,7,13,782,185,3149,3149,0.0023326307085977938,0.0023326307085977938,0.1530002402651114
+llada21,8,all,zero,t2t_q8_f0_m8_hard_noedit,hard,30,0,4,22,4,-4,-0.12574938007531042,7,15,8,2823,1535,19750,19750,-0.011388132832658548,-0.011388132832658548,-1.5858720492463796
+llada21,8,all,placebo_a,t2t_q8_f0_m7_hard_exchange_random_a,measured,30,0,5,22,3,-5,-0.06605706312689721,11,13,6,1101,546,6653,6653,-0.001320451311098425,-0.001320451311098425,-0.5240415886192338
+llada21,8,all,placebo_b,t2t_q8_f0_m7_hard_exchange_random_b,measured,30,0,6,22,2,-6,-0.13730856132815022,10,14,6,2211,1154,13777,13777,-0.0039542438563056614,-0.0039542438563056614,-1.3452189600030806

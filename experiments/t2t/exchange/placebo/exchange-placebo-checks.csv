@@ -1,0 +1,22 @@
+check,status,detail
+frozen30_manifest,pass,"30 requests, 10 per dataset"
+arm:Q4:zero,pass,t2t_q4_f0_m4_hard_noedit source=hard requests=30
+requests_summary:Q4:zero,pass,"t2t_q4_f0_m4_hard_noedit: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q4:ranked,pass,t2t_q4_f0_m3_hard_exchange_edit4 source=ranked requests=30
+requests_summary:Q4:ranked,pass,"t2t_q4_f0_m3_hard_exchange_edit4: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q4:placebo_a,pass,t2t_q4_f0_m3_hard_exchange_random_a source=measured requests=30
+requests_summary:Q4:placebo_a,pass,"t2t_q4_f0_m3_hard_exchange_random_a: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q4:placebo_b,pass,t2t_q4_f0_m3_hard_exchange_random_b source=measured requests=30
+requests_summary:Q4:placebo_b,pass,"t2t_q4_f0_m3_hard_exchange_random_b: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q8:zero,pass,t2t_q8_f0_m8_hard_noedit source=hard requests=30
+requests_summary:Q8:zero,pass,"t2t_q8_f0_m8_hard_noedit: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q8:ranked,pass,t2t_q8_f0_m7_hard_exchange_edit4 source=ranked requests=30
+requests_summary:Q8:ranked,pass,"t2t_q8_f0_m7_hard_exchange_edit4: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q8:placebo_a,pass,t2t_q8_f0_m7_hard_exchange_random_a source=measured requests=30
+requests_summary:Q8:placebo_a,pass,"t2t_q8_f0_m7_hard_exchange_random_a: counts, N/F/Q/physical Q, TPF and efficiency agree"
+arm:Q8:placebo_b,pass,t2t_q8_f0_m7_hard_exchange_random_b source=measured requests=30
+requests_summary:Q8:placebo_b,pass,"t2t_q8_f0_m7_hard_exchange_random_b: counts, N/F/Q/physical Q, TPF and efficiency agree"
+placebo_streams,pass,placebo_a and placebo_b are separate 30-request executions; never pooled
+context_pairing,not_paired,IBS/OBS use the original fixed-window gate and original seeds; context only
+request_totals,pass,"240 unique (Q, arm, index) rows; 10 requests per dataset per arm; no all+dataset duplication"
+raw_event_audit,not_run_here,"full-width parity, gate/victim match, first divergence, swap type and strict edit of the added row are audited separately from raw events"

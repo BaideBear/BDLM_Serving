@@ -1,0 +1,83 @@
+{
+  "model": "llada21",
+  "qs": [
+    4,
+    8
+  ],
+  "measured": {
+    "role": "measured",
+    "name": "exchange-placebo-scored-v1",
+    "path": "exchange-placebo-scored-v1"
+  },
+  "ranked": {
+    "role": "ranked",
+    "name": "exchange",
+    "path": "experiments/t2t/exchange"
+  },
+  "baselines": {
+    "role": "baselines",
+    "name": "summary.csv",
+    "path": "experiments/baselines/summary.csv"
+  },
+  "manifest": {
+    "role": "manifest",
+    "name": "manifest.json",
+    "path": "benchmarks/frozen30/manifest.json"
+  },
+  "zero_sources": {
+    "4": "hard",
+    "8": "hard"
+  },
+  "arms": {
+    "Q4": {
+      "zero": {
+        "policy": "t2t_q4_f0_m4_hard_noedit",
+        "source": "hard"
+      },
+      "ranked": {
+        "policy": "t2t_q4_f0_m3_hard_exchange_edit4",
+        "source": "ranked"
+      },
+      "placebo_a": {
+        "policy": "t2t_q4_f0_m3_hard_exchange_random_a",
+        "source": "measured"
+      },
+      "placebo_b": {
+        "policy": "t2t_q4_f0_m3_hard_exchange_random_b",
+        "source": "measured"
+      }
+    },
+    "Q8": {
+      "zero": {
+        "policy": "t2t_q8_f0_m8_hard_noedit",
+        "source": "hard"
+      },
+      "ranked": {
+        "policy": "t2t_q8_f0_m7_hard_exchange_edit4",
+        "source": "ranked"
+      },
+      "placebo_a": {
+        "policy": "t2t_q8_f0_m7_hard_exchange_random_a",
+        "source": "measured"
+      },
+      "placebo_b": {
+        "policy": "t2t_q8_f0_m7_hard_exchange_random_b",
+        "source": "measured"
+      }
+    }
+  },
+  "complete": true,
+  "scope": "published request/summary tables only; raw-event audit is separate",
+  "files": [
+    "exchange-placebo-requests.csv",
+    "exchange-placebo-summary.csv",
+    "exchange-placebo-paired.csv",
+    "exchange-placebo-paired-requests.csv",
+    "exchange-placebo-context.csv",
+    "exchange-placebo-checks.csv",
+    "exchange-placebo-study.svg",
+    "exchange-placebo-delta.svg",
+    "exchange-placebo-report.md",
+    "exchange-placebo-run.json"
+  ]
+}

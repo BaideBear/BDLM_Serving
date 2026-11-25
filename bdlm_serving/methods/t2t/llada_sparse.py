@@ -25,7 +25,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
-from .exchange import ONLINE_MODES as EXCHANGE, PLACEBOS
+from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS
 _HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD + tuple(EXCHANGE)
 
 
@@ -337,10 +337,12 @@ class LLaDASparseKernel(SerialKernel):
             picked, reserved, offers = choose(list(editable), resolved, fresh, state.previous_strict,
                 state.last_write, clock, self.q_budget, edit_slots,
                 self.exchange_rates, EXCHANGE[self.policy])
-            if self.policy in PLACEBOS:
-                tag = f"exchange-placebo:{PLACEBOS[self.policy]}:{state.selection_seed}:{state.block}:{clock}"
+            if self.policy in PLACEBOS or self.policy in AGE_ARMS:
+                salt = PLACEBOS.get(self.policy) or AGE_ARMS[self.policy]
+                tag = f"exchange-placebo:{salt}:{state.selection_seed}:{state.block}:{clock}"
                 picked, reserved, state.placebo_exchange = randomize_candidate(
-                    editable, resolved, fresh, picked, reserved, offers, tag)
+                    editable, resolved, fresh, picked, reserved, offers, tag,
+                    last_query=state.last_query if self.policy in AGE_ARMS else None)
             return picked, reserved
         if self.policy in _HAZARD:
             from .hazard import choose
