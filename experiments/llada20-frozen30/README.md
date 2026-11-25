@@ -6,6 +6,8 @@ No strict Q cap, sample substitutions or retry of individual failed responses.
 The primary metrics are mean request TPF, pooled token efficiency, and
 correct / 30. Request Q excludes batch padding; physical Q includes it.
 
+[First paired result: original and PrefixCache W=4 on both models](flowblock-w4.md).
+
 | Policy | LLaDA 2.0 setup |
 |---|---|
 | Original Native B32 | Actual checkpoint `generate`, 32 steps, M2T > .95, default EOS check at block end. `temperature=0` in this checkpoint still performs multinomial sampling. No T2T. Full visible prefix rows are **really recomputed** and are charged. The published 2.1 Native is a committed-prefix-cache implementation; native Q is not a weights-only comparison. |
