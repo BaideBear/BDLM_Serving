@@ -21,7 +21,8 @@ from bdlm_serving.methods.t2t.frontier import select_hard
 from bdlm_serving.methods.t2t.hazard import features
 
 
-def load(path, task):
+def load(path, task, *, old_token_features=None):
+    """Optionally append features of the pre-step accepted token at each old row."""
     steps = []
     with gzip.open(path, "rt") as f:
         source = map(json.loads, f)
@@ -43,6 +44,9 @@ def load(path, task):
             phase = "bootstrap" if new else "verify" if not masks else "selected"
             # Freeze the decision features before exposing this step's labels.
             x = np.asarray([features(i, masks, fresh, strict, write, clock) for i in old])
+            if old and old_token_features is not None:
+                extra = [old_token_features(before[i]) for i in old]
+                x = np.column_stack((x, extra))
             after = row["after"]
             changed = {i for i in valid if before[i] != after[i]}
             positive = {i for i in changed if before[i] != prompt["mask_id"]

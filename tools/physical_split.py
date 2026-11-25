@@ -73,10 +73,55 @@ def generate(runs, filters, out):
         writer.writerows(result)
 
 
+def render(source, output):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    with source.open() as stream:
+        rows = [r for r in csv.DictReader(stream) if int(r["selected_F"])]
+    fig, axes = plt.subplots(1, 2, figsize=(13, max(5, .37*len(rows)+1.9)),
+                              gridspec_kw={"width_ratios":[1.7, 1]}, layout="constrained")
+    palette = ["#287a70", "#68a5d2", "#d47e30", "#9c9aa6"]
+    labels = ["Mandatory fresh", "MASK", "Reserved old", "Other old"]
+    ticks = []
+    for j,r in enumerate(rows):
+        prefix = f"t2t_q{r['budget']}_f0_"
+        mode = r["policy"].removeprefix(prefix).split("_hard_", 1)[1]
+        ticks.append(f"{r['model']}  Q{r['budget']}  {mode}")
+        start = 0
+        for k,color in zip(("mandatory_Q","mask_Q","reserved_old_Q","backfill_old_Q"), palette):
+            portion = 100*int(r[k])/int(r["selected_Q"])
+            axes[0].barh(j, portion, left=start, color=color, height=.72)
+            start += portion
+        fraction = 100*int(r["other_Q"])/int(r["total_Q"])
+        axes[1].barh(j, fraction, color="#67647b", height=.72)
+        axes[1].text(fraction+1, j, f"{fraction:.1f}%", va="center", fontsize=9)
+    for ax in axes:
+        ax.set_xlim(0, 100)
+        ax.set_ylim(len(rows)-.4, -.6)
+        ax.spines[["top","right","left"]].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+        ax.set_xlabel("Share of physical Q (%)")
+    axes[0].set_yticks(range(len(rows)), ticks, fontsize=9)
+    axes[1].set_yticks([])
+    axes[0].set_title("Within sparse selection steps", loc="left")
+    axes[1].set_title("Non-selection share of all generation Q", loc="left")
+    axes[0].legend([matplotlib.patches.Patch(color=c) for c in palette], labels,
+                   ncol=2, loc="upper left", bbox_to_anchor=(0, -.1), frameon=False)
+    fig.savefig(output, dpi=160)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--run", type=Path, required=True, action="append")
-    p.add_argument("--mode", required=True, action="append")
+    p.add_argument("--run", type=Path, action="append")
+    p.add_argument("--mode", action="append")
     p.add_argument("--out", required=True, type=Path)
+    p.add_argument("--figure", type=Path, help="Draw from --out alone or after generating it")
     args = p.parse_args()
-    generate(args.run, set(args.mode), args.out)
+    if bool(args.run) != bool(args.mode) or not (args.run or args.figure):
+        p.error("Supply both --run and --mode to generate data; --figure can render existing CSV")
+    if args.run:
+        generate(args.run, set(args.mode), args.out)
+    if args.figure:
+        render(args.out, args.figure)
