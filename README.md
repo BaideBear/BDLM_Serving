@@ -1,6 +1,6 @@
 # BDLM Serving
 
-LLaDA‑2.1-mini 与 SDAR‑8B‑Chat-b32 的单请求解码实验。核心问题是：**对同一组题，每次 forward 能交付多少 token、需要计算多少行 Q、最终答对多少题？**
+LLaDA 2.0-mini、LLaDA 2.1-mini、SDAR-8B-Chat-b32 与 DiffusionGemma 的单请求解码实验。核心问题是：**对同一组题，每次 forward 能交付多少 token、需要计算多少行 Q、最终答对多少题？**
 
 | 实验 | 测了什么 | 独立执行 | 看结果 |
 |---|---|---:|---|
@@ -13,6 +13,8 @@ LLaDA‑2.1-mini 与 SDAR‑8B‑Chat-b32 的单请求解码实验。核心问�
 [DiffusionGemma 26B-A4B 原生推理](experiments/diffusiongemma-native/)复用同一套 30 题和评分器。已实测 30/30：质量 **28/30**，TPF **24.284**，token efficiency **8.42%**。连同前三组共 1,410 次独立请求执行。不同模型的 tokenizer 和每次 forward 的成本不同，TPF 不等于墙钟速度。
 
 [Gemma 模型归档](experiments/diffusiongemma/)另含 FlowBlock W=1/2/3/4 与 B3，共新增 150 次执行。[三指标图](experiments/diffusiongemma-wave/figures/comparison.png)包含 Native 对照。
+
+[LLaDA 2.0-mini 与 2.1-mini 对照](experiments/llada20-frozen30/)含 17 个配置、510 次新增执行，2.1 对照复用原始归档：[三指标总表](experiments/llada20-frozen30/results.md) · [对比图](experiments/llada20-frozen30/figures/comparison.png) · [W=2/3/4 前缀缓存的 Q 与 forward 成本分解](experiments/llada20-frozen30/flowblock-pairs.md)。不同版本的推理配置并不完全相同，尤其是 Native 的前缀重算与缓存。
 
 **比较口径。** 同一模型内，TPF、质量和 token efficiency 直接跨 batch 比较。TPF 取逐请求 `N/F` 的均值；质量为 30 题正确数；token efficiency 用 `ΣN/ΣQ`，不是逐请求比例的均值。`Q` 是实际送算的请求行数，另报 `physical_Q`（含批内 padding）。窗口是名义配置，不是硬 Q 上限。batch 记录用于复现和解释 padding；不据此比较墙钟吞吐。
 

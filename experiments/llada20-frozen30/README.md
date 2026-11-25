@@ -6,8 +6,14 @@ No strict Q cap, sample substitutions or retry of individual failed responses.
 The primary metrics are mean request TPF, pooled token efficiency, and
 correct / 30. Request Q excludes batch padding; physical Q includes it.
 
+[All 17 measured configurations: 2.0 vs 2.1](results.md) ·
+[Three-metric comparison chart](figures/comparison.png) ·
+[2.0 per-request counts and correctness](requests.csv) ·
+[Summary by dataset](summary.csv) · [Matched model comparisons](comparison.csv).
+
 [Dense vs PrefixCache: all W=2/3/4 pairs on both models](flowblock-pairs.md) ·
-[W=4 cost breakdown](flowblock-w4.md).
+[W=4 cost breakdown](flowblock-w4.md) ·
+[PrefixCache deltas and paired quality flips](prefix_deltas.csv).
 
 | Policy | LLaDA 2.0 setup |
 |---|---|
