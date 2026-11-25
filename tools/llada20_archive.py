@@ -48,7 +48,8 @@ def metrics(g):
                               "generation_physical_padded_rows"))
     return dict(requests=len(g), n=n, f=f, q=q, physical_q=qp, mean_tpf=mean(
         int(r["output_tokens"])/int(r["generation_forwards"]) for r in g), efficiency=n/q,
-        q_per_forward=q/f, correct=sum(boolean(r["correct"]) for r in g),
+        pooled_tpf=n/f, physical_efficiency=n/qp, q_per_forward=q/f,
+        physical_q_per_forward=qp/f, correct=sum(boolean(r["correct"]) for r in g),
         truncated=sum(boolean(r["truncated"]) for r in g),
         failed=sum(r["status"] != "success" for r in g))
 
@@ -102,12 +103,18 @@ def render():
                 summaries.append(dict(model=model,policy=p,dataset=dataset,**data))
             comparisons.append(dict(policy=p,dataset=dataset,reference=source,
                 correct20=x["correct"],correct21=y["correct"],tpf20=x["mean_tpf"],tpf21=y["mean_tpf"],
+                pooled_tpf20=x["pooled_tpf"],pooled_tpf21=y["pooled_tpf"],
                 efficiency20=x["efficiency"],efficiency21=y["efficiency"],
+                physical_efficiency20=x["physical_efficiency"],physical_efficiency21=y["physical_efficiency"],
+                f20=x["f"],f21=y["f"],physical_q20=x["physical_q"],physical_q21=y["physical_q"],
                 q20=x["q"],q21=y["q"],only20=sum(boolean(r["correct"])>boolean(s["correct"]) for r,s in zip(aa,bb)),
                 only21=sum(boolean(r["correct"])<boolean(s["correct"]) for r,s in zip(aa,bb))))
     write(DEST/"summary.csv",summaries)
     write(DEST/"comparison.csv",comparisons)
     write(DEST/"paired_quality.csv",pairs)
+    write(DEST/"prefix_deltas.csv", prefix_deltas(current, sources["flowblock-prefix"]))
+    write_markdown(summaries)
+    write_prefix_markdown(summaries)
     (DEST/"figures").mkdir(exist_ok=True)
     for name, policies in (("comparison",DISPLAY),("flowblock_prefix",[p for p in DISPLAY
                             if p in {f"{kind}_w{w}" for kind in ("flow","prefix") for w in (2,3,4)}])):
@@ -125,6 +132,79 @@ def render():
         axes[-1].legend(loc="lower right",bbox_to_anchor=(1,1.06),ncol=2,frameon=False)
         fig.savefig(DEST/f"figures/{name}.png",dpi=165)
         plt.close(fig)
+
+
+def write_markdown(summaries):
+    lookup = {(r["model"], r["policy"]): r for r in summaries if r["dataset"] == "all"}
+    lines = ["# Frozen30 results: LLaDA 2.0-mini and 2.1-mini", "",
+             "Each entry is **2.0 / 2.1** for the same 30 requests. "
+             "TPF is a mean across requests; pooled TPF weights by forwards. "
+             "Efficiency is delivered tokens divided by request Q, or physical Q when indicated.", "",
+             "| Policy | Quality / 30 | Mean TPF | Pooled TPF | Request efficiency | Physical efficiency |",
+             "|---|---:|---:|---:|---:|---:|"]
+    for p in DISPLAY:
+        a, b = (lookup[m, p] for m in ("llada20", "llada21"))
+        fields = [f'{a[k]:{fmt}} / {b[k]:{fmt}}' for k, fmt in (
+            ("correct","d"), ("mean_tpf",".3f"), ("pooled_tpf",".3f"),
+            ("efficiency",".2%"), ("physical_efficiency",".2%"))]
+        lines.append("| " + " | ".join([f"`{p}`", *fields]) + " |")
+    lines += ["", "## FlowBlock on 2.0: cost per request and per batch", "",
+              "| W | Policy | Delivered N | Forwards | Request Q | Physical Q | Q/forward | Quality / 30 |",
+              "|---:|---|---:|---:|---:|---:|---:|---:|"]
+    for w in (2, 3, 4):
+        for method in ("flow", "prefix"):
+            r = lookup["llada20",f"{method}_w{w}"]
+            lines.append(f"| {w} | {method} | {r['n']:,} | {r['f']:,} | {r['q']:,} | "
+                         f"{r['physical_q']:,} | {r['q_per_forward']:.2f} | {r['correct']} |")
+    lines += ["", "Includes truncated and failed requests, with their actual costs. "
+              "These are request-level decoding metrics, not measurements of wall-clock throughput. "
+              "Native 2.0 recomputes its prefix; Native 2.1 uses a committed-prefix KV cache. "
+              "Padding depends on the archived batch schedule.", "",
+              "![Three-metric comparison](figures/comparison.png)", "",
+              "![Dense and cached W=2/3/4](figures/flowblock_prefix.png)"]
+    (DEST/"results.md").write_text("\n".join(lines)+"\n")
+
+
+def prefix_deltas(current, previous):
+    """PrefixCache minus dense; keep paired correctness flips and batch costs."""
+    deltas = []
+    for model, rows in (("llada20", current), ("llada21", previous)):
+        for w in (2, 3, 4):
+            a, b = (group(rows, f"{p}_w{w}") for p in ("flow", "prefix"))
+            for dataset in ("all", "gsm8k", "math500", "humaneval"):
+                aa, bb = (v if dataset == "all" else [r for r in v if r["dataset"] == dataset]
+                          for v in (a, b))
+                dense, cached = metrics(aa), metrics(bb)
+                flips = [boolean(y["correct"])-boolean(x["correct"]) for x, y in zip(aa, bb)]
+                assert sum(flips) == cached["correct"]-dense["correct"]
+                deltas.append(dict(model=model, window=w, dataset=dataset,
+                    only_dense=flips.count(-1), only_cache=flips.count(1),
+                    **{"delta_"+k: cached[k]-dense[k] for k in (
+                        "correct","mean_tpf","pooled_tpf","efficiency","physical_efficiency",
+                        "f","n","q","physical_q","q_per_forward","physical_q_per_forward")}))
+    return deltas
+
+
+def write_prefix_markdown(summaries):
+    lookup = {(r["model"],r["policy"]):r for r in summaries if r["dataset"] == "all"}
+    text = ["# FlowBlock: dense vs per-block PrefixCache", "",
+            "Every row uses the same 30 requests. Request Q excludes padding; physical Q includes it. "
+            "These are costs summed across requests, not wall-clock speed.", ""]
+    for m in ("llada20","llada21"):
+        text += ["## "+m, "",
+                 "| W | Method | Correct / 30 | Mean TPF | Pooled TPF | Efficiency | Physical efficiency | Forwards | Request Q | Physical Q |",
+                 "|--:|---|--:|--:|--:|--:|--:|--:|--:|--:|"]
+        for w in (2,3,4):
+            for policy in ("flow", "prefix"):
+                r = lookup[m,f"{policy}_w{w}"]
+                text.append(f"| {w} | {policy} | {r['correct']} | {r['mean_tpf']:.3f} | "
+                            f"{r['n']/r['f']:.3f} | {r['n']/r['q']:.2%} | {r['n']/r['physical_q']:.2%} | "
+                            f"{r['f']:,} | {r['q']:,} | {r['physical_q']:,} |")
+        text.append("")
+    text += ["Mean TPF is the equally weighted mean of the 30 individual N/F ratios; pooled TPF is total N / total F. "
+             "Quality includes all 30 responses, even length-capped outputs. The 2.1 reference for these six rows "
+             "is the paired PrefixCache run, including its dense controls.", ""]
+    (DEST/"flowblock-pairs.md").write_text("\n".join(text))
 
 
 if __name__ == "__main__":
