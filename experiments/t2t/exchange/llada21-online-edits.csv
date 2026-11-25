@@ -1,0 +1,7 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q4_f0_m3_hard_exchange_equal,30,5750,4581,620,0,170,450,0,,,,
+t2t_q8_f0_m7_hard_exchange_equal,30,3337,2308,624,0,224,400,0,,,,
+t2t_q16_f0_m14_hard_exchange_equal,30,2913,1819,773,0,357,416,0,,,,
+t2t_q4_f0_m3_hard_exchange_edit4,30,5125,4012,646,0,195,451,0,,,,
+t2t_q8_f0_m7_hard_exchange_edit4,30,4665,3426,692,0,240,452,0,,,,
+t2t_q16_f0_m14_hard_exchange_edit4,30,2585,1556,671,0,333,338,0,,,,
