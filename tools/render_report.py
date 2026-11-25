@@ -45,6 +45,28 @@ def metrics_cell(r):
     return f'{r["tpf"]:.3f} · {r["efficiency"]:.2%} · {r["correct"]}/30'
 
 
+def gemma_baselines(overall):
+    rows = [r for r in overall if (r["model"], r["role"], r["dataset"]) == ("gemma", "baseline", "all")]
+    order = ["native", *(f"flow_w{w}" for w in range(1, 5)), "b3",
+             *(f"{mode}_{c}" for c in GEMMA_CHUNKS for mode in ("ibs", "obs"))]
+    lookup = {r["policy"]: r for r in rows}
+    assert len(rows) == len(order) and set(lookup) == set(order) and all(r["requests"] == 30 for r in rows)
+    return [lookup[p] for p in order]
+
+
+def gemma_figures(overall):
+    rows = gemma_baselines(overall)
+    cells = []
+    for r in rows:
+        p = r["policy"]
+        label = ("Optimus " if p.startswith(("ibs_", "obs_")) else "") + name(p)
+        cells.append((label, [r]))
+    yield "gemma-baselines", "DiffusionGemma 26B-A4B: all baselines", (["B=256"], cells)
+    lookup = {r["policy"]: r for r in rows}
+    paired = [(f"C={c}", [lookup[f"{m}_{c}"] for m in ("ibs", "obs")]) for c in GEMMA_CHUNKS]
+    yield "gemma-optimus", "DiffusionGemma B256: Optimus IBS vs OBS", (["IBS", "OBS"], paired)
+
+
 def report(study, allrows, paired):
     lines = ["# "+TITLES[study], "", SCOPE[study], "", COMMON, "",
              "[逐题数值](requests.csv) · [全体与各数据集汇总](summary.csv) · [矢量图](figures/comparison.svg)"
@@ -56,9 +78,13 @@ def report(study, allrows, paired):
             continue
         lines += ["## "+model, ""]
         if m == "gemma" and study == BASE:
-            lines += ["[IBS 与 OBS 的配对数值图](figures/gemma-optimus.svg) · "
-                      "[可直接编辑和重画的 CSV](gemma-optimus.csv) · "
-                      "[Gemma 的采样适配与实测 Q 口径](../../archive/diffusiongemma-optimus/)。",""]
+            rows = gemma_baselines(rows)
+            lines += ["同一组 30 题、原生块长 B=256。W 为 FlowBlock 的块窗口，C 为 Optimus 的固定窗口，"
+                      "不是每次 forward 的 Q 硬上限；下表另列实测 Q/F。B3 使用本仓库适配。", "",
+                      "[全部 20 组矢量图](figures/gemma-baselines.svg) · [重画用 CSV](gemma-baselines.csv) · "
+                      "[仅看 IBS/OBS 配对图](figures/gemma-optimus.svg) · "
+                      "[采样适配与实测 Q 口径](../../archive/diffusiongemma-optimus/)", "",
+                      "![DiffusionGemma B256：20 组基线的 TPF、token efficiency、正确数](figures/gemma-baselines.png)", ""]
         if study == BASE:
             lines += ["| 策略 | 实测 Q/F | TPF | Token efficiency | 质量 | 运行来源 |",
                       "|---|---:|---:|---:|---:|---|"]
@@ -182,16 +208,15 @@ def build(check=False):
             files["comparisons.csv"] = csv_text(direct)
         folder = ROOT/"experiments"/study
         if study == BASE:
-            lookup = {r["policy"]:r for r in overall if r["model"]=="gemma"}
-            cells = [(f"C={c}",[lookup[f"{m}_{c}"] for m in ("ibs","obs")]) for c in GEMMA_CHUNKS]
-            manual = [dict(row=label,series=mode,tpf=r["tpf"],token_efficiency_pct=r["efficiency"]*100,
-                           correct=r["correct"]) for label,rr in cells for mode,r in zip(("IBS","OBS"),rr)]
-            files["gemma-optimus.csv"] = csv_text(manual)
-            opt_grid = (["IBS","OBS"],cells)
-            opt_fig = folder/"figures/gemma-optimus"
-            if not check:
-                chart(opt_fig,study,opt_grid,title="DiffusionGemma B256: Optimus IBS vs OBS")
-            verify_figure(opt_fig,opt_grid)
+            for stem, title, grid in gemma_figures(overall):
+                series, cells = grid
+                files[stem+".csv"] = csv_text([
+                    dict(row=label, series=mode, tpf=r["tpf"], token_efficiency_pct=r["efficiency"]*100,
+                         correct=r["correct"]) for label, rr in cells for mode, r in zip(series, rr)])
+                fig = folder/"figures"/stem
+                if not check:
+                    chart(fig, study, grid, title=title)
+                verify_figure(fig, grid)
         if not check:
             folder.mkdir(parents=True,exist_ok=True)
         for name_, text in files.items():

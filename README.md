@@ -10,7 +10,9 @@
 
 每组均为 GSM8K、MATH-500、HumanEval 各 10 题，不换题、不剔除失败与截断。TPF 是逐请求 `N/F` 的均值；token efficiency 是 `ΣN/ΣQ`；质量是正确数 `/30`。只计实际执行的解码 forward 和 Q，不计纯 prompt prefill；物理 Q（含批内 padding）另列。不同模型的 tokenizer、采样器与每次 forward 的成本不同，不能把 TPF 当作墙钟速度。
 
-共 **84 组独立实测、2,520 次请求**。同一次基线可以在两张表展示，但只计一次执行。真实重测保留各自的数值、运行来源与配对关系，不平均。LLaDA 2.0 的 Native B32 主基线是已完成块缓存 KV 的实测；HF 无缓存结果只作参考。DiffusionGemma 的 [IBS/OBS 配对图](experiments/baselines/figures/gemma-optimus.svg)覆盖七档固定窗口 4–256。
+共 **84 组独立实测、2,520 次请求**。同一次基线可以在两张表展示，但只计一次执行。真实重测保留各自的数值、运行来源与配对关系，不平均。LLaDA 2.0 的 Native B32 主基线是已完成块缓存 KV 的实测；HF 无缓存结果只作参考。
+
+**DiffusionGemma 26B-A4B（B=256）：[20 组基线合并图](experiments/baselines/figures/gemma-baselines.svg) · [对照表，含实测 Q/F](experiments/baselines/#diffusiongemma-26b-a4b) · [绘图 CSV](experiments/baselines/gemma-baselines.csv)**。图中并列 Native、FlowBlock W=1–4、B3，以及 4/8/16/32/64/128/256 七档固定窗口下的 Optimus IBS 和 OBS；同一窗口的两种模式相邻。
 
 ### 复现与核验
 
@@ -22,6 +24,9 @@
 
 ```bash
 python -m pip install matplotlib
+# 从已发布的 20 组数值重画 Gemma 基线总图：
+python tools/plot_summary.py experiments/baselines/gemma-baselines.csv --out /tmp/gemma-baselines --title "DiffusionGemma 26B-A4B: all baselines"
+# 仅对比 Optimus，也可从空模板开始：
 cp tools/templates/gemma-optimus.csv /tmp/gemma-optimus.csv
 # 在 CSV 填入各组冻结 30 题的汇总，再运行：
 python tools/plot_summary.py /tmp/gemma-optimus.csv --out /tmp/gemma-optimus --title "DiffusionGemma: Optimus IBS vs OBS"
