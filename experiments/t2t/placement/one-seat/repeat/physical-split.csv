@@ -1,0 +1,5 @@
+model,seed_offset,budget,policy,total_F,total_Q,selected_F,selected_Q,mandatory_Q,mask_Q,reserved_old_Q,backfill_old_Q,other_Q,overflow_Q
+gemma,0,32,t2t_q32_f0_m32_hard_once_base,1389,81858,1231,41410,14123,25502,0,1785,40448,2018
+gemma,0,32,t2t_q32_f0_m32_hard_once_mask,1347,80129,1191,40193,13975,24434,9,1775,39936,2081
+gemma,1000003,32,t2t_q32_f0_m32_hard_once_base,1348,81892,1185,40164,13602,24763,0,1799,41728,2244
+gemma,1000003,32,t2t_q32_f0_m32_hard_once_mask,1405,83063,1245,42103,14052,25765,10,2276,40960,2263
