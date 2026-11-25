@@ -1,0 +1,9 @@
+nominal_q,salt,mode,swap_states,calls,median_us,p95_us
+4,a,uniform,366,1464,5.99,6.09
+4,a,oldest_half,366,1464,14.04,16.35
+4,b,uniform,350,1400,5.96,6.08
+4,b,oldest_half,350,1400,14.0,16.35
+8,a,uniform,854,3416,5.96,6.09
+8,a,oldest_half,854,3416,13.82,15.64
+8,b,uniform,723,2892,5.98,6.11
+8,b,oldest_half,723,2892,13.9,15.71

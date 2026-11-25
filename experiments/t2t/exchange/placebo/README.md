@@ -32,6 +32,19 @@ TPF 为逐题 N/F 的算术平均；效率为总 N / 总物理 Q。只免独立 
 
 首次分叉轮按 `masked_before − masked_after + revocations` 计算真实 MASK 接纳，而不是直接照抄 `accepted`。总数相同不保证后续推理轨迹一致。已发布的预测臂在自己的 Q4/Q8 轨迹上分别为 9/343、13/967 次严格命中，与随机臂的分母不相同。
 
+## 实际 Q 分配
+
+| Q / 策略 | 全部选位 Q | 必刷 | MASK | 主动换入旧位 | 普通旧位回填 | 其他生成阶段 Q |
+|---|---:|---:|---:|---:|---:|---:|
+| 4 / 预测 | 19,643 | 10,439 | 8,672 | 343 | 189 | 50,528 |
+| 4 / 均匀 A | 20,303 | 10,857 | 8,883 | 366 | 197 | 52,480 |
+| 4 / 均匀 B | 19,022 | 9,993 | 8,469 | 350 | 210 | 48,000 |
+| 8 / 预测 | 29,977 | 11,602 | 15,389 | 967 | 2,019 | 56,288 |
+| 8 / 均匀 A | 26,620 | 10,699 | 13,325 | 854 | 1,742 | 52,992 |
+| 8 / 均匀 B | 22,536 | 9,727 | 10,584 | 723 | 1,502 | 49,952 |
+
+中间四列互斥且相加等于选位 Q。必刷超额已计入，不截断也不重复计费；其他生成阶段含整块初始化、验证、提交。[均匀组分账](physical-split.csv) · [预测组分账](../paired-cost.csv)。
+
 ## 稀疏状态下，缓存年龄能提供信号吗？
 
 只有随机实际算到的旧行才有观测值。基于已知均匀抽取概率估计：仍用同一门控和换出行，若改从最久未计算的一半或最新的一半中均匀抽取，当轮换入行会多常发生严格编辑？平局按名额分摊。时间戳只用本块先前真正执行的物理 Q；目标策略的单行重要性权重不超过 2。区间按数据集内整题重采样，不计入策略搜索、跨种子或跨题集误差。
@@ -45,6 +58,8 @@ TPF 为逐题 N/F 的算术平均；效率为总 N / 总物理 Q。只免独立 
 
 四组点估计同向，Q4/A 区间跨零。这是**已访问状态上的单步估计**，不是端到端结果，不能由此推断真实部署的质量或 TPF。相比之下，单独估计“恰好抽到预测第一名”的证据很弱：四组候选相撞时仅直接命中 0/1/2/1 次；Q4 两条流对预测排序的相对效果给出不同符号。[汇总与有效支持量](candidate-propensity.csv) · [逐题数据](candidate-propensity-requests.csv) · [实验与后续直接执行规则](PROTOCOL.md)。
 
+在同一 n164 CPU 核上重放上述实际换位状态，预先准备好候选池和时钟，不计 I/O。两个方法都热身，交替顺序各测 4 次：普通均匀抽取中位数 5.96–5.99 µs；最旧一半抽取中位数 13.82–14.04 µs，P95 为 15.64–16.35 µs。只衡量已决定换位时选择候选的 Python 开销，不含共同门控、GPU 或完整请求耗时。[测量表](age-draw-cpu.csv)。
+
 ## 复现
 
 在研究分支按冻结 30 题和相同种子运行 `tools.run_t2t --model llada21 --exchange-rates experiments/t2t/exchange/rates.json`。Q4、Q8 的 `--arm` 格式分别为 `4:0:3:hard_exchange_random_a`、`8:0:7:hard_exchange_random_a`；另一随机流后缀为 `b`。先用 `tools.t2t_results` 对两个完整分片评分，再运行：
@@ -53,4 +68,5 @@ TPF 为逐题 N/F 的算术平均；效率为总 N / 总物理 Q。只免独立 
 python -m tools.exchange_placebo_report --measured "$SCORED" --ranked experiments/t2t/exchange --out "$OUT"
 python -m tools.exchange_placebo_audit --ranked "$RANKED_RAW" --run "$Q4_RAW" --run "$Q8_RAW" --out "$OUT/trajectory-audit.csv"
 python -m tools.exchange_study propensity --dir "$OUT" --run "$Q4_RAW" --run "$Q8_RAW"
+python -m tools.selector_cost --age-run "$Q4_RAW" --age-run "$Q8_RAW" --out "$OUT/age-draw-cpu.csv"
 ```

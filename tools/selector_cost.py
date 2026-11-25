@@ -105,16 +105,68 @@ def hazard_cost(native_root, weights_path=None, exchange_rates=None, q=16):
             for mode, ts in timings.items()]
 
 
+def age_draw_cost(run):
+    """Same predecoded pool and clocks; time just the additional candidate draw."""
+    from random import Random
+    from bdlm_serving.methods.t2t.exchange import PLACEBOS, oldest_half
+    meta = json.loads((run/"run.json").read_text())
+    tasks = json.loads(MANIFEST.read_text())["samples"]
+    if json.loads((run/"qualified.json").read_text()) != dict(model="llada21",full_width=32,matched=30):
+        raise ValueError("Unqualified placebo source")
+    for arm,policy in zip(meta["arms"],meta["policies"],strict=True):
+        salt = PLACEBOS[arm["selection"]]
+        if json.loads((run/f"complete-{policy}.json").read_text()) != dict(policy=policy,requests=30):
+            raise ValueError("Incomplete placebo source")
+        cases = []
+        for task in tasks:
+            row = json.loads((run/f"{task['index']:02d}-{policy}.json").read_text())
+            assert all(row[k] == task[k] for k in ("index","dataset","task_id","seed"))
+            for e in row["events"]:
+                if e["stage"] == "bootstrap":
+                    block, clocks = e["block"], [-1]*32
+                if "placebo_exchange" in e:
+                    a = e["placebo_exchange"]
+                    key = f"exchange-placebo:{salt}:{row['seed']}:{block}:{e['hard_clock']}"
+                    draw = Random(key).sample(a["pool"],1)
+                    assert set(draw) == set(a["executed"])-set(a["base"])
+                    cases.append((a["pool"],clocks.copy(),key))
+                if e["stage"] in ("bootstrap","selected"):
+                    for i in e["absolute_positions"]:
+                        clocks[i-32*block] = e["hard_clock"]
+        timings = [[],[]]
+        def invoke(mode,pool,clocks,key):
+            return Random(key).sample(oldest_half(pool,clocks,key) if mode else pool,1)
+        for j,(pool,clocks,key) in enumerate(cases):
+            for mode in (0,1):
+                invoke(mode,pool,clocks,key)
+            for rep in range(4):
+                for mode in ((1,0) if (j+rep)%2 else (0,1)):
+                    start = perf_counter_ns()
+                    invoke(mode,pool,clocks,key)
+                    timings[mode].append((perf_counter_ns()-start)/1000.)
+        for mode,ts in enumerate(timings):
+            yield dict(nominal_q=arm["budget"],salt=salt,mode=("uniform","oldest_half")[mode],
+                       swap_states=len(cases),calls=len(ts),median_us=round(median(ts),2),
+                       p95_us=round(sorted(ts)[(95*len(ts)-1)//100],2))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--native-root", type=Path, required=True)
+    p.add_argument("--native-root", type=Path)
     p.add_argument("--out", type=Path, required=True)
     choice = p.add_mutually_exclusive_group()
+    choice.add_argument("--age-run", type=Path, action="append", help="time candidate draws on a qualified uniform run")
     choice.add_argument("--exchange-rates", type=Path, help="Time physical exchanges at Q4/8/16")
     choice.add_argument("--hazard-weights", type=Path,
                    help="Time Q16 risk ranking on still-masked post-bootstrap LLaDA states")
     args = p.parse_args()
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
+    if args.age_run:
+        from tools.t2t_results import table
+        table(args.out,[r for run in args.age_run for r in age_draw_cost(run)])
+        return
+    if not args.native_root:
+        p.error("Provide --native-root or --age-run")
     if args.hazard_weights or args.exchange_rates:
         rows = [r for q in ((4,8,16) if args.exchange_rates else (16,)) for r in
                 hazard_cost(args.native_root, args.hazard_weights, args.exchange_rates, q)]
