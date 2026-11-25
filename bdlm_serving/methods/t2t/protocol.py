@@ -38,13 +38,15 @@ class Arm:
                 raise ValueError("One-seat studies use 4:0:4 (B32) or 32:0:32 (B256)")
             return obj
         if block == 32:
-            modes += ("hard_hazard_gate", "hard_hazard_fixed", *EXCHANGE)
+            modes += ("hard_hazard_gate", "hard_hazard_fixed", "hard_context_fixed", *EXCHANGE)
         elif block == 256:
             modes += ("hard_trigger_refresh",)
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
         if selection.startswith("hard_") and obj.fresh != 0:
             raise ValueError("Hard refresh selects every fresh row; no fixed fresh quota is allowed")
+        if selection == "hard_context_fixed" and (obj.budget, obj.edit) not in ((4, 1), (8, 1), (16, 2)):
+            raise ValueError("Context rollout is bounded to Q4/1, Q8/1, Q16/2")
         if selection == "hard_oracle1" and obj.edit != 1:
             raise ValueError("The shadow oracle verifies exactly one candidate swap")
         if (selection in ("noedit", "fresh_random", "hard_noedit")) != (obj.edit == 0):

@@ -1,5 +1,6 @@
 """Run measured Q policies after qualifying full-width output AND work on frozen30."""
 import argparse
+from contextlib import ExitStack
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -15,6 +16,7 @@ def parse_args():
         p.add_argument("--" + key, required=True, type=Path)
     p.add_argument("--arm", action="append", help="Q:fresh:mask:selection; repeatable")
     p.add_argument("--hazard-weights", type=Path, help="One frozen positional ranker shared by all 30 requests")
+    p.add_argument("--context-weights", type=Path, help="Private calibration24 input-context coefficients (B32)")
     p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
     p.add_argument("--seed-offset", type=int, default=0,
                    help="Paired seed repeat on the same cases; requires matching native references")
@@ -29,7 +31,6 @@ def durable(path, data):
 
 
 def main(args, prepare=None):
-    from bdlm_serving.methods.t2t.online import load_backend
     ll = args.model == "llada21"
     block = 32 if ll else 256
     offset = getattr(args, "seed_offset", 0)
@@ -49,11 +50,26 @@ def main(args, prepare=None):
         from bdlm_serving.methods.t2t.hazard import read_weights
         read_weights(getattr(args,"hazard_weights",None))
         extra["hazard_weights_sha256"] = sha(args.hazard_weights)
+    with ExitStack() as stack:
+        ranker = None
+        if any(a.selection == "hard_context_fixed" for a in arms):
+            from bdlm_serving.evaluation.frozen import sha
+            from bdlm_serving.methods.t2t.embedding_context import (
+                ContextRanker, Projector, input_table, read_context_weights)
+            w = read_context_weights(getattr(args, 'context_weights', None))
+            projector = Projector(stack.enter_context(input_table(args.checkpoint)))
+            ranker = ContextRanker(projector.unit, w)
+            extra['context_weights_sha256'] = sha(args.context_weights)
+        _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker)
+
+
+def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker):
+    from bdlm_serving.methods.t2t.online import load_backend
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
         block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms],
         seed_offset=offset, **extra))
-    run = load_backend(args, prepare)
+    run = load_backend(args, prepare, context_ranker=ranker)
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy
         for task in tasks:

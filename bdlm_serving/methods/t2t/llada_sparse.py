@@ -26,7 +26,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
 from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + MODES + _HAZARD + tuple(EXCHANGE)
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1", "hard_context_fixed") + MODES + _HAZARD + tuple(EXCHANGE)
 
 
 @dataclass
@@ -180,7 +180,7 @@ class LLaDASparseKernel(SerialKernel):
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
                  policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None,
-                 exchange_rates=None):
+                 exchange_rates=None, context_ranker=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
@@ -201,6 +201,10 @@ class LLaDASparseKernel(SerialKernel):
         self.policy, self.signal, self.selection_seed = policy, signal, selection_seed
         self.hazard_weights = hazard_weights
         self.exchange_rates = exchange_rates
+        self.context_ranker = context_ranker
+        if policy == "hard_context_fixed" and (context_ranker is None or fresh_slots or
+                (q_budget, q_budget - mask_slots) not in ((4, 1), (8, 1), (16, 2))):
+            raise ValueError("Context rollout requires its frozen ranker and registered budgets")
         if policy in EXCHANGE and not exchange_rates:
             raise ValueError("Missing exchange calibration")
         if policy in _HAZARD and (hazard_weights is None or len(hazard_weights) != 25):
@@ -322,7 +326,7 @@ class LLaDASparseKernel(SerialKernel):
         # Include an edit seat redirected by the existing force-mask rule, if any.
         return picked, reserved, self.q_budget - self.fresh_slots - self.mask_slots - n
 
-    def _hard_pick(self, state, editable, resolved):
+    def _hard_pick(self, state, editable, resolved, before):
         fresh = state.history.fresh.intersection(editable)
         if len(fresh) > self.q_budget:
             return sorted(fresh), []
@@ -344,11 +348,15 @@ class LLaDASparseKernel(SerialKernel):
                     editable, resolved, fresh, picked, reserved, offers, tag,
                     last_query=state.last_query if self.policy in AGE_ARMS else None)
             return picked, reserved
-        if self.policy in _HAZARD:
+        if self.policy in _HAZARD or self.policy == "hard_context_fixed":
             from .hazard import choose
+            score_rows = None
+            if self.policy == "hard_context_fixed":
+                def score_rows(old, pos):
+                    return self.context_ranker.scores(before, fresh, old, pos)
             return choose(list(editable), resolved, fresh, state.last_write, state.previous_strict,
                 len(state.events)+1, self.q_budget, edit_slots, self.hazard_weights,
-                .05 if self.policy == "hard_hazard_gate" else 0.)
+                .05 if self.policy == "hard_hazard_gate" else 0., score_rows=score_rows)
         picked, reserved = select_hard(
             list(editable), resolved, fresh, state.last_write, state.last_query,
             len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,
@@ -459,7 +467,7 @@ class LLaDASparseKernel(SerialKernel):
             stage = "selected"
             editable = range(max(0, state.prompt_length - start), 32)
             if hard:
-                picked, hard_reserved = self._hard_pick(state, editable, resolved)
+                picked, hard_reserved = self._hard_pick(state, editable, resolved, before)
             elif gate is not None:
                 picked, reserved, released = self._gate_pick(state, editable, start, tags)
             else:

@@ -24,7 +24,7 @@ def package(tok, ids, work, eos, special, prefill, **extra):
                 q_histogram=dict(Counter(str(rows) for _, rows in work)), **extra)
 
 
-def llada_backend(args, prepare):
+def llada_backend(args, prepare, *, context_ranker=None):
     import torch
     import transformers.utils as utils
     if not hasattr(utils, "LossKwargs"):
@@ -79,7 +79,9 @@ def llada_backend(args, prepare):
             qualify_full_budget(model, *parameters, reference=ref)
         opts = {} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask, policy=arm.selection)
         kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, hazard_weights=weights,
-                                   exchange_rates=rates, **opts)
+                                   exchange_rates=rates,
+                                   context_ranker=context_ranker if arm and arm.selection == 'hard_context_fixed' else None,
+                                   **opts)
         state = kernel.create(*parameters)
         kernel.run(state)
         path = state.events
@@ -97,9 +99,9 @@ def llada_backend(args, prepare):
     return run
 
 
-def load_backend(args, prepare):
+def load_backend(args, prepare, *, context_ranker=None):
     if args.model == "llada21":
-        return llada_backend(args, prepare)
+        return llada_backend(args, prepare, context_ranker=context_ranker)
     return gemma_backend(args, prepare)
 
 

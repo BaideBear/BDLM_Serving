@@ -28,16 +28,18 @@ def read_weights(path):
     return tuple(w)
 
 
-def choose(valid, resolved, fresh, writes, strict, clock, q, cap, weights, threshold=.05):
+def choose(valid, resolved, fresh, writes, strict, clock, q, cap, weights, threshold=.05, *, score_rows=None):
     masks = [i for i in valid if not resolved[i]]
     old = [i for i in valid if resolved[i] and i not in fresh]
     size = min(len(valid), max(q, len(fresh)))
     free = size-len(fresh)
     old_cap = max(0,min(cap,free-int(bool(masks))))
     slack = max(0,free-len(masks))
-    if old_cap:
-        ranks = sorted(((-sum(v*w for v,w in zip(features(i,masks,fresh,strict,writes,clock),weights,strict=True)),i)
-                        for i in old))
+    if old_cap and old:
+        pos = [features(i,masks,fresh,strict,writes,clock) for i in old]
+        scores = (score_rows(old, pos) if score_rows is not None else
+                  (sum(v*w for v,w in zip(row,weights,strict=True)) for row in pos))
+        ranks = sorted((-s, i) for s, i in zip(scores, old, strict=True))
         cutoff = -math.inf if threshold == 0 else math.log(threshold/(1.-threshold))
         reserve = [i for j,(neg,i) in enumerate(ranks[:old_cap]) if j < slack or -neg >= cutoff]
     else:
