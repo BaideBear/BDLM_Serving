@@ -1,0 +1,14 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q128_f32_m80_targeted,30,679,551,42,0,31,11,298,10766,0,,
+t2t_q128_f32_m80_random,30,612,489,27,0,21,6,196,10459,0,,
+t2t_q128_f32_m96_noedit,30,602,476,27,0,15,12,225,10578,0,,
+t2t_q64_f16_m40_targeted,30,879,751,47,0,34,13,278,8906,0,,
+t2t_q64_f16_m40_random,30,931,799,25,0,21,4,262,9095,0,,
+t2t_q64_f16_m48_noedit,30,841,712,36,0,21,15,221,8472,0,,
+t2t_q128_f64_m56_targeted,30,650,524,49,0,37,12,179,12311,0,,
+t2t_q128_f64_m56_random,30,602,481,14,0,11,3,196,11932,0,,
+t2t_q128_f64_m64_noedit,30,619,492,23,0,15,8,135,11909,0,,
+t2t_q64_f4_m60_noedit,30,984,857,40,0,25,15,367,4684,857,4684,15
+t2t_q64_f4_m60_fresh_random,30,1060,916,39,0,24,15,268,4907,916,4907,12
+t2t_q128_f4_m124_noedit,30,680,552,30,0,20,10,479,7379,552,7379,7
+t2t_q128_f4_m124_fresh_random,30,739,613,37,0,29,8,781,7760,613,7760,13

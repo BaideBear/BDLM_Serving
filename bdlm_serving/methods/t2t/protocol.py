@@ -23,11 +23,12 @@ class Arm:
         obj = cls(int(q), int(f), int(m), selection)
         if not 1 <= obj.budget <= block or min(obj.fresh, obj.mask, obj.edit) < 0:
             raise ValueError(f"Invalid Q or quota: {text}")
-        modes = ("targeted", "random", "noedit") + (("near_miss", "gate_random") if block == 32 else ())
+        modes = ("targeted", "random", "noedit") + (("near_miss", "gate_random") if block == 32
+                                                    else ("fresh_random",) if block == 256 else ())
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
-        if (selection == "noedit") != (obj.edit == 0):
-            raise ValueError("noedit requires zero reserved edit seats; other arms reserve at least one")
+        if (selection in ("noedit", "fresh_random")) != (obj.edit == 0):
+            raise ValueError("noedit/fresh_random require zero reserved edit seats; other arms reserve at least one")
         return obj
 
 

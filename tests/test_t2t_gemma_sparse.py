@@ -35,6 +35,18 @@ def test_no_noise_or_argmax_labels():
     assert new.streak == [0, 0, 0, 0, 4] and new.certainty == [1, 2, 3, 4, 0]
 
 
+def test_zero_edit_pair_only_changes_fresh_ranking():
+    h = History([True]*6 + [False]*4, [4, 3, 2, 1, 0, 0, None, None, None, None],
+                [0]*10, {0, 1, 2, 3}, {0, 1, 2, 3})
+    def choose(policy, seed):
+        return set(_pick(h, 5, 2, 3, policy, "uncertain", Random(seed)))
+    assert choose("noedit", 0) == {2, 3, 6, 7, 8}
+    choices = [choose("fresh_random", seed) for seed in range(30)]
+    assert all(s - h.fresh == {6, 7, 8} and len(s & h.fresh) == 2 for s in choices)
+    assert choices[0] == choose("fresh_random", 0)
+    assert len({tuple(sorted(s)) for s in choices}) == 6
+
+
 def test_resident_full_visible_tail_and_multiple_layers():
     bank = _CanvasKV(5)
     with pytest.raises(RuntimeError, match="bootstrap"):

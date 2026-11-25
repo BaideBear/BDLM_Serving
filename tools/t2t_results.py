@@ -29,6 +29,65 @@ def summarize(rows):
                 max_q=max(r["max_q"] for r in rows))
 
 
+def audit_edits(row):
+    out = Counter()
+    for e in row["events"]:
+        if "edited" not in e:
+            continue  # prefill/commit; reencode is recorded separately from denoising
+        stage, hits = e["stage"], int(e["edited"])
+        if hits < 0 or hits > (e["physical_q"] if "physical_q" in e else e["q"]):
+            raise ValueError("Strict edits exceed measured Q")
+        out["steps"] += 1
+        out["strict_edits"] += hits
+        out["revocations"] += e.get("revoked", 0)
+        out["edited_on_" + stage] += hits
+        if stage != "selected":
+            continue
+        if "selected_fresh" in e:
+            out["selected_fresh_seats"] += e["selected_fresh"]
+        if "edited_in_fresh" in e:
+            if not 0 <= e["edited_in_fresh"] <= min(hits, e["selected_fresh"]):
+                raise ValueError("Invalid observed fresh edit count")
+            out["fresh_labeled_steps"] += 1
+            out["fresh_labeled_seats"] += e["selected_fresh"]
+            out["fresh_labeled_hits"] += e["edited_in_fresh"]
+        out["selected_steps"] += 1
+    if out["strict_edits"] != row["t2t_edits"]:
+        raise ValueError("Request and per-step edit counts disagree")
+    return out
+
+
+def paired_quality(arms):
+    by_policy = {a[0]["policy"]: a for a in arms}
+    for policy, rows in by_policy.items():
+        if policy == "native":
+            continue
+        q, f, m = (rows[0][k] for k in ("nominal_q", "fresh", "mask"))
+        prefix = f"t2t_q{q}_f{f}_m"
+        refs = ["native"]
+        if policy.endswith("_targeted"):
+            refs.extend((f"{prefix}{m}_random", f"{prefix}{q-f}_noedit"))
+        elif policy.endswith("_near_miss"):
+            refs.extend((f"{prefix}{m}_gate_random", f"{prefix}{q-f}_noedit"))
+        elif policy.endswith("_noedit"):
+            refs.append(f"{prefix}{m}_fresh_random")
+        for ref in refs:
+            if ref not in by_policy:
+                continue
+            reference = by_policy[ref]
+            wins = losses = both = neither = 0
+            for a,b in zip(rows, reference, strict=True):
+                if (a["dataset"], a["task_id"], a["index"]) != (b["dataset"], b["task_id"], b["index"]):
+                    raise ValueError("Cannot pair different tasks")
+                wins += int(a["correct"] and not b["correct"])
+                losses += int(b["correct"] and not a["correct"])
+                both += int(a["correct"] and b["correct"])
+                neither += int(not a["correct"] and not b["correct"])
+            yield dict(policy=policy, reference=ref, equal_nominal_q=int(ref != "native"),
+                       both_correct=both, only_policy_correct=wins, only_reference_correct=losses,
+                       neither_correct=neither, delta_correct=wins-losses)
+
+
 def arm_sources(folders):
     if not folders:
         raise ValueError("No input run")
@@ -67,14 +126,14 @@ def main(args):
     baseline.sort(key=lambda r:r["index"])
     if [identity(r) for r in baseline] != ordered:
         raise ValueError("No matching native baseline")
-    arms, phases = [baseline], []
+    arms, phases, diagnostics = [baseline], [], []
     for folder, arm, policy in sources:
         complete = folder / f"complete-{policy}.json"
         if not complete.exists() and args.only_complete:
             continue
         if json.loads(complete.read_text()) != dict(policy=policy, requests=30):
             raise ValueError(f"Incomplete arm: {policy}")
-        rows, phase_f, phase_q = [], Counter(), Counter()
+        rows, phase_f, phase_q, edit_counts = [], Counter(), Counter(), Counter()
         cache = folder/f"marks-{policy}.json"
         marks = json.loads(cache.read_text()) if cache.exists() else {}
         for t in tasks:
@@ -94,10 +153,18 @@ def main(args):
                 correct=int(marks[str(t["index"])]),failed=int(failed),truncated=int(r["truncated"])))
             phase_f.update(r["forwards_by_phase"])
             phase_q.update(r["q_by_phase"])
+            edit_counts.update(audit_edits(r))
         if not cache.exists():
             with cache.open("x") as f:
                 json.dump(marks, f)
         phases.extend(dict(policy=policy, phase=p, F=n, Q=phase_q[p]) for p,n in sorted(phase_f.items()))
+        names = ("steps", "selected_steps", "strict_edits", "edited_on_bootstrap",
+                 "edited_on_selected", "edited_on_verify", "revocations")
+        diagnostics.append(dict(policy=policy, requests=len(rows), **{k:edit_counts[k] for k in names},
+            selected_fresh_seats=edit_counts["selected_fresh_seats"] if model == "gemma" else "",
+            labeled_selected_steps=edit_counts["fresh_labeled_steps"] if model == "gemma" else "",
+            labeled_fresh_seats=edit_counts["fresh_labeled_seats"] if edit_counts["fresh_labeled_steps"] else "",
+            labeled_fresh_edits=edit_counts["fresh_labeled_hits"] if edit_counts["fresh_labeled_steps"] else ""))
         arms.append(rows)
     if not phases:
         raise ValueError("No fully measured sparse arm yet")
@@ -108,7 +175,8 @@ def main(args):
             group_rows = [r for r in a if group == "all" or r["dataset"] == group]
             summaries.append(dict(model=model,policy=a[0]["policy"],nominal_q=a[0]["nominal_q"],
                 fresh=a[0]["fresh"],mask=a[0]["mask"],edit=a[0]["edit"],dataset=group,**summarize(group_rows)))
-    for name, rows in (("requests", all_rows), ("summary", summaries), ("phases", phases)):
+    for name, rows in (("requests", all_rows), ("summary", summaries), ("phases", phases),
+                       ("edits", diagnostics), ("paired-quality", list(paired_quality(arms)))):
         table(args.out/f"{model}-online-{name}.csv", rows)
 
 

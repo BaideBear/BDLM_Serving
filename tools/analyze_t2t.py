@@ -69,7 +69,9 @@ def replay(path, model, stats, positions=None, native=None):
                 drafts += sum(previous["draft"][i] != row["draft"][i] for i in valid)
             edits += len(targets)
             steps += 1
-            for pool, candidates in (("all_resolved", resolved), ("outside_fresh", [i for i in resolved if i not in history.fresh])):
+            for pool, candidates in (("all_resolved", resolved),
+                                     ("outside_fresh", [i for i in resolved if i not in history.fresh]),
+                                     ("fresh_only", [i for i in resolved if i in history.fresh])):
                 if not candidates:
                     continue
                 positives = len(targets.intersection(candidates))

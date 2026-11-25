@@ -7,3 +7,15 @@ t2t_q16_f4_m8_random,bootstrap,448,14336
 t2t_q16_f4_m8_random,commit,448,14336
 t2t_q16_f4_m8_random,selected,1756,28030
 t2t_q16_f4_m8_random,verify,680,21760
+t2t_q16_f4_m12_noedit,bootstrap,510,16320
+t2t_q16_f4_m12_noedit,commit,510,16320
+t2t_q16_f4_m12_noedit,selected,2604,41598
+t2t_q16_f4_m12_noedit,verify,826,26432
+t2t_q8_f2_m4_targeted,bootstrap,491,15712
+t2t_q8_f2_m4_targeted,commit,491,15712
+t2t_q8_f2_m4_targeted,selected,2470,19748
+t2t_q8_f2_m4_targeted,verify,743,23776
+t2t_q8_f2_m4_random,bootstrap,436,13952
+t2t_q8_f2_m4_random,commit,436,13952
+t2t_q8_f2_m4_random,selected,2129,17020
+t2t_q8_f2_m4_random,verify,637,20384

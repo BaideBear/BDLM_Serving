@@ -1,0 +1,6 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q16_f4_m8_targeted,30,2672,1549,844,0,268,576,0,,,,
+t2t_q16_f4_m8_random,30,2884,1756,939,0,366,573,0,,,,
+t2t_q16_f4_m12_noedit,30,3940,2604,1050,0,279,771,0,,,,
+t2t_q8_f2_m4_targeted,30,3704,2470,737,0,100,637,0,,,,
+t2t_q8_f2_m4_random,30,3202,2129,612,0,95,517,0,,,,

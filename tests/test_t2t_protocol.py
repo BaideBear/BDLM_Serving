@@ -4,6 +4,12 @@ from bdlm_serving.methods.t2t.protocol import Arm, matrix, verify_bridge, verify
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_fresh_random_is_zero_edit_gemma_only(self):
+        self.assertEqual(Arm.parse("64:4:60:fresh_random", 256).edit, 0)
+        for form, block in (("64:4:56:fresh_random", 256), ("16:4:12:fresh_random", 32)):
+            with self.assertRaises(ValueError):
+                Arm.parse(form, block)
+
     def test_paired_controls(self):
         for model, block in [("gemma", 256), ("llada21", 32)]:
             arms = matrix(model)

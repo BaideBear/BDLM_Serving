@@ -70,8 +70,14 @@ a sparsified GPU forward.
 
 ## 实际 Q 执行
 
+[在线报告与同预算差值](online.md) · [LLaDA 对比图](figures/llada21-online.svg) · [Gemma 对比图](figures/gemma-online.svg)。[Gemma 数值](gemma-online-summary.csv)与 [LLaDA 数值](llada21-online-summary.csv)采用同一口径。[LLaDA 逐阶段编辑](llada21-online-edits.csv) · [Gemma 逐阶段编辑](gemma-online-edits.csv)。[LLaDA 配对判题](llada21-online-paired-quality.csv)与 [Gemma 配对判题](gemma-online-paired-quality.csv)把“多答对”和“少答对”的题数分开，避免总正确数相同时误认为两种策略在同一批题上表现完全一致。所有在线编辑数是本策略在自身轨迹上观察到的事件，不是对未选位置的召回率。
+
+Gemma 的补充对照把独立 edit 席位固定为 0，`noedit` 在 fresh 内按最近实测的低 logit 差优先，`fresh_random` 只把 fresh 的顺序换成随机；MASK 与剩余非 fresh 的回填规则相同。补充配置 Q64、Q128 都只预留 4 个 fresh 席位。离线同样限定在 `fresh_only` 池，K4 实际命中 6/10，逐轮等席位随机期望 3.85；留出 9 题为 1/2 对 0.50。全原生轨迹的改写数很少，故不把这个信号当成可靠的质量提升保证。
+
 完整跑满相同 30 题的配置才进入结果表。LLaDA：[三项指标及实际 Q/F](llada21-online-summary.csv) · [配对逐题数据](llada21-online-requests.csv) · [按执行阶段分解 F、Q](llada21-online-phases.csv)。表中的 `nominal_q` 是选位轮预算；`q_per_f` 是含所有生成阶段的 `ΣQ/ΣF`，**不是**预算上限。停止时做全块验证；LLaDA 的 KV 提交及 Gemma 的块间重编码均收费。TPF 是逐题 `N/F` 的均值，不是 `ΣN/ΣF` 或耗时；`token_efficiency` 为 `ΣN/ΣQ`。质量是同一批题的 `correct/requests`，截断不删除。
 
 各模型共用 `tools/run_t2t.py --model MODEL --checkpoint DIR --samples FILE --reference DIR --output NEW_DIR`。默认运行两个预算、两种比例及各自配对的三项策略。可重复给 `--arm Q:fresh:mask:selection`；edit 配额为余数。`targeted` 使用已计算位置上最后一次观测到的低置信度；`random` 只随机化非 fresh 的 edit 候选顺序；`noedit` 将预留 edit 席位归还 MASK（已入选的行仍可自然触发 T2T）。不足时回填，不重复计算同一行。LLaDA 的 `near_miss` 和 `gate_random` 增加门控，随机组在**自己的**轨迹上保留相同的席位分配规则，而非强行对齐已经分叉的两条轨迹。运行每种配置前的资格检查按运行目录复用：全部 30 题的全宽输出 IDs 及实测工作量必须与原生归档匹配。
 
 两个模型都先收集 Q 行，再执行模型，不是先做完整 forward 再遮 logits。未选行保留上次测得的块内 KV。Gemma 的神经网络和词表头只收集所选行，但原生全画布采样器仍操作完整画布，未选行使用旧 raw logits，其采样结果被丢弃；因此这些指标不代表墙钟提速。复评分在基线评分环境中执行 `tools/t2t_results.py --samples FILE --run RUN --out experiments/t2t`；可重复 `--run` 合并同一模型的不重复配置。`--only-complete` 只允许发布已有 30 个逐题结果的整组，不允许缩小同组样本数。
+
+从已发布 CSV 重画图和表（无需权重或 GPU）：`python tools/render_t2t.py --input experiments/t2t --out experiments/t2t/online.md --fig-dir experiments/t2t/figures`。绘图依赖 matplotlib。对已完成的门控组运行 `python tools/t2t_gate_summary.py --run RUN` 可核对实际计算的逐层 Q、预留席位、命中和释放席位。

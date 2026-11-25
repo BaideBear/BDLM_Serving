@@ -54,6 +54,11 @@ class GemmaLedger:
 
 class _Ranking(History):
     def rank(self, eligible, signal):
+        if self.policy == "fresh_random":
+            ordered = sorted(eligible)
+            if ordered and ordered[0] in self.fresh:
+                self.rng.shuffle(ordered)
+            return ordered
         if not eligible or eligible[0] in self.fresh or self.policy == "targeted":
             return super().rank(eligible, signal)
         ordered = sorted(eligible)
@@ -66,7 +71,7 @@ def _pick(h, budget, fresh, mask, policy, signal, rng):
     rank = _Ranking(h.resolved, h.certainty, h.streak, h.changed, h.fresh)
     rank.policy, rank.rng = policy, rng
     # No-edit means no reserved edit seats, NOT a veto on accepting an edit.
-    if policy == "noedit":
+    if policy in ("noedit", "fresh_random"):
         mask = budget - fresh
     picked = allocate(rank, range(len(h.resolved)), budget, fresh, mask, signal)
     if len(picked) != budget or picked != sorted(set(picked)):
@@ -130,7 +135,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
-    if policy not in ("targeted", "random", "noedit") or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random") or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -237,6 +242,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         ledger.trace.append(dict(
             block=block, clock=clock, stage=stage, q=q, positions=picked.copy(),
             selected_fresh=sum(i in previous.fresh for i in picked),
+            available_fresh=len(previous.fresh),
+            edited_in_fresh=sum(accepted[i] and before_ids[i] != after_ids[i]
+                                for i in picked if i in previous.fresh),
             selected_mask=sum(not previous.resolved[i] for i in picked),
             admitted=admitted, edited=edited, revoked=revoked, resolved=sum(accepted),
             stop_candidate=proposed_stop, finished=bool(finished.item()), terminal_clock=clock == 1,
