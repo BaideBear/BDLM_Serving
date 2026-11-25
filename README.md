@@ -16,6 +16,19 @@
 
 `python tools/render_report.py --check` 仅用标准库即可从历史逐题记录核验当前三份报告及图中标注，无需权重或 GPU。安装 `matplotlib` 后运行 `python tools/render_report.py` 可重新生成表和图。运行、评分和环境说明见[复现文档](docs/reproduce.md)。
 
+### 手填数据画图
+
+在集群仓库根目录使用[绘图脚本](tools/plot_summary.py)和 [Gemma Optimus 空模板](tools/templates/gemma-optimus.csv)，不用 GPU、权重或原始答卷：
+
+```bash
+python -m pip install matplotlib
+cp tools/templates/gemma-optimus.csv /tmp/gemma-optimus.csv
+# 在 CSV 填入各组冻结 30 题的汇总，再运行：
+python tools/plot_summary.py /tmp/gemma-optimus.csv --out /tmp/gemma-optimus --title "DiffusionGemma: Optimus IBS vs OBS"
+```
+
+输出同名 `.png` 和 `.svg`，图上直接标注三个数值。`row`、`series` 是显示标签，按首次出现顺序排列，可增加窗口、方法或模型。`tpf` 填逐题 `N/F` 的均值；`token_efficiency_pct` 填 `100 × ΣN/ΣQ`（如 `8.42`，不带 `%`）；`correct` 填 30 题中答对的整数题数。整组未测就留三格空，图上显示 `-`；真实零值填 `0`。手填图不更新 `experiments/` 的正式报告。
+
 | 目录 | 用途 |
 |---|---|
 | [experiments](experiments/) | 三份正式结果：每份均含可读表、PNG/SVG、逐题与分数据集 CSV |

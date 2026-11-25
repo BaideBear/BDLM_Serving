@@ -120,7 +120,7 @@ def matrix(study, allrows):
     return (["FlowBlock","Prefix KV"] if study == PREFIX else ["IBS","OBS","OBS+B32"], grid)
 
 
-def chart(path, study, grid):
+def chart(path, study, grid, *, title=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -128,10 +128,10 @@ def chart(path, study, grid):
     metrics = ("tpf","efficiency","correct")
     fig, axes = plt.subplots(1,3,figsize=(14, 2.15+.34*len(rows)))
     fig.subplots_adjust(top=1-1.43/fig.get_figheight(),bottom=.36/fig.get_figheight(),left=.158,right=.99,wspace=.09)
-    fig.text(.016,.974,EN[study],weight="bold",size=16,va="top",color="#182737")
+    fig.text(.016,.974,title or EN[study],weight="bold",size=16,va="top",color="#182737")
     fig.text(.016,1-.49/fig.get_figheight(),"Frozen 30 requests   |   10 GSM8K, 10 MATH-500, 10 HumanEval   |   - = not measured",size=10,color="#475867")
     for ax,key,title,color in zip(axes,metrics,("Mean request TPF","Token efficiency","Correct / 30"),("#93c7dc","#8bc9bd","#e4b47d")):
-        peak = 30 if key=="correct" else max(r[key] for _,rr in rows for r in rr if r)
+        peak = 30 if key=="correct" else (max((r[key] for _,rr in rows for r in rr if r), default=0) or 1)
         for y,(_, rr) in enumerate(rows):
             if y%2==0:
                 ax.axhspan(y-.5,y+.5,color="#f4f6f8",lw=0)
