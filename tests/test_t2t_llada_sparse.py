@@ -1,11 +1,12 @@
 """CPU coverage of the native adapter contract; no model download required."""
+import random
 from types import SimpleNamespace
 
 import pytest
 import torch
 from torch import nn
 
-from bdlm_serving.methods.t2t.llada_sparse import LLaDASparseKernel, qualify_full_budget
+from bdlm_serving.methods.t2t.llada_sparse import LLaDASparseKernel, _GateEvidence, qualify_full_budget
 from bdlm_serving.methods.t2t.planner import History
 
 
@@ -195,3 +196,121 @@ def test_full_budget_qualification_against_native_batch_one(max_post_steps):
     assert result["commits"] == 2
     assert result["actual_q"] == result["physical_q"] == result["forwards"] * 32
     assert result["max_q"] == 32 and len(result["output_ids"]) == 33
+
+
+@pytest.mark.parametrize("policy", ["near_miss", "gate_random"])
+def test_gate_allocation_from_last_observed_rows(policy):
+    kernel = LLaDASparseKernel(_Toy().eval(), 6, 1, 2, policy=policy)
+    state = _state(kernel, prompt_length=32)
+    before = [1] * 12 + [MASK] * 20
+    confidence = [.8, .7, .9, .1, .75, .2, .7, .1, .1, .7, .3, .1] + [None] * 20
+    state.history = History([x != MASK for x in before], confidence, [0]*32, {3, 4}, {3, 4})
+    drafts = {i: (2 if i in (0, 2, 3, 4, 5, 7, 8) else 1, 1) for i in range(31)}
+    del drafts[8]  # unobserved row must not become a low-confidence disagreement
+    evidence = state.gate_evidence = _GateEvidence(drafts, {4})
+    tags = evidence.categories(state, before, 32)
+    assert [i for i, tag in enumerate(tags) if tag == "near_miss"] == [0, 5, 7]
+    sample_pool = [0, 1, 2, 5, 6, 7, 8, 9, 10, 11]
+    py_rng, torch_rng = random.getstate(), torch.get_rng_state().clone()
+    for seed in (7, 29, 113):
+        state.selection_seed = seed
+        picked, reserved, released = kernel._gate_pick(state, range(32), 32, tags)
+        expected = ([5, 7, 0] if policy == "near_miss"
+                    else random.Random(f"gate_random:{seed}:32:0").sample(sample_pool, 3))
+        assert reserved == expected and released == 0
+        assert picked == sorted([3, 12, 13] + reserved)
+    assert random.getstate() == py_rng and torch.equal(torch_rng, torch.get_rng_state())
+
+    # Distance ties: ascending certainty first, then position. No previous edit:
+    # all distances tied. Prompt, fresh, unseen and strictly above threshold excluded.
+    state.prompt_length = 33
+    evidence.observed[1] = (2, 1)
+    evidence.previous_t2t = {3}
+    tags = evidence.categories(state, before, 32)
+    assert tags[0] == "prompt"
+    if policy == "near_miss":
+        assert kernel._gate_pick(state, range(1, 32), 32, tags)[1] == [5, 1, 7]
+        state.history.certainty[1] = .2
+        assert kernel._gate_pick(state, range(1, 32), 32, tags)[1] == [1, 5, 7]
+        evidence.previous_t2t.clear()
+        assert kernel._gate_pick(state, range(1, 32), 32, tags)[1] == [7, 1, 5]
+
+    # One out of three seats supported. Then none: release seats to masks.
+    for i in (5, 7, 1):
+        evidence.observed[i] = (1, 1)
+        tags = evidence.categories(state, before, 32)
+        picked, reserved, released = kernel._gate_pick(state, range(1, 32), 32, tags)
+        n = tags.count("near_miss")
+        assert len(reserved) == n and released == 3-n
+        assert sum(tags[i] == "mask" for i in picked) == 2+released
+        assert 3 in picked and 4 not in picked and len(picked) == 6
+    # Scarce masks/fresh: ordinary neutral non-fresh backfill, not reservations.
+    picked, reserved, released = kernel._gate_pick(state, range(1, 13), 32, tags)
+    assert (picked, reserved, released) == ([1, 2, 3, 4, 5, 12], [], 3)
+
+
+class _GateToy(_Toy):
+    def forward(self, **kw):
+        result = super().forward(**kw)
+        pos, tokens = kw["position_ids"][0], kw["inputs_embeds"][0, :, 0]
+        # The real bootstrap observes three weak disagreements and two strong
+        # writes. One strong write is a revocation, not a strict T2T anchor.
+        weak = ((pos == 34) | (pos == 36) | (pos == 39)) & (tokens == 1)
+        if len(self.embedding_rows) == 2:
+            result.logits[0, weak] = torch.tensor([0., 0., 1., 0.])
+            result.logits[0, pos == 38] = torch.tensor([12., 0., 0., 0.])
+            result.logits[0, pos == 40] = torch.tensor([0., 20., 0., 0.])
+        result.logits[0, pos == 35] = torch.tensor([0., 12., 0., 0.])
+        return result
+
+
+def test_gate_live_sparse_step_audit_ages_and_strict_writes():
+    model = _GateToy().eval()
+    kernel = LLaDASparseKernel(model, 3, 1, 1, policy="near_miss")
+    state = _state(kernel, gen_length=33)
+    kernel.step(state)
+    assert "gate" not in state.events[-1]
+    state.x[0, 34:40] = 1
+    kernel.step(state)
+    bootstrap = state.events[-1]
+    assert bootstrap["edited"] == 2
+    assert bootstrap["gate"]["strict_edit_positions"] == [37]
+    assert bootstrap["gate"]["selected_evidence_age"] == [None]*32
+    kernel.step(state)
+    e = state.events[-1]
+    assert e["absolute_positions"] == [36, 37, 38]
+    assert e["gate"]["previous_strict_edit_positions"] == [37]
+    assert e["gate"]["available_near_miss_count"] == 3
+    assert e["gate"]["reserved_positions"] == e["gate"]["reserved_strict_edit_positions"] == [36]
+    assert e["gate"]["selected_evidence_age"] == [1, 1, 1]
+    assert e["gate"]["selected_category_counts"] == dict(
+        prompt=0, mask=1, fresh=1, near_miss=1, other_resolved=0)
+    kernel.step(state)
+    e = state.events[-1]
+    assert e["gate"]["previous_strict_edit_positions"] == [36]
+    assert e["gate"]["reserved_positions"] == [34]
+    assert e["gate"]["selected_evidence_age"][e["absolute_positions"].index(34)] == 2
+    assert [ev["physical_q"] for ev in state.events] == model.embedding_rows == [32, 32, 3, 3]
+    assert all(ev["F"] == 1 for ev in state.events)
+    kernel.run(state)
+    assert state.gate_evidence is None
+    for ev in state.events:
+        if ev["phase"] == "denoise":
+            assert sum(ev["gate"]["selected_category_counts"].values()) == ev["physical_q"]
+            assert len(ev["gate"]["selected_evidence_age"]) == ev["physical_q"]
+            assert set(ev["gate"]["reserved_positions"]) <= set(ev["absolute_positions"])
+            if ev["stage"] == "bootstrap":
+                assert ev["gate"]["previous_strict_edit_positions"] == []
+                assert ev["gate"]["selected_evidence_age"] == [None]*32
+        else:
+            assert "gate" not in ev
+
+
+def test_gate_random_full_run_no_free_sampling():
+    model = _Toy().eval()
+    kernel = LLaDASparseKernel(model, 5, 1, 2, policy="gate_random")
+    state = kernel.run(_state(kernel))
+    assert [e["actual_q"] for e in state.events] == model.embedding_rows
+    assert any(e.get("gate", {}).get("released_edit_slots_to_mask") == 2 for e in state.events)
+    assert all("gate" not in e or len(e["gate"]["selected_evidence_age"]) == e["actual_q"]
+               for e in state.events)

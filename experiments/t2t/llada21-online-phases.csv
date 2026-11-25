@@ -1,0 +1,9 @@
+policy,phase,F,Q
+t2t_q16_f4_m8_targeted,bootstrap,455,14560
+t2t_q16_f4_m8_targeted,commit,455,14560
+t2t_q16_f4_m8_targeted,selected,1549,24718
+t2t_q16_f4_m8_targeted,verify,668,21376
+t2t_q16_f4_m8_random,bootstrap,448,14336
+t2t_q16_f4_m8_random,commit,448,14336
+t2t_q16_f4_m8_random,selected,1756,28030
+t2t_q16_f4_m8_random,verify,680,21760

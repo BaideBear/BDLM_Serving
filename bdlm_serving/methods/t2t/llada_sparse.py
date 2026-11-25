@@ -9,7 +9,7 @@ steps retain stale unselected intra-block KV; full verification and final commit
 always recompute from the committed prefix. No future blocks are evaluated.
 """
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import random
 
 import torch
@@ -19,6 +19,56 @@ from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
+
+
+_GATED = ("near_miss", "gate_random")
+
+
+@dataclass
+class _GateEvidence:
+    # Local position -> (last sampled draft, one-based denoise clock).
+    observed: dict = field(default_factory=dict)
+    previous_t2t: set = field(default_factory=set)
+
+    def categories(self, state, before, start):
+        h, threshold = state.history, state.config["editing_threshold"]
+        categories = []
+        for i, token in enumerate(before):
+            if i + start < state.prompt_length:
+                tag = "prompt"
+            elif token == state.mask_id:
+                tag = "mask"
+            elif i in h.fresh:
+                tag = "fresh"
+            elif (i in self.observed and self.observed[i][0] != token
+                  and h.certainty[i] is not None and h.certainty[i] <= threshold):
+                tag = "near_miss"
+            else:
+                tag = "other_resolved"
+            categories.append(tag)
+        return categories
+
+    def record(self, state, tags, start, picked, proposed, before, after, reserved, released):
+        clock = state.step_in_block + 1
+        strict = {i for i in picked if tags[i] not in ("prompt", "mask")
+                  and after[i] != before[i] and after[i] != state.mask_id}
+        state.events[-1]["gate"] = dict(
+            available_near_miss_count=tags.count("near_miss"),
+            available_nonfresh_count=tags.count("near_miss") + tags.count("other_resolved"),
+            reserved_positions=[start+i for i in reserved],
+            reserved_near_miss_count=sum(tags[i] == "near_miss" for i in reserved),
+            released_edit_slots_to_mask=released,
+            previous_strict_edit_positions=[start+i for i in sorted(self.previous_t2t)],
+            strict_edit_positions=[start+i for i in sorted(strict)],
+            reserved_strict_edit_positions=[start+i for i in reserved if i in strict],
+            selected_category_counts={t: sum(tags[i] == t for i in picked)
+                                      for t in ("prompt", "mask", "fresh", "near_miss", "other_resolved")},
+            # Aligned with absolute_positions. None = unseen, 1 = previous step.
+            selected_evidence_age=[clock-self.observed[i][1] if i in self.observed else None
+                                   for i in picked],
+        )
+        self.observed.update((i, (draft, clock)) for i, draft in zip(picked, proposed[0].tolist()))
+        self.previous_t2t = strict
 
 
 class _AuditedDenseCache(BatchCache):
@@ -60,6 +110,7 @@ class SparseRequestState(RequestState):
     resident: tuple | None = None
     selection_seed: int = 0
     force_mask_next: bool = False
+    gate_evidence: _GateEvidence | None = None
 
 
 class _RankControl(History):
@@ -80,6 +131,18 @@ class _RankControl(History):
         return ordered
 
 
+class _GateOrder(History):
+    def __init__(self, history, reserved):
+        super().__init__(**vars(history))
+        self.reserved = set(reserved)
+
+    def rank(self, eligible, signal):
+        if not eligible or eligible[0] in self.fresh:
+            return super().rank(eligible, signal)
+        # Shared, neutral positional backfill after the explicitly reserved seats.
+        return sorted(eligible, key=lambda i: (i not in self.reserved, i))
+
+
 class LLaDASparseKernel(SerialKernel):
     """Same create/step/run/output interface as SerialKernel (cached only).
 
@@ -88,13 +151,20 @@ class LLaDASparseKernel(SerialKernel):
     noedit: zero reserved edit slots, with positional ordering for non-fresh
     resolved backfill. All arms share fresh ranking and apply native updates
     to every computed row. q_budget=32 bypasses sparse selection.
+
+    near_miss/gate_random: release unsupported edit seats to MASK. The former
+    ranks observed low-confidence disagreements by distance to the immediately
+    preceding pass's strict T2Ts, then confidence and position. The latter draws
+    the same number on its own state uniformly from all non-fresh resolved rows.
+    Only these policies add event["gate"] to sampled passes. Its position lists
+    are absolute; selected_evidence_age is pre-pass age in denoise calls.
     """
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
                  policy="ranked", signal="uncertain", selection_seed=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
-        if policy not in ("ranked", "random", "undirected", "noedit"):
+        if policy not in ("ranked", "random", "undirected", "noedit", *_GATED):
             raise ValueError(f"Unknown LLaDA quota policy: {policy}")
         if signal not in ("uncertain", "young", "neighbor", "recent_then_uncertain"):
             raise ValueError(f"Unknown History signal: {signal}")
@@ -175,18 +245,42 @@ class LLaDASparseKernel(SerialKernel):
             state.resident = cache.to_legacy_cache()
         return logits
 
-    def _pick(self, state, editable, start):
-        h = state.history
-        rank = _RankControl(h, self.policy,
-                            f"{state.selection_seed}:{start}:{state.step_in_block}")
+    def _quotas(self, state):
         fresh, mask = self.fresh_slots, self.mask_slots
         if state.force_mask_next:
             mask = max(1, mask)
             fresh = min(fresh, self.q_budget - mask)
+        return fresh, mask
+
+    def _pick(self, state, editable, start):
+        rank = _RankControl(state.history, self.policy,
+                            f"{state.selection_seed}:{start}:{state.step_in_block}")
+        fresh, mask = self._quotas(state)
         picked = allocate(rank, editable, self.q_budget, fresh, mask, self.signal)
         if len(picked) != min(self.q_budget, len(editable)):
             raise RuntimeError("Shared allocate did not fill the requested seats")
         return picked
+
+    def _gate_pick(self, state, editable, start, tags):
+        fresh, mask = self._quotas(state)
+        capacity = self.q_budget - fresh - mask
+        pool = [i for i in editable if tags[i] in ("near_miss", "other_resolved")]
+        positives = [i for i in pool if tags[i] == "near_miss"]
+        n = min(capacity, len(positives))
+        if self.policy == "gate_random":
+            rng = random.Random(f"gate_random:{state.selection_seed}:{start}:{state.step_in_block}")
+            reserved = rng.sample(pool, n)
+        else:
+            prev = state.gate_evidence.previous_t2t
+            reserved = sorted(positives, key=lambda i: (
+                min((abs(i-j) for j in prev), default=32), state.history.certainty[i], i))[:n]
+        released = capacity - n
+        picked = allocate(_GateOrder(state.history, reserved), editable, self.q_budget,
+                          fresh, mask + released, self.signal)
+        if len(picked) != min(self.q_budget, len(editable)) or not set(reserved).issubset(picked):
+            raise RuntimeError("Gate reservation and shared allocation disagree")
+        # Include an edit seat redirected by the existing force-mask rule, if any.
+        return picked, reserved, self.q_budget - self.fresh_slots - self.mask_slots - n
 
     def _sample(self, state, logits):
         with REFERENCE_RNG_LOCK, torch.random.fork_rng(devices=self._rng_devices()):
@@ -209,6 +303,7 @@ class LLaDASparseKernel(SerialKernel):
             action = super().step(state)
             if action == "commit":
                 state.history, state.resident, state.force_mask_next = None, None, False
+                state.gate_evidence = None
             return action
 
         start = state.block * 32
@@ -226,6 +321,12 @@ class LLaDASparseKernel(SerialKernel):
         first = state.history is None
         if first:
             state.history = History(resolved, [None] * 32, [0] * 32, set(), set())
+            if self.policy in _GATED:
+                state.gate_evidence = _GateEvidence()
+        gate = state.gate_evidence
+        if gate is not None:
+            tags = gate.categories(state, before, start)
+            reserved, released = [], 0
         if not count or first or self.q_budget == 32:
             stage = "verify" if not count else "bootstrap" if first else "dense"
             picked = list(range(32))
@@ -233,7 +334,10 @@ class LLaDASparseKernel(SerialKernel):
         else:
             stage = "selected"
             editable = range(max(0, state.prompt_length - start), 32)
-            picked = self._pick(state, editable, start)
+            if gate is None:
+                picked = self._pick(state, editable, start)
+            else:
+                picked, reserved, released = self._gate_pick(state, editable, start, tags)
 
         local = torch.tensor(picked, dtype=torch.long, device=state.x.device)
         if stage == "selected":
@@ -258,6 +362,8 @@ class LLaDASparseKernel(SerialKernel):
         cur.index_copy_(1, local, torch.where(accept | edit, proposed, old))
 
         after = cur[0].tolist()
+        if gate is not None:
+            gate.record(state, tags, start, picked, proposed, before, after, reserved, released)
         h = state.history
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]

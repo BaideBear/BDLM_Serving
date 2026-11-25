@@ -22,6 +22,8 @@ LLaDA 有额外 edit 席位可覆盖的目标，但即使在原生稠密轨迹�
 
 逐题计数：[LLaDA](llada21-paths.csv) · [Gemma](gemma-paths.csv)。完整 K=1/2/4/8 排名：[LLaDA](llada21-rankings.csv) · [Gemma](gemma-rankings.csv)。
 
+[LLaDA 改写位置](llada21-positions.csv)与 [Gemma 改写及重新接受的位置](gemma-positions.csv)按请求、去噪轮次、原生块和输出偏移列出，不含 token 内容。`pre_eos` 是最终返回 EOS 之前的位置，`eos` 是最终 EOS 所在的位置，`after_return` 参与了计算但没有交付给用户。Gemma 的 `readmit_different` 是被撤销后以不同 ID 重新接受，不计入连续接受的严格 T2T。
+
 **LLaDA，接近改写阈值的已解码位置。** 上一轮 top-1 不等于当前位置上的 token、且上轮 top-1 置信度未超过原生编辑阈值 0.5，记为 `near_miss`。优先最近一次去噪中真正发生改写的位置的邻居，再按上一轮置信度升序。只考察 fresh 之外的位置。限制每步最多两个 edit 席位；没有信号时将席位留给其他用途。这个策略在全 30 题中以 595 个席位命中 135/311 次，逐步等席位随机期望是 19.78 次。留出 9 题命中 **62/124**，使用 **248** 席位（25.0% 精确率），随机期望是 **8.82** 次。若每步固定填满两个席位，留出集命中 73/124，但需要 1,021 个席位。稀疏执行不能免费观察未选行的 top-1，这些数值不是部署保证。
 
 Native LLaDA 2.1-mini B32 and DiffusionGemma 26B-A4B B256, same frozen 30
@@ -65,3 +67,11 @@ These 30 prompts were used in earlier research; not a new independent quality
 confirmation set. A dense-trace ranking does not prove stale sparse features
 work online. The CPU allocator in `bdlm_serving/methods/t2t/planner.py` is not
 a sparsified GPU forward.
+
+## 实际 Q 执行
+
+完整跑满相同 30 题的配置才进入结果表。LLaDA：[三项指标及实际 Q/F](llada21-online-summary.csv) · [配对逐题数据](llada21-online-requests.csv) · [按执行阶段分解 F、Q](llada21-online-phases.csv)。表中的 `nominal_q` 是选位轮预算；`q_per_f` 是含所有生成阶段的 `ΣQ/ΣF`，**不是**预算上限。停止时做全块验证；LLaDA 的 KV 提交及 Gemma 的块间重编码均收费。TPF 是逐题 `N/F` 的均值，不是 `ΣN/ΣF` 或耗时；`token_efficiency` 为 `ΣN/ΣQ`。质量是同一批题的 `correct/requests`，截断不删除。
+
+各模型共用 `tools/run_t2t.py --model MODEL --checkpoint DIR --samples FILE --reference DIR --output NEW_DIR`。默认运行两个预算、两种比例及各自配对的三项策略。可重复给 `--arm Q:fresh:mask:selection`；edit 配额为余数。`targeted` 使用已计算位置上最后一次观测到的低置信度；`random` 只随机化非 fresh 的 edit 候选顺序；`noedit` 将预留 edit 席位归还 MASK（已入选的行仍可自然触发 T2T）。不足时回填，不重复计算同一行。LLaDA 的 `near_miss` 和 `gate_random` 增加门控，随机组在**自己的**轨迹上保留相同的席位分配规则，而非强行对齐已经分叉的两条轨迹。运行每种配置前的资格检查按运行目录复用：全部 30 题的全宽输出 IDs 及实测工作量必须与原生归档匹配。
+
+两个模型都先收集 Q 行，再执行模型，不是先做完整 forward 再遮 logits。未选行保留上次测得的块内 KV。Gemma 的神经网络和词表头只收集所选行，但原生全画布采样器仍操作完整画布，未选行使用旧 raw logits，其采样结果被丢弃；因此这些指标不代表墙钟提速。复评分在基线评分环境中执行 `tools/t2t_results.py --samples FILE --run RUN --out experiments/t2t`；可重复 `--run` 合并同一模型的不重复配置。`--only-complete` 只允许发布已有 30 个逐题结果的整组，不允许缩小同组样本数。

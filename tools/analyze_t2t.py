@@ -12,7 +12,7 @@ from bdlm_serving.methods.t2t.planner import History
 SIGNALS = ("uniform_expected", "uncertain", "young", "neighbor", "recent_then_uncertain")
 
 
-def replay(path, model, stats):
+def replay(path, model, stats, positions=None, native=None):
     with gzip.open(path, "rt") as f:
         records = map(json.loads, f)
         meta = next(records)
@@ -21,6 +21,15 @@ def replay(path, model, stats):
         assert all(task[k] == meta[k] for k in ("index","dataset","task_id","seed"))
         ll = model == "llada21"
         plen = next(records)["prompt_length"] if ll else 0
+        if native is not None:
+            assert all(meta[k] == native[k] for k in ("index","dataset","task_id","seed"))
+            origin = len(native["prompt_ids"]) if ll else native["prefill_rows"]
+            if ll:
+                assert origin == plen
+            eos_at = len(native["output_ids"])-1 if native["eos"] else None
+            returned = len(native["output_ids"])
+        else:
+            origin = eos_at = returned = None
         fold = "development" if idx % 10 < 7 else "holdout"
         previous = history = None
         previous_edits = set()
@@ -33,12 +42,26 @@ def replay(path, model, stats):
             if previous is None or previous["block"] != start:
                 previous = None
                 previous_edits = set()
+                seen = {}
                 history = History([False]*b, [None]*b, [0]*b, set(), set())
             else:
                 assert previous["after"] == before and row["clock"] == previous["clock"] + (1 if ll else -1)
             # Keep old rankings and eligibility distinct from outcome calculation.
             resolved = [i for i in valid if history.resolved[i]]
             targets = {i for i in resolved if accepted[i] and before[i] != after[i]}
+            if positions is not None:
+                if native is None:
+                    raise ValueError("Positional export requires the verified native response")
+                readmit = {i for i in valid if accepted[i] and not history.resolved[i] and i in seen}
+                for i in sorted(targets | readmit):
+                    rel = start + i - origin
+                    assert rel >= 0
+                    region = "after_return" if rel >= returned else "eos" if rel == eos_at else "pre_eos"
+                    kind = "t2t" if i in targets else ("readmit_different" if after[i] != seen[i] else "readmit_same")
+                    positions.append(dict(index=idx,dataset=meta["dataset"],task_id=meta["task_id"],
+                        request_denoise_step=steps+1,block_start_abs=start,clock=row["clock"],offset_in_block=i,
+                        output_offset=rel,event=kind,previously_fresh=int(i in history.fresh),region=region))
+            seen.update((i,after[i]) for i in valid if accepted[i])
             drops += sum(not accepted[i] for i in resolved)
             fresh = {i for i in valid if accepted[i] and (not history.resolved[i] or i in targets)}
             first += sum(not history.resolved[i] for i in fresh)
@@ -88,7 +111,13 @@ def write(path, rows):
 def main(args):
     assert json.loads((args.raw/"verified.json").read_text()) == dict(model=args.model,matched_requests=30)
     stats = defaultdict(lambda: [0,0,0,0])
-    req = [replay(args.raw/f"{i:02d}.trace.jsonl.gz",args.model,stats) for i in range(30)]
+    positions = []
+    req = []
+    for i in range(30):
+        native = (json.loads((args.native_output/f"{i:02d}-native{32 if args.model=='llada21' else 256}.json").read_text())
+                  if args.native_output else None)
+        req.append(replay(args.raw/f"{i:02d}.trace.jsonl.gz",args.model,stats,
+                          positions if native is not None else None,native))
     assert [r["index"] for r in req] == list(range(30))
     metric = []
     for (fold,pool,signal,k),(hit,q,pos,eligible) in sorted(stats.items()):
@@ -97,11 +126,15 @@ def main(args):
     args.out.mkdir(exist_ok=True,parents=True)
     write(args.out/f"{args.model}-paths.csv",req)
     write(args.out/f"{args.model}-rankings.csv",metric)
+    if args.native_output:
+        assert sum(p["event"] == "t2t" for p in positions) == sum(r["t2t"] for r in req)
+        write(args.out/f"{args.model}-positions.csv",positions)
 
 
 if __name__ == "__main__":
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--model",choices=("gemma","llada21"),required=True)
+    p.add_argument("--native-output",type=Path,help="Verified native rows, to export event coordinates without token IDs")
     for k in ("raw","out"):
         p.add_argument("--"+k,type=Path,required=True)
     main(p.parse_args())
