@@ -18,6 +18,7 @@ from transformers.cache_utils import DynamicCache
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import MODES, SeatAudit, canvas_digest, digest
+from .context_gate import CONTEXT, GATES, select as select_context_gate
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
@@ -26,7 +27,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
 from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1", "hard_context_fixed") + MODES + _HAZARD + tuple(EXCHANGE)
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + CONTEXT + MODES + _HAZARD + tuple(EXCHANGE)
 
 
 @dataclass
@@ -124,6 +125,7 @@ class SparseRequestState(RequestState):
     last_query: list[int] | None = None
     previous_strict: set = field(default_factory=set)
     placebo_exchange: dict | None = None
+    context_move: dict | None = None
 
 
 class _RankControl(History):
@@ -202,9 +204,11 @@ class LLaDASparseKernel(SerialKernel):
         self.hazard_weights = hazard_weights
         self.exchange_rates = exchange_rates
         self.context_ranker = context_ranker
-        if policy == "hard_context_fixed" and (context_ranker is None or fresh_slots or
+        if policy in CONTEXT and (context_ranker is None or fresh_slots or
                 (q_budget, q_budget - mask_slots) not in ((4, 1), (8, 1), (16, 2))):
             raise ValueError("Context rollout requires its frozen ranker and registered budgets")
+        if policy in GATES and (q_budget, mask_slots) != (8, 7):
+            raise ValueError("Context gate requires Q8/1")
         if policy in EXCHANGE and not exchange_rates:
             raise ValueError("Missing exchange calibration")
         if policy in _HAZARD and (hazard_weights is None or len(hazard_weights) != 25):
@@ -328,6 +332,12 @@ class LLaDASparseKernel(SerialKernel):
 
     def _hard_pick(self, state, editable, resolved, before):
         fresh = state.history.fresh.intersection(editable)
+        if self.policy in GATES:
+            picked, reserved, state.context_move = select_context_gate(
+                editable, resolved, fresh, state.last_write, state.previous_strict, len(state.events)+1,
+                self.q_budget, self.policy, state.selection_seed, state.block,
+                lambda old, pos: self.context_ranker.scores(before, fresh, old, pos))
+            return picked, reserved
         if len(fresh) > self.q_budget:
             return sorted(fresh), []
 
@@ -514,6 +524,8 @@ class LLaDASparseKernel(SerialKernel):
         certainty = h.certainty
         if hard:
             event = state.events[-1]
+            if state.context_move is not None:
+                event["context_move"], state.context_move = state.context_move, None
             if state.placebo_exchange is not None:
                 event["placebo_exchange"] = state.placebo_exchange
                 state.placebo_exchange = None

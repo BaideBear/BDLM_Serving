@@ -3,6 +3,7 @@ from collections import Counter
 import json
 
 from bdlm_serving.evaluation.frozen import ROOT, sha
+from bdlm_serving.methods.t2t.context_gate import CONTEXT
 
 
 def package(tok, ids, work, eos, special, prefill, **extra):
@@ -80,7 +81,7 @@ def llada_backend(args, prepare, *, context_ranker=None):
         opts = {} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask, policy=arm.selection)
         kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, hazard_weights=weights,
                                    exchange_rates=rates,
-                                   context_ranker=context_ranker if arm and arm.selection == 'hard_context_fixed' else None,
+                                   context_ranker=context_ranker if arm and arm.selection in CONTEXT else None,
                                    **opts)
         state = kernel.create(*parameters)
         kernel.run(state)

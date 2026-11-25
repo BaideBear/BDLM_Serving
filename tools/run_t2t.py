@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import load_tasks
+from bdlm_serving.methods.t2t.context_gate import CONTEXT
 from bdlm_serving.methods.t2t.protocol import Arm, matrix, verify_bridge, verify_work
 
 
@@ -52,7 +53,7 @@ def main(args, prepare=None):
         extra["hazard_weights_sha256"] = sha(args.hazard_weights)
     with ExitStack() as stack:
         ranker = None
-        if any(a.selection == "hard_context_fixed" for a in arms):
+        if any(a.selection in CONTEXT for a in arms):
             from bdlm_serving.evaluation.frozen import sha
             from bdlm_serving.methods.t2t.embedding_context import (
                 ContextRanker, Projector, input_table, read_context_weights)
