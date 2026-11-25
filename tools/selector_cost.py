@@ -69,16 +69,22 @@ def measure(cases, old, q, mode):
     return result
 
 
-def hazard_cost(native_root, weights_path):
+def hazard_cost(native_root, weights_path=None, exchange_rates=None, q=16):
     from bdlm_serving.methods.t2t.hazard import choose, read_weights
-    weights = read_weights(weights_path)
-    modes = ("hard_noedit", "hard_hazard_fixed", "hard_hazard_gate")
+    from bdlm_serving.methods.t2t.exchange import MODES, choose as exchange, read_rates
+    weights = read_weights(weights_path) if weights_path else None
+    rates = read_rates(exchange_rates) if exchange_rates else None
+    modes = ("hard_noedit", *MODES) if rates else ("hard_noedit", "hard_hazard_fixed", "hard_hazard_gate")
     cases = [(args, prev, seed) for args, prev, seed in states(native_root/"llada21", "llada21")
              if any(not args[1][i] for i in args[0])]
     def invoke(mode, args, prev, seed):
         valid, resolved, fresh, writes, _, clock = args
         if mode == "hard_noedit":
-            return select_hard(*args, 16, 0, mode, seed, previous_strict=prev)
+            return select_hard(*args, q, 0, mode, seed, previous_strict=prev)
+        if rates:
+            picked, reserved, _ = exchange(valid, resolved, fresh, prev, writes, clock, q,
+                                           max(1,q//8), rates, MODES[mode])
+            return picked, reserved
         return choose(valid, resolved, fresh, writes, prev, clock, 16, 2, weights,
                       .05 if mode.endswith("gate") else 0.)
     timings = {mode: [] for mode in modes}
@@ -91,10 +97,10 @@ def hazard_cost(native_root, weights_path):
                 t0 = perf_counter_ns()
                 picked, reserved = invoke(mode, args, prev, seed)
                 elapsed = perf_counter_ns() - t0
-                if not args[2] <= set(picked) or len(picked) != min(len(args[0]), max(16,len(args[2]))):
+                if not args[2] <= set(picked) or len(picked) != min(len(args[0]), max(q,len(args[2]))):
                     raise ValueError("physical seat or mandatory refresh mismatch")
                 timings[mode].append(elapsed / 1000)
-    return [dict(policy=mode, nominal_q=16, states=len(cases), calls=len(ts),
+    return [dict(policy=mode, nominal_q=q, states=len(cases), calls=len(ts),
                  median_us=round(median(ts), 2), p95_us=round(sorted(ts)[(95*len(ts)-1)//100], 2))
             for mode, ts in timings.items()]
 
@@ -103,12 +109,15 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--native-root", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--hazard-weights", type=Path,
+    choice = p.add_mutually_exclusive_group()
+    choice.add_argument("--exchange-rates", type=Path, help="Time physical exchanges at Q4/8/16")
+    choice.add_argument("--hazard-weights", type=Path,
                    help="Time Q16 risk ranking on still-masked post-bootstrap LLaDA states")
     args = p.parse_args()
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
-    if args.hazard_weights:
-        rows = hazard_cost(args.native_root, args.hazard_weights)
+    if args.hazard_weights or args.exchange_rates:
+        rows = [r for q in ((4,8,16) if args.exchange_rates else (16,)) for r in
+                hazard_cost(args.native_root, args.hazard_weights, args.exchange_rates, q)]
         with args.out.open("w", newline="") as f:
             writer = csv.DictWriter(f, list(rows[0]), lineterminator="\n")
             writer.writeheader()

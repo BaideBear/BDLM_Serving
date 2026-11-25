@@ -1,7 +1,9 @@
 import unittest
+from copy import deepcopy
 
 from bdlm_serving.methods.t2t.exchange import choose, position_keys
 from bdlm_serving.methods.t2t.protocol import Arm
+from tools.exchange_study import audit_pair
 
 
 class ExchangeTest(unittest.TestCase):
@@ -30,3 +32,24 @@ class ExchangeTest(unittest.TestCase):
         self.assertEqual(Arm.parse("16:0:14:hard_exchange_equal",32).edit,2)
         with self.assertRaises(ValueError):
             Arm.parse("16:0:14:hard_exchange_equal",256)
+
+    def test_first_physical_exchange_and_noop(self):
+        event = dict(block=0,context_version=0,step_in_block=2,hard_clock=3,mandatory_fresh=1,
+                     masked_before=4,actual_q=3,physical_q=3,layer_physical_q=[3,3],F=1,prefix_kv_length=0,
+                     stage="selected",absolute_positions=[0,1,2],reserved_extra_edit_positions=[],
+                     reserved_strict_edit_positions=[],selected_masked_before=2,accepted=1,hard_strict_edits=0)
+        base = dict(events=[{"stage":"bootstrap"},event], index=0, model="llada21",seed=2, task_id="x",
+                    dataset="toy",prefill_rows=0,status="success",output_ids=[1],output_tokens=1,
+                    generation_forwards=2,generation_query_rows=35)
+        self.assertEqual(audit_pair(base,base)["victim"],"none")
+        new = deepcopy(base)
+        new["events"][-1].update(absolute_positions=[0,1,3],reserved_extra_edit_positions=[3],
+                                 selected_masked_before=1)
+        self.assertEqual(audit_pair(new,base)["victim"],"mask")
+        new["events"][-1]["reserved_extra_edit_positions"] = [1]
+        with self.assertRaisesRegex(ValueError,"physical rows"):
+            audit_pair(new,base)
+        new = deepcopy(base)
+        new["output_ids"] = [9]
+        with self.assertRaisesRegex(ValueError,"No-swap"):
+            audit_pair(new,base)

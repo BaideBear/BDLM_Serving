@@ -1,0 +1,7 @@
+q,cap,mode,states,old_targets,base_old_hits,selected_old_hits,newly_covered,lost_old_hits,mask_admissions,base_admits,selected_admits,selected_Q,same_state_base_Q
+4,1,hard_exchange_edit4,1170,191,0,3,3,0,4776,610,607,9285,9285
+4,1,hard_exchange_equal,1170,191,0,3,3,0,4776,610,610,9285,9285
+8,1,hard_exchange_edit4,1170,191,0,14,14,0,4776,1616,1603,12243,12243
+8,1,hard_exchange_equal,1170,191,0,8,8,0,4776,1616,1616,12243,12243
+16,2,hard_exchange_edit4,1170,191,7,41,37,3,4776,3098,3074,19800,19800
+16,2,hard_exchange_equal,1170,191,7,34,30,3,4776,3098,3097,19800,19800

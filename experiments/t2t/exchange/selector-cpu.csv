@@ -1,0 +1,10 @@
+policy,nominal_q,states,calls,median_us,p95_us
+hard_noedit,4,1170,3510,7.9,9.47
+hard_exchange_equal,4,1170,3510,3.65,57.23
+hard_exchange_edit4,4,1170,3510,3.58,56.95
+hard_noedit,8,1170,3510,8.46,9.96
+hard_exchange_equal,8,1170,3510,41.88,57.07
+hard_exchange_edit4,8,1170,3510,41.67,56.99
+hard_noedit,16,1170,3510,9.28,10.57
+hard_exchange_equal,16,1170,3510,47.81,57.76
+hard_exchange_edit4,16,1170,3510,47.83,57.67

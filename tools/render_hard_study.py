@@ -289,7 +289,7 @@ def render(path, model, width, data, *, adaptive=False, placement=False, geometr
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
-    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry", "calibrated", "refresh"), default="hard")
+    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry", "calibrated", "refresh", "exchange"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
     parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
@@ -311,6 +311,18 @@ def main():
             elif args.study == "calibrated":
                 if model == "llada21" and src.is_file():
                     data = calibrated_groups(study,model,width,baselines)
+            elif args.study == "exchange" and src.is_file():
+                by_q = defaultdict(dict)
+                for row in all_rows(src):
+                    if "_hard_exchange_" in row["policy"]:
+                        by_q[int(row["nominal_q"])][row["policy"].split("_")[-1]] = point(row,"token_efficiency")
+                for q,new in sorted(by_q.items()):
+                    control, = [r for r in all_rows(hard/src.name)
+                                if r["policy"] == f"t2t_q{q}_f0_m{q}_hard_noedit"]
+                    rows = [("No edit reserve","hard",point(control,"token_efficiency")),
+                            ("Exchange: equal value","adaptive",new["equal"]),
+                            ("Exchange: edit value x4","geometry",new["edit4"])]
+                    data.append((q,rows + window_controls(model,q,width,baselines)))
             elif args.study == "refresh" and src.is_file():
                 for row in all_rows(src):
                     if not row["policy"].endswith("_hard_trigger_refresh"):
@@ -336,7 +348,8 @@ def main():
             path = out / f"{model}-{args.study}-study.svg"
             render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement",
                    geometry=args.study == "geometry", calibrated=args.study == "calibrated",
-                   study_title="Repeated KV-only refresh of added rows" if args.study == "refresh" else None)
+                   study_title={"refresh":"Repeated KV-only refresh of added rows",
+                                "exchange":"Predict both sides of a sparse Q swap"}.get(args.study))
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))
