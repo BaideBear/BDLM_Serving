@@ -30,8 +30,9 @@ def main(args, prepare=None):
     block = 32 if ll else 256
     tasks = load_tasks(args.samples)
     arms = [Arm.parse(s, block) for s in args.arm] if args.arm else matrix(args.model)
-    if len(set(arms)) != len(arms) or any(a.budget >= block for a in arms):
-        raise ValueError("Require distinct sparse arms with budgets smaller than the full-width gate")
+    if len(set(arms)) != len(arms) or any(
+            a.budget >= block and a.selection != "hard_noedit" for a in arms):
+        raise ValueError("Require distinct arms; use one hard_noedit saturation control at or above width")
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
         block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms]))
@@ -39,14 +40,18 @@ def main(args, prepare=None):
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy
         for task in tasks:
-            row = run(task, arm)
+            saturated = arm is not None and arm.budget >= block
+            effective_arm = Arm(block, 0, block, "hard_noedit") if saturated else arm
+            row = run(task, effective_arm)
             row.update({k: task[k] for k in ("index", "task_id", "dataset", "seed")},
                        model=args.model, policy=policy)
             verify_work(row)
             idx = task["index"]
-            if arm is None:
+            if arm is None or saturated:
                 ref = json.loads((args.reference / f"{idx:02d}-native{block}.json").read_text())
                 verify_bridge(row, ref)
+            if saturated:
+                row["single_block_saturation"] = dict(nominal_q=arm.budget, executable_width=block)
             durable(args.output / f"{idx:02d}-{policy}.json", row)
             print(f"{policy} {idx:02d} {row['status']} N={row['output_tokens']} "
                   f"F={row['generation_forwards']} Q={row['generation_query_rows']}", flush=True)

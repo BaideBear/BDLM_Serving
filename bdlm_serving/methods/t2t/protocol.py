@@ -21,13 +21,18 @@ class Arm:
     def parse(cls, text, block):
         q, f, m, selection = text.split(":")
         obj = cls(int(q), int(f), int(m), selection)
-        if not 1 <= obj.budget <= block or min(obj.fresh, obj.mask, obj.edit) < 0:
+        # An explicitly labelled, single-block B32 saturation measurement, not
+        # two-block Q64. Do not silently accept oversize legacy configurations.
+        saturated = block == 32 and obj == cls(64, 0, 64, "hard_noedit")
+        if (not 1 <= obj.budget <= block and not saturated) or min(obj.fresh, obj.mask, obj.edit) < 0:
             raise ValueError(f"Invalid Q or quota: {text}")
-        modes = ("targeted", "random", "noedit") + (("near_miss", "gate_random") if block == 32
+        modes = ("targeted", "random", "noedit", "hard_frontier", "hard_random", "hard_noedit") + (("near_miss", "gate_random") if block == 32
                                                     else ("fresh_random",) if block == 256 else ())
         if selection not in modes:
             raise ValueError(f"Unknown selection: {selection}")
-        if (selection in ("noedit", "fresh_random")) != (obj.edit == 0):
+        if selection.startswith("hard_") and obj.fresh != 0:
+            raise ValueError("Hard refresh selects every fresh row; no fixed fresh quota is allowed")
+        if (selection in ("noedit", "fresh_random", "hard_noedit")) != (obj.edit == 0):
             raise ValueError("noedit/fresh_random require zero reserved edit seats; other arms reserve at least one")
         return obj
 

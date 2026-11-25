@@ -40,10 +40,12 @@ def audit_edits(row):
             # A selected MASK written back to MASK or a resolved row returning
             # to MASK would prevent aggregate update counts from proving T2T.
             mask_writes = e["masked_after"] - e["masked_before"] + e["accepted"]
-            if mask_writes < 0 or (mask_writes and "gate" not in e):
+            if mask_writes < 0 or (mask_writes and "gate" not in e and "hard_strict_edits" not in e):
                 raise ValueError("Cannot infer strict T2T from LLaDA MASK counts")
             if "gate" in e:
                 hits = len(e["gate"]["strict_edit_positions"])
+            if "hard_strict_edits" in e:
+                hits = e["hard_strict_edits"]
         if hits < 0 or hits > (e["physical_q"] if "physical_q" in e else e["q"]):
             raise ValueError("Strict edits exceed measured Q")
         out["steps"] += 1
@@ -74,7 +76,9 @@ def paired_quality(arms):
         q, f, m = (rows[0][k] for k in ("nominal_q", "fresh", "mask"))
         prefix = f"t2t_q{q}_f{f}_m"
         refs = ["native"]
-        if policy.endswith("_targeted"):
+        if policy.endswith("_hard_frontier"):
+            refs.extend((f"{prefix}{m}_hard_random", f"{prefix}{q}_hard_noedit"))
+        elif policy.endswith("_targeted"):
             refs.extend((f"{prefix}{m}_random", f"{prefix}{q-f}_noedit"))
         elif policy.endswith("_near_miss"):
             refs.extend((f"{prefix}{m}_gate_random", f"{prefix}{q-f}_noedit"))

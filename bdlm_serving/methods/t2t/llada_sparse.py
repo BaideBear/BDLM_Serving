@@ -22,6 +22,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 
 _GATED = ("near_miss", "gate_random")
+_HARD = ("hard_frontier", "hard_random", "hard_noedit")
 
 
 @dataclass
@@ -111,6 +112,8 @@ class SparseRequestState(RequestState):
     selection_seed: int = 0
     force_mask_next: bool = False
     gate_evidence: _GateEvidence | None = None
+    last_write: list[int] | None = None
+    last_query: list[int] | None = None
 
 
 class _RankControl(History):
@@ -149,8 +152,8 @@ class LLaDASparseKernel(SerialKernel):
     ranked/targeted: History ranking. random: same fresh ranking, uniform
     permutation of the non-fresh edit pool. undirected: positional edit order.
     noedit: zero reserved edit slots, with positional ordering for non-fresh
-    resolved backfill. All arms share fresh ranking and apply native updates
-    to every computed row. q_budget=32 bypasses sparse selection.
+    resolved backfill. All arms apply native updates to every computed row.
+    q_budget=32 bypasses sparse selection.
 
     near_miss/gate_random: release unsupported edit seats to MASK. The former
     ranks observed low-confidence disagreements by distance to the immediately
@@ -158,13 +161,18 @@ class LLaDASparseKernel(SerialKernel):
     the same number on its own state uniformly from all non-fresh resolved rows.
     Only these policies add event["gate"] to sampled passes. Its position lists
     are absolute; selected_evidence_age is pre-pass age in denoise calls.
+
+    hard_frontier/hard_random/hard_noedit: refresh the preceding pass's admits
+    and strict T2Ts, then allocate remaining seats without proposal confidence.
+    Hard events report mandatory rows, absolute reserved edits and strict hits,
+    and physical Q over the nominal budget (including dense passes).
     """
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
                  policy="ranked", signal="uncertain", selection_seed=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
-        if policy not in ("ranked", "random", "undirected", "noedit", *_GATED):
+        if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
             raise ValueError(f"Unknown LLaDA quota policy: {policy}")
         if signal not in ("uncertain", "young", "neighbor", "recent_then_uncertain"):
             raise ValueError(f"Unknown History signal: {signal}")
@@ -228,6 +236,20 @@ class LLaDASparseKernel(SerialKernel):
             layer_physical_q=[r[1] for r in rows], F=1, visible_kv=end,
             q_budget=self.q_budget, approximate_same_block_kv=stage == "selected",
         ))
+        if self.policy in _HARD:
+            clock = len(state.events)
+            if state.last_query is not None:
+                start = state.block * 32
+                for pos in absolute:
+                    state.last_query[pos - start] = clock
+            state.events[-1].update(
+                hard_clock=clock,
+                mandatory_fresh=len(state.history.fresh) if state.history else 0,
+                reserved_extra_edit_positions=[],
+                reserved_strict_edit_positions=[],
+                overflow=max(0, q - self.q_budget),
+                hard_strict_edits=0,
+            )
         return out.logits
 
     def _forward(self, state, q_start, q_end, store, phase, stage=None):
@@ -282,6 +304,28 @@ class LLaDASparseKernel(SerialKernel):
         # Include an edit seat redirected by the existing force-mask rule, if any.
         return picked, reserved, self.q_budget - self.fresh_slots - self.mask_slots - n
 
+    def _hard_pick(self, state, editable, resolved):
+        fresh = state.history.fresh.intersection(editable)
+        if len(fresh) > self.q_budget:
+            return sorted(fresh), []
+
+        from bdlm_serving.methods.t2t.frontier import select_hard
+
+        edit_slots = self.q_budget - self.fresh_slots - self.mask_slots
+        picked, reserved = select_hard(
+            list(editable), resolved, fresh, state.last_write, state.last_query,
+            len(state.events) + 1, self.q_budget, edit_slots, self.policy,
+            state.selection_seed,
+        )
+        picked, reserved = list(picked), list(reserved)
+        if (len(picked) != min(self.q_budget, len(editable))
+                or picked != sorted(set(picked))
+                or not set(picked).issubset(editable)
+                or not fresh.issubset(picked)
+                or not set(reserved).issubset(set(picked) - fresh)):
+            raise RuntimeError("select_hard returned invalid B32 positions")
+        return picked, reserved
+
     def _sample(self, state, logits):
         with REFERENCE_RNG_LOCK, torch.random.fork_rng(devices=self._rng_devices()):
             torch.set_rng_state(state.rng_cpu)
@@ -304,6 +348,7 @@ class LLaDASparseKernel(SerialKernel):
             if action == "commit":
                 state.history, state.resident, state.force_mask_next = None, None, False
                 state.gate_evidence = None
+                state.last_write = state.last_query = None
             return action
 
         start = state.block * 32
@@ -323,7 +368,12 @@ class LLaDASparseKernel(SerialKernel):
             state.history = History(resolved, [None] * 32, [0] * 32, set(), set())
             if self.policy in _GATED:
                 state.gate_evidence = _GateEvidence()
+            elif self.policy in _HARD:
+                state.last_write, state.last_query = [-1] * 32, [-1] * 32
         gate = state.gate_evidence
+        hard = self.policy in _HARD
+        if hard:
+            hard_reserved = []
         if gate is not None:
             tags = gate.categories(state, before, start)
             reserved, released = [], 0
@@ -334,10 +384,12 @@ class LLaDASparseKernel(SerialKernel):
         else:
             stage = "selected"
             editable = range(max(0, state.prompt_length - start), 32)
-            if gate is None:
-                picked = self._pick(state, editable, start)
-            else:
+            if hard:
+                picked, hard_reserved = self._hard_pick(state, editable, resolved)
+            elif gate is not None:
                 picked, reserved, released = self._gate_pick(state, editable, start, tags)
+            else:
+                picked = self._pick(state, editable, start)
 
         local = torch.tensor(picked, dtype=torch.long, device=state.x.device)
         if stage == "selected":
@@ -368,14 +420,28 @@ class LLaDASparseKernel(SerialKernel):
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]
         fresh = {i for i in changed if now_resolved[i]}
-        certainty = h.certainty.copy()
-        for i, c in zip(picked, confidence[0].tolist()):
-            certainty[i] = c  # previous proposal confidence, also for newly written tokens
+        certainty = h.certainty
+        if hard:
+            event = state.events[-1]
+            # Writes happen after Q at the same tick; last_write >= last_query
+            # detects an input row whose latest write has not been queried.
+            for i in changed:
+                state.last_write[i] = event["hard_clock"]
+            strict = {i for i in fresh if resolved[i]}
+            event.update(
+                hard_strict_edits=len(strict),
+                reserved_extra_edit_positions=[start+i for i in hard_reserved],
+                reserved_strict_edit_positions=[start+i for i in hard_reserved if i in strict],
+            )
+        else:
+            certainty = h.certainty.copy()
+            for i, c in zip(picked, confidence[0].tolist()):
+                certainty[i] = c  # previous proposal confidence, also for newly written tokens
         state.history = History(now_resolved, certainty,
                                 [h.streak[i]+1 if now_resolved[i] and i not in fresh else 0
                                  for i in range(32)], changed, fresh)
-        # A zero-mask quota may select only edits. Do not signal convergence;
-        # reserve one mask seat on the next selected pass in all arms.
+        # Legacy quotas reserve a mask seat after a pass without mask queries.
+        # Hard policies use their configured split and never displace a write.
         state.force_mask_next = bool(count and not selected_masks)
         state.step_in_block += 1
         edited = int(edit.sum())

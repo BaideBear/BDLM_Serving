@@ -26,6 +26,9 @@ from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
 
+_HARD_POLICIES = ("hard_frontier", "hard_random", "hard_noedit")
+
+
 @dataclass
 class GemmaLedger:
     events: list = field(default_factory=list)  # observe(): includes pure prompt prefill
@@ -79,6 +82,53 @@ def _pick(h, budget, fresh, mask, policy, signal, rng):
     return picked
 
 
+def _hard_pick(h, width, q_budget, fresh_slots, mask_slots, policy, seed,
+               clock, last_write, last_query):
+    """Delegate sparse seats to frontier.select_hard, enforcing mandatory fresh.
+
+    The selector sees only measured per-block metadata. Every position that was
+    fresh on the preceding step stays in the physical Q. If that mandatory set
+    alone exceeds q_budget, it must be returned whole and the excess is reported.
+    """
+    from .frontier import select_hard
+    edit_slots = q_budget - fresh_slots - mask_slots
+    if policy == "hard_noedit":
+        edit_slots = 0
+    mandatory = sorted(h.fresh)
+    if len(mandatory) > q_budget:
+        return mandatory, [], len(mandatory), len(mandatory), len(mandatory) - q_budget, edit_slots
+    positions, reserved = select_hard(
+        list(range(width)), list(h.resolved), set(mandatory),
+        list(last_write), list(last_query), clock, q_budget, edit_slots,
+        policy, seed)
+    positions, reserved = list(positions), list(reserved)
+    assert positions == sorted(set(positions)), "select_hard positions must be sorted unique"
+    assert all(type(i) is int and 0 <= i < width for i in positions), \
+        "select_hard position outside block"
+    assert len(reserved) == len(set(reserved)), "select_hard reserved positions must be unique"
+    assert all(type(i) is int and 0 <= i < width for i in reserved), \
+        "select_hard reserved position outside block"
+    assert set(reserved) <= set(positions), "select_hard reserved positions are not selected"
+    assert set(mandatory) <= set(positions), "select_hard dropped mandatory fresh rows"
+    assert len(positions) == q_budget, \
+        f"select_hard filled {len(positions)} of {q_budget} sparse seats"
+    return positions, sorted(reserved), len(mandatory), len(mandatory), 0, edit_slots
+
+
+def _hard_touch(last_write, last_query, picked, accepted, before, after,
+                resolved, clock):
+    """Record latest queries and accepted/rewritten/revoked changes only.
+
+    Unaccepted draft noise never updates last_write because it was not accepted.
+    """
+    for i in picked:
+        last_query[i] = clock
+    for i in picked:
+        if (bool(accepted[i]) != bool(resolved[i])
+                or (accepted[i] and before[i] != after[i])):
+            last_write[i] = clock
+
+
 class _CanvasKV(Resident):
     """Reuse Optimus scatter/concatenation, with full-canvas visibility."""
     def __init__(self, width):
@@ -127,6 +177,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     RNG. Integer seats: edit=q_budget-fresh_slots-mask_slots; noedit gives all
     edit seats to MASK. `ledger.work` is ready after generate. Its length and
     sum are generation F and physical Q. Decoder-only rows are in ledger.trace.
+    hard_* policies delegate seat choice to frontier.select_hard; all preceding
+    step fresh rows are mandatory and overflow is recorded, never truncated.
     Requires unpadded batch one, dynamic cache, native SDPA, single device and
     the checkpoint's default logits processor/sampler/stopping configuration.
     """
@@ -135,7 +187,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
-    if policy not in ("targeted", "random", "noedit", "fresh_random") or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random", *_HARD_POLICIES) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
     if model.training:
@@ -146,12 +198,15 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     rng = Random(selection_seed)
     bank = None if dense_only else _CanvasKV(width)
     h = raw = previous_clock = block = None
+    last_write = last_query = None
+    hard_clock = 0
     need_check = False
     closed = True
     ledger = GemmaLedger()
 
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed
+        nonlocal last_write, last_query, hard_clock
         canvas, prior_draft = kw["current_canvas"], kw["argmax_canvas"]
         pos, sc = kw["decoder_position_ids"], kw["self_conditioning_logits"]
         prefix = kw["input_ids"].shape[1]
@@ -166,6 +221,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
                 raise RuntimeError("Unexpected canvas advance or second request")
             h = History([False]*width, [None]*width, [0]*width, set(), set())
             block, need_check, closed, raw = prefix, False, False, None
+            last_write, last_query, hard_clock = [-1]*width, [-1]*width, 0
             stage = "bootstrap"
         elif closed or clock != previous_clock - 1:
             raise RuntimeError("Non-native denoising clock")
@@ -176,9 +232,23 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         else:
             stage = "selected"
         previous_clock = clock
+        hard = policy in _HARD_POLICIES
+        if hard:
+            hard_clock += 1
         selected = stage == "selected"
-        picked = (_pick(h, q_budget, fresh_slots, mask_slots, policy, signal, rng)
-                  if selected else all_rows)
+        prev_fresh = sorted(h.fresh) if hard else []
+        mandatory_fresh = len(prev_fresh)
+        reserved, overflow = [], 0
+        edit_slots = q_budget - fresh_slots - mask_slots
+        if selected and hard:
+            (picked, reserved, mandatory_fresh, fresh_selected,
+             overflow, edit_slots) = _hard_pick(
+                h, width, q_budget, fresh_slots, mask_slots, policy,
+                selection_seed, hard_clock, last_write, last_query)
+        else:
+            picked = (_pick(h, q_budget, fresh_slots, mask_slots, policy, signal, rng)
+                      if selected else all_rows)
+            fresh_selected = sum(i in picked for i in prev_fresh)
         q = len(picked)
         n_events = len(ledger.events)
         if bank is not None:
@@ -230,8 +300,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         before_ids, after_ids = canvas[0].tolist(), after[0].tolist()
         accepted = sampler.accepted_token_mask[0].tolist()
         # Only newly measured margins are features, never stale rows rescaled
-        # at the current temperature. Dense bridge has no planner to feed.
-        if dense_only:
+        # at the current temperature. Dense bridge and hard policies have no
+        # planner to feed, so skip the extra topk there.
+        if dense_only or hard:
             margin = [None] * q
         else:
             scores = new_sc[0].index_select(0, index) if selected else new_sc[0]
@@ -239,7 +310,14 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             margin = (top[:, 0] - top[:, 1]).tolist()
         previous = h
         h, (admitted, edited, revoked) = _advance(h, before_ids, after_ids, accepted, picked, margin)
-        ledger.trace.append(dict(
+        if hard:
+            _hard_touch(last_write, last_query, picked, accepted, before_ids,
+                        after_ids, previous.resolved, hard_clock)
+            strict_edits = {i for i in picked
+                            if previous.resolved[i] and accepted[i]
+                            and before_ids[i] != after_ids[i]}
+            reserved_strict = sorted(set(reserved) & strict_edits)
+        record = dict(
             block=block, clock=clock, stage=stage, q=q, positions=picked.copy(),
             selected_fresh=sum(i in previous.fresh for i in picked),
             available_fresh=len(previous.fresh),
@@ -248,7 +326,19 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             selected_mask=sum(not previous.resolved[i] for i in picked),
             admitted=admitted, edited=edited, revoked=revoked, resolved=sum(accepted),
             stop_candidate=proposed_stop, finished=bool(finished.item()), terminal_clock=clock == 1,
-        ))
+        )
+        if hard:
+            record.update(
+                reserved_extra_edit_positions=reserved,
+                reserved_strict_edit_positions=reserved_strict,
+                hard_strict_edits=len(strict_edits),
+                mandatory_fresh=mandatory_fresh,
+                fresh_selected=fresh_selected,
+                edit_slots=edit_slots,
+                overflow=overflow,
+                hard_clock=hard_clock,
+            )
+        ledger.trace.append(record)
         return after, draft, new_sc, finished
 
     with ExitStack() as stack:
