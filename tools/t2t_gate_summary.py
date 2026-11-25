@@ -178,6 +178,12 @@ def summarize_case(row, index, policy, mode, split):
                         and len(reserved) <= available
                         and (mode != "near_miss" or reserved_near == len(reserved)),
                         "Invalid selected-pass gate budget, eligibility, or reservation")
+                for i, age in zip(e["absolute_positions"], ages):
+                    if i in reserved:
+                        group = ("unknown" if age is None else "previous" if age == 1
+                                 else "two_steps" if age == 2 else "older")
+                        totals[f"age_{group}_seats"] += 1
+                        totals[f"age_{group}_hits"] += i in hits
                 path.reservations.append((block, step, sum(1 << (i-start) for i in reserved), released))
                 totals.update(selected_passes=1, selected_physical_checked=physical,
                               selected_strict_edits=len(strict), reserved_seats=len(reserved),
@@ -232,8 +238,16 @@ def summarize_arm(folder, policy, mode, split):
                 "available_nonfresh_exposures"):
         totals.setdefault(key, 0)
     q, fresh, mask = split
+    by_age = {}
+    for group in ("previous", "two_steps", "older", "unknown"):
+        seats, hits = (totals.pop(f"age_{group}_{k}", 0) for k in ("seats", "hits"))
+        by_age[group] = dict(seats=seats, hits=hits, precision=ratio(hits, seats))
+    require(sum(v["seats"] for v in by_age.values()) == totals["reserved_seats"]
+            and sum(v["hits"] for v in by_age.values()) == totals["reserved_strict_hits"],
+            "Evidence age totals disagree")
     report = dict(policy=policy, selection=mode, requests=CASES, nominal_q=q,
                   fresh_slots=fresh, mask_slots=mask, nominal_edit_slots=q-fresh-mask,
+                  reserved_by_observation_age=by_age,
                   **totals, work_by_stage=dict(stages), selected_checked_by_category=dict(categories),
                   reserved_hit_rate=ratio(totals["reserved_strict_hits"], totals["reserved_seats"]),
                   reserved_share_of_observed_selected_strict_edits=ratio(

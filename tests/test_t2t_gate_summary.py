@@ -138,6 +138,11 @@ class GateSummaryTest(unittest.TestCase):
                           random["strict_edits"], random["reserved_strict_hits"],
                           random["released_edit_slots_to_mask"]), (2, 0, 31, 0, 58))
         self.assertEqual(near["reserved_hit_rate"], 1)
+        self.assertEqual(near["reserved_by_observation_age"]["previous"],
+                         dict(seats=29, hits=29, precision=1))
+        self.assertEqual(random["reserved_by_observation_age"]["two_steps"],
+                         dict(seats=2, hits=0, precision=0))
+        self.assertIsNone(near["reserved_by_observation_age"]["unknown"]["precision"])
         self.assertEqual(random["reserved_share_of_observed_selected_strict_edits"], 0)
         comparison, = report["online_own_trajectory_comparisons"]
         delta = comparison["totals_near_miss_minus_gate_random"]

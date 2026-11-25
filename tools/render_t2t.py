@@ -55,7 +55,8 @@ def read_csv(path, columns):
         require(not missing, f"{path.name} 缺列：{', '.join(sorted(missing))}")
         require(len(headers) == len(set(headers)), f"{path.name} 表头重复")
         for row in reader:
-            require(None not in row and None not in row.values() and row["policy"],
+            require(None not in row and None not in row.values()
+                    and ("policy" not in columns or row["policy"]),
                     f"{path.name}:{reader.line_num} 行不完整")
             yield row
 
@@ -727,6 +728,65 @@ def figures(pubs, directory):
             plt.close(fig)
 
 
+def native_positions(src, dest):
+    """Bubble area counts repeated edits in one (request, offset, fresh) cell."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    dest.mkdir(parents=True, exist_ok=True)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 8.5), sharey=True, constrained_layout=True)
+    try:
+        for ax, (model, display, block) in zip(axes, (("llada21", "LLaDA 2.1", 32),
+                                                     ("gemma", "DiffusionGemma", 256))):
+            counts = Counter()
+            regions = Counter()
+            totals = {int(r["index"]): int(r["t2t"])
+                      for r in read_csv(src / f"{model}-paths.csv", ("index", "t2t"))}
+            require(set(totals) == set(range(30)), "Expected all 30 native paths")
+            for row in read_csv(src / f"{model}-positions.csv",
+                                ("event", "index", "offset_in_block", "previously_fresh", "region")):
+                if row["event"] != "t2t":
+                    continue
+                i, x, fresh = (int(row[k]) for k in ("index", "offset_in_block", "previously_fresh"))
+                require(i in totals and 0 <= x < block and fresh in (0, 1), "Invalid native coordinate")
+                counts[i, x, fresh] += 1
+                regions[row["region"]] += 1
+            for i, expected in totals.items():
+                require(sum(n for (j, _, _), n in counts.items() if i == j) == expected,
+                        f"{model} request {i}: strict edit count differs from native path")
+            for fresh, color in ((1, "#19729A"), (0, "#C45C28")):
+                pts = [(i, x, n) for (i, x, f), n in sorted(counts.items()) if f == fresh]
+                ax.scatter([x for _, x, _ in pts], [i + (.16 if fresh else -.16) for i, _, _ in pts],
+                           s=[19*n for _, _, n in pts], color=color, alpha=.65, linewidths=0)
+            ax.set_title(f"{display}  |  B{block}\n{sum(regions.values())} edits · {regions['after_return']} beyond returned output")
+            ax.set_xlim(-.7, block-.3)
+            ax.set_xticks([0, block//4, block//2, 3*block//4, block-1])
+            ax.set_xlabel("Offset within native block")
+            ax.set_ylim(29.8, -.8)
+            for split in (9.5, 19.5):
+                ax.axhline(split, color=".65", linewidth=.9)
+            ax.set_axisbelow(True)
+            ax.grid(axis="y", color=".94")
+            ax.spines[["top", "right"]].set_visible(False)
+        axes[0].set_yticks(range(30))
+        axes[0].tick_params(labelsize=8)
+        axes[0].set_ylabel("Frozen request index  (0-9 GSM8K, 10-19 MATH-500, 20-29 HumanEval)")
+        fig.suptitle("Where native strict token-to-token edits occurred\n"
+                     "One row per request; marker area counts repeated events at the same block offset")
+        axes[1].legend(handles=[Line2D([], [], linestyle="none", marker="o", color=c, label=l)
+                                for c, l in (("#19729A", "In previous fresh pool"),
+                                             ("#C45C28", "Outside previous fresh pool"))],
+                       loc="lower right", framealpha=.92)
+        for ext in ("png", "svg"):
+            file = dest / f"native-positions.{ext}"
+            fig.savefig(file, dpi=155, metadata={"Date": None} if ext == "svg" else {})
+            if ext == "svg":
+                file.write_text("\n".join(s.rstrip() for s in file.read_text().splitlines()) + "\n")
+    finally:
+        plt.close(fig)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, action="append", required=True,
@@ -739,9 +799,13 @@ def main(argv=None):
                         help="expected model; repeat to report missing models too")
     parser.add_argument("--fig-dir", type=Path,
                         help="optional cluster-side PNG/SVG directory (matplotlib)")
+    parser.add_argument("--native-positions", type=Path,
+                        help="plot strict edits from published *-positions.csv and *-paths.csv into --fig-dir")
     args = parser.parse_args(argv)
     if str(args.out) != "-" and args.out.suffix.lower() != ".md":
         parser.error("--out must be a .md file or -")
+    if args.native_positions and not args.fig_dir:
+        parser.error("--native-positions needs --fig-dir")
     try:
         pubs = discover(args.input, args.model, args.manifest)
         text = markdown(pubs)
@@ -752,6 +816,8 @@ def main(argv=None):
             args.out.write_text(text, encoding="utf-8")
         if args.fig_dir:
             figures(pubs, args.fig_dir)
+            if args.native_positions:
+                native_positions(args.native_positions, args.fig_dir)
     except (ValueError, OSError, ImportError) as exc:
         parser.exit(2, f"{parser.prog}: {exc}\n")
 

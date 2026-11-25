@@ -1,0 +1,89 @@
+{
+  "model": "llada21",
+  "block": 32,
+  "scope": "online_own_trajectories",
+  "interpretation": "Hits are strict edits on reserved positions actually checked by that arm. Released slots include force-MASK redirects and count quota, not actual MASK checks. Same-split deltas pair case identities, not model states or seat counts; they do not measure offline recall or edits on unchecked rows.",
+  "arms": [
+    {
+      "policy": "t2t_q16_f4_m8_near_miss",
+      "selection": "near_miss",
+      "requests": 30,
+      "nominal_q": 16,
+      "fresh_slots": 4,
+      "mask_slots": 8,
+      "nominal_edit_slots": 4,
+      "reserved_by_observation_age": {
+        "previous": {
+          "seats": 589,
+          "hits": 48,
+          "precision": 0.08149405772495756
+        },
+        "two_steps": {
+          "seats": 1,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "older": {
+          "seats": 0,
+          "hits": 0,
+          "precision": null
+        },
+        "unknown": {
+          "seats": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "generation_forwards": 2982,
+      "generation_physical_query_rows": 72190,
+      "denoise_passes": 2552,
+      "denoise_physical_checked": 58430,
+      "strict_edits": 826,
+      "native_edited": 826,
+      "selected_passes": 1448,
+      "selected_physical_checked": 23102,
+      "selected_strict_edits": 250,
+      "reserved_seats": 590,
+      "reserved_near_miss_seats": 590,
+      "reserved_strict_hits": 48,
+      "released_edit_slots_to_mask": 5202,
+      "available_near_miss_exposures": 592,
+      "available_nonfresh_exposures": 20254,
+      "work_by_stage": {
+        "prefill": {
+          "forwards": 30,
+          "physical_query_rows": 3008
+        },
+        "bootstrap": {
+          "forwards": 430,
+          "physical_query_rows": 13760,
+          "strict_edits": 0
+        },
+        "selected": {
+          "forwards": 1448,
+          "physical_query_rows": 23102,
+          "strict_edits": 250
+        },
+        "verify": {
+          "forwards": 674,
+          "physical_query_rows": 21568,
+          "strict_edits": 576
+        },
+        "commit": {
+          "forwards": 430,
+          "physical_query_rows": 13760
+        }
+      },
+      "selected_checked_by_category": {
+        "prompt": 0,
+        "mask": 12473,
+        "fresh": 5367,
+        "near_miss": 590,
+        "other_resolved": 4672
+      },
+      "reserved_hit_rate": 0.08135593220338982,
+      "reserved_share_of_observed_selected_strict_edits": 0.192
+    }
+  ],
+  "online_own_trajectory_comparisons": []
+}

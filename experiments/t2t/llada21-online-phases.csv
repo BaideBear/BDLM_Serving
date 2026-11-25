@@ -19,3 +19,15 @@ t2t_q8_f2_m4_random,bootstrap,436,13952
 t2t_q8_f2_m4_random,commit,436,13952
 t2t_q8_f2_m4_random,selected,2129,17020
 t2t_q8_f2_m4_random,verify,637,20384
+t2t_q8_f2_m6_noedit,bootstrap,453,14496
+t2t_q8_f2_m6_noedit,commit,453,14496
+t2t_q8_f2_m6_noedit,selected,1905,15228
+t2t_q8_f2_m6_noedit,verify,699,22368
+t2t_q16_f8_m6_targeted,bootstrap,473,15136
+t2t_q16_f8_m6_targeted,commit,473,15136
+t2t_q16_f8_m6_targeted,selected,1800,28734
+t2t_q16_f8_m6_targeted,verify,653,20896
+t2t_q16_f4_m8_near_miss,bootstrap,430,13760
+t2t_q16_f4_m8_near_miss,commit,430,13760
+t2t_q16_f4_m8_near_miss,selected,1448,23102
+t2t_q16_f4_m8_near_miss,verify,674,21568

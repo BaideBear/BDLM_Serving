@@ -24,6 +24,8 @@ LLaDA 有额外 edit 席位可覆盖的目标，但即使在原生稠密轨迹�
 
 [LLaDA 改写位置](llada21-positions.csv)与 [Gemma 改写及重新接受的位置](gemma-positions.csv)按请求、去噪轮次、原生块和输出偏移列出，不含 token 内容。`pre_eos` 是最终返回 EOS 之前的位置，`eos` 是最终 EOS 所在的位置，`after_return` 参与了计算但没有交付给用户。Gemma 的 `readmit_different` 是被撤销后以不同 ID 重新接受，不计入连续接受的严格 T2T。
 
+[查看两个模型的原生 T2T 位置图](figures/native-positions.svg)：每行是一道题，横轴是块内偏移，点的面积正比于同一题、同一偏移及同一类别上的事件数（可跨多个原生块）。LLaDA 的 754 次严格改写中，733 次位于最终 EOS 前、2 次在最终 EOS 位置、19 次在最终返回范围外；Gemma 分别是 9、1、0 次。Gemma 另有 12 次撤销后换 ID 重新接受，均位于最终 EOS 前，不并入严格 T2T。
+
 **LLaDA，接近改写阈值的已解码位置。** 上一轮 top-1 不等于当前位置上的 token、且上轮 top-1 置信度未超过原生编辑阈值 0.5，记为 `near_miss`。优先最近一次去噪中真正发生改写的位置的邻居，再按上一轮置信度升序。只考察 fresh 之外的位置。限制每步最多两个 edit 席位；没有信号时将席位留给其他用途。这个策略在全 30 题中以 595 个席位命中 135/311 次，逐步等席位随机期望是 19.78 次。留出 9 题命中 **62/124**，使用 **248** 席位（25.0% 精确率），随机期望是 **8.82** 次。若每步固定填满两个席位，留出集命中 73/124，但需要 1,021 个席位。稀疏执行不能免费观察未选行的 top-1，这些数值不是部署保证。
 
 Native LLaDA 2.1-mini B32 and DiffusionGemma 26B-A4B B256, same frozen 30
@@ -81,3 +83,5 @@ Gemma 的补充对照把独立 edit 席位固定为 0，`noedit` 在 fresh 内�
 两个模型都先收集 Q 行，再执行模型，不是先做完整 forward 再遮 logits。未选行保留上次测得的块内 KV。Gemma 的神经网络和词表头只收集所选行，但原生全画布采样器仍操作完整画布，未选行使用旧 raw logits，其采样结果被丢弃；因此这些指标不代表墙钟提速。复评分在基线评分环境中执行 `tools/t2t_results.py --samples FILE --run RUN --out experiments/t2t`；可重复 `--run` 合并同一模型的不重复配置。`--only-complete` 只允许发布已有 30 个逐题结果的整组，不允许缩小同组样本数。
 
 从已发布 CSV 重画图和表（无需权重或 GPU）：`python tools/render_t2t.py --input experiments/t2t --out experiments/t2t/online.md --fig-dir experiments/t2t/figures`。绘图依赖 matplotlib。对已完成的门控组运行 `python tools/t2t_gate_summary.py --run RUN` 可核对实际计算的逐层 Q、预留席位、命中和释放席位。
+
+在上述绘图命令末尾加 `--native-positions experiments/t2t` 可一并重画原生位置图。[在线门控诊断](llada21-online-gates.json)按上次实测距当前选位轮的间隔（上一轮、前两轮、更旧、未知）分别列席位及命中数；无席位的命中率为 `null`。它不能用来估计未计算位置的召回。

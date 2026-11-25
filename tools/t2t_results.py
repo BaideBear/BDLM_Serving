@@ -35,6 +35,15 @@ def audit_edits(row):
         if "edited" not in e:
             continue  # prefill/commit; reencode is recorded separately from denoising
         stage, hits = e["stage"], int(e["edited"])
+        out["native_edit_updates"] += hits
+        if "masked_before" in e:
+            # A selected MASK written back to MASK or a resolved row returning
+            # to MASK would prevent aggregate update counts from proving T2T.
+            mask_writes = e["masked_after"] - e["masked_before"] + e["accepted"]
+            if mask_writes < 0 or (mask_writes and "gate" not in e):
+                raise ValueError("Cannot infer strict T2T from LLaDA MASK counts")
+            if "gate" in e:
+                hits = len(e["gate"]["strict_edit_positions"])
         if hits < 0 or hits > (e["physical_q"] if "physical_q" in e else e["q"]):
             raise ValueError("Strict edits exceed measured Q")
         out["steps"] += 1
@@ -52,7 +61,7 @@ def audit_edits(row):
             out["fresh_labeled_seats"] += e["selected_fresh"]
             out["fresh_labeled_hits"] += e["edited_in_fresh"]
         out["selected_steps"] += 1
-    if out["strict_edits"] != row["t2t_edits"]:
+    if out["native_edit_updates"] != row["t2t_edits"]:
         raise ValueError("Request and per-step edit counts disagree")
     return out
 

@@ -1,4 +1,5 @@
 """CPU-only: no checkpoint or GPU. Integration cases use the pinned 5.12 mixin."""
+import inspect
 from random import Random
 from types import SimpleNamespace as NS
 
@@ -6,7 +7,8 @@ import pytest
 import torch
 from torch import nn
 
-from bdlm_serving.methods.t2t.gemma_sparse import _advance, _CanvasKV, _pick, sparse_gemma
+from bdlm_serving.methods.t2t.gemma_sparse import (
+    _advance, _CanvasKV, _pick, GemmaLedger, sparse_gemma)
 from bdlm_serving.methods.t2t.planner import History
 from bdlm_serving.runtime.diffusiongemma import observe
 
@@ -219,3 +221,83 @@ def test_restore_on_error(tiny):
     assert tiny._denoising_step is original
     assert all(a.config is c for a, c in zip(attns, cfg, strict=True))
     assert not tiny.model.decoder._forward_pre_hooks and not tiny.model.encoder._forward_pre_hooks
+
+
+def test_public_api_signature_and_ledger_shape():
+    """Pinned to the orchestrator call in methods/t2t/online.py."""
+    signature = inspect.signature(sparse_gemma)
+    assert [p.name for p in signature.parameters.values()] == [
+        "model", "q_budget", "fresh_slots", "mask_slots", "policy", "signal", "selection_seed"]
+    assert [signature.parameters[n].default for n in ("fresh_slots", "mask_slots")] == [0, 0]
+    assert (signature.parameters["policy"].default, signature.parameters["signal"].default,
+            signature.parameters["selection_seed"].default) == ("targeted", "uncertain", 0)
+    ledger = GemmaLedger()
+    assert ledger.events == [] and ledger.trace == [] and ledger.work == []
+    assert isinstance(GemmaLedger.work, property)
+
+
+def test_selected_rows_gather_canvas_sc_and_cache_raw_logits(tiny):
+    """Physical Q gather, cached off-Q logits/acceptance and the native Q decision."""
+    tiny.model.decoder.uncertain = True
+    # A per-forward offset makes a recomputed row differ from a cached one.
+    real_forward, counter = tiny.forward, [0]
+    def forward(**kw):
+        counter[0] += 1
+        return NS(logits=real_forward(**kw).logits + 0.01 * counter[0])
+    tiny.forward = forward
+    raw = []
+    inner = tiny._prepare_logits_processor(tiny.generation_config)
+    def processor(input_ids, scores, **kw):
+        raw.append((int(kw["cur_step"]), scores.detach().clone()))
+        return inner(input_ids, scores, **kw)
+    tiny._prepare_logits_processor = lambda cfg, lp=None: processor
+    native_masks = []
+    real_prepare = tiny._prepare_sampler
+    def prepare(cfg):
+        sampler = real_prepare(cfg)
+        real_accept = sampler.accept_canvas
+        def accept(current, denoiser, logits, step):
+            out = real_accept(current, denoiser, logits, step)
+            native_masks.append(sampler.accepted_token_mask.clone())
+            return out
+        sampler.accept_canvas = accept
+        return sampler
+    tiny._prepare_sampler = prepare
+    canvases, scs, sc_out, masks = [], [], [], []
+    torch.manual_seed(5)
+    with sparse_gemma(tiny, 2, policy="targeted", selection_seed=3) as ledger:
+        # Spy on the sparse step itself so the recorded mask is post-restore.
+        adapter = tiny._denoising_step
+        def spy(**kw):
+            canvases.append(kw["current_canvas"].clone())
+            sc = kw["self_conditioning_logits"]
+            scs.append(None if sc is None else sc.clone())
+            out = adapter(**kw)
+            sc_out.append(out[2].clone())
+            masks.append(kw["sampler"].accepted_token_mask.clone())
+            return out
+        tiny._denoising_step = spy
+        tiny.generate(input_ids=PROMPT, max_new_tokens=6, max_denoising_steps=4)
+    assert ledger.work[0] == ("bootstrap", 6) and ledger.work[-1][1] == 6
+    assert any(event["stage"] == "selected" for event in ledger.trace)
+    assert set(ledger.trace[0]) == {
+        "block", "clock", "stage", "q", "positions", "selected_fresh", "selected_mask",
+        "admitted", "edited", "revoked", "resolved", "stop_candidate", "finished", "terminal_clock",
+        "available_fresh", "edited_in_fresh"}
+    for i, event in enumerate(ledger.trace):
+        _, ids = tiny.model.decoder.calls[i]
+        if event["stage"] != "selected":
+            continue
+        active = torch.zeros(6, dtype=torch.bool)
+        active[event["positions"]] = True
+        # The decoder saw exactly the canvas rows at the picked positions.
+        assert ids[0].tolist() == canvases[i][0, event["positions"]].tolist()
+        # Their self-conditioning is the previous step's output at those rows.
+        assert torch.equal(scs[i][0, event["positions"]], sc_out[i - 1][0, event["positions"]])
+        # Off-Q raw logits are bitwise the previous step's; Q rows were recomputed.
+        current, previous = raw[i][1], raw[i - 1][1]
+        assert torch.equal(current[0][~active], previous[0][~active])
+        assert not torch.equal(current[0][active], previous[0][active])
+        # Off-Q acceptance is frozen; Q rows keep the native sampler's decision.
+        assert torch.equal(masks[i][0][~active], masks[i - 1][0][~active])
+        assert torch.equal(masks[i][0][active], native_masks[i][0][active])

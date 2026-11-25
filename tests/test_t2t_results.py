@@ -16,6 +16,13 @@ class ScoringTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit_edits(dict(events=events, t2t_edits=0))
 
+    def test_llada_mask_writeback_is_not_silently_counted_as_t2t(self):
+        e = dict(stage="selected", physical_q=4, edited=1, accepted=1, masked_before=2, masked_after=2)
+        with self.assertRaisesRegex(ValueError, "strict T2T"):
+            audit_edits(dict(events=[e], t2t_edits=1))
+        e["gate"] = {"strict_edit_positions": []}
+        self.assertEqual(audit_edits(dict(events=[e], t2t_edits=1))["strict_edits"], 0)
+
     def test_paired_correctness_is_not_difference_of_averages(self):
         def arm(name, marks):
             return [dict(policy=name, nominal_q=16, fresh=4, mask=8, dataset="d",
