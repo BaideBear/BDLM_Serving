@@ -7,6 +7,7 @@
 | [全部基线](experiments/baselines/) | LLaDA 2.0-mini、2.1-mini、SDAR、DiffusionGemma；Native、FlowBlock W1–4、B3，及已测的 Optimus IBS/OBS | [数值图](experiments/baselines/figures/comparison.svg) · [汇总](experiments/baselines/summary.csv) |
 | [FlowBlock 前缀 KV](experiments/flowblock-prefix/) | 2.0、2.1、SDAR；同一模型、同一 W 的原版 FlowBlock 与前缀 KV，两者都列实测值，W=2/3/4 | [数值图](experiments/flowblock-prefix/figures/comparison.svg) · [配对差值](experiments/flowblock-prefix/comparisons.csv) |
 | [Optimus OBS 掩码](experiments/optimus-masked-obs/) | 2.1、SDAR；同一固定窗口的原 IBS、原 OBS、OBS+B32，窗口 4/8/16/32；直接对照是原 OBS | [数值图](experiments/optimus-masked-obs/figures/comparison.svg) · [配对差值](experiments/optimus-masked-obs/comparisons.csv) |
+| [预测下一轮 T2T](experiments/t2t/) | LLaDA 2.1 与 DiffusionGemma 的原生轨迹、预算分配与对照；离线命中率不等于在线性能 | [LLaDA 排名](experiments/t2t/llada21-rankings.csv) · [Gemma 排名](experiments/t2t/gemma-rankings.csv) |
 
 每组均为 GSM8K、MATH-500、HumanEval 各 10 题，不换题、不剔除失败与截断。TPF 是逐请求 `N/F` 的均值；token efficiency 是 `ΣN/ΣQ`；质量是正确数 `/30`。只计实际执行的解码 forward 和 Q，不计纯 prompt prefill；物理 Q（含批内 padding）另列。不同模型的 tokenizer、采样器与每次 forward 的成本不同，不能把 TPF 当作墙钟速度。
 
