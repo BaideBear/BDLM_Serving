@@ -1,0 +1,4 @@
+policy,nominal_q,states,calls,median_us,p95_us
+hard_noedit,16,1170,3510,9.23,10.61
+hard_hazard_fixed,16,1170,3510,78.52,139.66
+hard_hazard_gate,16,1170,3510,78.66,139.55

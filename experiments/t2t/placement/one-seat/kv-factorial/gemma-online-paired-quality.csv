@@ -1,0 +1,5 @@
+policy,reference,equal_nominal_q,both_correct,only_policy_correct,only_reference_correct,neither_correct,delta_correct
+t2t_q32_f0_m32_hard_once_kk,native,0,27,1,1,1,0
+t2t_q32_f0_m32_hard_once_dd,native,0,27,1,1,1,0
+t2t_q32_f0_m32_hard_once_dk,native,0,27,1,1,1,0
+t2t_q32_f0_m32_hard_once_kd,native,0,27,1,1,1,0

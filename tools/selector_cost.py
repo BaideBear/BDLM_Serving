@@ -69,12 +69,51 @@ def measure(cases, old, q, mode):
     return result
 
 
+def hazard_cost(native_root, weights_path):
+    from bdlm_serving.methods.t2t.hazard import choose, read_weights
+    weights = read_weights(weights_path)
+    modes = ("hard_noedit", "hard_hazard_fixed", "hard_hazard_gate")
+    cases = [(args, prev, seed) for args, prev, seed in states(native_root/"llada21", "llada21")
+             if any(not args[1][i] for i in args[0])]
+    def invoke(mode, args, prev, seed):
+        valid, resolved, fresh, writes, _, clock = args
+        if mode == "hard_noedit":
+            return select_hard(*args, 16, 0, mode, seed, previous_strict=prev)
+        return choose(valid, resolved, fresh, writes, prev, clock, 16, 2, weights,
+                      .05 if mode.endswith("gate") else 0.)
+    timings = {mode: [] for mode in modes}
+    for j, (args, prev, seed) in enumerate(cases):
+        for mode in modes:
+            invoke(mode, args, prev, seed)
+        for rep in range(3):
+            shift = (j + rep) % 3
+            for mode in modes[shift:] + modes[:shift]:
+                t0 = perf_counter_ns()
+                picked, reserved = invoke(mode, args, prev, seed)
+                elapsed = perf_counter_ns() - t0
+                if not args[2] <= set(picked) or len(picked) != min(len(args[0]), max(16,len(args[2]))):
+                    raise ValueError("physical seat or mandatory refresh mismatch")
+                timings[mode].append(elapsed / 1000)
+    return [dict(policy=mode, nominal_q=16, states=len(cases), calls=len(ts),
+                 median_us=round(median(ts), 2), p95_us=round(sorted(ts)[(95*len(ts)-1)//100], 2))
+            for mode, ts in timings.items()]
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--native-root", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--hazard-weights", type=Path,
+                   help="Time Q16 risk ranking on still-masked post-bootstrap LLaDA states")
     args = p.parse_args()
     os.sched_setaffinity(0, {min(os.sched_getaffinity(0))})
+    if args.hazard_weights:
+        rows = hazard_cost(args.native_root, args.hazard_weights)
+        with args.out.open("w", newline="") as f:
+            writer = csv.DictWriter(f, list(rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+        return
     root = Path(__file__).resolve().parents[1]
     src = subprocess.check_output(["git","-C",str(root),"show",
                                   PARENT+":bdlm_serving/methods/t2t/frontier.py"])

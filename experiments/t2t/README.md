@@ -11,6 +11,7 @@
 | 同样的 MASK 与刷新席位下，是选位有效，还是随机也一样？ | [匹配席位的随机对照、实际 Q 成本与几何排序](placement/README.md) |
 | 固定的十档预算中，哪档相对同 Q 零预留能做到质量提高且 TPF 不降？ | [十档判定](budget-verdicts.csv) · [完整配置、物理工作与同 Q 差值](budget-index.csv) |
 | 在完全相同的前置状态只换一个物理 Q，第一次分叉发生在哪里？ | [单席干预结果](placement/one-seat/README.md) · [协议](placement/one-seat/PREREG.md) |
+| 同一预测席位，保留它的 KV 与使用它的新采样分数，各自能否改变后续输出？ | [Gemma Q32 四组等席位对照、逐题差值与图](placement/one-seat/kv-factorial/README.md) |
 | 风险证据较弱时把席位还给 MASK，能少牺牲多少推进位置？ | [原生逐题留出回放](placement/HAZARD-GATE.md) · [独立 24 题拟合、同一参数在线测试](calibrated/README.md) |
 
 十档判定只统计已完成、无 logits、硬刷新、非随机的单块部署策略，不含原生轨迹透视、随机安慰剂或一次性诊断；只在**同一条配置**上要求答对数严格增加且宏平均 TPF 不降。若同一预算有多个满足者，示例按质量、TPF、总物理 Q 顺序选一个，是重复使用 frozen30 后的描述，不是独立验证。零预留仍有中性旧位回填。双块与单块 Q64 是不同调度，详见双块报告。复算：`python -m tools.budget_index`。

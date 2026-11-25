@@ -37,4 +37,6 @@
 
 ![含原始 IBS、OBS、零预留、随机及几何对照的数值图](figures/llada21-calibrated-study.svg)
 
+**选位本身的开销。** 在 n164 上绑一个 CPU 核心，对冻结原生 30 题的 1,170 个仍有 MASK 的非初始化状态，预热后轮换执行顺序，每个状态每策略测三次。Q16 零预留、固定排序、5% 门控的 Python 选位中位数分别为 **9.23 / 78.52 / 78.66 微秒**，P95 为 10.61 / 139.66 / 139.55 微秒。该版无额外模型 forward，但不是零 CPU 成本。输入已在 CPU 上，没有计入 GPU 同步、状态搬运、采样和整题运行，不能推导端到端延迟。[计时数据](llada21-selector-cpu.csv)。复算：`python -m tools.selector_cost --native-root NATIVE_ROOT --hazard-weights experiments/t2t/calibrated/weights.json --out OUT.csv`。
+
 [汇总与分数据集](llada21-online-summary.csv) · [逐题](llada21-online-requests.csv) · [选位配额与同预算配对](paired-cost.csv) · [按阶段拆分](llada21-online-phases.csv) · [十档的逐题配对区间](../budget-paired-intervals.csv)。同 Q 零预留来自[同一协议的参考结果](../hard/llada21-online-summary.csv)。计分使用 `python -m tools.t2t_results --samples FROZEN30 --run RUN --out experiments/t2t/calibrated`；再用 `python -m tools.selection_effect --model llada21 --scores experiments/t2t/calibrated/llada21-online-requests.csv --baseline experiments/t2t/hard/llada21-online-requests.csv --run RUN --out experiments/t2t/calibrated/paired-cost.csv`。从已发布 CSV 重画不需要 GPU：`python -m tools.render_hard_study --study calibrated --model llada21`。

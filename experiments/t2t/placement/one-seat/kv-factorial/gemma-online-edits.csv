@@ -1,0 +1,5 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q32_f0_m32_hard_once_kk,30,1295,1165,36,0,29,7,221,13880,1165,13880,29
+t2t_q32_f0_m32_hard_once_dd,30,1340,1207,44,0,35,9,194,14095,1207,14095,35
+t2t_q32_f0_m32_hard_once_dk,30,1374,1240,48,0,39,9,198,14158,1240,14158,39
+t2t_q32_f0_m32_hard_once_kd,30,1305,1171,40,0,31,9,225,13867,1171,13867,31
