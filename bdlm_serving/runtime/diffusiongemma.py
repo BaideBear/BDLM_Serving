@@ -6,7 +6,7 @@ from contextlib import ExitStack, contextmanager
 
 from ..evaluation.frozen import ROOT, load_tasks
 
-STUDY = ROOT / "experiments/diffusiongemma-native"
+STUDY = ROOT / "archive/diffusiongemma-native"
 
 
 def check_snapshot(folder):

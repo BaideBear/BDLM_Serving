@@ -39,7 +39,7 @@ def check(condition, message):
 
 
 def checked_table(study, tasks, controls):
-    directory = ROOT / "experiments" / study
+    directory = ROOT / "archive" / study
     groups = defaultdict(dict)
     own = json.loads((directory / "config.json").read_text())["policies"]
     shown = set(own)
@@ -106,7 +106,7 @@ def audit():
     result = [r for s in STUDIES for r in checked_table(s, tasks, controls)]
     check(len(result)==62 and sum(r["n"] for r in result if not r["reused"])==1380, "matrix size")
     for name in STUDIES:
-        figures = ROOT / "experiments" / name / "figures"
+        figures = ROOT / "archive" / name / "figures"
         original = json.loads((figures.parent / "provenance.json").read_text())["source_sha256"]
         expected = sorted(v for k,v in original.items() if k.endswith(".png"))
         check(sorted(hashlib.sha256(p.read_bytes()).hexdigest() for p in figures.glob("*.png")) == expected,

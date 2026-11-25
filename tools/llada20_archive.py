@@ -6,7 +6,7 @@ from pathlib import Path
 from statistics import mean
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT/"experiments/llada20-frozen30"
+DEST = ROOT/"archive/llada20-frozen30"
 POLICIES = json.loads((DEST/"config.json").read_text())["policies"]
 DISPLAY = ["native32", "flow_w1", "flow_w2", "prefix_w2", "flow_w3", "prefix_w3",
            "flow_w4", "prefix_w4", "b3_native32"] + [
@@ -81,7 +81,7 @@ def export(run):
 
 
 PREFIX = [f"{p}_w{w}" for w in (2,3,4) for p in ("flow","prefix")]
-CACHED = ROOT/"experiments/llada20-cached-b32"
+CACHED = ROOT/"archive/llada20-cached-b32"
 HF = "native32_hf_uncached"
 KV = "native32_cached"
 REPORT = [HF, KV, *DISPLAY[1:]]
@@ -89,7 +89,7 @@ REPORT = [HF, KV, *DISPLAY[1:]]
 
 def render():
     current = read(DEST/"requests.csv")
-    sources = {name: [r for r in read(ROOT/f"experiments/{name}/requests.csv")
+    sources = {name: [r for r in read(ROOT/f"archive/{name}/requests.csv")
                       if r["model"] == "llada21"] for name in ("baselines","flowblock-prefix")}
     comparisons, summaries, pairs = [], [], []
     hf = group(current, "native32")

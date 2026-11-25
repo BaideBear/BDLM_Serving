@@ -7,7 +7,7 @@ from pathlib import Path
 from statistics import mean
 
 ROOT = Path(__file__).resolve().parents[1]
-STUDY = ROOT / "experiments/diffusiongemma-native"
+STUDY = ROOT / "archive/diffusiongemma-native"
 DATASETS = ("gsm8k", "math500", "humaneval")
 COUNTS = ("prefill_rows", "output_tokens", "generation_forwards", "generation_query_rows",
           "generation_physical_padded_rows", "decoder_forwards", "decoder_query_rows",

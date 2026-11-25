@@ -2,9 +2,9 @@
 
 ## 1. 仅核验已发表结果
 
-在仓库根目录运行 `python3 tools/verify_results.py --table`。比对的是归档中的逐请求指标，不是重新生成答案。包括全部非收敛请求；失败按零产出、零分记，已消耗的 F/Q 不扣除。截断不等于生成失败，按同一评分器判分。
+在仓库根目录用 Python 3.12 运行 `python tools/render_report.py --check`。它从 `archive/` 中的原始逐题记录核验三份正式报告的 CSV、Markdown 与 SVG 图中标注。包括全部非收敛请求；失败按零产出、零分记，已消耗的 F/Q 不扣除。截断不等于生成失败，按同一评分器判分。
 
-`python tools/render_report.py --markdown docs/results.md` 重建总表；另装 `matplotlib` 后可用 `--plots runs/figures` 根据同一数据绘制六张新图。实验目录中的 PNG 是历史原图，不会被这条命令替换。
+安装 `matplotlib` 后运行 `python tools/render_report.py` 重建 `experiments/` 下的三份表和图。`python tools/verify_results.py --table` 额外核验最初两模型三次实验的历史指标与六张原图的哈希。各运行的 `config.json` 在 `archive/<运行名>/`，命令行的实验名不变。LLaDA 2.0 的两条运行命令见 [17 组扫描](../archive/llada20-frozen30/) 与[缓存版 B32](../archive/llada20-cached-b32/)；Gemma 见[原生](../archive/diffusiongemma-native/)与[窗口测试](../archive/diffusiongemma-wave/)。
 
 `N` 是截到第一个 EOS 为止的最终非特殊输出 token 数。`F` 是生成阶段实际发生的模型调用次数；`Q` 是这些调用中每个请求实际提交的行数。计入刷新、编辑和提交引发的调用，不把纯指针推进计为 forward。完整 prompt 块 prefill 不计，局部 prompt 和生成期重编码计入。`ΣQ/ΣF` 和最大单步 Q 是观察值。不同模型使用自己的 tokenizer，优先在模型内比较。
 

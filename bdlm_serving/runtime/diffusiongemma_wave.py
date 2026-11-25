@@ -147,7 +147,7 @@ def run_wave(args, before_cuda=None):
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
     plan = resolve_plan(args.config, args.block_size, args.flowblock_windows)
-    native = json.loads((ROOT/"experiments/diffusiongemma-native/config.json").read_text())
+    native = json.loads((ROOT/"archive/diffusiongemma-native/config.json").read_text())
     if transformers.__version__ != native["transformers"]:
         raise ValueError("Transformers version differs from native baseline")
     tasks = load_tasks(args.samples)

@@ -51,7 +51,7 @@ def main():
     wave = actions.add_parser("diffusiongemma-wave", help="run FlowBlock and B3 on DiffusionGemma")
     for name in ("checkpoint", "samples", "output"):
         wave.add_argument("--" + name, type=Path, required=True)
-    wave.add_argument("--config", type=Path, default=ROOT/"experiments/diffusiongemma-wave/config.json")
+    wave.add_argument("--config", type=Path, default=ROOT/"archive/diffusiongemma-wave/config.json")
     wave.add_argument("--block-size", type=int, help="override config; must match checkpoint canvas_length")
     wave.add_argument("--flowblock-windows", type=int, nargs="+", help="fixed window(s), in blocks")
     wave.add_argument("--native-reference", type=Path, help="require W=1 output IDs and forwards to match")
@@ -77,7 +77,7 @@ def main():
         if args.batch_size is not None and args.batch_size < 1:
             parser.error("--batch-size must be positive")
         tasks = load_tasks(args.samples)
-        plan = json.loads((ROOT / "experiments" / args.experiment / "config.json").read_text())
+        plan = json.loads((ROOT / "archive" / args.experiment / "config.json").read_text())
         if args.block_size is not None:
             if args.block_size < 1 or "flowblock_block_size" not in plan:
                 parser.error("--block-size requires a positive value and a FlowBlock experiment")

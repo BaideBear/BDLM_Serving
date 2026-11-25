@@ -7,7 +7,7 @@ from statistics import mean
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICIES = ["native256", "flow_w1", "flow_w2", "flow_w3", "flow_w4", "b3"]
-DEST = ROOT/"experiments/diffusiongemma-wave"
+DEST = ROOT/"archive/diffusiongemma-wave"
 
 
 def records(path):
