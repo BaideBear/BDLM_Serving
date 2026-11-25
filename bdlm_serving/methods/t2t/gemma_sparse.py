@@ -226,8 +226,10 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         raise ValueError("This one-seat policy requires Gemma 32:0:32")
     audit = SeatAudit("hard_once_rank") if factorial else SeatAudit(policy) if policy in (*MODES, GEMMA_CONDITIONAL) else None
 
+    first_canvas = None
+
     def step(**kw):
-        nonlocal h, raw, previous_clock, block, need_check, closed
+        nonlocal h, raw, previous_clock, block, need_check, closed, first_canvas
         nonlocal last_write, last_query, hard_clock, previous_strict
         canvas, prior_draft = kw["current_canvas"], kw["argmax_canvas"]
         pos, sc = kw["decoder_position_ids"], kw["self_conditioning_logits"]
@@ -241,6 +243,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if new_block:
             if not closed or (block is not None and prefix != block + width):
                 raise RuntimeError("Unexpected canvas advance or second request")
+            if first_canvas is None:
+                first_canvas = prefix
             h = History([False]*width, [None]*width, [0]*width, set(), set())
             block, need_check, closed, raw = prefix, False, False, None
             last_write, last_query, hard_clock = [-1]*width, [-1]*width, 0
@@ -417,6 +421,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             if any(before_ids[i] != after_ids[i] or previous.resolved[i] != accepted[i] for i in frozen_rows):
                 raise RuntimeError("KV-only refresh leaked a token or acceptance update")
         if audit:
+            if policy in MODES:
+                audit.observe_masks(record, block, block - first_canvas, after_ids, accepted)
             record["trajectory_sha256"] = canvas_digest(after_ids, accepted)
             record["accepted_sha256"] = canvas_digest(after_ids, accepted, accepted_only=True)
             if audit.current:

@@ -494,6 +494,9 @@ class LLaDASparseKernel(SerialKernel):
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]
         if state.seat_audit:
+            if self.policy in MODES:
+                state.seat_audit.observe_masks(state.events[-1], state.block, start - state.prompt_length,
+                                               after, now_resolved)
             state.events[-1]["trajectory_sha256"] = canvas_digest(after, now_resolved)
             state.events[-1]["accepted_sha256"] = canvas_digest(after, now_resolved, accepted_only=True)
             if state.seat_audit.current:

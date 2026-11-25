@@ -48,6 +48,21 @@ class SeatAudit:
         self.mode = _KEY[mode]
         self.used = False
         self.current = None
+        self.watch_block = None
+        self.watch_rows = ()
+
+    def observe_masks(self, event, block, output_origin, ids, resolved):
+        """Record accepted IDs after forward; never expose drafts to the selector."""
+        if self.current is not None:
+            self.watch_block = block
+            self.watch_rows = tuple(sorted(set(self.current["base"]).intersection(self.current["masks"])))
+        if self.watch_block != block:
+            return
+        event["beneficiary"] = {
+            "rows": list(self.watch_rows),
+            "ids": [ids[i] if resolved[i] else None for i in self.watch_rows],
+            "output_offsets": [output_origin + i for i in self.watch_rows],
+        }
 
     def choose(self, base, eligible, resolved, fresh, writes, queries, clock, budget,
                model, seed, strict):
