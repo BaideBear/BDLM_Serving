@@ -1,0 +1,6 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q8_f0_m7_hard_context_fixed,30,3515,2486,612,0,236,376,0,,,,
+t2t_q8_f0_m7_hard_hazard_fixed,30,3423,2385,575,0,247,328,0,,,,
+t2t_q4_f0_m3_hard_context_fixed,30,5264,4213,629,0,256,373,0,,,,
+t2t_q4_f0_m3_hard_hazard_fixed,30,4947,3934,635,0,236,399,0,,,,
+t2t_q16_f0_m14_hard_context_fixed,30,3013,1919,763,0,446,317,0,,,,

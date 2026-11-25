@@ -2,6 +2,8 @@
 
 ## 当前：选位不使用 logits，硬刷新不截断
 
+**真实固定预算解码已测完。** LLaDA 的输入 embedding 排序相对同席位纯位置组，Q4/Q8/Q16 的 TPF 分别 +0.086/+0.056/+0.037，答对数 +0/+2/+0；三档相对零预留的 TPF 均下降。仅一档满足相对同席位对照“质量严格提高且 TPF 不降”，不采用固定预留作为默认。[三档实测、图、三部分预算与配对区间](calibrated/embedding_context/rollout/README.md)。
+
 **LLaDA：输入 embedding 加邻近写入，在三档实际席位上都比纯位置预测多命中严格编辑。** 用另 24 题拟合，在相同 30 题、相同原生前态、同样的预留席位数下，Q4/1、Q8/1、Q16/2 从 9/23/56 提升到 12/30/59（全体可选旧位严格编辑 191 次）。只按 token 自身的 ID 风险查表则为 9/22/43，未通过。前者值得真实稀疏验证，这些离线数字不是质量或 TPF。[输入 embedding、实测 CPU 成本](calibrated/embedding_context/README.md) · [token 身份对照](calibrated/token_prior/README.md)。
 
 **LLaDA Q4/Q8：完整随机对照与缓存年龄实测。** 同门控、同换出规则，仅改变换入旧位。原四倍规则在 Q4 相对均匀 A/B 多对 3/1 题且 TPF 更高，在 Q8 反而少对 5/6 题且 TPF 更低。按上次实际 Q 的年龄选最旧半池不读 logits；Q8/A 的换入编辑率从 2.22% 提至 3.59%，但少对一题、TPF 下降。两档都未达到预定标准，不设为默认。[对照与三项指标](exchange/placebo/README.md) · [缓存年龄四个直接执行臂与图](exchange/placebo/age/README.md)。
@@ -20,6 +22,7 @@
 | 实际算过的 Q 中，必刷、MASK、显式预留旧行、普通旧行回填各有多少？ | [原种子 17 组实测行数](physical-split.csv) · [构成图](figures/physical-split.png) · [分账和画图脚本](../../tools/physical_split.py)。四列之和等于 `selected_Q`，再加 `other_Q` 才是端到端 `total_Q`；`overflow_Q` 已含在选位工作中，不重复相加。|
 | 加上已知 token 的词形，稀疏预算内能找回更多严格编辑吗？ | [LLaDA：独立 24 题拟合、原生 30 题回放](placement/lexical/README.md)。真实可预留席位上的命中差为 Q4 持平、Q8 多 1 次、Q16 少 3 次，未通过预先指定的标准。|
 | 在完全相同的前置状态只换一个物理 Q，第一次分叉发生在哪里？ | [单席干预结果](placement/one-seat/README.md) · [协议](placement/one-seat/PREREG.md) |
+| 旧位换入时，其他共同 MASK 会更早达到最终交付的基线 token 吗？ | [同一前态两模型、四步位置观察与逐题配对](placement/one-seat/beneficiary/README.md)。LLaDA Q4 定向只省 2 个位置等待轮次；Gemma Q32 的第 0 轮提前没有维持到第 3 轮。两模型均未净增正确题数。 |
 | 同一预测席位，保留它的 KV 与使用它的新采样分数，各自能否改变后续输出？ | [Gemma Q32 四组等席位对照、逐题差值与图](placement/one-seat/kv-factorial/README.md) |
 | 每一轮都只刷新新增旧位 KV，而不采样这些旧位，有没有端到端收益？ | [Gemma Q16/32/64/128 与原触发、零预留、IBS/OBS 对照](refresh/README.md) |
 | 风险证据较弱时把席位还给 MASK，能少牺牲多少推进位置？ | [原生逐题留出回放](placement/HAZARD-GATE.md) · [独立 24 题拟合、同一参数在线测试](calibrated/README.md) |
