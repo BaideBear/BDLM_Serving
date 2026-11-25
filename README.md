@@ -12,6 +12,8 @@ LLaDA‑2.1-mini 与 SDAR‑8B‑Chat-b32 的单请求解码实验。核心问�
 
 [DiffusionGemma 26B-A4B 原生推理](experiments/diffusiongemma-native/)复用同一套 30 题和评分器。已实测 30/30：质量 **28/30**，TPF **24.284**，token efficiency **8.42%**。连同前三组共 1,410 次独立请求执行。不同模型的 tokenizer 和每次 forward 的成本不同，TPF 不等于墙钟速度。
 
+[Gemma 模型归档](experiments/diffusiongemma/)另含 FlowBlock W=1/2/3/4 与 B3，共新增 150 次执行。[三指标图](experiments/diffusiongemma-wave/figures/comparison.png)包含 Native 对照。
+
 **比较口径。** 同一模型内，TPF、质量和 token efficiency 直接跨 batch 比较。TPF 取逐请求 `N/F` 的均值；质量为 30 题正确数；token efficiency 用 `ΣN/ΣQ`，不是逐请求比例的均值。`Q` 是实际送算的请求行数，另报 `physical_Q`（含批内 padding）。窗口是名义配置，不是硬 Q 上限。batch 记录用于复现和解释 padding；不据此比较墙钟吞吐。
 
 **结果怎么读。** LLaDA 上，PrefixCache 在 W2 将平均 Q/F 从 64.00 降到 51.29，但 TPF 从 9.262 降至 7.300，质量从 27/30 降至 23/30。减少单步 Q 不等于减少完成整个请求的工作。OBS+B32 在 LLaDA 窗口 32 将原 OBS 的 21/30 提高到 25/30，而窗口 16 则由 24/30 降至 22/30。加掩码不是所有配置都有收益。这些是固定小样本的配对观察，不是总体排名。

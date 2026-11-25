@@ -21,6 +21,9 @@ on the cluster, not in this repository.
 
 ## Results
 
+[Comparison figure](figures/comparison.png) · [Summary](summary.csv) ·
+[Numeric observations including Native](requests.csv) · [Gemma index](../diffusiongemma/)
+
 Same frozen 30 requests (10 each GSM8K, MATH-500, HumanEval), native sampler,
 per-request seeds, batch one, 2,048-token limit. No replaced or length-capped
 requests. W=1 matched native output IDs and encoder/decoder forward events for
