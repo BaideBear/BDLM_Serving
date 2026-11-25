@@ -5,6 +5,86 @@
   "interpretation": "Hits are strict edits on reserved positions actually checked by that arm. Released slots include force-MASK redirects and count quota, not actual MASK checks. Same-split deltas pair case identities, not model states or seat counts; they do not measure offline recall or edits on unchecked rows.",
   "arms": [
     {
+      "policy": "t2t_q16_f4_m8_gate_random",
+      "selection": "gate_random",
+      "requests": 30,
+      "nominal_q": 16,
+      "fresh_slots": 4,
+      "mask_slots": 8,
+      "nominal_edit_slots": 4,
+      "reserved_by_observation_age": {
+        "previous": {
+          "seats": 383,
+          "hits": 10,
+          "precision": 0.02610966057441253
+        },
+        "two_steps": {
+          "seats": 194,
+          "hits": 3,
+          "precision": 0.015463917525773196
+        },
+        "older": {
+          "seats": 501,
+          "hits": 19,
+          "precision": 0.03792415169660679
+        },
+        "unknown": {
+          "seats": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "generation_forwards": 3233,
+      "generation_physical_query_rows": 76990,
+      "denoise_passes": 2790,
+      "denoise_physical_checked": 62814,
+      "strict_edits": 944,
+      "native_edited": 944,
+      "selected_passes": 1650,
+      "selected_physical_checked": 26334,
+      "selected_strict_edits": 266,
+      "reserved_seats": 1078,
+      "reserved_near_miss_seats": 121,
+      "reserved_strict_hits": 32,
+      "released_edit_slots_to_mask": 5522,
+      "available_near_miss_exposures": 1111,
+      "available_nonfresh_exposures": 23226,
+      "work_by_stage": {
+        "prefill": {
+          "forwards": 30,
+          "physical_query_rows": 3008
+        },
+        "bootstrap": {
+          "forwards": 443,
+          "physical_query_rows": 14176,
+          "strict_edits": 0
+        },
+        "selected": {
+          "forwards": 1650,
+          "physical_query_rows": 26334,
+          "strict_edits": 266
+        },
+        "verify": {
+          "forwards": 697,
+          "physical_query_rows": 22304,
+          "strict_edits": 678
+        },
+        "commit": {
+          "forwards": 443,
+          "physical_query_rows": 14176
+        }
+      },
+      "selected_checked_by_category": {
+        "prompt": 0,
+        "mask": 14685,
+        "fresh": 5759,
+        "near_miss": 175,
+        "other_resolved": 5715
+      },
+      "reserved_hit_rate": 0.029684601113172542,
+      "reserved_share_of_observed_selected_strict_edits": 0.12030075187969924
+    },
+    {
       "policy": "t2t_q16_f4_m8_near_miss",
       "selection": "near_miss",
       "requests": 30,
@@ -83,7 +163,230 @@
       },
       "reserved_hit_rate": 0.08135593220338982,
       "reserved_share_of_observed_selected_strict_edits": 0.192
+    },
+    {
+      "policy": "t2t_q8_f2_m4_gate_random",
+      "selection": "gate_random",
+      "requests": 30,
+      "nominal_q": 8,
+      "fresh_slots": 2,
+      "mask_slots": 4,
+      "nominal_edit_slots": 2,
+      "reserved_by_observation_age": {
+        "previous": {
+          "seats": 185,
+          "hits": 1,
+          "precision": 0.005405405405405406
+        },
+        "two_steps": {
+          "seats": 212,
+          "hits": 7,
+          "precision": 0.0330188679245283
+        },
+        "older": {
+          "seats": 731,
+          "hits": 17,
+          "precision": 0.023255813953488372
+        },
+        "unknown": {
+          "seats": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "generation_forwards": 3699,
+      "generation_physical_query_rows": 69492,
+      "denoise_passes": 3245,
+      "denoise_physical_checked": 54964,
+      "strict_edits": 851,
+      "native_edited": 851,
+      "selected_passes": 2036,
+      "selected_physical_checked": 16276,
+      "selected_strict_edits": 82,
+      "reserved_seats": 1128,
+      "reserved_near_miss_seats": 113,
+      "reserved_strict_hits": 25,
+      "released_edit_slots_to_mask": 2944,
+      "available_near_miss_exposures": 1352,
+      "available_nonfresh_exposures": 30078,
+      "work_by_stage": {
+        "prefill": {
+          "forwards": 30,
+          "physical_query_rows": 3008
+        },
+        "bootstrap": {
+          "forwards": 454,
+          "physical_query_rows": 14528,
+          "strict_edits": 0
+        },
+        "selected": {
+          "forwards": 2036,
+          "physical_query_rows": 16276,
+          "strict_edits": 82
+        },
+        "verify": {
+          "forwards": 755,
+          "physical_query_rows": 24160,
+          "strict_edits": 769
+        },
+        "commit": {
+          "forwards": 454,
+          "physical_query_rows": 14528
+        }
+      },
+      "selected_checked_by_category": {
+        "prompt": 0,
+        "mask": 10227,
+        "fresh": 4049,
+        "near_miss": 121,
+        "other_resolved": 1879
+      },
+      "reserved_hit_rate": 0.022163120567375887,
+      "reserved_share_of_observed_selected_strict_edits": 0.3048780487804878
+    },
+    {
+      "policy": "t2t_q8_f2_m4_near_miss",
+      "selection": "near_miss",
+      "requests": 30,
+      "nominal_q": 8,
+      "fresh_slots": 2,
+      "mask_slots": 4,
+      "nominal_edit_slots": 2,
+      "reserved_by_observation_age": {
+        "previous": {
+          "seats": 698,
+          "hits": 9,
+          "precision": 0.012893982808022923
+        },
+        "two_steps": {
+          "seats": 5,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "older": {
+          "seats": 6,
+          "hits": 0,
+          "precision": 0.0
+        },
+        "unknown": {
+          "seats": 0,
+          "hits": 0,
+          "precision": null
+        }
+      },
+      "generation_forwards": 3709,
+      "generation_physical_query_rows": 68060,
+      "denoise_passes": 3267,
+      "denoise_physical_checked": 53916,
+      "strict_edits": 855,
+      "native_edited": 855,
+      "selected_passes": 2109,
+      "selected_physical_checked": 16860,
+      "selected_strict_edits": 71,
+      "reserved_seats": 709,
+      "reserved_near_miss_seats": 709,
+      "reserved_strict_hits": 9,
+      "released_edit_slots_to_mask": 3509,
+      "available_near_miss_exposures": 796,
+      "available_nonfresh_exposures": 31067,
+      "work_by_stage": {
+        "prefill": {
+          "forwards": 30,
+          "physical_query_rows": 3008
+        },
+        "bootstrap": {
+          "forwards": 442,
+          "physical_query_rows": 14144,
+          "strict_edits": 0
+        },
+        "selected": {
+          "forwards": 2109,
+          "physical_query_rows": 16860,
+          "strict_edits": 71
+        },
+        "verify": {
+          "forwards": 716,
+          "physical_query_rows": 22912,
+          "strict_edits": 784
+        },
+        "commit": {
+          "forwards": 442,
+          "physical_query_rows": 14144
+        }
+      },
+      "selected_checked_by_category": {
+        "prompt": 0,
+        "mask": 10912,
+        "fresh": 4130,
+        "near_miss": 709,
+        "other_resolved": 1109
+      },
+      "reserved_hit_rate": 0.012693935119887164,
+      "reserved_share_of_observed_selected_strict_edits": 0.1267605633802817
     }
   ],
-  "online_own_trajectory_comparisons": []
+  "online_own_trajectory_comparisons": [
+    {
+      "near_miss_policy": "t2t_q8_f2_m4_near_miss",
+      "gate_random_policy": "t2t_q8_f2_m4_gate_random",
+      "requests": 30,
+      "totals_near_miss_minus_gate_random": {
+        "generation_physical_query_rows": -1432,
+        "denoise_physical_checked": -1048,
+        "selected_physical_checked": 584,
+        "selected_passes": 73,
+        "reserved_seats": -419,
+        "strict_edits": 4,
+        "selected_strict_edits": -11,
+        "reserved_strict_hits": -16,
+        "released_edit_slots_to_mask": 565
+      },
+      "cases_with_different_counts": {
+        "generation_physical_query_rows": 21,
+        "denoise_physical_checked": 21,
+        "selected_physical_checked": 19,
+        "selected_passes": 19,
+        "reserved_seats": 18,
+        "strict_edits": 19,
+        "selected_strict_edits": 16,
+        "reserved_strict_hits": 12,
+        "released_edit_slots_to_mask": 20
+      },
+      "cases_with_different_output_ids": 15,
+      "cases_with_different_denoise_check_path": 25,
+      "cases_with_different_strict_edit_path": 23,
+      "cases_with_different_reservation_path": 25
+    },
+    {
+      "near_miss_policy": "t2t_q16_f4_m8_near_miss",
+      "gate_random_policy": "t2t_q16_f4_m8_gate_random",
+      "requests": 30,
+      "totals_near_miss_minus_gate_random": {
+        "generation_physical_query_rows": -4800,
+        "denoise_physical_checked": -4384,
+        "selected_physical_checked": -3232,
+        "selected_passes": -202,
+        "reserved_seats": -488,
+        "strict_edits": -118,
+        "selected_strict_edits": -16,
+        "reserved_strict_hits": 16,
+        "released_edit_slots_to_mask": -320
+      },
+      "cases_with_different_counts": {
+        "generation_physical_query_rows": 23,
+        "denoise_physical_checked": 23,
+        "selected_physical_checked": 20,
+        "selected_passes": 20,
+        "reserved_seats": 20,
+        "strict_edits": 23,
+        "selected_strict_edits": 18,
+        "reserved_strict_hits": 15,
+        "released_edit_slots_to_mask": 21
+      },
+      "cases_with_different_output_ids": 20,
+      "cases_with_different_denoise_check_path": 26,
+      "cases_with_different_strict_edit_path": 24,
+      "cases_with_different_reservation_path": 26
+    }
+  ]
 }
