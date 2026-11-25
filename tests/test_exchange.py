@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from bdlm_serving.methods.t2t.exchange import choose, position_keys, randomize_candidate
 from bdlm_serving.methods.t2t.protocol import Arm
-from tools.exchange_study import audit_pair
+from tools.exchange_study import audit_pair, propensity_counts
 
 
 class ExchangeTest(unittest.TestCase):
@@ -50,6 +50,21 @@ class ExchangeTest(unittest.TestCase):
         self.assertIn(tuple(ranked[1]), observed)  # collisions must be retained
         self.assertEqual(randomize_candidate(valid, resolved, {1}, [0, 1], [], [], 2),
                          ([0, 1], [], None))
+
+    def test_propensity_weights_only_observed_rank_matches(self):
+        from random import Random
+        pool = [5,6,7]
+        for seed in range(15):
+            chosen, = Random(f"exchange-placebo:a:{seed}:2:7").sample(pool,1)
+            event = dict(block=2,hard_clock=7,reserved_extra_edit_positions=[64+chosen],
+                         reserved_strict_edit_positions=[64+chosen],placebo_exchange=dict(
+                             pool=pool,base=[1,2],ranked=[1,6],executed=[1,chosen]))
+            counts = propensity_counts(event,seed,"a")
+            self.assertEqual(counts["weighted_hits"],3 if chosen==6 else 0)
+            self.assertEqual(counts["uniform_hits"],1)
+            event["reserved_extra_edit_positions"] = []
+            with self.assertRaises(ValueError):
+                propensity_counts(event,seed,"a")
 
     def test_first_physical_exchange_and_noop(self):
         event = dict(block=0,context_version=0,step_in_block=2,hard_clock=3,mandatory_fresh=1,

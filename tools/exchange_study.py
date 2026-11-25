@@ -236,19 +236,108 @@ def report(folder):
     (folder/"README.md").write_text("\n".join(lines))
 
 
+def propensity_counts(event, seed, salt):
+    """A one-seat randomized action reveals the ranker's reward only on a match."""
+    from random import Random
+    audit = event["placebo_exchange"]
+    base, pool = set(audit["base"]), audit["pool"]
+    preferred, = set(audit["ranked"]) - base
+    chosen, = set(audit["executed"]) - base
+    k = len(pool)
+    block = event["block"]
+    draw = Random(f"exchange-placebo:{salt}:{seed}:{block}:{event['hard_clock']}").sample(pool, 1)
+    if (preferred not in pool or sorted(set(pool)) != pool or draw != [chosen] or
+            [32*block+chosen] != event["reserved_extra_edit_positions"]):
+        raise ValueError("Unverified one-seat sampling design")
+    labels = event["reserved_strict_edit_positions"]
+    if labels not in ([], [32*block+chosen]):
+        raise ValueError("Invalid observed candidate outcome")
+    hit, match = int(bool(labels)), int(chosen == preferred)
+    return Counter(decisions=1, uniform_hits=hit, collisions=match, collision_hits=hit*match,
+                   weighted_hits=k*match*hit, weighted_support=k*match, squared_weights=k*k*match,
+                   expected_collisions=1/k, singleton=int(k==1))
+
+
+def propensity(runs, folder, manifest):
+    from random import Random
+    import numpy as np
+    groups, seen, request_rows = defaultdict(dict), set(), []
+    for run in runs:
+        meta = json.loads((run/"run.json").read_text())
+        if (meta["model"] != "llada21" or meta.get("seed_offset", 0) or
+                json.loads((run/"qualified.json").read_text()) != dict(model="llada21",full_width=32,matched=30)):
+            raise ValueError("Native bridge or seed mismatch")
+        for arm, policy in zip(meta["arms"],meta["policies"],strict=True):
+            q, suffix = arm["budget"], arm["selection"].removeprefix("hard_exchange_random_")
+            if suffix not in ("a","b") or q not in (4,8) or (q,suffix) in seen or json.loads(
+                    (run/f"complete-{policy}.json").read_text()) != dict(policy=policy,requests=30):
+                raise ValueError("Expected distinct, complete preregistered arms")
+            seen.add((q,suffix))
+            for task in manifest:
+                i = task["index"]
+                row = json.loads((run/f"{i:02d}-{policy}.json").read_text())
+                if row["policy"] != policy or any(row[k] != task[k] for k in ("index","task_id","seed","dataset")):
+                    raise ValueError("Wrong request")
+                parts = {s:Counter() for s in ("all","mask","backfill")}
+                for e in row["events"]:
+                    if "placebo_exchange" not in e:
+                        if e.get("reserved_extra_edit_positions"):
+                            raise ValueError("Missing randomized-action record")
+                        continue
+                    c = propensity_counts(e, row["seed"], suffix)
+                    parts["all"].update(c)
+                    parts["mask" if e["placebo_exchange"]["masked_victims"] else "backfill"].update(c)
+                for s,c in parts.items():
+                    groups[q,suffix,s][i] = c
+    if seen != {(q,s) for q in (4,8) for s in ("a","b")}:
+        raise ValueError("Expected both budgets and both random streams")
+    totals = []
+    fields = ("decisions","uniform_hits","collisions","collision_hits","weighted_hits",
+              "weighted_support","squared_weights","expected_collisions","singleton")
+    for (q,salt,stratum), data in sorted(groups.items()):
+        rows = [data[t["index"]] for t in manifest]
+        for t,c in zip(manifest,rows,strict=True):
+            request_rows.append(dict(q=q,salt=salt,stratum=stratum,index=t["index"],
+                dataset=t["dataset"],task_id=t["task_id"],**{k:c[k] for k in fields}))
+        c = sum(rows,Counter())
+        rng = Random(17594)
+        samples = [[data[t["index"]] for t in manifest if t["dataset"]==d] for d in ("gsm8k","math500","humaneval")]
+        assert all(len(v)==10 for v in samples)
+        diffs = []
+        for _ in range(2000):
+            draw = [r for group in samples for r in rng.choices(group,k=len(group))]
+            denom = sum(r["decisions"] for r in draw)
+            if denom:
+                diffs.append(sum(r["weighted_hits"]-r["uniform_hits"] for r in draw)/denom)
+        n = c["decisions"]
+        bounds = np.percentile(diffs,[2.5,97.5]).tolist() if diffs else ["",""]
+        totals.append(dict(q=q,salt=salt,stratum=stratum,**{k:c[k] for k in fields},
+            uniform_rate=c["uniform_hits"]/n if n else "", ranked_ipw_rate=c["weighted_hits"]/n if n else "",
+            rank_minus_uniform=(c["weighted_hits"]-c["uniform_hits"])/n if n else "",
+            delta_lo=bounds[0],delta_hi=bounds[1],
+            effective_matches=c["weighted_support"]**2/c["squared_weights"] if c["squared_weights"] else 0))
+    folder.mkdir(parents=True,exist_ok=True)
+    table(folder/"candidate-propensity.csv", totals)
+    table(folder/"candidate-propensity-requests.csv", request_rows)
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("action",choices=("fit","replay","anchors","report"))
+    p.add_argument("action",choices=("fit","replay","anchors","report","propensity"))
     p.add_argument("--dir", type=Path, required=True)
     p.add_argument("--rates", type=Path)
     p.add_argument("--out",type=Path)
     p.add_argument("--coverage",type=Path)
     p.add_argument("--run",type=Path,action="append")
     a = p.parse_args()
-    if a.action != "report" and a.rates is None:
+    if a.action not in ("report","propensity") and a.rates is None:
         p.error("--rates is required for calibration, replay and audit")
     frozen = json.loads(MANIFEST.read_text())["samples"]
-    if a.action == "fit":
+    if a.action == "propensity":
+        if not a.run:
+            p.error("propensity requires the randomized run folders")
+        propensity(a.run,a.dir,frozen)
+    elif a.action == "fit":
         a.rates.write_text(json.dumps(fit(a.dir,frozen),indent=2)+"\n")
     elif a.action == "replay":
         if a.out is None:

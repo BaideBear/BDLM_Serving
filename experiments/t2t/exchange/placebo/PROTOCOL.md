@@ -23,3 +23,16 @@ given state, not forcibly synchronized across diverged states. Compare paired
 correctness, mean request N/F, sum N / sum physical Q, work, first divergence,
 swap type and strict edit of the added row. List both placebo arms irrespective
 of outcome. Higher edit coverage alone is not evidence for an end-to-end gain.
+
+Secondary diagnostic (specified while the GPU workers were running their full-width
+bridge, before any placebo output): on a visited swap state with `K` eligible old
+rows, let `hit` indicate whether the **drawn** candidate strictly edits in the
+actual forward. Record `K * 1[draw == ranked] * hit` and `hit`. Dividing the sums
+by the number of swaps gives a one-step inverse-propensity estimate for the
+ranked action on placebo-visited states and the observed uniform rate. Recheck
+each deterministic draw against the published key; keep singleton pools and
+report collisions, observed collision hits and effective support. Interpret
+under uniform pseudo-random assignment, not as unobserved labels, full policy
+evaluation, or an unbiased finite-sample trajectory estimate. Report A/B
+separately and bootstrap whole requests within each dataset for descriptive
+dispersion; this does not reflect policy search, unseen tasks, or model seeds.
