@@ -143,7 +143,31 @@ def placement_groups(path, hard, adaptive, model, width, baselines):
         yield q, rows + window_controls(model, q, width, baselines)
 
 
-def render(path, model, width, data, *, adaptive=False, placement=False):
+def geometry_groups(folder, model, width, baselines):
+    source = folder / "arms.csv"
+    points = defaultdict(dict)
+    with source.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["status"] != "ok":
+                continue
+            metric = point(row, "token_efficiency")
+            mode = row["policy"].split("_", 4)[4]
+            put(points[int(row["nominal_q"])], mode, metric)
+    labels = (("hard_noedit", "No edit reserve", "hard"),
+              ("hard_slack_geometry", "Slack: geometry", "geometry"),
+              ("hard_slack", "Slack: frontier", "adaptive"),
+              ("hard_slack_placebo", "Slack: random", "placebo"),
+              ("hard_geometry", "Fixed: geometry", "geometry"),
+              ("hard_frontier", "Fixed: frontier", "adaptive"),
+              ("hard_random", "Fixed: random", "placebo"))
+    for q, measured in sorted(points.items()):
+        if not any(m.endswith("_geometry") for m in measured):
+            continue
+        rows = [(name, kind, measured[m]) for m, name, kind in labels if m in measured]
+        yield q, rows + window_controls(model, q, width, baselines)
+
+
+def render(path, model, width, data, *, adaptive=False, placement=False, geometry=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -172,6 +196,8 @@ def render(path, model, width, data, *, adaptive=False, placement=False):
     title = "Adaptive selection (v2)" if adaptive else "Hard selection"
     if placement:
         title = "Matched old-position controls"
+    if geometry:
+        title = "Geometry vs matched old-position controls"
     fig.text(.035, 1-.24/height, f"{MODELS[model][0]}  |  {title} (B{width})",
              fontsize=17, weight="bold", color="#172b38")
     fig.text(.035, 1-.53/height,
@@ -240,12 +266,14 @@ def render(path, model, width, data, *, adaptive=False, placement=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT, help="repository root")
-    parser.add_argument("--study", choices=("hard", "adaptive", "placement"), default="hard")
+    parser.add_argument("--study", choices=("hard", "adaptive", "placement", "geometry"), default="hard")
     parser.add_argument("--model", choices=MODELS, action="append", help="render only this model; repeatable")
     parser.add_argument("--out-dir", type=Path, help="default: experiments/t2t/<study>/figures under root")
     args = parser.parse_args()
     hard = args.root / "experiments/t2t/hard"
     study = hard.parent / args.study
+    if args.study == "geometry":
+        study = hard.parent / "placement" / "geometry-online"
     adaptive = args.study != "hard"
     out = args.out_dir or study / "figures"
     try:
@@ -254,7 +282,10 @@ def main():
             _, width = MODELS[model]
             src = study / f"{model}-online-summary.csv"
             data = []
-            if src.is_file():
+            if args.study == "geometry":
+                if model == "llada21" and (study / "arms.csv").is_file():
+                    data = list(geometry_groups(study, model, width, baselines))
+            elif src.is_file():
                 source = (placement_groups(src, hard / src.name, hard.parent / "adaptive" / src.name,
                                            model, width, baselines) if args.study == "placement" else
                           adaptive_groups(src, hard / src.name, model, width, baselines)
@@ -264,7 +295,8 @@ def main():
                 print(f"Skipping {model}: no eligible dataset=all rows in {src}", file=sys.stderr)
                 continue
             path = out / f"{model}-{args.study}-study.svg"
-            render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement")
+            render(path, model, width, data, adaptive=adaptive, placement=args.study == "placement",
+                   geometry=args.study == "geometry")
             print(path)
     except (KeyError, TypeError, ValueError, OSError) as exc:
         parser.error(str(exc))

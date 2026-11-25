@@ -1,0 +1,17 @@
+policy,phase,F,Q
+t2t_q4_f0_m3_hard_slack_placebo,bootstrap,476,15232
+t2t_q4_f0_m3_hard_slack_placebo,commit,476,15232
+t2t_q4_f0_m3_hard_slack_placebo,selected,4143,20336
+t2t_q4_f0_m3_hard_slack_placebo,verify,621,19872
+t2t_q4_f0_m3_hard_trigger_placebo,bootstrap,438,14016
+t2t_q4_f0_m3_hard_trigger_placebo,commit,438,14016
+t2t_q4_f0_m3_hard_trigger_placebo,selected,3554,17773
+t2t_q4_f0_m3_hard_trigger_placebo,verify,605,19360
+t2t_q16_f0_m14_hard_slack_placebo,bootstrap,427,13664
+t2t_q16_f0_m14_hard_slack_placebo,commit,427,13664
+t2t_q16_f0_m14_hard_slack_placebo,selected,1579,26310
+t2t_q16_f0_m14_hard_slack_placebo,verify,584,18688
+t2t_q16_f0_m14_hard_trigger_placebo,bootstrap,447,14304
+t2t_q16_f0_m14_hard_trigger_placebo,commit,447,14304
+t2t_q16_f0_m14_hard_trigger_placebo,selected,1896,31488
+t2t_q16_f0_m14_hard_trigger_placebo,verify,635,20320

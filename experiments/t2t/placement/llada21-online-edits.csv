@@ -1,0 +1,5 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q4_f0_m3_hard_slack_placebo,30,5240,4143,443,0,155,288,0,,,,
+t2t_q4_f0_m3_hard_trigger_placebo,30,4597,3554,560,0,168,392,0,,,,
+t2t_q16_f0_m14_hard_slack_placebo,30,2590,1579,650,0,288,362,0,,,,
+t2t_q16_f0_m14_hard_trigger_placebo,30,2978,1896,754,0,337,417,0,,,,
