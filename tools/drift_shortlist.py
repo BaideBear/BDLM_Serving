@@ -1,5 +1,6 @@
 """CPU-only held-request shortlists for native Gemma L15 high-drift old rows."""
 import argparse
+import csv
 import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from tools.native_kv_drift import _load_diagnostic, _read_trace, write_csv
 BUDGETS = (16, 32, 64, 128, 256)
 FEATURES = ('bias', 'position', 'position_sq', 'left_edge', 'right_edge',
             'own_write_recency', 'left4', 'right4', 'left16', 'right16')
+BOUNDARY_FEATURES = FEATURES + ('unresolved_left_inv', 'unresolved_right_inv')
 POS_DIM = 5
 IDENTITY = ('index', 'dataset', 'task_id', 'seed')
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +52,15 @@ def order(scores):
     return np.argsort(-np.asarray(scores), kind='stable')
 
 
+def unresolved_distances(pool, resolved):
+    """Inverse distances on this prestate canvas; absent neighbors are at infinity."""
+    i = np.asarray(pool, dtype=int)
+    holes = np.flatnonzero(~np.asarray(resolved, dtype=bool))
+    k = np.searchsorted(holes, i)  # old pool is resolved, hence disjoint from holes
+    edges = np.r_[-np.inf, holes, np.inf]
+    return np.column_stack((1 / (i - edges[k]), 1 / (edges[k + 1] - i)))
+
+
 @dataclass
 class Step:
     x: np.ndarray
@@ -58,7 +69,7 @@ class Step:
     layout: dict
 
 
-def parse(diag, meta, rows, task):
+def parse(diag, meta, rows, task, *, boundary=False):
     check(all(meta[k] == diag[k] == task[k] for k in IDENTITY), 'request identity')
     check(all(diag[k] == v for k, v in dict(model='gemma', policy='native256',
               canvas=256, layer=15, top_fraction=.1, top_k=None, joint='max_dk_dv',
@@ -82,6 +93,8 @@ def parse(diag, meta, rows, task):
         pool = [i for i in all_rows if h.resolved[i] and i not in h.fresh]
         if pool:
             x = features(pool, writes, step_id)
+            if boundary:
+                x = np.column_stack((x, unresolved_distances(pool, h.resolved)))
             fscore = _frontier_scores(pool, writes, queries, step_id)
             rank = order([fscore[i] for i in pool])
             layout = {}
@@ -92,7 +105,7 @@ def parse(diag, meta, rows, task):
                 n0 = len(base_old)
                 check(base_old == set(pool[:n0]), 'noedit neutral prefix')
                 for mode, policy in (('slack', 'hard_slack'), ('fixed', 'hard_frontier')):
-                    if q == width and mode == 'fixed':
+                    if (boundary or q == width) and mode == 'fixed':
                         continue
                     chosen, res = ((base, []) if q == width else
                                    select_hard(*args, q//8, policy, 0))
@@ -148,11 +161,11 @@ def fit(train, dim):
     raise ValueError('ridge fit did not converge')
 
 
-def train_fold(data, test):
+def train_fold(data, test, dims=(len(FEATURES), POS_DIM)):
     ids = sorted(data.keys()-set(test))
     rows = [s for i in ids for s in data[i]]
     return (ids, sum(len(s.y) for s in rows), sum(int(s.y.sum()) for s in rows),
-            fit(rows, len(FEATURES)), fit(rows, POS_DIM))
+            *(fit(rows, d) for d in dims))
 
 
 @lru_cache(maxsize=4096)
@@ -198,20 +211,55 @@ def count(s, ranking, r, b, baseline, physical=None):
     return c
 
 
-def evaluate(steps, w, wp):
+def evaluate(steps, w, wp, *, boundary=False):
     acc = defaultdict(Counter)
     for s in steps:
         n = len(s.y)
-        for name, rank in [('pos_write', order(s.x@w)), ('position', order(s.x[:, :POS_DIM]@wp)),
-                           ('frontier', s.frontier), ('leftmost', np.arange(n)), ('uniform', None)]:
-            for label, k in [('top1', 1), ('top2', 2), ('top4', 4), ('native10', ceil(.1*n))]:
-                acc['list', label, name].update(count(s, rank, min(n, k), 0, 0))
+        primary, secondary = ('boundary', 'pos_write') if boundary else ('pos_write', 'position')
+        ranks = [(primary, order(s.x@w)), (secondary, order(s.x[:, :len(wp)]@wp)),
+                 ('frontier', s.frontier)]
+        if not boundary:
+            ranks.extend([('leftmost', np.arange(n)), ('uniform', None)])
+        for name, rank in ranks:
+            if not boundary:
+                for label, k in [('top1', 1), ('top2', 2), ('top4', 4), ('native10', ceil(.1*n))]:
+                    acc['list', label, name].update(count(s, rank, min(n, k), 0, 0))
             for (q, mode), args in s.layout.items():
                 acc['dense' if q == 256 else mode, q, name].update(count(s, rank, *args))
     return acc
 
 
-def main(raw, out):
+def rollout_gate(margins):
+    neighbors = margins[16], margins[64]
+    return margins[32] > 0 and max(neighbors) > 0 and min(neighbors) >= 0
+
+
+def boundary_report(out, sums):
+    matched = set()
+    with (OUT/'summary-budget.csv').open() as f:
+        for row in csv.DictReader(f):
+            if row['method'] in ('frontier', 'pos_write') and row['mode'] in ('slack', 'dense'):
+                key = row['group'], row['mode'], int(row['seats_or_q']), row['method']
+                check(key not in matched and key in sums and all(float(row[k]) == v for k, v in sums[key].items()),
+                      f'archived comparator mismatch: {key}')
+                matched.add(key)
+    check(matched == {k for k in sums if k[-1] != 'boundary'}, 'missing archived comparator')
+    rows, margins = [], {}
+    for q in BUDGETS:
+        mode = 'dense' if q == 256 else 'slack'
+        totals = {m: sums['all', mode, q, m] for m in ('boundary', 'pos_write', 'frontier')}
+        margins[q] = totals['boundary']['hits'] - max(totals[m]['hits'] for m in ('pos_write', 'frontier'))
+        for method, c in totals.items():
+            check(c['requests'] == 30 and c['mask_lost'] == 0 and c['old_seats'] == c['base_old'],
+                  'incomplete or non-slack replay')
+            rows.append(dict(q=q, mode=mode, method=method, **{k:int(v) for k,v in c.items()}))
+    out.mkdir(parents=True, exist_ok=True)
+    write_csv(out/'budget.csv', rows)
+    print('Boundary minus stronger comparator:', {q:int(d) for q,d in margins.items()},
+          '| rollout gate:', 'PASS' if rollout_gate(margins) else 'FAIL')
+
+
+def main(raw, out, *, boundary=False):
     tasks = json.loads(MANIFEST.read_text())['samples']
     by_id = {t['index']: t for t in tasks}
     check(json.loads((raw/'verified.json').read_text()) == dict(model='gemma', matched_requests=30),
@@ -219,22 +267,27 @@ def main(raw, out):
     diags = _load_diagnostic(raw, 15)
     check([d['index'] for d in diags] == sorted(by_id) == list(range(30)), 'incomplete cohort')
     data = {d['index']: parse(d, *_read_trace(raw/f"{d['index']:02d}.trace.jsonl.gz"),
-                              by_id[d['index']]) for d in diags}
+                              by_id[d['index']], boundary=boundary) for d in diags}
     requests, fits, sums = [], [], defaultdict(Counter)
+    dims = (len(BOUNDARY_FEATURES), len(FEATURES)) if boundary else (len(FEATURES), POS_DIM)
     for f, test in enumerate(folds(tasks)):
-        train, train_n, train_y, w, wp = train_fold(data, test)
-        fits.append(dict(fold=f, train=train, test=test, training_rows=train_n,
-                         training_targets=train_y, pos_write=w.tolist(),
-                         position=wp.tolist()))
+        train, train_n, train_y, w, wp = train_fold(data, test, dims)
+        if not boundary:
+            fits.append(dict(fold=f, train=train, test=test, training_rows=train_n,
+                             training_targets=train_y, pos_write=w.tolist(),
+                             position=wp.tolist()))
         for i in test:
             t = by_id[i]
-            for key, c in evaluate(data[i], w, wp).items():
+            for key, c in evaluate(data[i], w, wp, boundary=boundary).items():
                 mode, seats, name = key
-                requests.append(dict(fold=f, **{k:t[k] for k in IDENTITY}, mode=mode,
-                                     seats_or_q=seats, method=name, **c))
+                if not boundary:
+                    requests.append(dict(fold=f, **{k:t[k] for k in IDENTITY}, mode=mode,
+                                         seats_or_q=seats, method=name, **c))
                 for g in ('all', f'fold{f}', t['dataset']):
                     sums[g, *key].update(c)
                     sums[g, *key]['requests'] += 1
+    if boundary:
+        return boundary_report(out, sums)
     ref = sums['all', 'list', 'native10', 'frontier']
     check(tuple(ref[k] for k in ('steps','pool','targets','hits')) == (325,40350,4182,511),
           'original aggregate parity failed')
@@ -255,6 +308,7 @@ def main(raw, out):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--raw', required=True, type=Path)
-    parser.add_argument('--out', type=Path, default=OUT)
+    parser.add_argument('--boundary', action='store_true', help='test prestate unresolved neighbors on slack seats only')
+    parser.add_argument('--out', type=Path)
     args = parser.parse_args()
-    main(args.raw, args.out)
+    main(args.raw, args.out or (OUT/'boundary' if args.boundary else OUT), boundary=args.boundary)

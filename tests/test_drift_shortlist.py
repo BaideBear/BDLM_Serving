@@ -6,8 +6,9 @@ from itertools import combinations
 
 import numpy as np
 
-from tools.drift_shortlist import (FEATURES, OUT, Step, count, evaluate, features,
-                                   folds, order, parse, train_fold, uniform)
+from tools.drift_shortlist import (BOUNDARY_FEATURES, FEATURES, OUT, Step, count,
+                                   evaluate, features, folds, order, parse, rollout_gate,
+                                   train_fold, uniform, unresolved_distances)
 
 
 def example():
@@ -55,6 +56,42 @@ class TestShortlist(unittest.TestCase):
         self.assertEqual(features([0], [-1]*5, 1)[0, 5:].sum(), 0.)
         with self.assertRaisesRegex(ValueError, 'current/future'):
             features([0], [5], 5)
+
+    def test_unresolved_distances_use_only_this_canvas_prestate(self):
+        np.testing.assert_array_equal(unresolved_distances([0, 3], [True]*4), [[0,0], [0,0]])
+        np.testing.assert_array_equal(unresolved_distances([0, 4], [True, True, False, True, True]),
+                                      [[0,.5], [.5,0]])
+        diag, meta, rows = example()
+        orig, = parse(diag, meta, rows, meta)
+        s, = parse(diag, meta, rows, meta, boundary=True)
+        np.testing.assert_array_equal(s.x[:, :10], orig.x)
+        np.testing.assert_array_equal(s.x[:, 10:], [[0,1], [1,1], [1,.5]])
+        self.assertEqual(s.layout, {k:v for k,v in orig.layout.items() if k[1] == 'slack'})
+        rows[-1].update(after=[17]*256, accepted=[True]*256)
+        diag['steps'][0].update(top_count=1, top_positions=[[4]])
+        diag['steps'].append(dict(diag['steps'][0], block=304))
+        for replay in parse(diag, meta, rows+[dict(f, block=304) for f in rows], meta, boundary=True):
+            np.testing.assert_array_equal(s.x, replay.x)
+
+    def test_boundary_matched_layout_and_comparator_feature_slice(self):
+        x = np.zeros((4, len(BOUNDARY_FEATURES)))
+        x[2,9], x[3,11] = 1, 2
+        # Reserve 1, then leftmost-neutral backfill 1. Frontier reserves the
+        # first neutral row instead. All arms select 2 old rows out of 16 seats.
+        s = Step(x, np.array([1,0,0,1], dtype=bool), np.arange(4),
+                 {(16,'slack'):(1,1,2,16), (256,'slack'):(0,4,4,256)})
+        metrics = evaluate([s], np.ones(12), np.ones(10), boundary=True)
+        for m, hits, swaps in [('boundary',2,1), ('pos_write',1,1), ('frontier',1,0)]:
+            c = metrics['slack',16,m]
+            self.assertEqual([c[k] for k in ('hits','old_seats','physical','new_old','mask_lost')],
+                             [hits,2,16,swaps,0])
+            self.assertEqual(metrics['dense',256,m]['neutral_hits'], 2)
+        self.assertEqual(len(metrics), 6)
+
+    def test_boundary_gate_frozen_budgets(self):
+        for margins, expected in [((0,1,1),True), ((1,1,0),True), ((1,0,1),False),
+                                  ((0,1,0),False), ((1,1,-1),False), ((-1,1,1),False)]:
+            self.assertEqual(rollout_gate(dict(zip([16,32,64,128,256], (*margins,100,0)))), expected)
 
     def test_alignment_and_invalid_target(self):
         for key, val in [('prev_step_id', 3), ('pool_size', 4), ('top_positions', [[0], [5]])]:
@@ -107,6 +144,10 @@ class TestShortlist(unittest.TestCase):
         ids,n,y,w,wp = train_fold(data, hold)
         self.assertEqual((len(ids),len(set(ids)&set(hold)),n,y), (24,0,96,48))
         self.assertTrue(np.isfinite(w).all() and np.isfinite(wp).all())
+        example_step.x = np.column_stack((x, unresolved_distances(range(4), [True]*4)))
+        new_ids,n2,y2,wb,ww = train_fold(data, hold, (12,10))
+        self.assertEqual((new_ids,n2,y2,len(wb)), (ids,n,y,12))
+        np.testing.assert_allclose(ww, w)
 
     def test_archived_budget_parity(self):
         with (OUT.parent/'kvdrift-budget-coverage.csv').open() as f:

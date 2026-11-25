@@ -2,6 +2,8 @@
 
 ## 当前：选位不使用 logits，硬刷新不截断
 
+**Gemma：已接受／待定边界不足以指导额外旧位刷新。** 在不挤占任何 MASK 的同前态原生回放里，用位置、历史写入和左右最近待定行距离预测 L15 高 KV 漂移。Q16、32、64 分别命中 6、36、195 行次，均比同预算较强对照少 4 次；Q128 多 7 次，Q256 本来就全选。未达到预设的上机条件。[五档预算、已有对照与判据](placement/native-kv/shortlist/boundary/README.md)。这是高漂移命中，不是严格 T2T 或在线质量。
+
 **真实固定预算解码已测完。** LLaDA 的输入 embedding 排序相对同席位纯位置组，Q4/Q8/Q16 的 TPF 分别 +0.086/+0.056/+0.037，答对数 +0/+2/+0；三档相对零预留的 TPF 均下降。仅一档满足相对同席位对照“质量严格提高且 TPF 不降”，不采用固定预留作为默认。[三档实测、图、三部分预算与配对区间](calibrated/embedding_context/rollout/README.md)。
 
 **LLaDA：输入 embedding 加邻近写入，在三档实际席位上都比纯位置预测多命中严格编辑。** 用另 24 题拟合，在相同 30 题、相同原生前态、同样的预留席位数下，Q4/1、Q8/1、Q16/2 从 9/23/56 提升到 12/30/59（全体可选旧位严格编辑 191 次）。只按 token 自身的 ID 风险查表则为 9/22/43，未通过。前者值得真实稀疏验证，这些离线数字不是质量或 TPF。[输入 embedding、实测 CPU 成本](calibrated/embedding_context/README.md) · [token 身份对照](calibrated/token_prior/README.md)。
