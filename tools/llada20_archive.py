@@ -80,11 +80,10 @@ def export(run):
     write(DEST/"requests.csv", rows)
 
 
+PREFIX = [f"{p}_w{w}" for w in (2,3,4) for p in ("flow","prefix")]
+
+
 def render():
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import numpy as np
     current = read(DEST/"requests.csv")
     sources = {name: [r for r in read(ROOT/f"experiments/{name}/requests.csv")
                       if r["model"] == "llada21"] for name in ("baselines","flowblock-prefix")}
@@ -115,23 +114,34 @@ def render():
     write(DEST/"prefix_deltas.csv", prefix_deltas(current, sources["flowblock-prefix"]))
     write_markdown(summaries)
     write_prefix_markdown(summaries)
+    draw_figure("comparison", DISPLAY, summaries)
+    draw_figure("flowblock_prefix", PREFIX, summaries)
+
+
+def draw_figure(name, policies, summaries):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
     (DEST/"figures").mkdir(exist_ok=True)
-    for name, policies in (("comparison",DISPLAY),("flowblock_prefix",[p for p in DISPLAY
-                            if p in {f"{kind}_w{w}" for kind in ("flow","prefix") for w in (2,3,4)}])):
-        fig, axes = plt.subplots(1,3,figsize=(12, max(3.8,len(policies)*.41+1.2)),layout="constrained")
-        for ax,key,title,k in zip(axes,("mean_tpf","efficiency","correct"),
-                                  ("Delivered tokens / forward","Token efficiency (%)","Correct / 30"),(1,100,1)):
-            y = np.arange(len(policies))
-            for j,(model,color) in enumerate((("llada20","#138077"),("llada21","#ad4f2c"))):
-                lookup={r["policy"]:r[key] for r in summaries if r["dataset"]=="all" and r["model"]==model}
-                ax.barh(y+(.17 if j else -.17),[k*lookup[p] for p in policies],height=.32,color=color,label=model)
-            ax.set_yticks(y, [p.replace("optimus_","").replace("_c"," ").replace("_w"," W") for p in policies] if ax is axes[0] else [""]*len(policies))
-            ax.invert_yaxis()
-            ax.set_title(title,fontsize=11)
-            ax.spines[["top","right","left"]].set_visible(False)
-        axes[-1].legend(loc="lower right",bbox_to_anchor=(1,1.06),ncol=2,frameon=False)
-        fig.savefig(DEST/f"figures/{name}.png",dpi=165)
-        plt.close(fig)
+    fig, axes = plt.subplots(1,3,figsize=(12,max(4.2,len(policies)*.41+1.4)),layout="constrained")
+    fig.suptitle("FlowBlock dense and PrefixCache on frozen30" if name == "flowblock_prefix"
+                 else "LLaDA 2.0-mini and 2.1-mini on frozen30", fontsize=13)
+    y = np.arange(len(policies))
+    for ax,key,title,k in zip(axes,("mean_tpf","efficiency","correct"),
+                              ("Mean request TPF","Request token efficiency (%)","Correct / 30"),(1,100,1)):
+        for j,(model,color,label) in enumerate((("llada20","#138077","2.0-mini"),("llada21","#ad4f2c","2.1-mini"))):
+            lookup={r["policy"]:r[key] for r in summaries if r["dataset"]=="all" and r["model"]==model}
+            ax.barh(y+(.17 if j else -.17),[k*lookup[p] for p in policies],height=.32,color=color,label=label)
+        ax.set_yticks(y, [p.replace("optimus_","").replace("_c"," ").replace("_w"," W") for p in policies] if ax is axes[0] else [""]*len(policies))
+        if key == "correct":
+            ax.set_xlim(0,30)
+        ax.invert_yaxis()
+        ax.set_title(title,fontsize=11)
+        ax.spines[["top","right","left"]].set_visible(False)
+    axes[-1].legend(loc="lower right",bbox_to_anchor=(1,1.08),ncol=2,frameon=False)
+    fig.savefig(DEST/f"figures/{name}.png",dpi=165)
+    plt.close(fig)
 
 
 def write_markdown(summaries):
@@ -189,7 +199,8 @@ def write_prefix_markdown(summaries):
     lookup = {(r["model"],r["policy"]):r for r in summaries if r["dataset"] == "all"}
     text = ["# FlowBlock: dense vs per-block PrefixCache", "",
             "Every row uses the same 30 requests. Request Q excludes padding; physical Q includes it. "
-            "These are costs summed across requests, not wall-clock speed.", ""]
+            "These are costs summed across requests, not wall-clock speed.", "",
+            "![Frozen30 quality, TPF and token efficiency](figures/flowblock_prefix.png)", ""]
     for m in ("llada20","llada21"):
         text += ["## "+m, "",
                  "| W | Method | Correct / 30 | Mean TPF | Pooled TPF | Efficiency | Physical efficiency | Forwards | Request Q | Physical Q |",
@@ -201,7 +212,25 @@ def write_prefix_markdown(summaries):
                             f"{r['n']/r['f']:.3f} | {r['n']/r['q']:.2%} | {r['n']/r['physical_q']:.2%} | "
                             f"{r['f']:,} | {r['q']:,} | {r['physical_q']:,} |")
         text.append("")
-    text += ["Mean TPF is the equally weighted mean of the 30 individual N/F ratios; pooled TPF is total N / total F. "
+    text += ["## Where the 2.0 query work went", "",
+             "Both methods run the same packed width before retirement (`32 * W`). "
+             "Extra full-width work = change in forward count times packed width. "
+             "Rows skipped are measured against the dense width on the *cache trajectory*; "
+             "they are not savings against the separately generated dense answers.", "",
+             "| W | Extra forwards | Extra full-width rows | Rows skipped | Net request Q change | Extra padding | Net physical Q change |",
+             "|--:|--:|--:|--:|--:|--:|--:|"]
+    for w in (2,3,4):
+        dense, cache = (lookup["llada20",f"{p}_w{w}"] for p in ("flow","prefix"))
+        width = 32*w
+        assert dense["q"] == width*dense["f"]
+        df = cache["f"] - dense["f"]
+        skipped = width*cache["f"] - cache["q"]
+        dq = cache["q"] - dense["q"]
+        dpq = cache["physical_q"] - dense["physical_q"]
+        pad = (cache["physical_q"]-cache["q"]) - (dense["physical_q"]-dense["q"])
+        assert skipped >= 0 and df*width-skipped == dq and dq+pad == dpq
+        text.append(f"| {w} | {df:+,} | {df*width:+,} | {skipped:,} | {dq:+,} | {pad:+,} | {dpq:+,} |")
+    text += ["", "Mean TPF is the equally weighted mean of the 30 individual N/F ratios; pooled TPF is total N / total F. "
              "Quality includes all 30 responses, even length-capped outputs. The 2.1 reference for these six rows "
              "is the paired PrefixCache run, including its dense controls.", ""]
     (DEST/"flowblock-pairs.md").write_text("\n".join(text))

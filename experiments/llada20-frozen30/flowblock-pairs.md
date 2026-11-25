@@ -2,6 +2,8 @@
 
 Every row uses the same 30 requests. Request Q excludes padding; physical Q includes it. These are costs summed across requests, not wall-clock speed.
 
+![Frozen30 quality, TPF and token efficiency](figures/flowblock_prefix.png)
+
 ## llada20
 
 | W | Method | Correct / 30 | Mean TPF | Pooled TPF | Efficiency | Physical efficiency | Forwards | Request Q | Physical Q |
@@ -23,5 +25,15 @@ Every row uses the same 30 requests. Request Q excludes padding; physical Q incl
 | 3 | prefix | 21 | 8.068 | 4.799 | 5.78% | 3.78% | 2,963 | 245,881 | 376,502 |
 | 4 | flow | 25 | 9.472 | 6.921 | 5.41% | 5.41% | 1,948 | 249,344 | 249,344 |
 | 4 | prefix | 22 | 8.118 | 4.824 | 4.18% | 3.82% | 2,923 | 337,390 | 369,054 |
+
+## Where the 2.0 query work went
+
+Both methods run the same packed width before retirement (`32 * W`). Extra full-width work = change in forward count times packed width. Rows skipped are measured against the dense width on the *cache trajectory*; they are not savings against the separately generated dense answers.
+
+| W | Extra forwards | Extra full-width rows | Rows skipped | Net request Q change | Extra padding | Net physical Q change |
+|--:|--:|--:|--:|--:|--:|--:|
+| 2 | +2,251 | +144,064 | 96,290 | +47,774 | +78,071 | +125,845 |
+| 3 | +2,132 | +204,672 | 99,944 | +104,728 | +81,185 | +185,913 |
+| 4 | +508 | +65,024 | 89,231 | -24,207 | +67,345 | +43,138 |
 
 Mean TPF is the equally weighted mean of the 30 individual N/F ratios; pooled TPF is total N / total F. Quality includes all 30 responses, even length-capped outputs. The 2.1 reference for these six rows is the paired PrefixCache run, including its dense controls.
