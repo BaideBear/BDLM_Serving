@@ -3,10 +3,14 @@
 From repo root, with PYTHONPATH=.:../fixed-baseline-deps and CUDA_VISIBLE_DEVICES='',
 run `taskset -c 40-47 ../venv/bin/python -um experiments.t2t.serving_slots.llada_spawn_pilot`.
 Private per-request artifacts and sealed aggregate are written only on the cluster.
+Append original30 for all four arms on the original thirty; verify-original30 for readback.
 """
 from collections import Counter
+import hashlib
+import inspect
 import os
 from pathlib import Path
+from shutil import copyfile
 from statistics import mean
 from types import SimpleNamespace
 
@@ -14,6 +18,7 @@ from experiments.t2t.serving_slots import llada_all_slots90 as reg
 from experiments.t2t.serving_slots.llada_mask_pilot import CFG, CKPT, INDICES
 
 OUT = reg.DATA / "llada21-q64-admission-mask-pilot3"
+OUT30 = reg.DATA / "llada21-q64-admission-mask-cpu-original30-v1"
 ARMS = {f"{gate}-{mask}": (threshold, mask == "open")
         for gate, threshold in (("eager", None), ("progress80", .8))
         for mask in ("causal", "open")}
@@ -105,14 +110,35 @@ def compare(on, off):
         reg.require(all(on[k] == off[k] for k in ("events","output_ids")), "Unexposed pair changed")
 
 
-def main():
+def reused_rows():
+    reg.require(reg.sha(OUT/"run.json") == "295cffb14ae3fa5bd7365ef0570c7f5ab6c6f4d92b5c685df68e8190f1d6757e"
+                and reg.sha(OUT/"complete.json") == "2d001069c0d07676d4a947285461b5962e6b053dea2dd436b0260b3339e521ed",
+                "Unknown pilot manifests")
+    source = reg.read(OUT/"run.json")
+    deps = reg.source_hashes() | {n: reg.sha(Path(__file__).with_name(n))
+                                 for n in ("llada_spawn.py", "llada_quote.py")}
+    reg.require(all(source["source"][n] == h for n, h in deps.items())
+                and hashlib.sha256(inspect.getsource(generate).encode()).hexdigest() ==
+                "8930ff55308a5a81073d05e80d78aa7845c08ba25ecd428e870b3ef7355f266a",
+                "Generation or attention witness differs from pilot")
+    names = sorted(reg.filename(i, a) for i in INDICES for a in ARMS)
+    hashes = {name: reg.sha(OUT/name) for name in names}
+    ledger = "".join(f"{h}  {name}\n" for name, h in hashes.items()).encode()
+    reg.require(hashlib.sha256(ledger).hexdigest() ==
+                "237d8b632df006d2f34bbf0e75237d8da43d94069ad0f097b4a5b5383ae4682e", "Pilot transcripts changed")
+    return hashes
+
+
+def main(expanded=False):
+    folder = OUT30 if expanded else OUT
+    indices = tuple(range(30)) if expanded else INDICES
     os.umask(0o077)
     cpus = sorted(os.sched_getaffinity(0))
     reg.require(os.environ.get("CUDA_VISIBLE_DEVICES") == "" and cpus == list(range(40,48)),
                 "Requires hidden CUDA and CPUs 40-47")
-    OUT.mkdir(mode=0o700, exist_ok=False)
-    (OUT / "tmp").mkdir()
-    os.environ.update(TMPDIR=str(OUT / "tmp"), HF_HUB_OFFLINE="1", TOKENIZERS_PARALLELISM="false",
+    folder.mkdir(mode=0o700, exist_ok=False)
+    (folder / "tmp").mkdir()
+    os.environ.update(TMPDIR=str(folder / "tmp"), HF_HUB_OFFLINE="1", TOKENIZERS_PARALLELISM="false",
                       OMP_NUM_THREADS="8", MKL_NUM_THREADS="8", OPENBLAS_NUM_THREADS="1")
     import torch
     torch.set_num_threads(8)
@@ -130,13 +156,19 @@ def main():
 
     samples = reg.DATA/"samples.json"
     reg.require(reg.sha(samples) == reg.SAMPLES_SHA and reg.CAP == 2048, "Changed frozen protocol")
-    tasks = [load_tasks(samples)[i] for i in INDICES]
+    frozen = load_tasks(samples)
+    tasks = [frozen[i] for i in indices]
     reference = resolve_reference(SimpleNamespace(samples=samples))
     verify_checkpoint(CKPT)
     opts = dict(trust_remote_code=True, local_files_only=True)
     tok = AutoTokenizer.from_pretrained(CKPT, **opts)
     validate_prompts(tok, tasks, reference)
-    reg.save(OUT/"run.json", dict(formal=False, device="cpu", cpus=cpus, indices=INDICES,
+    reuse = reused_rows() if expanded else {}
+    extra = (dict(reused_rows=reuse, checkpoint=str(CKPT), dtype="bfloat16", attention="sdpa",
+             scorer_sha256=reg.sha(reg.REPO/"bdlm_serving/evaluation/scoring.py"),
+             torch=str(torch.__version__), threads=torch.get_num_threads(), interop=torch.get_num_interop_threads())
+             if expanded else {})
+    reg.save(folder/"run.json", dict(formal=False, device="cpu", cpus=cpus, indices=indices, **extra,
              arms=ARMS, offer=64, config=CFG, cap=reg.CAP, samples_sha256=reg.SAMPLES_SHA,
              source=reg.source_hashes() | {n: reg.sha(Path(__file__).with_name(n)) for n in
                  ("llada_spawn.py","llada_spawn_pilot.py","llada_quote.py")}))
@@ -149,11 +181,22 @@ def main():
         prompt = reg.read(reference/f"{i:02d}-native32.json")["prompt_ids"]
         case = {}
         for arm in ARMS:
-            with torch.inference_mode():
-                row = generate(model, tok, task, prompt, arm)
-            row["correct"] = bool(score(row["output_text"], task)["correct"])
+            name = reg.filename(i, arm)
+            if name in reuse:
+                row = reg.read(OUT/name)
+                reg.require((row["index"],row["task_id"],row["seed"],row["prompt_ids"],row["policy"])
+                            == (i,task["task_id"],task["seed"],prompt,arm)
+                            and tok.decode(row["output_ids"],skip_special_tokens=True) == row["output_text"]
+                            and row["correct"] == bool(score(row["output_text"],task)["correct"]),
+                            "Pilot row changed frozen identity, text or score")
+                copyfile(OUT/name, folder/name)
+                reg.require(reg.sha(folder/name) == reuse[name], "Copy differs from sealed pilot")
+            else:
+                with torch.inference_mode():
+                    row = generate(model, tok, task, prompt, arm)
+                row["correct"] = bool(score(row["output_text"], task)["correct"])
+                reg.save(folder/name, row)
             case[arm] = row
-            reg.save(OUT/reg.filename(i, arm), row)
             admissions = Counter(e["tail_admission"] for e in row["events"] if "tail_admission" in e)
             results[arm].append(dict(index=i, N=row["output_tokens"], F=row["generation_forwards"],
                 Q=row["generation_physical_padded_rows"], correct=row["correct"], tpf=row["tpf"],
@@ -166,21 +209,22 @@ def main():
         totals = {k:sum(r[k] for r in rs) for k in ("correct","N","F","Q","opened","deferred","exposed")}
         out[arm] = totals | dict(requests=len(rs), macro_tpf=mean(r["tpf"] for r in rs),
                                  token_efficiency=totals["N"]/totals["Q"])
-    reg.save(OUT/"complete.json", dict(suite="cpu-pilot3", indices=INDICES, results=out,
-                                      manifest_sha256=reg.sha(OUT/"run.json")))
+    reg.save(folder/"complete.json", dict(suite="cpu-original30" if expanded else "cpu-pilot3",
+             indices=indices, results=out, manifest_sha256=reg.sha(folder/"run.json")))
 
 
 if __name__ == "__main__":
     import sys
-    if sys.argv[1:] == ["verify"]:
-        sealed = reg.read(OUT/"complete.json")
-        reg.require(sealed["indices"] == list(INDICES) and sealed["manifest_sha256"] == reg.sha(OUT/"run.json"),
+    if sys.argv[1:] in (["verify"], ["verify-original30"]):
+        folder, indices = (OUT30, range(30)) if sys.argv[1] == "verify-original30" else (OUT, INDICES)
+        sealed = reg.read(folder/"complete.json")
+        reg.require(sealed["indices"] == list(indices) and sealed["manifest_sha256"] == reg.sha(folder/"run.json"),
                     "Unsealed pilot")
-        for i in INDICES:
+        for i in indices:
             for gate in ("eager", "progress80"):
-                compare(*(reg.read(OUT/reg.filename(i, gate+"-"+m)) for m in ("causal", "open")))
+                compare(*(reg.read(folder/reg.filename(i, gate+"-"+m)) for m in ("causal", "open")))
         for arm in ARMS:
-            rows = [reg.read(OUT/reg.filename(i,arm)) for i in INDICES]
+            rows = [reg.read(folder/reg.filename(i,arm)) for i in indices]
             totals = sealed["results"][arm]
             gen = [[e for e in r["events"] if e["phase"] != "prefill"] for r in rows]
             qs = [sum(e["physical_q"] for e in events) for events in gen]
@@ -188,13 +232,13 @@ if __name__ == "__main__":
             reg.require(all(r["policy"] == arm and r["index"] == i and
                             r["generation_forwards"] == len(events) and
                             r["generation_physical_padded_rows"] == q
-                            for r,i,events,q in zip(rows, INDICES, gen, qs, strict=True)), "Invalid rows")
+                            for r,i,events,q in zip(rows, indices, gen, qs, strict=True)), "Invalid rows")
             reg.require((sum(ns), sum(map(len,gen)), sum(qs), sum(r["correct"] for r in rows),
                          mean(n/len(events) for n,events in zip(ns,gen,strict=True)), sum(ns)/sum(qs))
                         == tuple(totals[k] for k in ("N","F","Q","correct","macro_tpf","token_efficiency")),
                         "Aggregate does not match physical ledger")
-        print("Verified six mask pairs: frozen indices, pre-intervention events, physical Q and scores")
-    elif not sys.argv[1:]:
-        main()
+        print(f"Verified {2*len(indices)} mask pairs: indices, pre-intervention events, physical Q and scores")
+    elif sys.argv[1:] in ([], ["original30"]):
+        main(expanded=bool(sys.argv[1:]))
     else:
-        raise SystemExit("Expected no arguments or verify")
+        raise SystemExit("Expected no arguments, original30, verify, or verify-original30")

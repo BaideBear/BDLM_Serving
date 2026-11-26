@@ -1,0 +1,4 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+llada21,t2t_q8_f0_m4_hard_prefix_slack_random,slack,original30,30,2484,9.05072463768116,367,28,1229,218,2783,2095,33540,28,364,28,1056,9936,1056,0,0,2120,169,2
+llada21,t2t_q8_f0_m4_hard_prefix_slack_random,slack,added60,60,4678,9.206070970500214,737,56,2431,487,5981,3928,64562,56,733,56,2092,18712,2092,0,0,3945,324,4
+llada21,t2t_q8_f0_m4_hard_prefix_slack_random,slack,all90,90,7162,9.152192125104719,1104,84,3660,705,8764,6023,98102,84,1097,84,3148,28648,3148,0,0,6065,493,6
