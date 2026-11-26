@@ -119,3 +119,17 @@ def test_speculative_done_cannot_commit_against_old_head():
     first=next(i for i,e in enumerate(tr) if e["promoted"]==[1])
     assert tr[first]["encoded"]==[0] and tr[first+1]["head"]==1
     assert 0 in tr[first+1]["strict_edits"][0]
+
+
+def test_transition_work_uses_decoder_clock_and_bills_encoder_separately():
+    from experiments.t2t.serving_slots.wave_report import transition_costs
+    _, trace, model = run("external_w2",(8,8,8,4,4,4),early_tail=True)
+    rows = list(transition_costs(trace,4))
+    current = [c for (_,_,lag), c in rows if lag == 0]
+    assert len(current) == len(trace)
+    assert sum(c["decoder_Q"]+c["encoder_Q"] for c in current) == sum(q for _,q in model.events[1:])
+    assert sum(c["encoder_F"]+1 for c in current) == len(model.events)-1
+    after_drop = [c for (a,b,lag),c in rows if (a,b,lag) == (8,4,0)]
+    assert after_drop[0]["overrun_Q"] == after_drop[0]["tail_refresh_only_Q"] == 4
+    assert 0 < after_drop[0]["tail_rows_needed_on_refresh_only"] <= 4
+    assert len([c for (_,_,lag), c in rows if lag == 2]) == len(trace)-2

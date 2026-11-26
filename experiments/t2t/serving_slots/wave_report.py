@@ -1,5 +1,6 @@
 """Score both complete Gemma wave references and K0 Q256 on the same frozen90."""
 import argparse
+from collections import Counter, defaultdict
 import csv
 import json
 from pathlib import Path
@@ -105,13 +106,124 @@ def active_report(data, out):
                        baseline_policy=control, arm_policy=compact, nominal_q=512)
 
 
+def tick_cost(event, b):
+    """Paid work anchored to a decoder call; later encoder work is separate."""
+    debt = sum(map(len, event["dirty_before"]))
+    tail = len(event["dirty_before"][1]) if event["active"] == 2 else 0
+    overflow = max(0, event["q"] - event["offer"])
+    if overflow and not (event["refresh_only"] == 1 and tail and overflow == b):
+        raise ValueError("Unexplained whole-canvas overrun")
+    return Counter(ticks=1, offered_Q=event["offer"], decoder_Q=event["q"],
+                   overrun_Q=overflow, overrun_ticks=int(overflow > 0),
+                   mandatory_rows=debt, mandatory_tail_rows=tail,
+                   tail_refresh_only_Q=b*event["refresh_only"],
+                   tail_rows_needed_on_refresh_only=tail*event["refresh_only"],
+                   underfill_Q=max(0, event["offer"]-event["q"]),
+                   encoder_F=len(event["encoded"]), encoder_Q=b*len(event["encoded"]),
+                   new_writes=sum(map(len, event["admitted"])),
+                   t2t_writes=sum(map(len, event["strict_edits"])),
+                   promotions=len(event["promoted"]))
+
+
+def transition_costs(trace, b):
+    """Lagged windows overlap; never add lag rows to recover total work."""
+    for tick, e in enumerate(trace):
+        a, now = trace[tick-1]["offer"] if tick else 0, e["offer"]
+        for lag in range(3):
+            if tick+lag < len(trace):
+                yield (a, now, lag), tick_cost(trace[tick+lag], b)
+
+
+def external_report(data, out):
+    from bdlm_serving.methods.t2t.wave_offer import TRACES
+    from experiments.t2t.serving_slots.expanded_handoff import SAMPLES
+    from experiments.t2t.serving_slots.mask_pair_gemma import (
+        active_settings, require_complete, require_switch_artifacts,
+    )
+    from experiments.t2t.serving_slots.mask_pair_report import efficiency_interval
+    from tools.prefix_cohorts import normalize_request
+
+    samples = data/"samples.json"
+    cases = load_cases(samples)
+    ref, active, run = (data/n for n in (
+        "gemma-wave-reference90", "gemma-fixed512-active-w2", "gemma-external-256-512"))
+    base = read(ref/"run.json")
+    if (sha(samples) != SAMPLES or base["samples_sha256"] != SAMPLES
+            or (base["suite"], base["block_size"], base["cap"], base["flowblock_spawn_threshold"])
+            != ("frozen90", 256, 2048, 0.8)):
+        raise ValueError("Wrong reference, cohort or runtime settings")
+    require_complete(ref, ("flow_w1", "flow_w2"))
+    require_switch_artifacts(data, active_settings(base))
+    flat = {"wave_bridge_256": (ref, "flow_w1"), "wave_bridge_512": (active, "active_w2")}
+    tables = {p: {} for p in TRACES}
+    totals, transitions = defaultdict(Counter), defaultdict(Counter)
+    case_counts = Counter()
+    for c in cases:
+        i = c["index"]
+        cohorts = ("all90", "original30" if i < 30 else "added60")
+        for p in TRACES:
+            raw = read(run/f"{i:02d}-{p}.json")
+            if raw["policy"] != p or raw["model"] != "diffusiongemma":
+                raise ValueError(f"Wrong arm or model in {i}:{p}")
+            if p in flat:
+                src, label = flat[p]
+                core = [{k: e[k] for k in ("width","active","q","head")} for e in raw["trace"]]
+                if dict(raw, trace=core, policy=label) != read(src/f"{i:02d}-{label}.json"):
+                    raise ValueError(f"Flat bridge differs from reference at {i}:{p}")
+            tables[p][i] = row = normalize_request(raw, c, p)
+            path = raw["trace"]
+            work = Counter()
+            for e in path:
+                work.update(tick_cost(e, 256))
+            if (work["ticks"]+work["encoder_F"] != row["F"]
+                    or work["decoder_Q"]+work["encoder_Q"] != row["physical_Q"]):
+                raise ValueError("Step and request ledgers differ")
+            for group in cohorts:
+                totals[group,p].update(work)
+                totals[group,p]["requests"] += 1
+            seen = set()
+            for key, x in transition_costs(path, 256):
+                for group in cohorts:
+                    tag = (group,p,*key)
+                    transitions[tag].update(x)
+                    seen.add(tag)
+            case_counts.update(seen)
+    pairs = []
+    for w in (30,60,90):
+        subset = select_window_cases(cases,w)
+        labels = list(TRACES)
+        for j, base_label in enumerate(labels):
+            for arm in labels[j+1:]:
+                r = _window_row(subset, tables[base_label], tables[arm], w, "all", "gemma",
+                                base_label, arm, None)
+                r["efficiency_ci_low"], r["efficiency_ci_high"] = efficiency_interval(
+                    subset,tables[base_label],tables[arm])
+                pairs.append(r)
+    out.mkdir(parents=True,exist_ok=True)
+    for name, rows in (
+        ("gemma-external-256-512-pairs", pairs),
+        ("gemma-external-256-512-work", [dict(cohort=k,policy=p,**v)
+                                        for (k,p),v in sorted(totals.items())]),
+        ("gemma-external-256-512-transitions", [dict(cohort=k,policy=p,from_q=a,to_q=z,lag=lag,
+             requests=case_counts[k,p,a,z,lag],**v) for (k,p,a,z,lag),v in sorted(transitions.items())]),
+    ):
+        with (out/(name+".csv")).open("w",newline="") as f:
+            writer = csv.DictWriter(f,fieldnames=list(rows[0]),lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for k in ("data","original","out"):
         parser.add_argument("--"+k, type=Path,required=k!="original")
-    parser.add_argument("--active", action="store_true", help="Compare Q512 active-only vs padded W2")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--active", action="store_true", help="Compare Q512 active-only vs padded W2")
+    modes.add_argument("--external", action="store_true", help="Qualify 256/512 bridges and compare external offers")
     args = parser.parse_args()
-    if args.active:
+    if args.external:
+        external_report(args.data, args.out)
+    elif args.active:
         active_report(args.data, args.out)
     elif args.original:
         report(args.data, args.original, args.out)
