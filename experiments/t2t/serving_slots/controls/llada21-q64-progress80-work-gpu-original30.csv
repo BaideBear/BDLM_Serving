@@ -1,0 +1,13 @@
+window,policy,action,F,physical_Q,mandatory_Q,strict_T2T
+30,progress80-open,commit_head,436,18994,5042,0
+30,progress80-open,fused_growth,360,23040,3326,149
+30,progress80-open,head_bootstrap,95,3040,0,0
+30,progress80-open,head_denoise,1338,42491,4200,325
+30,progress80-open,pair_denoise,187,11835,2311,194
+30,progress80-open,promote_verify,341,10912,0,147
+30,progress80-causal,commit_head,460,19947,5229,0
+30,progress80-causal,fused_growth,359,22976,3809,147
+30,progress80-causal,head_bootstrap,113,3616,0,0
+30,progress80-causal,head_denoise,1082,34301,3882,471
+30,progress80-causal,pair_denoise,201,12737,2689,241
+30,progress80-causal,promote_verify,347,11104,0,142
