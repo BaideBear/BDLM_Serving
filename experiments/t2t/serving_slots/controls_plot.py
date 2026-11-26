@@ -29,7 +29,7 @@ def comparison(root):
     return out
 
 
-def mixed_plot(source, target, matched=False):
+def mixed_plot(source, target, matched=False, fixed_low=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -55,6 +55,8 @@ def mixed_plot(source, target, matched=False):
     def label(name):
         if name in title:
             return title[name]
+        if name.startswith("t2t_q"):
+            return "Ours K0 Q"+name.split("_")[1][1:]
         if name.startswith("slottrace_"):
             return "Ours: "+compact(name.removeprefix("slottrace_"))
         mode, slot = name.split("_", 1)
@@ -62,7 +64,13 @@ def mixed_plot(source, target, matched=False):
         return ("Capped " if cap else "Original ")+f"{mode.upper()} "+compact(slot.removeprefix("cap_"))
     if not points:
         raise ValueError("Missing frozen90 records")
-    if matched:
+    if fixed_low:
+        order = [name for q in (32,64) for name in (
+            f"t2t_q{q}_f0_m{q}_hard_prefix_zero",f"ibs_cap_{q}",f"obs_cap_{q}")]
+        if set(order) != set(points):
+            raise ValueError("Missing or unexpected fixed-budget arm")
+        points = {p:points[p] for p in order}
+    elif matched:
         order=[]
         for plan in ("128","256","128_128_256_256","256_256_128_128"):
             own="slottrace_"+"_".join("256n" if x=="256" else x for x in plan.split("_"))
@@ -72,7 +80,7 @@ def mixed_plot(source, target, matched=False):
         points={p:points[p] for p in order}
     n = len(points)
     fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
-    colors = ["#116f74" if p.startswith("slottrace") else
+    colors = ["#116f74" if p.startswith(("slottrace","t2t_q")) else
               "#6174a3" if p.startswith("flow") else "#bb713c" if "_cap_" in p else "#8c929a"
               for p in points]
     for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
@@ -86,6 +94,8 @@ def mixed_plot(source, target, matched=False):
         ax.spines[["top","right"]].set_visible(False)
         ax.set_title(heading, fontsize=11)
     detail="matched nominal offers vs capped Optimus" if matched else "high-first candidate vs Optimus and FlowBlock"
+    if fixed_low:
+        detail="Q32 and Q64: K0 vs decoder-capped Optimus"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -122,6 +132,9 @@ def main():
         with matches.open() as f:
             if any("_cap_" in r["baseline_policy"] for r in csv.DictReader(f)):
                 mixed_plot(matches,HERE/"gemma-matched-offers.png",matched=True)
+    low = HERE/"controls/gemma-fixed-caps-vs-k0.csv"
+    if low.exists():
+        mixed_plot(low,HERE/"gemma-q32-q64-capped.png",fixed_low=True)
 
 
 if __name__ == "__main__":

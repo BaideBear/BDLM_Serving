@@ -110,11 +110,56 @@ def true64_controls(data):
                        baseline_nominal_q=n,arm_nominal_q=64)
 
 
+def gemma_capped_controls(data):
+    from bdlm_serving.evaluation.frozen import sha
+    from experiments.t2t.prefix_window.score_run import snapshot, link_requests
+    from experiments.t2t.serving_slots import gemma_fixed_caps as caps
+    from experiments.t2t.serving_slots.mask_pair_report import efficiency_interval
+    from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
+
+    samples = data/"samples.json"
+    cases = load_cases(samples)
+    target = data/caps.OUTPUT
+    digest = sha(samples)
+    receipt = caps.read(target/"protected-complete.json")
+    if (digest != caps.SAMPLES_SHA or receipt != dict(status="complete",model="gemma",
+            policies=list(caps.POLICIES),requests=90,gpu=0,holder_restored=True,
+            samples_sha256=digest,run=target.name)):
+        raise ValueError("Not the qualified GPU0 fixed-cap matrix")
+    caps.verify_run(target,data,cases)
+    cache = data/"fixed-slot-scores"/".inputs"
+    fixed = {(r["slot"],r["cohort"]):r for r in fixed_rows(HERE.parent/"prefix_window")
+             if r["model"] == "gemma"}
+    for q, suffix in ((32,"gemma-q32"),(64,"gemma-grid-k1")):
+        ours = f"t2t_q{q}_f0_m{q}_hard_prefix_zero"
+        def table(path, label):
+            rows, model, policy, nominal = load_request_set(path,cases,"comparison",label)
+            if (model,policy,nominal) != ("gemma",label,q):
+                raise ValueError("Wrong candidate or baseline identity")
+            return {r["index"]:r for r in rows}
+        our = table(snapshot(data/suffix,ours,digest,cache),ours)
+        for mode in ("ibs","obs"):
+            label = f"{mode}_cap_{q}"
+            base = table(link_requests(target,label,cache),label)
+            for w in (30,60,90):
+                sub = select_window_cases(cases,w)
+                r = _window_row(sub,base,our,w,"all","gemma",label,ours,q)
+                if any(float(fixed[q,r["cohort"]][k]) != r["arm_"+k]
+                       for k in ("correct","N","F","physical_Q","macro_tpf")):
+                    raise ValueError("Frozen K0 endpoint not reproduced")
+                r["efficiency_ci_low"],r["efficiency_ci_high"] = efficiency_interval(sub,base,our)
+                yield r
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, help="also compute adjacent-slot pairs from private runs")
     parser.add_argument("--true64",type=Path,help="Publish cross-budget comparisons for the completed true two-block run")
+    parser.add_argument("--gemma-fixed-caps",type=Path,help="Compare Q32/Q64 K0 with decoder-capped IBS/OBS")
     args = parser.parse_args()
+    if args.gemma_fixed_caps:
+        write_rows(HERE/"controls/gemma-fixed-caps-vs-k0.csv", gemma_capped_controls(args.gemma_fixed_caps))
+        raise SystemExit(0)
     if args.true64:
         write_rows(HERE/"controls/llada21-true64.csv", true64_controls(args.true64))
         raise SystemExit(0)

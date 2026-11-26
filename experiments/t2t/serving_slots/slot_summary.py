@@ -26,7 +26,8 @@ ALLOWLIST = (
     "gemma-ibs_32-zero.csv", "gemma-ibs_64-zero.csv", "gemma-ibs_128-zero.csv",
     "gemma-ibs_256-zero.csv", "gemma-obs_32-zero.csv", "gemma-obs_64-zero.csv",
     "gemma-obs_128-zero.csv", "gemma-obs_256-zero.csv",
-    "gemma-original-vs-capped-fixed.csv", "gemma-wave-vs-fixed.csv", "gemma-fixed512-active-vs-flow.csv",
+    "gemma-original-vs-capped-fixed.csv", "gemma-fixed-caps-vs-k0.csv",
+    "gemma-wave-vs-fixed.csv", "gemma-fixed512-active-vs-flow.csv",
     "llada21-native32-vs-flow-w1.csv", "llada21-dual64-vs-flow-w2.csv",
     "llada21-true64.csv",
 )
