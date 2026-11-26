@@ -1,8 +1,9 @@
 """Fork real progress80 commit states; compare two charged calls to one.
 
-CPU mechanism probe, not generation throughput or a benchmark policy. Run:
+Mechanism probe, not generation throughput or a benchmark policy. CPU:
 CUDA_VISIBLE_DEVICES='' taskset -c 32-39 ../venv/bin/python -m \
 experiments.t2t.serving_slots.commit_pair_probe <fresh cluster output.json>
+Protected GPU0: same module with arguments llada21 0.
 """
 import argparse
 from copy import deepcopy
@@ -33,7 +34,7 @@ def fork_probe(k, s):
     assert len(readouts)==2 and v["sampled_q"]==32 and c["sampled_q"]==0
     temp=DynamicCache.from_legacy_cache(b.cache.to_legacy_cache())
     k._prepare_hard_metadata(b,[head,head+1])
-    logits=k._execute(b,torch.arange(start,end),end,_AuditedDenseCache(temp,64,end),
+    logits=k._execute(b,torch.arange(start,end,device=b.x.device),end,_AuditedDenseCache(temp,64,end),
                       "denoise","probe_commit_verify",False)
     layers=temp.to_legacy_cache()
     for i,(key,val) in enumerate(layers):
@@ -86,43 +87,19 @@ def fork_probe(k, s):
     return out
 
 
-def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output",type=Path)
-    out=parser.parse_args().output
-    if out.exists() or os.environ.get("CUDA_VISIBLE_DEVICES")!="" or len(os.sched_getaffinity(0))!=8:
-        raise ValueError("Fresh output, hidden CUDA and eight pinned CPU cores required")
+def measure(model,tok,tasks):
     import torch
-    import transformers.utils as utils
-    if not hasattr(utils,"LossKwargs"):
-        from typing import TypedDict
-        utils.LossKwargs=TypedDict("LossKwargs", {"num_items_in_batch":int}, total=False)
-    from transformers import AutoModelForCausalLM, AutoTokenizer
     from experiments.t2t.serving_slots import spawn_mask_gpu as study
     from experiments.t2t.serving_slots import llada_all_slots90 as reg
-    from experiments.t2t.serving_slots.llada_mask_pilot import CKPT, CFG, INDICES
-    from experiments.t2t.serving_slots.mask_probe_llada import verify_checkpoint
+    from experiments.t2t.serving_slots.llada_mask_pilot import CFG, INDICES
     from experiments.t2t.serving_slots.llada_spawn import SpawnGatedKernel
-    from bdlm_serving.runtime.serial import install_llada_rectangular_mask
-    from bdlm_serving.evaluation.frozen90 import load_tasks
-    torch.set_num_threads(8)
-    torch.set_num_interop_threads(1)
-    samples=reg.DATA/"samples.json"
-    assert reg.sha(samples)==reg.SAMPLES_SHA
-    tasks=load_tasks(samples)
-    verify_checkpoint(CKPT)
-    opts=dict(trust_remote_code=True,local_files_only=True)
-    tok=AutoTokenizer.from_pretrained(CKPT,**opts)
-    model=AutoModelForCausalLM.from_pretrained(CKPT,**opts,dtype=torch.bfloat16,
-                attn_implementation="sdpa",device_map={"":"cpu"}).eval()
-    install_llada_rectangular_mask(model,allow_selected_cache=True)
     results=[]
     with torch.inference_mode():
         for i in INDICES:
             r=reg.read(study.OUT/reg.filename(i,"progress80-causal"))
             assert all(r[key]==tasks[i][key] for key in reg.KEYS)
             k=SpawnGatedKernel(model,spawn_threshold=.8)
-            s=k.create(torch.tensor([r["prompt_ids"]]),CFG,reg.CAP,r["seed"],tok.convert_tokens_to_ids("<|mask|>"),
+            s=k.create(torch.tensor([r["prompt_ids"]],device=model.device),CFG,reg.CAP,r["seed"],tok.convert_tokens_to_ids("<|mask|>"),
                        [tok.eos_token_id])
             for _ in range(128):
                 if s.phase=="done":
@@ -135,15 +112,72 @@ def main():
                     if sum(x["index"]==i for x in results)==2:
                         break
                 k.step(s,64)
-    data=dict(device="cpu",dtype="bfloat16",torch=str(torch.__version__),indices=list(INDICES),gate=.8,
+    return dict(device=str(model.device),dtype="bfloat16",torch=str(torch.__version__),indices=list(INDICES),gate=.8,
               checkpoint_manifest=reg.sha(reg.REPO/"benchmarks/checkpoints/llada21.json"),
               frozen_sha256=reg.SAMPLES_SHA,source_sha256=reg.sha(Path(__file__)),cases=results)
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output",type=Path)
+    out=parser.parse_args().output
+    if out.exists() or os.environ.get("CUDA_VISIBLE_DEVICES")!="" or len(os.sched_getaffinity(0))!=8:
+        raise ValueError("Fresh output, hidden CUDA and eight pinned CPU cores required")
+    import torch
+    import transformers.utils as utils
+    if not hasattr(utils,"LossKwargs"):
+        from typing import TypedDict
+        utils.LossKwargs=TypedDict("LossKwargs", {"num_items_in_batch":int}, total=False)
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from experiments.t2t.serving_slots import llada_all_slots90 as reg
+    from experiments.t2t.serving_slots.llada_mask_pilot import CKPT
+    from experiments.t2t.serving_slots.mask_probe_llada import verify_checkpoint
+    from bdlm_serving.runtime.serial import install_llada_rectangular_mask
+    from bdlm_serving.evaluation.frozen90 import load_tasks
+    torch.set_num_threads(8)
+    torch.set_num_interop_threads(1)
+    samples=reg.DATA/"samples.json"
+    assert reg.sha(samples)==reg.SAMPLES_SHA
+    verify_checkpoint(CKPT)
+    opts=dict(trust_remote_code=True,local_files_only=True)
+    tok=AutoTokenizer.from_pretrained(CKPT,**opts)
+    model=AutoModelForCausalLM.from_pretrained(CKPT,**opts,dtype=torch.bfloat16,
+                attn_implementation="sdpa",device_map={"":"cpu"}).eval()
+    install_llada_rectangular_mask(model,allow_selected_cache=True)
+    data=measure(model,tok,load_tasks(samples))
     with out.open("x") as f:
         json.dump(data,f,indent=2,allow_nan=False)
         f.write("\n")
-    if not results:
+    if not data["cases"]:
         raise SystemExit("No eligible promotions")
 
 
+def run(args,prepare):
+    from experiments.t2t.serving_slots import spawn_mask_gpu as study
+    if (not prepare or os.environ["CUDA_VISIBLE_DEVICES"]!=study.GPU or
+            args.output!=study.reg.DATA/"llada21-commit-pair-gpu3-v1" or
+            study.reg.sha(args.samples)!=study.reg.SAMPLES_SHA):
+        raise ValueError("Invalid GPU mechanism worker")
+    model,tok,tasks,_=study.sf.load_gpu(args,prepare)
+    args.output.mkdir(exist_ok=False)
+    results=measure(model,tok,tasks)
+    if not results["cases"]:
+        raise ValueError("No eligible GPU promotions")
+    study.reg.save(args.output/"mechanism.json",results)
+
+
 if __name__=="__main__":
-    main()
+    import sys
+    if sys.argv[1:3]==["llada21","0"]:
+        from experiments.t2t.serving_slots import spawn_mask_gpu as study
+        out=study.reg.DATA/"llada21-commit-pair-gpu3-v1"
+        prev=study.reg.DATA/"gemma-unified90-dwell-dwell_q128_prefix32"
+        if (study.reg.read(prev/"returned.json")!={"gpu":0,"restored":True}
+                or not all(study.reg.read(prev/f"complete-{a}.json")=={"policy":a,"requests":90}
+                           for a in ("dwell","dwell_q128_prefix32"))):
+            raise SystemExit("Predecessor not confirmed")
+        holder=study.gpu0_lease(Path(__file__).resolve(),out,"commit-pair-probe")
+        study.reg.save(out/"returned.json",dict(gpu=0,restored=True,pid=holder["pid"],
+                       uuid=study.GPU,mechanism_sha256=study.reg.sha(out/"mechanism.json")))
+    else:
+        main()

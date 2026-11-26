@@ -1,0 +1,190 @@
+{
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "torch": "2.9.0+cu128",
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "gate": 0.8,
+  "checkpoint_manifest": "24da9d440c236214b34f9406f180da4dc96f15edd5b298e22a42b06bf8eb30af",
+  "frozen_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "source_sha256": "390e86139ab79485363693035b1cd8165d152152bebffad999aae9ececec2aa3",
+  "cases": [
+    {
+      "index": 0,
+      "block": 1,
+      "tail_debt": 12,
+      "seq_q": [
+        44,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 17,
+        "max_abs": 8.8125
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 12.8125
+      },
+      "logit_max_abs": 2.015625,
+      "tail_argmax_changes": 2,
+      "canvas_equal": false,
+      "rng_equal": true,
+      "debt_equal": false,
+      "metadata_equal": false,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": false,
+      "next_q4_canvas_equal": false
+    },
+    {
+      "index": 0,
+      "block": 2,
+      "tail_debt": 2,
+      "seq_q": [
+        34,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 7.09375
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 8.02734375
+      },
+      "logit_max_abs": 2.25,
+      "tail_argmax_changes": 2,
+      "canvas_equal": true,
+      "rng_equal": true,
+      "debt_equal": true,
+      "metadata_equal": true,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": true,
+      "next_q4_canvas_equal": true
+    },
+    {
+      "index": 10,
+      "block": 2,
+      "tail_debt": 5,
+      "seq_q": [
+        37,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 14,
+        "max_abs": 6.625
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 6.625
+      },
+      "logit_max_abs": 1.82421875,
+      "tail_argmax_changes": 0,
+      "canvas_equal": true,
+      "rng_equal": true,
+      "debt_equal": true,
+      "metadata_equal": true,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": true,
+      "next_q4_canvas_equal": true
+    },
+    {
+      "index": 10,
+      "block": 4,
+      "tail_debt": 28,
+      "seq_q": [
+        60,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 6,
+        "max_abs": 3.75
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 16,
+        "max_abs": 7.73046875
+      },
+      "logit_max_abs": 2.0,
+      "tail_argmax_changes": 0,
+      "canvas_equal": true,
+      "rng_equal": true,
+      "debt_equal": true,
+      "metadata_equal": true,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": true,
+      "next_q4_canvas_equal": true
+    },
+    {
+      "index": 20,
+      "block": 4,
+      "tail_debt": 32,
+      "seq_q": [
+        64,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 0,
+        "max_abs": 0.0
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 5.0625
+      },
+      "logit_max_abs": 1.25,
+      "tail_argmax_changes": 0,
+      "canvas_equal": true,
+      "rng_equal": true,
+      "debt_equal": true,
+      "metadata_equal": true,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": true,
+      "next_q4_canvas_equal": true
+    },
+    {
+      "index": 20,
+      "block": 6,
+      "tail_debt": 31,
+      "seq_q": [
+        63,
+        32
+      ],
+      "joint_q": 64,
+      "committed": {
+        "layers": 20,
+        "nonexact_layers": 10,
+        "max_abs": 3.0
+      },
+      "resident": {
+        "layers": 20,
+        "nonexact_layers": 18,
+        "max_abs": 3.8828125
+      },
+      "logit_max_abs": 1.1875,
+      "tail_argmax_changes": 0,
+      "canvas_equal": true,
+      "rng_equal": true,
+      "debt_equal": true,
+      "metadata_equal": true,
+      "original_prefix_unchanged": true,
+      "next_q4_geometry_equal": true,
+      "next_q4_canvas_equal": true
+    }
+  ]
+}

@@ -465,7 +465,7 @@ def profile_transfer(data, *, dwell=False):
             or any(u.read(p/f"complete-{arm}.json")!={"policy":arm,"requests":90}
                    for p,arm in ((path,a),(path,b),(old,u.TRANSFER[0])))):
         raise ValueError("Not a completed frozen profile study")
-    left,right,exposed,tail_at_first={}, {}, {}, {}
+    left,right,exposed,tail_at_first,slots={}, {}, {}, {}, {}
     for c in cases:
         i=c["index"]
         x,y=(u.read(path/f"{i:02d}-{arm}.json") for arm in (a,b))
@@ -498,6 +498,14 @@ def profile_transfer(data, *, dwell=False):
                     or any(ex[k]!=ey[k] for k in ("tick","offer","head","phase","mandatory_q","parked"))):
                 raise ValueError("Unmatched first prefix tick")
         exposed[i]=first is not None
+        if dwell:
+            slots[i]=[]
+            for phase in (2,3):
+                used=[e for e in y["trace"] if e["tick"]%len(offers)==phase and e["prefix"]]
+                slots[i].append((len(used),sum(e["prefix"] for e in used),
+                                 int(first is not None and y["trace"][first]["tick"]%len(offers)==phase)))
+            if sum(s[1] for s in slots[i])!=y["effective_prefix_q"]:
+                raise ValueError("Unaccounted Q128 exposure")
         # Opportunity is actual head-Q / tail-KV geometry before sampling.
         # The compact "parked" field is refresh-row count, not tail presence.
         tail_at_first[i]=first is not None and x["trace"][first]["opportunity"]
@@ -506,7 +514,11 @@ def profile_transfer(data, *, dwell=False):
         row=_window_row(tasks,left,right,w,"all","gemma",a,b,None)
         ids=[c["index"] for c in tasks]
         lo,hi=efficiency_interval(tasks,left,right)
-        yield dict(row, efficiency_ci_low=lo,efficiency_ci_high=hi,
+        phases=({f"{name}_{metric}":sum(slots[i][j][k] for i in ids)
+                 for j,name in enumerate(("first_q128","second_q128"))
+                 for k,metric in enumerate(("ticks_with_prefix","prefix_rows","first_exposures"))}
+                if dwell else {})
+        yield dict(row, **phases, efficiency_ci_low=lo,efficiency_ci_high=hi,
                    exposed=sum(exposed[i] for i in ids),
                    first_with_tail=sum(tail_at_first[i] for i in ids),
                    first_without_tail=sum(exposed[i] and not tail_at_first[i] for i in ids),

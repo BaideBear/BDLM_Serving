@@ -75,6 +75,17 @@ def protected():
                 and reg.read(PREV/"returned.json") == {"gpu":0,"restored":True}
                 and all(reg.read(PREV/f"complete-{a}.json") == {"requests":90,"policy":a}
                         for a in ("replay","replay_q128_prefix32")), "Not a registered successor")
+    holder = gpu0_lease(HERE, OUT, "progress80-mask")
+    reg.save(OUT/"returned.json",dict(gpu=0,uuid=GPU,pid=holder["pid"],restored=True,
+                                      original30=sealed(30),full90=sealed(90)))
+
+
+def gpu0_lease(entry, output, tag):
+    """Use the pinned stage-before-release supervisor for a sibling GPU0 study."""
+    reg.require(entry.parent==HERE.parent and entry.stem in ("spawn_mask_gpu","commit_pair_probe")
+                and output.parent==reg.DATA and sys.argv[1:] in
+                (["llada21","0"],["llada21","0","worker"]) and not sys.flags.optimize,
+                "Unregistered lease or worker")
     launcher = reg.ROOT/"launch_prefix90.py"
     src = launcher.read_bytes()
     route = b'REPO = RUNTIME / "t2t-experiments"'
@@ -82,17 +93,16 @@ def protected():
     reg.require(reg.sha(launcher) == reg.LAUNCHER_SHA and src.count(route) == src.count(call) == 1
                 and REPO.parent == reg.ROOT.parent, "Launcher or checkout not verified")
     src = src.replace(route, ("REPO = Path("+repr(str(REPO))+")").encode()).replace(
-        call, b"from experiments.t2t.serving_slots.spawn_mask_gpu import run")
-    os.environ.update(PREFIX_MODE="llrefs", LL_BASELINE_POLICIES="progress80-mask",
-                      TRACE_OUT=str(OUT), FROZEN90_SAMPLES=str(reg.DATA/"samples.json"))
-    exec(compile(src,str(launcher),"exec"), {"__name__":"__main__","__file__":str(HERE)})
+        call, ("from experiments.t2t.serving_slots."+entry.stem+" import run").encode())
+    os.environ.update(PREFIX_MODE="llrefs", LL_BASELINE_POLICIES=tag,
+                      TRACE_OUT=str(output), FROZEN90_SAMPLES=str(reg.DATA/"samples.json"))
+    exec(compile(src,str(launcher),"exec"), {"__name__":"__main__","__file__":str(entry)})
     holder, = json.loads(subprocess.check_output([reg.HOLDER,"status","0"]))
     active = subprocess.check_output(["nvidia-smi","-i",GPU,"--query-compute-apps=pid",
                                       "--format=csv,noheader,nounits"]).split()
     reg.require(holder["running"] and holder["gpu_status"]["uuid"] == GPU
                 and list(map(int,active)) == [holder["pid"]], "Holder not restored")
-    reg.save(OUT/"returned.json",dict(gpu=0,uuid=GPU,pid=holder["pid"],restored=True,
-                                      original30=sealed(30),full90=sealed(90)))
+    return holder
 
 
 if __name__ == "__main__":
