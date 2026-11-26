@@ -1,0 +1,103 @@
+{
+  "index": 75,
+  "seed": 17075,
+  "device": "cpu",
+  "q": 512,
+  "prompt_rows": 145,
+  "policy": "active_w2",
+  "decoder_step_limit": 7,
+  "attention": "sdpa",
+  "experts": "grouped_mm",
+  "dtype": "torch.bfloat16",
+  "torch": "2.9.0+cu128",
+  "status": "measured",
+  "first_dual_step": 2,
+  "capture_decoder_forwards": 3,
+  "replay_forwards": 6,
+  "cache_rows_by_layer": [
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145,
+    145
+  ],
+  "position_start": 145,
+  "has_sc_logits": true,
+  "effective_soft_nonzero_rows": [
+    256
+  ],
+  "effective_tail_soft_is_zero": true,
+  "perturbation": {
+    "tail_offset": 0,
+    "old_id": 16239,
+    "new_id": 16240
+  },
+  "anchor": {
+    "exact": true,
+    "max_abs": 0.0,
+    "top1_changed": 0,
+    "first_layer_diff": null
+  },
+  "sham": {
+    "original": {
+      "exact": true,
+      "max_abs": 0.0,
+      "top1_changed": 0,
+      "first_layer_diff": null
+    },
+    "perturbed": {
+      "exact": true,
+      "max_abs": 0.0,
+      "top1_changed": 0,
+      "first_layer_diff": null
+    }
+  },
+  "opened_tail_positive": true,
+  "tail_effect": {
+    "native": {
+      "exact": true,
+      "max_abs": 0.0,
+      "top1_changed": 0,
+      "first_layer_diff": "26/experts"
+    },
+    "sham": {
+      "exact": true,
+      "max_abs": 0.0,
+      "top1_changed": 0,
+      "first_layer_diff": "26/experts"
+    },
+    "off": {
+      "exact": false,
+      "max_abs": 13.335704803466797,
+      "top1_changed": 0,
+      "first_layer_diff": "0/attn"
+    }
+  },
+  "checkpoint": "/data1/project_data/gx-erqw-20261123/runtime/../models/diffusiongemma-cd40195",
+  "threads": 4
+}

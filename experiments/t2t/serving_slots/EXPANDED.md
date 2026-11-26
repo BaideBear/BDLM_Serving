@@ -103,6 +103,8 @@ GPU0 固定档新增 Gemma Q64（K16，用已解码但非前缀的旧行换前�
 
 冻结集另一个提示（index 50，seed 17050，提示 85 行）独立做了同样检查：块间因果 + 合算时改动后块使前块 **24/256** 个 top-1 改变，最大 logit 差 13.4554，首次差异在索引 5 的 experts；分块算 experts 时为 **0/256，最大差 0**。两种布局的相同输入重跑均逐位一致。[合算](controls/mask-probe-gemma-packed-50.json) · [分块](controls/mask-probe-gemma-per_canvas-50.json)。历史 packed W2 在 90 题中有 72 题实际遇到双活跃块，总计 163/1,408 个 decoder forward；不能把此计数移植为新的 `active_w2` 实测值。
 
+**Gemma 首次真实开块。** 冻结集 index 75、seed 17075、145 行提示：`active_w2` 的第 3 次 decoder forward 首次投影 Q512。保存实际 encoder KV、两块 token、位置、self-conditioning 与 RNG；回放前块 logits 与原调用逐位一致。只改后块首 token 后，保留掩码时前块第 26 层 experts 有差异，但**最终前块 logits 差为 0**；开放前块 Q 读后块 K 时，首差在第 0 层 attention，最终最大 logit 差 **13.3357**，top-1 仍 0/256 改变。只走 clone/写入路径但写回原遮挡值，在原输入和扰动输入下都逐层复现原掩码。此为 n164 CPU BF16 的一个真实状态，不与上面新初始化 canvas 的探针冲突；它说明是否改写了最终 logits 也依赖具体状态。GPU0 的 A/B 结束后单列同题重放，若未触发则记为未触发。[原始数值](controls/mask-gemma-first-dual-case75.json) · [独立探针](gemma_trigger_probe.py)。
+
 **为什么比较 logits 而不只比较生成文本。** Gemma 真实 `_denoising_step` 既调用 `multinomial`，又为 renoise 生成整块随机数。在固定 logits 的 CPU 对照里，三个种子下，暂停尾块采样都改变了下一轮头块的 proposal 和 canvas；诊断性地消费并丢弃同形状的尾块采样，可逐位复现头块和随机数状态，不需要额外模型 forward。这不是部署建议，更不是对真实生成等价性的证明。见 [`test_gemma_sampler_clock.py`](../../../tests/test_gemma_sampler_clock.py)。
 
 **已有的任务级证据。** LLaDA 2.1 在同一组 30 题上的历史 Optimus OBS 开关对照（固定窗口，非硬限额）。以下各列均为**关→开**；效率从[归档数表](../../optimus-masked-obs/summary.csv)的 `N` 和 `physical_Q` 重算，与本报告口径一致。
@@ -140,6 +142,8 @@ GPU0 固定档新增 Gemma Q64（K16，用已解码但非前缀的旧行换前�
 高档先行与固定 Q8 相比救回 4 题、丢失 1 题，TPF 提升 +0.219（配对 95% 区间 +0.067 到 +0.371），总 Q 少 1,735；效率仍低 0.80 个百分点。相较固定 Q16 多答对 1 题、总 Q 少 11,158，但 TPF 下降 0.264（区间 −0.388 到 −0.141）。四种方法在新60均答对49题；不要把高档先行归纳为显著增质或普遍优于所有固定档。[数值图](llada21-8-16.png) · [完整指标](llada21-8-16.csv) · [高低两个相位的配对分数](switches/llada21-slottrace_8_8_16_16-vs-slottrace_16_16_8_8.csv)。
 
 ## 外部基线的实际更新大小
+
+新增 [LLaDA 固定 Q16 对原版 IBS16](controls/llada21-q16-original-ibs.csv)：自研 27+49=76/90、宏 TPF 4.888、18.02%、222,550 物理 Q；IBS16 24+49=73/90、3.371、20.51%、214,873 Q。自研救 6 丢 3；净增 3 题来自原 30 题，新 60 题正确数相同。宏 TPF 差 +1.517（配对 95% 区间 +1.281 至 +1.753）；质量差 +3.33 个百分点（−3.98 至 +11.11）。这是原版 IBS 固定窗口，不是等实际 Q 结论，也不是掩码消融。
 
 [LLaDA 原 30 题的 OBS / IBS 审计](controls/llada21-original30-cap-audit.csv)逐次对齐模型调用记录、选中位置与投影行数。原版 IBS/OBS Q8 分别有 480/423 个生成 forward 超过 8 行；OBS Q32 也有 213/5,024 轮超过上限，最大 35。IBS Q32 在这批请求中没有超额。**普通窗口运行不等于启用了硬限额**。同档对照要在投影前约束整次 decoder 的实际行数，并报告实际总 Q；原版、硬限额、固定物理块的 FlowBlock W1/W2 分开。
 

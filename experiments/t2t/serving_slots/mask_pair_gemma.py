@@ -362,6 +362,14 @@ def run_pair(args, before_cuda):
               dict(requests=len(audit_rows), historical_replayed=len(audit_rows),
                    exposed=sum(a["first_intervention_step"] is not None for a in audit_rows),
                    no_second_block_exact=sum(a["no_second_block_exact"] for a in audit_rows)))
+    # Standalone real-state diagnostic, after all scored requests and observers.
+    from experiments.t2t.serving_slots.gemma_trigger_probe import probe
+    case = tasks[75]
+    try:
+        diag = probe(model, process(case), case, plan, max_decoder_steps=7)
+    except (ValueError, RuntimeError) as exc:
+        diag = dict(index=75, status="diagnostic_failed", error=str(exc))
+    save_json(args.output / "first-dual-diagnostic.json", diag)
 
 
 def protected_source(launcher):
