@@ -29,16 +29,62 @@ def complete(folder, policy):
         raise ValueError(f"Unqualified arm: {folder}/{policy}")
 
 
+def eligible(e, prompt_rows, block=32):
+    if e["phase"]=="prefill":
+        return False
+    end=e["visible_kv"]
+    if end % block:
+        raise ValueError("Unexpected LLaDA visible width")
+    return any(max(prompt_rows,end-2*block)<=p<end-block for p in e["absolute_positions"])
+
+
 def first_eligible(events, prompt_rows, block=32):
-    for i,e in enumerate(events):
-        if e["phase"]=="prefill":
-            continue
-        end=e["visible_kv"]
-        if end % block:
-            raise ValueError("Unexpected LLaDA visible width")
-        if any(max(prompt_rows,end-2*block)<=p<end-block for p in e["absolute_positions"]):
-            return i
-    return None
+    return next((i for i,e in enumerate(events) if eligible(e,prompt_rows,block)),None)
+
+
+def reference_opportunities(data, model, out):
+    """Descriptive reference geometry, not an intervention or a new quality score."""
+    from bdlm_serving.evaluation.frozen90 import load_tasks
+    cases=load_tasks(data/"samples.json")
+    folder,p=(("gemma-wave-reference90","flow_w2") if model=="gemma" else
+              ("llada21-rolling-dual64","dual64_noedit"))
+    src=data/folder
+    complete(src,p)
+    if read(src/"run.json")["samples_sha256"]!=SAMPLES:
+        raise ValueError("Unexpected reference tasks")
+    counts=[]
+    for task in cases:
+        raw=read(src/f"{task['index']:02d}-{p}.json")
+        if raw["policy"]!=p or any(raw[k]!=task[k] for k in ("index","task_id","seed","dataset")):
+            raise ValueError("Reference case mismatch")
+        if model=="gemma":
+            steps=raw["trace"]
+            observed=[q for phase,q in raw["events"][1:] if phase=="decoder"]
+            if ([s["q"] for s in steps]!=observed or any(
+                s["width"]!=2 or s["active"] not in (1,2) or s["q"]!=512 for s in steps)):
+                raise ValueError("Not the packed W2 reference")
+            opportunity=[s["active"]==2 for s in steps]
+        else:
+            prompt=read(data.parent/"frozen90-native"/"llada21"/f"{task['index']:02d}-native32.json")
+            if any(task[k]!=prompt[k] for k in ("index","task_id","seed","dataset")):
+                raise ValueError("Wrong prompt reference")
+            steps=[s for s in raw["events"] if s["phase"]!="prefill"]
+            if len(steps)!=raw["generation_forwards"]:
+                raise ValueError("Wrong LLaDA forward ledger")
+            opportunity=[eligible(s,len(prompt["prompt_ids"])) for s in steps]
+        counts.append((task["index"],task["dataset"],len(opportunity),sum(opportunity)))
+    rows=[]
+    for cohort,lo,hi in (("original30",0,30),("added60",30,90),("all90",0,90)):
+        for ds in ("all","gsm8k","math500","humaneval"):
+            subset=[x for x in counts if lo<=x[0]<hi and ds in ("all",x[1])]
+            rows.append(dict(model=model,reference=p,cohort=cohort,dataset=ds,
+                requests=len(subset),requests_with_opportunity=sum(x[3]>0 for x in subset),
+                eligible_steps=sum(x[3] for x in subset),steps=sum(x[2] for x in subset),
+                denominator="decoder" if model=="gemma" else "post_prefill_model_forwards"))
+    with out.open("w",newline="") as handle:
+        writer=csv.DictWriter(handle,fieldnames=list(rows[0]),lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def check_llada_prefix(on, off, prompt_rows):
@@ -148,11 +194,14 @@ def score(data, model, out):
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("action",choices=("queue","score"))
+    p.add_argument("action",choices=("queue","score","opportunities"))
     p.add_argument("model",choices=CONFIG)
     p.add_argument("runtime",type=Path)
     args=p.parse_args()
     root=args.runtime.resolve()
-    if args.action=="queue":
-        queue(root,args.model)
-    score(root/"prefix90",args.model,root/"prefix90"/CONFIG[args.model][1]/"mask-on-vs-off.csv")
+    if args.action=="opportunities":
+        reference_opportunities(root/"prefix90",args.model,root/"prefix90"/f"{args.model}-mask-opportunities.csv")
+    else:
+        if args.action=="queue":
+            queue(root,args.model)
+        score(root/"prefix90",args.model,root/"prefix90"/CONFIG[args.model][1]/"mask-on-vs-off.csv")

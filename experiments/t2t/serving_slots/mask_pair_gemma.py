@@ -255,6 +255,93 @@ def run_directional_probes(model, data, task, output, measure, save):
         save(output / f"directional-{layout}.json", report)
 
 
+def paired_request(model, data, task, plan, tokenizer):
+    import torch
+    from bdlm_serving.runtime import diffusiongemma_wave as wave
+    from bdlm_serving.runtime.diffusiongemma import observe
+
+    block = plan["block_size"]
+    digest = input_digest(data)
+    eos = set(model.generation_config.eos_token_id)
+    special = set(tokenizer.all_special_ids) | eos | {model.generation_config.pad_token_id}
+    rows, probes = [], []
+    for policy in POLICIES:
+        torch.manual_seed(task["seed"])
+        with observe(model) as events, decoder_probe(model, block, opened=policy == MASK_OFF) as probe:
+            seq, trace = wave.generate(model, data, "active_w2", plan)
+        if input_digest(data) != digest:
+            raise ValueError(f"{task['task_id']}: executor mutated the shared processor input")
+        rows.append(make_row(task, policy, seq, trace, events, data["input_ids"].shape[1],
+                             tokenizer, eos, special, block))
+        probes.append(probe)
+    return rows, dict(input_sha256=digest, **check_pair(*rows, *probes, block))
+
+
+def cpu_pilot(argv):
+    """First frozen30 case per dataset, no case substitution, default full cap."""
+    import argparse
+    import torch
+    import transformers
+    from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
+    from bdlm_serving.evaluation.frozen import ROOT, sha
+    from bdlm_serving.evaluation.frozen90 import load_tasks
+    from bdlm_serving.evaluation.original30 import save_json
+    from bdlm_serving.evaluation.scoring import score
+    from bdlm_serving.runtime import diffusiongemma_wave as wave
+    from bdlm_serving.runtime.diffusiongemma import check_snapshot
+
+    p = argparse.ArgumentParser(description=cpu_pilot.__doc__)
+    for key in ("checkpoint", "samples", "output"):
+        p.add_argument("--" + key, type=Path, required=True)
+    p.add_argument("--threads", type=int, choices=range(1, 13), default=8)
+    a = p.parse_args(argv)
+    if (os.environ.get("CUDA_VISIBLE_DEVICES") != "" or sha(a.samples) != SAMPLES_SHA
+            or sha(Path(wave.__file__)) != WAVE_SHA):
+        raise ValueError("Requires hidden GPUs, registered tasks and pinned wave engine")
+    tasks = load_tasks(a.samples)
+    subset = {}
+    for t in tasks[:30]:
+        subset.setdefault(t["dataset"], t)
+    if len(subset) != 3 or len(tasks) != 90:
+        raise ValueError("Wrong frozen cohort")
+    plan = wave.resolve_plan(ROOT / "archive/diffusiongemma-wave/config.json")
+    native = read_json(ROOT / "archive/diffusiongemma-native/config.json")
+    if transformers.__version__ != native["transformers"]:
+        raise ValueError("Wrong transformers")
+    torch.set_num_threads(a.threads)
+    torch.set_num_interop_threads(1)
+    a.output.mkdir(parents=True, exist_ok=False)
+    save_json(a.output / "run.json", dict(
+        suite="registered_cpu_pilot_only", device="cpu", cap=plan["cap"], threads=a.threads,
+        model=native, wave_sha256=WAVE_SHA, samples_sha256=SAMPLES_SHA,
+        selection="first archived original30 index in each dataset",
+        indices=[t["index"] for t in subset.values()]))
+    check_snapshot(a.checkpoint)
+    proc = AutoProcessor.from_pretrained(a.checkpoint, local_files_only=True)
+    model = DiffusionGemmaForBlockDiffusion.from_pretrained(
+        a.checkpoint, local_files_only=True, dtype=torch.bfloat16,
+        attn_implementation=native["attention"], experts_implementation=native["experts"],
+        device_map={"": "cpu"}).eval()
+    pairs = []
+    with torch.inference_mode():
+        for task in subset.values():
+            data = proc.apply_chat_template([{"role": "user", "content": task["prompt"]}],
+                tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt")
+            rows, audit = paired_request(model, data, task, plan, proc.tokenizer)
+            pair = dict(index=task["index"], task_id=task["task_id"], dataset=task["dataset"], **audit)
+            for row in rows:
+                row["correct"] = bool(score(row["output_text"], task)["correct"])
+                save_json(a.output / f"{task['index']:02d}-{row['policy']}.json", row)
+                pair[row["policy"]] = {k: row[k] for k in (
+                    "correct", "output_tokens", "generation_forwards", "generation_physical_padded_rows",
+                    "tpf", "token_efficiency", "truncated")}
+            pair["identical_output_ids"] = rows[0]["output_ids"] == rows[1]["output_ids"]
+            pairs.append(pair)
+            save_json(a.output / "pairs.json", dict(formal_gpu_score=False, cases=pairs,
+                                                    complete=len(pairs) == len(subset)))
+            print(task["task_id"], pair, flush=True)
+
+
 def run_pair(args, before_cuda):
     import torch
     import transformers
@@ -311,8 +398,6 @@ def run_pair(args, before_cuda):
         treatment="only head query rows may see tail key columns in every two-active-canvas decoder call"))
     before_cuda(model)
     model.to("cuda")
-    eos = set(model.generation_config.eos_token_id)
-    special = set(proc.tokenizer.all_special_ids) | eos | {model.generation_config.pad_token_id}
     audit_rows = []
 
     def process(task):
@@ -330,22 +415,11 @@ def run_pair(args, before_cuda):
             digest = input_digest(data)
             if task["index"] == 0 and digest != first_digest:
                 raise ValueError("First processed input differs from directional diagnostic")
-            rows, probes = [], []
-            for policy in POLICIES:
-                torch.manual_seed(task["seed"])
-                with observe(model) as events, decoder_probe(model, block, opened=policy == MASK_OFF) as probe:
-                    seq, trace = wave.generate(model, data, "active_w2", plan)
-                if input_digest(data) != digest:
-                    raise ValueError(f"{task['task_id']}: executor mutated the shared processor input")
-                row = make_row(task, policy, seq, trace, events, data["input_ids"].shape[1],
-                               proc.tokenizer, eos, special, block)
-                if policy == MASK_ON:
-                    equal_row(row, peer, "historical active_w2 replay")
-                rows.append(row)
-                probes.append(probe)
-            audit = dict({k: task[k] for k in IDENTITY}, input_sha256=digest,
+            rows, diagnostics = paired_request(model, data, task, plan, proc.tokenizer)
+            equal_row(rows[0], peer, "historical active_w2 replay")
+            audit = dict({k: task[k] for k in IDENTITY},
                          historical_row_sha256=reference_sha, masked_replay_exact=True,
-                         **check_pair(*rows, *probes, block))
+                         **diagnostics)
             for row in rows:
                 save_json(args.output / f"{row['index']:02d}-{row['policy']}.json", row)
             audit_rows.append(audit)
@@ -435,4 +509,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:2] == ["cpu-pilot"]:
+        cpu_pilot(sys.argv[2:])
+    else:
+        main()

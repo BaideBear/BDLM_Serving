@@ -1,0 +1,13 @@
+model,reference,cohort,dataset,requests,requests_with_opportunity,eligible_steps,steps,denominator
+llada21,dual64_noedit,original30,all,30,30,1895,2863,post_prefill_model_forwards
+llada21,dual64_noedit,original30,gsm8k,10,10,458,677,post_prefill_model_forwards
+llada21,dual64_noedit,original30,math500,10,10,1227,1814,post_prefill_model_forwards
+llada21,dual64_noedit,original30,humaneval,10,10,210,372,post_prefill_model_forwards
+llada21,dual64_noedit,added60,all,60,60,3223,5097,post_prefill_model_forwards
+llada21,dual64_noedit,added60,gsm8k,20,20,712,1128,post_prefill_model_forwards
+llada21,dual64_noedit,added60,math500,20,20,2117,3252,post_prefill_model_forwards
+llada21,dual64_noedit,added60,humaneval,20,20,394,717,post_prefill_model_forwards
+llada21,dual64_noedit,all90,all,90,90,5118,7960,post_prefill_model_forwards
+llada21,dual64_noedit,all90,gsm8k,30,30,1170,1805,post_prefill_model_forwards
+llada21,dual64_noedit,all90,math500,30,30,3344,5066,post_prefill_model_forwards
+llada21,dual64_noedit,all90,humaneval,30,30,604,1089,post_prefill_model_forwards

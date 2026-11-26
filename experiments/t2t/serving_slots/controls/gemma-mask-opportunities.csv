@@ -1,0 +1,13 @@
+model,reference,cohort,dataset,requests,requests_with_opportunity,eligible_steps,steps,denominator
+gemma,flow_w2,original30,all,30,26,50,457,decoder
+gemma,flow_w2,original30,gsm8k,10,9,15,115,decoder
+gemma,flow_w2,original30,math500,10,8,14,263,decoder
+gemma,flow_w2,original30,humaneval,10,9,21,79,decoder
+gemma,flow_w2,added60,all,60,46,113,951,decoder
+gemma,flow_w2,added60,gsm8k,20,14,32,234,decoder
+gemma,flow_w2,added60,math500,20,15,39,534,decoder
+gemma,flow_w2,added60,humaneval,20,17,42,183,decoder
+gemma,flow_w2,all90,all,90,72,163,1408,decoder
+gemma,flow_w2,all90,gsm8k,30,23,47,349,decoder
+gemma,flow_w2,all90,math500,30,23,53,797,decoder
+gemma,flow_w2,all90,humaneval,30,26,63,262,decoder

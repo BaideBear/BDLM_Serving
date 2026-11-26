@@ -748,6 +748,33 @@ def launcher_main(argv):
     exec(compile(source.replace(key, replacement), str(launcher), "exec"), globals())
 
 
+def queue(root):
+    """One successor to the verified-commit GPU4 job, never a second dispatcher."""
+    import subprocess
+    import time
+    data = root / "prefix90"
+    while True:
+        pred = subprocess.run(["tmux", "has-session", "-t", "=prefix90-verified-commit"],
+                              capture_output=True)
+        if pred.returncode == 1:
+            break
+        pred.check_returncode()
+        time.sleep(8)
+    for q in (4, 8, 16, 32):
+        name = f"promote_q{q}_zero"
+        if read(data / "llada21-verified-commit90" / f"complete-{name}.json") != dict(
+                policy=name, requests=90):
+            raise ValueError("Unfinished GPU4 predecessor")
+    out = data / "llada21-top-offer32-64-v1"
+    if out.exists():
+        raise FileExistsError(out)
+    env = dict(os.environ, FROZEN90_SAMPLES=str(data / "samples.json"), TRACE_OUT=str(out),
+               PREFIX_MODE="llrefs", LL_BASELINE_POLICIES="top", TOP_OFFER_TRACES="fixed32 fixed64 llhh hhll")
+    with out.with_suffix(".log").open("x") as log:
+        subprocess.run([sys.executable, "-u", __file__, "llada21", "4"], env=env, cwd=root,
+                       stdout=log, stderr=subprocess.STDOUT, check=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -774,7 +801,9 @@ def main(argv=None):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    if argv[:2] == ["llada21", "4"]:
+    if len(argv) == 2 and argv[0] == "queue":
+        queue(Path(argv[1]).resolve())
+    elif argv[:2] == ["llada21", "4"]:
         launcher_main(argv)
     else:
         main(argv)
