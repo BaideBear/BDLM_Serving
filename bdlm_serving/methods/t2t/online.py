@@ -67,11 +67,12 @@ def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
         weights = read_weights(args.hazard_weights)
 
     @torch.inference_mode()
-    def run(task, arm):
+    def run(task, arm, *, next_budget=None, prompt_reference=None):
         prompt = tok.apply_chat_template([dict(role="user", content=task["prompt"])],
                                          tokenize=False, add_generation_prompt=True)
         ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
-        ref = json.loads((args.reference / f"{task['index']:02d}-native32.json").read_text())
+        ref = (dict(prompt_ids=prompt_reference) if prompt_reference is not None and arm is not None else
+               json.loads((args.reference / f"{task['index']:02d}-native32.json").read_text()))
         if ids[0].tolist() != ref["prompt_ids"]:
             raise ValueError("Changed prompt")
         parameters = (ids, cfg, 2048, task["seed"], mask, eos)
@@ -84,7 +85,7 @@ def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
                                    admission_fit=admission_fit if arm and arm.selection in ADMISSION else None,
                                    context_ranker=context_ranker if arm and arm.selection in CONTEXT else None,
                                    **opts)
-        state = kernel.create(*parameters)
+        state = kernel.create(*parameters,next_budget=next_budget)
         kernel.run(state)
         path = state.events
         if arm is None:
@@ -133,13 +134,13 @@ def gemma_backend(args, prepare):
     special = set(tok.all_special_ids) | eos | {cfg.pad_token_id}
 
     @torch.inference_mode()
-    def run(task, arm):
+    def run(task, arm, *, next_budget=None):
         data = proc.apply_chat_template([dict(role="user", content=task["prompt"])],
             tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
         torch.manual_seed(task["seed"])
         opts = ({} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask,
                                             policy=arm.selection, selection_seed=task["seed"]))
-        with sparse_gemma(model, plan["canvas"] if arm is None else arm.budget, **opts) as ledger:
+        with sparse_gemma(model, plan["canvas"] if arm is None else arm.budget, next_budget=next_budget, **opts) as ledger:
             out = model.generate(**data, max_new_tokens=plan["cap"])
         prompt = data["input_ids"]
         plen = prompt.shape[1]

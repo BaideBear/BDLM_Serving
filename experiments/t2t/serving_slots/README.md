@@ -115,3 +115,24 @@ K0 在前三档的质量和 TPF 点估计均超过两种 Optimus，但各档的 
 `python -m bdlm_serving diffusiongemma-wave --checkpoint "$DG_CHECKPOINT" --samples "$FROZEN90" --output "$NEW_RUN" --suite frozen90 --flow-only --block-size 256 --flowblock-windows 1 2 --reference30-root "$ORIGINAL_WAVE" --native-reference "$NATIVE90"` 复用同一 wave 生成器。每个 W 独立逐字段复现其历史30（含工作、输出、种子）之后才进入新增60。W1 还对全部90逐题校验原生输出及前向；W2 每次 decoder 按实际打包的 512 行计费，即使只有一个块处于活跃状态。这是大窗口基线，不是已实现了可切换的 512 档。
 
 LLaDA 基线扩展共10臂：`python -m experiments.t2t.serving_slots.llada_reference --samples "$FROZEN90" --reference "$HISTORICAL_RUN" --check-only` 检查公开原30成绩、原始工作账、身份和种子。300条归档记录通过此检查。原始 LLaDA 实际 batch 为 1；IBS4、OBS32 各有一次生成失败，均计错且保留已执行的 F/Q。去掉 `--check-only` 并指定 `--checkpoint`、新 `--output` 和可重复的 `--policy` 可在同一生成器逐臂扩展：原30重新生成，对齐原始输出 ID、停止状态、失败记录、逐前向位置及物理 F/Q 后才允许该臂进入新增60。原30校验不等于已取得90题结果。
+
+## 同档位多停留几轮有没有帮助？
+
+![Gemma dwell and physical prefix injection, annotated](gemma-dose-dwell.png)
+
+[三组样本、全部9条轨迹及实算 N/F/Q](gemma-dose-dwell.csv)。在同一相位，唯一改变的是每档连续停留的选位轮数，都是 K0。表中的“救/丢”是驻留8轮相对2轮，同一题由错变对/由对变错。
+
+| 首档 | 每档驻留 | 原30 | 新60 | 全90 | TPF | 效率 | F | 物理Q | 实际换档 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 32 | 2 | 28 | 54 | 82 | 10.472 | 12.84% | 3265 | 254468 | 1324 |
+| 32 | 8 | 27 | 52 | 79 | 10.155 | 12.84% | 3357 | 256176 | 312 |
+| 64 | 2 | 28 | 55 | 83 | 10.559 | 12.83% | 3362 | 260838 | 1374 |
+| 64 | 8 | 30 | 54 | 84 | 10.998 | 12.79% | 3165 | 254332 | 285 |
+
+先32延长驻留救1丢4，TPF差的配对95%区间为 [−0.723,+0.087]；先64救3丢2，区间为 [+0.053,+0.826]。后者全90多答对1题，新60却少1题；而固定64只用250795个Q。不能把“少切换”定为统一优化：驻留也改变各题早期收到的档位，不是一次切换的纯开销测试。重画命令（在本目录运行）：`python trace_plot.py --work switches/gemma-dose-dwell-work.csv --pairs switches --out gemma-dose-dwell`。
+
+## 外部负载实验：冻结口径
+
+两个模型分别以 (32,64) 和 (8,16) 为低高档。用独立生产线程定时入队90题，每6题一组，组内间距为时间单位的1/8，组起点间隔为8单位；时间单位是预定6题在高档的同步耗时中位数。次序由固定哈希决定。固定高、忙时低、忙时高、固定低依次跑同一个到达计划。每个选位轮看等待队列，不计服务中的本题：深度≥2判忙，0判闲，等于1继承前态。缓存和选位时钟是逐请求的，压力状态则是逐臂共享的。GPU单请求、batch=1；到达计划外生，各策略实际排队深度并不强求相等。两种映射都测，不假定较大Q必然较慢。
+
+`python -m experiments.t2t.serving_slots.fifo --model gemma --samples "$FROZEN90" --checkpoint "$MODEL" --reference "$NATIVE" --controls "$FIXED_SLOTS" --output "$NEW_RUN"`；评分用 `python -m experiments.t2t.serving_slots.fifo_report --run "$NEW_RUN" --cases "$FROZEN90" --out "$PRIVATE_SCORES"`。固定策略须逐题复现原固定端点；每个 offer 核对入队时间、队列深度和真实前向。每臂预热且不删正式题，计时区间排除写盘与打分；分别报告原30/新60/全90的质量、物理工作、等待、服务和响应。全90另报实现吞吐以及注入误差，p95入队延迟、组内间距绝对误差均须不超过单位的1/80，到达总跨度相对误差不超过1%，未过则不解读服务收益。这是同一合成到达计划上的单次实验，不能外推生产流量或稳定p95。
