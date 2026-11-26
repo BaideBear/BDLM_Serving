@@ -37,3 +37,14 @@ def test_idle_slots_and_reencoding_are_both_charged():
     corrupt["events"][1][1] = corrupt["trace"][0]["q"] = 256
     with pytest.raises(ValueError):
         check_gemma_wave(corrupt, 256)
+
+
+def test_active_w2_charges_actual_projections_only_and_retains_encode():
+    raw=dict(policy="active_w2",events=[["encoder",7],["decoder",256],["encoder",256],["decoder",512]],
+             trace=[dict(width=a,active=a,q=256*a) for a in (1,2)],max_q=512,
+             generation_forwards=3,generation_query_rows=1024)
+    check_gemma_wave(raw,256)
+    for bad in (dict(raw,policy="flow_w2"),dict(raw,generation_query_rows=768),
+                dict(raw,trace=[dict(width=2,active=1,q=256),raw["trace"][1]])):
+        with pytest.raises(ValueError):
+            check_gemma_wave(bad,256)

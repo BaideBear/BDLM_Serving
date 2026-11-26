@@ -21,7 +21,7 @@ if sys.argv[1:2]==["chain"] and len(sys.argv)==3:
     if (proof["model"],proof["samples_sha256"],len(proof["policies"]),proof["physical_gpu"])!=(
             "llada21",SAMPLES,4,"4"):
         raise RuntimeError("Incomplete GPU4 predecessor")
-    for group in ("anchor","switch","prefix","endpoints","mid","low"):
+    for group in ("anchor","endpoints","low","prefix","switch"):
         if group=="prefix":
             out=data/"llada21-native-high-prefix16"
             patterns=("16r1","32n","32n_32n_16r1_16r1","16r1_16r1_32n_32n")

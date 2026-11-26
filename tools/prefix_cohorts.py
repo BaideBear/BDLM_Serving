@@ -301,16 +301,18 @@ def optimus_chunk(raw, block):
 def check_gemma_wave(raw, block):
     # The archived adapter pads a fixed W-block decoder. A resident but idle
     # slot still enters the transformer; encoder re-encodes remain one block.
-    w = int(raw["policy"].removeprefix("flow_w"))
+    compact = raw["policy"] == "active_w2"
+    w = 2 if compact else int(raw["policy"].removeprefix("flow_w"))
     events, trace = raw["events"], raw["trace"]
     if not events or events[0][0] != "encoder" or not trace:
         raise ValueError("Missing Gemma wave prefill or decoder trace")
     gen = events[1:]
     if (any(tag not in ("encoder", "decoder") or type(q) is not int or
-            q != (block if tag == "encoder" else w*block) for tag, q in gen)
+            (tag == "encoder" and q != block) for tag, q in gen)
             or [q for tag,q in gen if tag == "decoder"] != [s["q"] for s in trace]
-            or any(s["width"] != w or not 1 <= s["active"] <= w for s in trace)
-            or raw["max_q"] != w * block or raw["generation_forwards"] != len(gen)
+            or any(s["width"] != (s["active"] if compact else w) or s["q"] != s["width"]*block
+                   or not 1 <= s["active"] <= w for s in trace)
+            or raw["max_q"] != max(q for _,q in gen) or raw["generation_forwards"] != len(gen)
             or raw["generation_query_rows"] != sum(q for _,q in gen)):
         raise ValueError("Gemma wave work does not match packed physical rows")
 
@@ -381,7 +383,7 @@ def normalize_request(raw, case, role):
     elif model == "gemma" and policy.startswith(("ibs_cap_","obs_cap_")):
         from bdlm_serving.runtime.optimus_limits import validate_trace
         fixed_chunk = validate_trace(raw, block)
-    elif model == "gemma" and policy in ("flow_w1", "flow_w2"):
+    elif model == "gemma" and policy in ("flow_w1", "flow_w2", "active_w2"):
         check_gemma_wave(raw, block)
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
         raise ValueError(f"{role} request {index}: max_q {max_q!r} does not match {model} B{block}")

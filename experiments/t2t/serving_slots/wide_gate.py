@@ -9,6 +9,7 @@ from bdlm_serving.evaluation.frozen90 import load_tasks
 from bdlm_serving.methods.t2t.offer_gate import choose_native
 from bdlm_serving.methods.t2t.online import load_backend
 from bdlm_serving.methods.t2t.protocol import Arm, verify_work
+from bdlm_serving.methods.t2t.request_policy import bind_request
 from bdlm_serving.methods.t2t.slot_trace import RoundInfo
 from experiments.t2t.serving_slots.switch_report import audit, gemma_stages
 from tools.run_t2t import check_flat, durable
@@ -16,8 +17,8 @@ from tools.run_t2t import check_flat, durable
 POLICIES = tuple("wide_" + p for p in (
     "fixed_low", "fixed_high", "all_high", "tail_high", "all_low", "tail_low"))
 REFERENCES = {
-    "llada21": {8:"llada-q8", 16:"llada21-16-matched", 24:"llada21-expanded-fixed-24-12-6"},
-    "gemma": {32:"gemma-q32", 64:"gemma-grid-k1", 192:"gemma-expanded-fixed-192-96-48"},
+    "llada21": {8:"llada-q8", 16:"llada21-16-matched"},
+    "gemma": {32:"gemma-q32", 64:"gemma-grid-k1"},
 }
 
 
@@ -96,11 +97,11 @@ def run(args, prepare=None):
         def execute(task):
             decisions = []
 
-            def source(info):
+            def lookup(info):
                 external, offer = choice(p, low, info)
                 decisions.append([info.tick,info.block_start,info.masks,info.mandatory,external,offer.q])
-                return offer
-            return backend(task, arm, next_budget=source), decisions
+                return offer.q
+            return backend(task, arm, next_budget=bind_request(model, initial, lookup)), decisions
 
         warm, warm_log = execute(tasks[0])
         for task in tasks:

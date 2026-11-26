@@ -3,6 +3,7 @@ import argparse
 import csv
 from functools import lru_cache
 import json
+from math import ceil
 from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import sha
@@ -44,6 +45,26 @@ def measured_decoder(row, policy):
 
 
 HIGH_FIRST = (256,256,128,128)
+PREFIX_REFERENCE = {
+    "128u32": ("gemma-slots-native256-128", "128"),
+    "256n_256n_128u32_128u32": ("gemma-slots-native256-128", "256n_256n_128_128"),
+    "128u32_128u32_256n_256n": ("gemma-slots-native256-128", "128_128_256n_256n"),
+    "256n_128u32_128u32_128u32": ("gemma-high-thinning", "256n_128_128_128"),
+    "128u32_256n_128u32_128u32": ("gemma-high-thinning", "128_256n_128_128"),
+}
+
+
+def cost_gaps(base, own):
+    """Descriptive per-request physical Q spread, never a filter for quality scoring."""
+    if len(base)!=len(own) or not base or min(*base,*own)<=0:
+        raise ValueError("Require positive paired work")
+    ratios=sorted((a-b)/b for a,b in zip(own,base,strict=True))
+    return dict(total_q_gap=sum(own)/sum(base)-1,
+                request_q_gap_p10=ratios[ceil(.1*len(ratios))-1],
+                request_q_gap_p50=ratios[ceil(.5*len(ratios))-1],
+                request_q_gap_p90=ratios[ceil(.9*len(ratios))-1],
+                requests_within_5pct_Q=sum(100*abs(a-b)<=5*b for a,b in zip(own,base)),
+                requests_within_10pct_Q=sum(100*abs(a-b)<=10*b for a,b in zip(own,base)))
 
 
 def check_first_cut(original, limited, slot):
@@ -116,6 +137,7 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
             low[i]=[e["q"] for e in row["events"] if e.get("slot_offer")==128]
         return label,own,low
     if candidate:
+        prefix_peer=None
         if candidate.startswith("gate_"):
             from .gated import PLANS, original, validate_gate
             from .switch_report import first_changed_offer
@@ -132,7 +154,12 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
             refname=original(phase)
             refdir=snapshot(data/"gemma-slots-native256-128",refname,digest,cache)
         else:
-            if candidate not in ("slottrace_256n_128_128_128","slottrace_128_256n_128_128"):
+            key=candidate.removeprefix("slottrace_")
+            if key in PREFIX_REFERENCE and candidate=="slottrace_"+key:
+                name,ref=PREFIX_REFERENCE[key]
+                refname="slottrace_"+ref
+                prefix_peer=snapshot(data/name,refname,digest,cache)
+            elif candidate not in ("slottrace_256n_128_128_128","slottrace_128_256n_128_128"):
                 raise ValueError("Unregistered position ablation")
             path=snapshot(candidate_run,candidate,digest,cache)
             pattern=candidate.removeprefix("slottrace_").split("_")
@@ -146,6 +173,9 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
                     raise ValueError("Changed first intervention")
             else:
                 audit(row,pattern)
+                if prefix_peer:
+                    from .switch_report import prefix_ablation
+                    prefix_ablation(read(prefix_peer/f"{i:02d}-{refname}.json"),row)
             low[i]=[e["q"] for e in row["events"] if e.get("slot_offer")==128]
         measured_candidate=candidate,own,low
     dirs = [(data/"gemma-optimus-reference90",["ibs_128","obs_128"]),
@@ -210,6 +240,8 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
                 deltas=[own[r["index"]]["physical_Q"]-rows[r["index"]]["physical_Q"] for r in subset]
                 if sum(deltas)!=s["arm_physical_Q"]-s["baseline_physical_Q"]:
                     raise ValueError("Paired physical work does not match the aggregate")
+                s.update(cost_gaps([rows[r["index"]]["physical_Q"] for r in subset],
+                                   [own[r["index"]]["physical_Q"] for r in subset]))
                 s.update(mixed_low_rounds=len(limits),mixed_low_over=sum(q>128 for q in limits),
                          mixed_low_max=max(limits,default=""),mixed_low_excess=sum(max(0,q-128) for q in limits),
                          arm_lower_Q_requests=sum(d<0 for d in deltas),arm_equal_Q_requests=deltas.count(0),

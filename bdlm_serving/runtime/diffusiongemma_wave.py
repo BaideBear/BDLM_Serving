@@ -64,7 +64,8 @@ def generate(model, data, policy, plan):
     processor = model._prepare_logits_processor(cfg)
     eos = torch.tensor(cfg.eos_token_id, device=device)
     b3 = policy == "b3"
-    w = 2 if b3 else int(policy.removeprefix("flow_w"))
+    compact = policy == "active_w2"
+    w = 2 if b3 or compact else int(policy.removeprefix("flow_w"))
     gate = B3Gate(block_size=b) if b3 else None
     active, trace = [], []
     def spawn():
@@ -76,7 +77,7 @@ def generate(model, data, policy, plan):
     spawn()
     while True:
         # Packed FlowBlock charges all W slots; B3 activates its second slot on demand.
-        width = len(active) if b3 else w
+        width = len(active) if b3 or compact else w
         pad_slots = width-len(active)
         ids = torch.cat([s.ids for s in active] + [torch.zeros_like(active[0].ids)]*pad_slots, dim=1)
         masks = packing_mask(cache, model.config.text_config.layer_types, b, width, device)
@@ -164,6 +165,11 @@ def run_wave(args, before_cuda=None):
     plan = resolve_plan(args.config, args.block_size, args.flowblock_windows)
     if getattr(args, "flow_only", False):
         plan.update(include_b3=False, policies=[p for p in plan["policies"] if p != "b3"])
+    tier512 = getattr(args, "tier512_reference", None)
+    if tier512 is not None:
+        if args.suite != "frozen90" or plan["block_size"] != 256 or plan["flowblock_windows"] != [1,2]:
+            raise ValueError("Active-width W2 requires the registered 512-tier reference")
+        plan.update(include_b3=False, policies=["flow_w2"])
     native = json.loads((ROOT/"archive/diffusiongemma-native/config.json").read_text())
     if transformers.__version__ != native["transformers"]:
         raise ValueError("Transformers version differs from native baseline")
@@ -178,6 +184,13 @@ def run_wave(args, before_cuda=None):
         tasks = load_tasks90(args.samples)
         refs = reference90(args, settings)
         settings.update(suite=suite, seed_offset=0, samples_sha256=sha(args.samples))
+        if tier512 is not None:
+            archived = json.loads((tier512/"run.json").read_text())
+            if (archived != dict(settings, policies=["flow_w1","flow_w2"]) or
+                json.loads((tier512/"complete-flow_w2.json").read_text()) != dict(policy="flow_w2", requests=90)):
+                raise ValueError("Wrong W2 reference or missing complete 90")
+            settings.update(policies=["flow_w2","active_w2"], nominal_q=512,
+                            qualification="replay packed W2 on all 90 before active_w2")
     else:
         tasks = load_tasks(args.samples)
     check_snapshot(args.checkpoint)
@@ -195,7 +208,7 @@ def run_wave(args, before_cuda=None):
     eos = set(model.generation_config.eos_token_id)
     special = set(proc.tokenizer.all_special_ids) | eos | {model.generation_config.pad_token_id}
     with torch.inference_mode():
-        for policy in plan["policies"]:
+        for policy in settings["policies"]:
             for task in tasks:
                 data = proc.apply_chat_template([{"role":"user","content":task["prompt"]}], tokenize=True,
                     add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
@@ -222,10 +235,14 @@ def run_wave(args, before_cuda=None):
                     max_q=max(k for _,k in events[1:]), tpf=n/f, token_efficiency=n/q, events=events,
                     trace=trace, eos=seq[-1] in eos, truncated=seq[-1] not in eos)
                 path = args.output/f"{task['index']:02d}-{policy}.json"
-                if refs and task["index"] < 30:
+                if tier512 is not None and policy == "flow_w2":
+                    peer = json.loads((tier512/path.name).read_text())
+                    if dict(row,events=[list(e) for e in events]) != peer:
+                        raise ValueError(f"Packed reference differs: {task['task_id']}")
+                if policy in refs and task["index"] < 30:
                     check_reproduction(refs[policy][task["index"]], row)
                 save_json(path, row)
-                if refs and task["index"] == 29:
+                if policy in refs and task["index"] == 29:
                     save_json(args.output/f"reproduced30-{policy}.json", dict(policy=policy,
                               matched=30, reference_sha256=[h for _, h in refs[policy]]))
                 print(policy, task["task_id"], f"N={n} F={f} Q={q}", flush=True)

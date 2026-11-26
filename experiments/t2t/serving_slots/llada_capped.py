@@ -9,7 +9,7 @@ from tools.run_t2t import durable
 
 def policies(group):
     groups = {"anchor":((32,),), "switch":((8,8,16,16),(16,16,8,8)),
-              "endpoints":((8,), (16,)), "mid":((24,), (12,)), "low":((6,), (4,))}
+              "endpoints":((8,), (16,)), "low":((4,),)}
     return ["optcap_"+m+"_"+"_".join(map(str,qs)) for qs in groups[group] for m in ("ibs","obs")]
 
 
@@ -45,7 +45,7 @@ def run(args,prepare=None):
     from bdlm_serving.generation import run as generate
     tasks = load_tasks(args.samples)
     arms = args.policy
-    if arms not in (policies(g) for g in ("anchor","switch","endpoints","mid","low")):
+    if arms not in (policies(g) for g in ("anchor","switch","endpoints","low")):
         raise ValueError("Unregistered capped sequence")
     for e in read(ROOT/"benchmarks/checkpoints/llada21.json"):
         f = args.checkpoint/e["name"]

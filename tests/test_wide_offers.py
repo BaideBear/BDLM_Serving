@@ -1,16 +1,22 @@
 import pytest
 
 from bdlm_serving.methods.t2t.slot_trace import RoundInfo
+from bdlm_serving.methods.t2t.request_policy import SERVICE_TIERS, SLOTS
+from bdlm_serving.methods.t2t.protocol import Arm
 from experiments.t2t.serving_slots.expanded_handoff import STAGES
 from experiments.t2t.serving_slots.wide_gate import POLICIES, REFERENCES, choice
 
 
 @pytest.mark.parametrize("model,width", [("llada21", 32), ("gemma", 256)])
-def test_registered_midpoints_and_two_start_phases(model, width):
-    fixed, groups = (qs for m, _, qs in STAGES if m == model)
-    assert len(set(fixed)) == 3 and all(0 < q < width for q in fixed)
-    assert set(groups) == set(REFERENCES[model])
-    for low in groups:
+def test_registered_allocations_and_two_start_phases(model, width):
+    assert SERVICE_TIERS[model] == ((4,8,16,32,64) if model=="llada21" else (32,64,128,256,512))
+    for m,q,k,modes in STAGES:
+        if model==m:
+            assert q in SLOTS[m] and 0<k<q
+            for mode in modes:
+                Arm.parse(f"{q}:0:{q-k}:hard_prefix_{mode}",width)
+    for low in REFERENCES[model]:
+        assert low in SLOTS[model]
         for phase in ("low", "high"):
             for t in range(8):
                 for mask in (0, width//4, width//4 + 1, width):
