@@ -100,8 +100,25 @@ def summarize(run,cases,out):
             result["N"],result["F"],result["physical_Q"]=(sum(request_rows[r["index"]][k] for r in rs)
                 for k in ("output_tokens","generation_forwards","generation_physical_padded_rows"))
             summary.append(result)
+    check = {}
     for ctl,arm in combinations(MODES,2):
-        score_files(dirs[ctl],dirs[arm],cases,out/f"{ctl}-vs-{arm}.csv",baseline_policy=ctl,arm_policy=arm)
+        path = out/f"{ctl}-vs-{arm}.csv"
+        score_files(dirs[ctl],dirs[arm],cases,path,baseline_policy=ctl,arm_policy=arm)
+        with path.open() as f:
+            for row in csv.DictReader(f):
+                if row["scope"] != "all":
+                    continue
+                for side, mode in (("arm",arm),("baseline",ctl)):
+                    key=(mode,int(row["requests"]))
+                    fields=("correct","macro_tpf","pooled_token_efficiency","N","F","physical_Q")
+                    vals=[row[f"{side}_{k}"] for k in fields]
+                    if check.setdefault(key,vals)!=vals:
+                        raise ValueError("Pairwise references disagree on endpoint")
+    for r in summary:
+        correct,tpf,eff,n,f,q=check[r["mode"],r["n"]]
+        if (r["N"],r["F"],r["physical_Q"])!=(int(n),int(f),int(q)) or abs(float(eff)-int(n)/int(q))>1e-10:
+            raise ValueError("Clock and accuracy tables disagree on physical work")
+        r.update(correct=int(correct),macro_tpf=float(tpf),token_efficiency=float(eff))
     with (out/"fifo-clock.csv").open("w",newline="") as f:
         w=csv.DictWriter(f,fieldnames=list(summary[0]),lineterminator="\n")
         w.writeheader()

@@ -29,7 +29,7 @@ def comparison(root):
     return out
 
 
-def mixed_plot(source, target, matched=False, fixed_low=False):
+def mixed_plot(source, target, matched=False, fixed_low=False, unified=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -37,7 +37,10 @@ def mixed_plot(source, target, matched=False, fixed_low=False):
 
     metrics = ("correct", "macro_tpf", "pooled_token_efficiency", "physical_Q")
     points = {}
-    with source.open() as f:
+    sources = ([p for q in (32,64,128,256,512) if (p := source/f"gemma-unified-q{q}-vs-baselines.csv").is_file()]
+               if unified else [source])
+    for path in sources:
+      with path.open() as f:
         for row in csv.DictReader(f):
             if row["window"] != "90" or row["scope"] != "all":
                 continue
@@ -48,13 +51,15 @@ def mixed_plot(source, target, matched=False, fixed_low=False):
                 values = tuple(float(row[f"{side}_{m}"]) for m in metrics)
                 if points.setdefault(key, values) != values:
                     raise ValueError(f"Inconsistent {key} result in {source}")
-    title = {"flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2"}
+    title = {"flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2", "active_w2":"Active-only W2"}
     def compact(slots):
         return " / ".join(q+(f" x{len(g)}" if len(g)>1 else "")
                           for q,group in groupby(slots.split("_")) for g in [list(group)])
     def label(name):
         if name in title:
             return title[name]
+        if name.startswith("q") and name[1:].split("_")[0].isdecimal():
+            return "Unified "+name.upper().replace("_SLACK_RANDOM"," (random K32)")
         if name.startswith("t2t_q"):
             return "Ours K0 Q"+name.split("_")[1][1:]
         if name.startswith("slottrace_"):
@@ -80,8 +85,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False):
         points={p:points[p] for p in order}
     n = len(points)
     fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
-    colors = ["#116f74" if p.startswith(("slottrace","t2t_q")) else
-              "#6174a3" if p.startswith("flow") else "#bb713c" if "_cap_" in p else "#8c929a"
+    colors = ["#116f74" if p.startswith(("slottrace","t2t_q","q")) else
+              "#6174a3" if p.startswith(("flow","active_w")) else "#bb713c" if "_cap_" in p else "#8c929a"
               for p in points]
     for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
                                                   "Token efficiency (%)", "Physical Q (thousands)"))):
@@ -96,6 +101,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False):
     detail="matched nominal offers vs capped Optimus" if matched else "high-first candidate vs Optimus and FlowBlock"
     if fixed_low:
         detail="Q32 and Q64: K0 vs decoder-capped Optimus"
+    if unified:
+        detail="fixed unified offers vs same-slot baselines; each row has 90 requests"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -135,6 +142,8 @@ def main():
     low = HERE/"controls/gemma-fixed-caps-vs-k0.csv"
     if low.exists():
         mixed_plot(low,HERE/"gemma-q32-q64-capped.png",fixed_low=True)
+    if list((HERE/"controls").glob("gemma-unified-q*-vs-baselines.csv")):
+        mixed_plot(HERE/"controls",HERE/"gemma-unified-fixed.png",unified=True)
 
 
 if __name__ == "__main__":
