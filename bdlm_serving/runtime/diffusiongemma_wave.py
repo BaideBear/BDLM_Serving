@@ -6,7 +6,8 @@ from pathlib import Path
 
 import torch
 
-from ..evaluation.frozen import ROOT, load_tasks
+from ..evaluation.frozen import ROOT, load_tasks, sha
+from ..evaluation.original30 import check_reproduction, pin_rows, save_json
 from ..methods.b3.gate import B3Gate, logits_entropy
 from .diffusiongemma import check_snapshot, observe
 
@@ -143,14 +144,42 @@ def generate(model, data, policy, plan):
             spawn()
 
 
+def reference90(args, settings):
+    root = getattr(args, "reference30_root", None)
+    if root is None or args.native_reference is None:
+        raise ValueError("frozen90 requires original30 wave and native90 references")
+    old = json.loads((root/"run.json").read_text())
+    # Changing which independent arms run is allowed; changing the algorithm,
+    # canvas, sampler version or weights isn't.
+    if (not set(settings["policies"]) <= set(old["policies"]) or
+            any(old.get(k) != v for k, v in settings.items()
+                if k not in ("policies", "flowblock_windows", "include_b3"))):
+        raise ValueError("Original30 wave settings mismatch")
+    return {p: pin_rows(root, p) for p in settings["policies"]}
+
+
 def run_wave(args, before_cuda=None):
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
     plan = resolve_plan(args.config, args.block_size, args.flowblock_windows)
+    if getattr(args, "flow_only", False):
+        plan.update(include_b3=False, policies=[p for p in plan["policies"] if p != "b3"])
     native = json.loads((ROOT/"archive/diffusiongemma-native/config.json").read_text())
     if transformers.__version__ != native["transformers"]:
         raise ValueError("Transformers version differs from native baseline")
-    tasks = load_tasks(args.samples)
+    suite = getattr(args, "suite", "frozen30")
+    if suite not in ("frozen30", "frozen90"):
+        raise ValueError("Unknown test suite")
+    settings = dict(plan, model=native["model"], revision=native["revision"],
+                    transformers=transformers.__version__, torch=str(torch.__version__))
+    refs = {}
+    if suite == "frozen90":
+        from ..evaluation.frozen90 import load_tasks as load_tasks90
+        tasks = load_tasks90(args.samples)
+        refs = reference90(args, settings)
+        settings.update(suite=suite, seed_offset=0, samples_sha256=sha(args.samples))
+    else:
+        tasks = load_tasks(args.samples)
     check_snapshot(args.checkpoint)
     proc = AutoProcessor.from_pretrained(args.checkpoint, local_files_only=True)
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(args.checkpoint, local_files_only=True,
@@ -159,8 +188,7 @@ def run_wave(args, before_cuda=None):
     if model.config.canvas_length != plan["block_size"]:
         raise ValueError("configured block_size must match checkpoint canvas_length")
     args.output.mkdir(parents=True, exist_ok=False)
-    (args.output/"run.json").write_text(json.dumps(dict(plan, model=native["model"], revision=native["revision"],
-        transformers=transformers.__version__, torch=str(torch.__version__)), indent=2))
+    (args.output/"run.json").write_text(json.dumps(settings, indent=2))
     if before_cuda:
         before_cuda(model)
     model.to("cuda")
@@ -194,7 +222,12 @@ def run_wave(args, before_cuda=None):
                     max_q=max(k for _,k in events[1:]), tpf=n/f, token_efficiency=n/q, events=events,
                     trace=trace, eos=seq[-1] in eos, truncated=seq[-1] not in eos)
                 path = args.output/f"{task['index']:02d}-{policy}.json"
-                tmp = path.with_suffix(".tmp")
-                tmp.write_text(json.dumps(row, ensure_ascii=False))
-                tmp.replace(path)
+                if refs and task["index"] < 30:
+                    check_reproduction(refs[policy][task["index"]], row)
+                save_json(path, row)
+                if refs and task["index"] == 29:
+                    save_json(args.output/f"reproduced30-{policy}.json", dict(policy=policy,
+                              matched=30, reference_sha256=[h for _, h in refs[policy]]))
                 print(policy, task["task_id"], f"N={n} F={f} Q={q}", flush=True)
+            if refs:
+                save_json(args.output/f"complete-{policy}.json", dict(policy=policy, requests=len(tasks)))

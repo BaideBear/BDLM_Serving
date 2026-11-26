@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from ..evaluation import frozen90
+from ..evaluation.original30 import check_reproduction, pin_rows, save_json
 from ..evaluation.frozen import ROOT, load_tasks, sha
 from ..methods.optimus.upstream import COMMIT, load_controls
 from .diffusiongemma import check_snapshot, observe
@@ -217,27 +218,8 @@ def historical_refs(root, policies, settings):
         if policy not in meta["policies"] or any(
                 meta[k] != v for k, v in settings.items() if k != "policies"):
             raise ValueError(f"{policy}: historical environment or settings differ")
-        paths = [folder / f"{i:02d}-{policy}.json" for i in range(30)]
-        refs[policy] = [(path, sha(path)) for path in paths]
+        refs[policy] = pin_rows(folder, policy)
     return refs
-
-
-def check_reproduction(reference, row):
-    path, digest = reference
-    if sha(path) != digest:
-        raise ValueError(f"{path.name}: historical reference changed during generation")
-    old = json.loads(path.read_text())
-    new = json.loads(json.dumps(row))
-    if old != new:
-        fields = sorted(k for k in old.keys() | new.keys() if k not in old or k not in new
-                        or old[k] != new[k])
-        raise ValueError(f"{path.name}: original30 reproduction failed: {fields}")
-
-
-def save_json(path, data):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False))
-    tmp.replace(path)
 
 
 def run(args, before_cuda=None):

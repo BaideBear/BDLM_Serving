@@ -248,6 +248,23 @@ def optimus_chunk(raw, block):
     return c
 
 
+def check_gemma_wave(raw, block):
+    # The archived adapter pads a fixed W-block decoder. A resident but idle
+    # slot still enters the transformer; encoder re-encodes remain one block.
+    w = int(raw["policy"].removeprefix("flow_w"))
+    events, trace = raw["events"], raw["trace"]
+    if not events or events[0][0] != "encoder" or not trace:
+        raise ValueError("Missing Gemma wave prefill or decoder trace")
+    gen = events[1:]
+    if (any(tag not in ("encoder", "decoder") or type(q) is not int or
+            q != (block if tag == "encoder" else w*block) for tag, q in gen)
+            or [q for tag,q in gen if tag == "decoder"] != [s["q"] for s in trace]
+            or any(s["width"] != w or not 1 <= s["active"] <= w for s in trace)
+            or raw["max_q"] != w * block or raw["generation_forwards"] != len(gen)
+            or raw["generation_query_rows"] != sum(q for _,q in gen)):
+        raise ValueError("Gemma wave work does not match packed physical rows")
+
+
 def _nominal_q(raw, index):
     """Best-effort nominal budget from an explicit field or t2t_q<N> policy."""
     for name in ("nominal_q", "budget"):
@@ -304,6 +321,8 @@ def normalize_request(raw, case, role):
     fixed_chunk = None
     if model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
         fixed_chunk = optimus_chunk(raw, block)
+    elif model == "gemma" and policy in ("flow_w1", "flow_w2"):
+        check_gemma_wave(raw, block)
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
         raise ValueError(f"{role} request {index}: max_q {max_q!r} does not match {model} B{block}")
     if _request_failed(raw, index):
