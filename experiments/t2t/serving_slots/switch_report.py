@@ -91,11 +91,12 @@ def report(run, cases, out, reference_switch_run=None):
     def labels_for(phases):
         return ["slottrace_" + "_".join(map(str,t)) for t in phases]
     native = ((128,),("256n",),(128,128,"256n","256n"),("256n","256n",128,128))
+    sparse_high = ((128,),(256,),(128,128,256,256),(256,256,128,128))
     dose = ((32,), (64,), ("32r8",), ("32r8","32r8",64,64), (64,64,"32r8","32r8"),
             (32,)*8+(64,)*8, (64,)*8+(32,)*8)
-    options = [base] + ([native,dose] if model == "gemma" else [])
+    options = [base] + ([native,dose,sparse_high] if model == "gemma" else [])
     phases = next((t for t in options if labels_for(t) == meta["policies"]),None)
-    if phases is None or (phases == dose) != bool(reference_switch_run):
+    if phases is None or (phases in (dose,sparse_high)) != bool(reference_switch_run):
         raise ValueError("Unregistered slot experiment")
     labels = labels_for(phases)
     sources = [run] * len(labels)
@@ -109,6 +110,14 @@ def report(run, cases, out, reference_switch_run=None):
         sources += [reference_switch_run]*2
         pairs = [(0,2),(7,3),(8,4),(7,5),(8,6),(3,4),(5,6)]
         pairs += [(endpoint,mixed) for endpoint in (0,1) for mixed in (3,4,5,6)]
+    elif phases == sparse_high:
+        ref = json.loads((reference_switch_run/"run.json").read_text())
+        if (ref["model"],ref["policies"]) != (model,labels_for(native)):
+            raise ValueError("Expected qualified 128/native256 reference phases")
+        phases += native[1:]
+        labels += labels_for(native[1:])
+        sources += [reference_switch_run]*3
+        pairs += [(4,1),(5,2),(6,3)]
     out.mkdir(exist_ok=True, parents=True)
     cache = out / ".inputs"
     dirs, summary = [], []

@@ -23,9 +23,9 @@ paired stratified normal interval.  All request work is checked with the same
 ``verify_work`` used by the existing T2T scorer; correctness is re-scored from
 ``output_text`` with the existing frozen-task scorer.
 
-Missing, failed, duplicate, or metadata-mismatched requests are rejected rather
-than silently dropped.  Truncation is retained and reported because truncation
-is a realised decode outcome, not a missing measurement.
+Missing, duplicate and metadata-mismatched requests are rejected. The one
+documented LLaDA Optimus progress-limit outcome counts as wrong, with every
+attempted forward charged. Other failure modes are not treated as scores.
 """
 from __future__ import annotations
 
@@ -224,6 +224,56 @@ def _number_field(raw, name, index):
 
 _POLICY_Q = re.compile(r"(?:^|_)q(\d+)(?:_|$)")
 _GEMMA_OPTIMUS = re.compile(r"(ibs|obs)_(4|8|16|32|64|128|256)")
+_LL_OPT = re.compile(r"optimus_(ibs|obs)_c(4|8|16|32)")
+
+
+def llada_reference_chunk(raw, block):
+    match = _LL_OPT.fullmatch(raw["policy"])
+    opt = bool(match)
+    nominal = int(match[2]) if opt else int(raw["policy"][-1])*block
+    work, prefill = [], 0
+    if raw["phase"]!="formal" or raw["generation_cap"]!=2048:
+        raise ValueError("Wrong LLaDA generation protocol")
+    if opt and (raw["extra"]["fixed_chunk"]!=nominal or raw["extra"]["mode"]!=match[1]
+                or raw["extra"]["window_switches"]!=0):
+        raise ValueError("Wrong fixed Optimus configuration")
+    for e,c in zip(raw["events"],raw["calls"],strict=True):
+        q = c["rows"]
+        if (type(q) is not int or q<1 or c["batch"]!=1 or q!=c["physical_rows"] or
+                e["physical_forwards"]!=1 or e["q_tokens"]!=q):
+            raise ValueError("LLaDA trace disagrees with physical call")
+        if e["phase"]=="prefill":
+            if work or prefill:
+                raise ValueError("Only the initial prompt prefill is free")
+            prefill=q
+            continue
+        if len(e["absolute_positions"])!=q:
+            raise ValueError("Wrong number of LLaDA positions")
+        if opt:
+            if (e["phase"]!="optimus" or e["fixed_chunk"]!=nominal or e["mode"]!=match[1]
+                    or len(set(e["absolute_positions"]))!=q):
+                raise ValueError("Optimus changed mode or chunk")
+        elif (e["phase"]!="flowblock_packed" or q!=nominal or e["max_physical_q"]!=q or
+              e["query_rows_over_layers"] != e["physical_layer_attention_calls"]*q):
+            raise ValueError("Wrong packed FlowBlock width")
+        work.append(q)
+    if (not work or prefill!=raw["prefill_rows"] or len(work)!=raw["generation_forwards"]
+            or sum(work)!=raw["generation_query_rows"] or sum(work)!=raw["generation_physical_padded_rows"]
+            or max(work)!=raw["max_q"] or Counter(map(str,work))!=raw["q_histogram"]):
+        raise ValueError("Incomplete LLaDA work ledger")
+    failure=raw["request_failure"]
+    if raw["status"]!="success":
+        if (not opt or raw["status"]!="generation_failed" or not isinstance(failure,dict)
+                or failure.get("type")!="optimus_progress_limit" or failure!=raw["extra"].get("request_failure")
+                or failure.get("delivered_output_tokens")!=0 or raw["output_tokens"] or raw["output_ids"]
+                or raw["output_text"]!="" or raw["eos"] or raw["truncated"] or
+                failure.get("steps_in_block")!=failure.get("step_limit") or
+                failure.get("step_limit")!=2*raw["events"][-1]["active_width"]+4 or
+                not 0<=failure.get("cached_prefix",-1)<block):
+            raise ValueError("Unrecognized or inconsistent LLaDA generation failure")
+    elif failure is not None:
+        raise ValueError("Unexpected failure record on successful generation")
+    return nominal
 
 
 def optimus_chunk(raw, block):
@@ -319,13 +369,17 @@ def normalize_request(raw, case, role):
     block = MODEL_BLOCK[model]
     max_q = raw.get("max_q", block)
     fixed_chunk = None
-    if model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
+    ll_ref = model=="llada21" and (_LL_OPT.fullmatch(policy) or policy in ("flow_w1","flow_w2"))
+    if ll_ref:
+        fixed_chunk = llada_reference_chunk(raw, block)
+    elif model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
         fixed_chunk = optimus_chunk(raw, block)
     elif model == "gemma" and policy in ("flow_w1", "flow_w2"):
         check_gemma_wave(raw, block)
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
         raise ValueError(f"{role} request {index}: max_q {max_q!r} does not match {model} B{block}")
-    if _request_failed(raw, index):
+    failed = _request_failed(raw, index)
+    if failed and not ll_ref:
         raise ValueError(f"{role} request {index}: failed status {raw.get('status')!r}")
     n = _int_field(raw, ("output_tokens", "N"), "output_tokens", index)
     f = _int_field(raw, ("generation_forwards", "F"), "generation_forwards", index)
@@ -353,7 +407,7 @@ def normalize_request(raw, case, role):
     if not isinstance(text, str):
         raise ValueError(f"{role} request {index}: missing output_text")
     try:
-        result = score(text, case)
+        result = {"correct":False} if failed else score(text, case)
     except Exception as error:  # scoring failures are audit failures, not silent zeros
         raise ValueError(f"{role} request {index}: scoring failed: {error}") from error
     correct = bool(result["correct"])
@@ -365,7 +419,7 @@ def normalize_request(raw, case, role):
                 seed=case["seed"], model=model, policy=policy, max_q=max_q,
                 N=n, F=f, Q=q, physical_Q=physical_q, tpf=tpf,
                 token_efficiency=token_efficiency, correct=int(correct),
-                failed=0, truncated=int(truncated), nominal_q=nominal_q)
+                failed=int(failed), truncated=int(truncated), nominal_q=nominal_q)
 
 
 def load_request_set(path, cases, role, policy=None):
