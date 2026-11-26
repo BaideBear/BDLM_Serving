@@ -25,7 +25,7 @@ def package(tok, ids, work, eos, special, prefill, **extra):
                 q_histogram=dict(Counter(str(rows) for _, rows in work)), **extra)
 
 
-def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
+def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None, promote_verified=False):
     import torch
     import transformers.utils as utils
     if not hasattr(utils, "LossKwargs"):
@@ -36,6 +36,8 @@ def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from bdlm_serving.runtime.serial import install_llada_rectangular_mask
     from .llada_sparse import LLaDASparseKernel, qualify_full_budget
+    if promote_verified:
+        from .verified_commit import VerifiedCommitKernel
 
     for entry in json.loads((ROOT / "benchmarks/checkpoints/llada21.json").read_text()):
         path = args.checkpoint / entry["name"]
@@ -80,7 +82,8 @@ def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
             # Additional differential check of per-step logits/RNG/KV, not study work.
             qualify_full_budget(model, *parameters, reference=ref)
         opts = {} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask, policy=arm.selection)
-        kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, hazard_weights=weights,
+        kernel_type = VerifiedCommitKernel if promote_verified and arm is not None else LLaDASparseKernel
+        kernel = kernel_type(model, 32 if arm is None else arm.budget, hazard_weights=weights,
                                    exchange_rates=rates,
                                    admission_fit=admission_fit if arm and arm.selection in ADMISSION else None,
                                    context_ranker=context_ranker if arm and arm.selection in CONTEXT else None,
@@ -98,7 +101,8 @@ def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
         work = [(e["stage"], e["physical_q"]) for e in path if e["phase"] != "prefill"]
         return package(tok, kernel.output(state)[0].tolist(), work, eos, special,
                        sum(e["physical_q"] for e in path if e["phase"] == "prefill"),
-                       t2t_edits=sum(e.get("edited", 0) for e in path), events=path)
+                       t2t_edits=sum(e.get("edited", 0) for e in path), events=path,
+                       **({"logical_commits":state.commits} if hasattr(state,"commits") else {}))
     return run
 
 

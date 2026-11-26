@@ -1,0 +1,50 @@
+{
+  "seed": 17000,
+  "gen_length": 38,
+  "q": 8,
+  "prompt_rows": 58,
+  "actions": {
+    "prefill": 1,
+    "denoise": 11,
+    "commit": 2
+  },
+  "correct_task_score": null,
+  "exact_canvas_and_rng_at_every_step": true,
+  "commits": [
+    {
+      "block": 1,
+      "context_version": 0,
+      "promoted": true,
+      "source_forward": 3,
+      "committed_end": 64,
+      "exact_layers": 20
+    },
+    {
+      "block": 2,
+      "context_version": 1,
+      "promoted": true,
+      "source_forward": 11,
+      "committed_end": 96,
+      "exact_layers": 20
+    }
+  ],
+  "generation": [
+    {
+      "F": 13,
+      "physical_Q": 247
+    },
+    {
+      "F": 11,
+      "physical_Q": 183
+    }
+  ],
+  "task_id": "gsm8k/167",
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "torch": "2.9.0+cu128",
+  "thresholds": {
+    "confidence_threshold": 0.5,
+    "editing_threshold": 0.5,
+    "max_post_steps": 16
+  }
+}
