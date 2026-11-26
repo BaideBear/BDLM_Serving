@@ -1,7 +1,7 @@
 import copy
 import pytest
 
-from experiments.t2t.serving_slots.switch_report import audit
+from experiments.t2t.serving_slots.switch_report import audit, gemma_stages
 
 
 def fixture():
@@ -75,3 +75,26 @@ def test_native_offer_is_billed_as_offer_not_forced_verification():
     assert audit(live,("256n",))==result
     with pytest.raises(ValueError):
         audit(row,(256,))
+
+
+def test_gemma_can_finish_on_native_offer_or_verification_but_not_selection():
+    def event(stage,block,finish=False):
+        return dict(stage=stage,block=block,q=128 if stage=="selected" else 256,
+                    admitted=2 if stage=="bootstrap" else 0,edited=int(stage=="selected"),
+                    hard_strict_edits=int(stage=="selected"),revoked=0,resolved=2,
+                    stop_candidate=finish or stage=="selected",finished=finish,terminal_clock=False)
+    events=[event("bootstrap",4),event("selected",4),event("verify",4,True),
+            event("bootstrap",260),event("native_offer",260,True)]
+    counts=dict(bootstrap=2,selected=1,verify=1,reencode=1,native_offer=1)
+    row=dict(events=events,physical_events=[("encoder",4),("decoder",256),("decoder",128),
+             ("decoder",256),("encoder",256),("decoder",256),("decoder",256)],
+             forwards_by_phase=counts,q_by_phase={k:v*(128 if k=="selected" else 256)
+                                                 for k,v in counts.items()},t2t_edits=1)
+    c=gemma_stages(row)
+    assert (c["blocks"],c["native_closes"],c["verify_closes"],c["reencode_Q"],
+            c["strict_T2T"],c["M2T"],c["selected_stop_candidates"])==(2,1,1,256,1,4,1)
+    for key,value in (("finished",True),("resolved",1),("hard_strict_edits",0)):
+        bad=copy.deepcopy(row)
+        bad["events"][1][key]=value
+        with pytest.raises(ValueError):
+            gemma_stages(bad)

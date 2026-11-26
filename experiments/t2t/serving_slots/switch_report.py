@@ -4,11 +4,57 @@ from collections import Counter
 import csv
 import json
 from pathlib import Path
+from itertools import groupby
 
 from bdlm_serving.evaluation.frozen import sha
 from bdlm_serving.methods.t2t.slot_trace import parse_offer
 from experiments.t2t.prefix_window.score_run import snapshot
 from tools.prefix_cohorts import score_files
+
+
+def gemma_stages(row):
+    """Account for terminal authority separately from the width of a decoder event."""
+    events=row["events"]
+    phases=("bootstrap","selected","native_offer","verify","reencode")
+    c=Counter({f"{p}_{field}":0 for p in phases for field in ("F","Q")})
+    c.update(blocks=0,native_closes=0,verify_closes=0,bootstrap_closes=0,
+             M2T=0,strict_T2T=0,revoked=0,selected_stop_candidates=0)
+    block_width=256
+    previous=None
+    for start,group in groupby(events,key=lambda e:e["block"]):
+        group=list(group)
+        if previous is not None and start!=previous+block_width:
+            raise ValueError("Unordered Gemma canvases")
+        previous=start
+        c["blocks"]+=1
+        if group[0]["stage"]!="bootstrap":
+            raise ValueError("Missing full bootstrap")
+        resolved=0
+        for index,e in enumerate(group):
+            p=e["stage"]
+            if p not in phases[:-1] or (e["finished"] or e["terminal_clock"]) != (index==len(group)-1):
+                raise ValueError("Unaccounted or premature block completion")
+            if (e["edited"]!=e["hard_strict_edits"] or
+                    resolved+e["admitted"]-e["revoked"]!=e["resolved"]):
+                raise ValueError("Bad admission/edit/revocation counters")
+            resolved=e["resolved"]
+            c.update(M2T=e["admitted"],strict_T2T=e["edited"],revoked=e["revoked"])
+            c[p+"_F"]+=1
+            c[p+"_Q"]+=e["q"]
+            if p=="selected" and e["stop_candidate"]:
+                c["selected_stop_candidates"]+=1
+        last=group[-1]["stage"]
+        if last not in ("bootstrap","verify","native_offer"):
+            raise ValueError("A sparse selection finalized a block")
+        c[("native" if last=="native_offer" else last)+"_closes"]+=1
+    enc=[q for tag,q in row["physical_events"][1:] if tag=="encoder"]
+    if len(enc)!=c["blocks"]-1 or any(q!=block_width for q in enc):
+        raise ValueError("Missing inter-block encoder forward")
+    c.update(reencode_F=len(enc),reencode_Q=sum(enc))
+    if (any((c[p+"_Q"],c[p+"_F"])!=(row["q_by_phase"].get(p,0),row["forwards_by_phase"].get(p,0)) for p in phases)
+            or c["strict_T2T"]!=row["t2t_edits"]):
+        raise ValueError("Phase work does not reproduce the physical ledger")
+    return c
 
 
 def audit(row, pattern):
@@ -41,9 +87,15 @@ def audit(row, pattern):
         up, down = int(prev is not None and q > prev), int(prev is not None and q < prev)
         prev = q
         if e["stage"] == "native_offer":
-            if (ll or not s.native_full or e["q"] != width or e["positions"] != list(range(width))
-                    or e["mandatory_fresh"] != e["fresh_selected"] or e["available_fresh"] != e["mandatory_fresh"]
-                    or e["overflow"] or "prefix_plan" in e):
+            if ll:
+                start=e["block"]*width
+                valid=(e["physical_q"]==width and e["absolute_positions"]==list(range(start,start+width))
+                       and e["layer_physical_q"] and all(v==width for v in e["layer_physical_q"])
+                       and not e["approximate_same_block_kv"] and 0<=e["mandatory_fresh"]<=width)
+            else:
+                valid=(e["q"]==width and e["positions"]==list(range(width))
+                       and e["mandatory_fresh"]==e["fresh_selected"]==e["available_fresh"])
+            if (not valid or not s.native_full or e["overflow"] or "prefix_plan" in e):
                 raise ValueError("Explicit native budget did not execute a complete canvas")
             full += width
             c.update(selections=1,up=up,down=down,offered_rows=q,native_offers=1,native_rows=width)
@@ -90,11 +142,12 @@ def report(run, cases, out, reference_switch_run=None):
     base = ((a,), (b,), (a,a,b,b), (b,b,a,a))
     def labels_for(phases):
         return ["slottrace_" + "_".join(map(str,t)) for t in phases]
-    native = ((128,),("256n",),(128,128,"256n","256n"),("256n","256n",128,128))
+    mid,high=(128,"256n") if model=="gemma" else (16,"32n")
+    native = ((mid,),(high,),(mid,mid,high,high),(high,high,mid,mid))
     sparse_high = ((128,),(256,),(128,128,256,256),(256,256,128,128))
     dose = ((32,), (64,), ("32r8",), ("32r8","32r8",64,64), (64,64,"32r8","32r8"),
             (32,)*8+(64,)*8, (64,)*8+(32,)*8)
-    options = [base] + ([native,dose,sparse_high] if model == "gemma" else [])
+    options = [base,native] + ([dose,sparse_high] if model == "gemma" else [])
     phases = next((t for t in options if labels_for(t) == meta["policies"]),None)
     if phases is None or (phases in (dose,sparse_high)) != bool(reference_switch_run):
         raise ValueError("Unregistered slot experiment")
@@ -120,21 +173,28 @@ def report(run, cases, out, reference_switch_run=None):
         pairs += [(4,1),(5,2),(6,3)]
     out.mkdir(exist_ok=True, parents=True)
     cache = out / ".inputs"
-    dirs, summary = [], []
+    dirs, summary, mechanism = [], [], []
     for label, pattern, source in zip(labels, phases, sources, strict=True):
         folder = snapshot(source, label, sha(cases), cache)
         dirs.append(folder)
-        counts = []
+        counts,stage_counts = [],[]
         for i in range(90):
             raw = json.loads((folder / f"{i:02d}-{label}.json").read_text())
             if (raw["index"], raw["policy"], raw["model"]) != (i, label, model):
                 raise ValueError("Request identity mismatch")
             counts.append(audit(raw, pattern))
+            if model=="gemma":
+                stage_counts.append(gemma_stages(raw))
         for cohort, idx in (("original30", slice(30)), ("added60", slice(30,None)), ("all90", slice(None))):
             sums = Counter()
             for r in counts[idx]:
                 sums.update(r)
             summary.append(dict(model=model, policy=label, cohort=cohort, **sums))
+            if stage_counts:
+                total=Counter()
+                for part in stage_counts[idx]:
+                    total.update(part)
+                mechanism.append(dict(model=model,policy=label,cohort=cohort,**total))
     for ctl, arm in pairs:
         path = out/f"{model}-{labels[ctl]}-vs-{labels[arm]}.csv"
         score_files(dirs[ctl], dirs[arm], cases, path, baseline_policy=labels[ctl], arm_policy=labels[arm])
@@ -143,6 +203,11 @@ def report(run, cases, out, reference_switch_run=None):
         w = csv.DictWriter(f, fieldnames=list(fields), lineterminator="\n",restval=0)
         w.writeheader()
         w.writerows(summary)
+    if mechanism:
+        with (out/f"{model}-slot-phases.csv").open("w",newline="") as f:
+            w=csv.DictWriter(f,fieldnames=list(mechanism[0]),lineterminator="\n")
+            w.writeheader()
+            w.writerows(mechanism)
 
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@ def slot_controls(arms, args, extra, block):
         meta = json.loads((folder/"run.json").read_text())
         if choice.native_full:
             p = "fullwidth"
-            ready = args.model == "gemma"
+            ready = args.model in ("gemma","llada21")
         else:
             ready = (p in meta["policies"] and json.loads((folder/f"complete-{p}.json").read_text())
                      == dict(policy=p, requests=90))
@@ -82,7 +82,34 @@ def check_flat(row, old):
     copy = {**row, "policy": old["policy"], "events": [
         {k:v for k,v in e.items() if k not in ("slot_tick", "slot_offer", "slot_prefix_mode")}
         for e in row["events"]]}
-    if old["policy"] == "fullwidth":
+    if old["policy"]=="fullwidth" and old["model"]=="llada21":
+        tick=0
+        for original,e in zip(row["events"],copy["events"],strict=True):
+            stage=e["stage"]
+            if stage=="native_offer":
+                if (original.get("slot_tick")!=tick or original.get("slot_offer")!=32 or
+                        e["absolute_positions"]!=list(range(e["block"]*32,(e["block"]+1)*32)) or
+                        e["physical_q"]!=32 or e["approximate_same_block_kv"] or
+                        "prefix_plan" in e):
+                    raise ValueError("Invalid native B32 full-block execution")
+                e["stage"]="dense"
+                tick+=1
+            elif "slot_tick" in original or stage not in ("prefill","verify","bootstrap","commit"):
+                raise ValueError("Unexpected LLaDA fixed native action")
+            if (e["reserved_extra_edit_positions"] or e["reserved_strict_edit_positions"]
+                    or e["hard_strict_edits"]!=e.get("edited",0)
+                    or not 0<=e["mandatory_fresh"]<=e["physical_q"]
+                    or e["overflow"]!=max(0,e["physical_q"]-e["q_budget"])):
+                raise ValueError("Invalid hard-refresh ledger for native B32")
+            for k in ("reserved_extra_edit_positions","reserved_strict_edit_positions","mandatory_fresh",
+                      "hard_strict_edits","overflow","hard_clock"):
+                e.pop(k,None)
+        for col in ("forwards_by_phase","q_by_phase"):
+            counts=dict(copy[col])
+            if "native_offer" in counts:
+                counts["dense"]=counts.pop("native_offer")
+            copy[col]=counts
+    elif old["policy"] == "fullwidth":
         # Only scheduler bookkeeping is new. Compare every native event field,
         # phase count (after relabeling), raw output ID and physical model call.
         extra = ("reserved_extra_edit_positions", "reserved_strict_edit_positions", "hard_strict_edits",

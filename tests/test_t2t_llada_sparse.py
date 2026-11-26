@@ -370,6 +370,85 @@ def test_slot_trace_roundtrip_with_live_cache():
         assert e["layer_physical_q"] == [len(p["selected_rows"])] * 2
 
 
+def _pack_llada(kernel, state, policy):
+    from bdlm_serving.methods.t2t.online import package
+    events = state.events
+    work = [(e["stage"], e["physical_q"]) for e in events if e["phase"] != "prefill"]
+    row = package(SimpleNamespace(decode=lambda ids, **_:str(ids)), kernel.output(state)[0].tolist(),
+                  work, set(), set(), sum(e["physical_q"] for e in events if e["phase"]=="prefill"),
+                  events=events, t2t_edits=sum(e.get("edited",0) for e in events))
+    return dict(row, model="llada21", index=0, policy=policy)
+
+
+def test_explicit_native_slot_matches_every_dense_action_and_package():
+    import copy
+    from tools.run_t2t import check_flat
+    model = _Toy().eval()
+    dense = LLaDASparseKernel(model,32)
+    native = LLaDASparseKernel(model,32,0,32,policy="slottrace_32n")
+    dense.capture_logits = native.capture_logits = True
+    a,b = [_state(k,prompt_length=66,gen_length=65) for k in (dense,native)]
+    for _ in range(256):
+        assert dense.step(a) == native.step(b)
+        assert (a.phase,a.block,a.post_steps) == (b.phase,b.block,b.post_steps)
+        assert torch.equal(a.x,b.x) and torch.equal(a.rng_cpu,b.rng_cpu)
+        assert (dense.last_logits is None) == (native.last_logits is None)
+        if dense.last_logits is not None:
+            assert torch.equal(dense.last_logits,native.last_logits)
+        assert a.cache.get_seq_length()==b.cache.get_seq_length()
+        for layer_a,layer_b in zip(a.cache.to_legacy_cache(),b.cache.to_legacy_cache(),strict=True):
+            assert all(torch.equal(x,y) for x,y in zip(layer_a,layer_b,strict=True))
+        if a.phase=="done":
+            break
+    assert a.phase=="done" and b.slot_tick>2
+    old=_pack_llada(dense,a,"fullwidth")
+    row=_pack_llada(native,b,"slottrace_32n")
+    check_flat(row,old)
+    for change in ("position","commit","edits"):
+        bad=copy.deepcopy(row)
+        if change=="position":
+            next(e for e in bad["events"] if e["stage"]=="native_offer")["absolute_positions"][0]+=1
+        elif change=="commit":
+            bad["events"].pop()
+        else:
+            next(e for e in bad["events"] if e["stage"]=="native_offer")["hard_strict_edits"]+=1
+        with pytest.raises(ValueError):
+            check_flat(bad,old)
+
+
+@pytest.mark.parametrize("fields", [("32n","32n","16","16"),("16","16","32n","32n")])
+def test_native_sparse_handoffs_keep_resident_kv_and_replay_writes(fields):
+    from experiments.t2t.serving_slots.switch_report import audit
+    name="slottrace_"+"_".join(fields)
+    q=int(fields[0].rstrip("n"))
+    kernel=LLaDASparseKernel(_Toy().eval(),q,0,q,policy=name)
+    s=_state(kernel,gen_length=64)
+    for _ in range(256):
+        start=s.block*32
+        old=s.x[0,start:start+32].clone()
+        fresh=set(s.history.fresh) if s.history else set()
+        kernel.step(s)
+        e=s.events[-1]
+        if e["stage"]=="native_offer":
+            assert fresh <= {i-start for i in e["absolute_positions"]}
+            assert e["layer_physical_q"]==[32,32] and s.resident is not None
+            for i,(k,v) in enumerate(s.resident):
+                assert torch.equal(k.flatten()[start:],old+i*10)
+                assert torch.equal(v.flatten()[start:],old+i*10+100)
+        elif e["stage"]=="selected":
+            assert fresh == set(e["prefix_plan"]["fresh_rows"]) <= set(e["prefix_plan"]["selected_rows"])
+        else:
+            assert "slot_tick" not in e and "slot_offer" not in e
+        if s.phase=="done":
+            break
+    assert s.phase=="done"
+    rows=_pack_llada(kernel,s,name)
+    result=audit(rows,fields)
+    assert result["up"] and result["down"] and result["native_rows"]==32*result["native_offers"]
+    assert result["charged_other"]==sum(rows["q_by_phase"].get(k,0) for k in ("verify","bootstrap","commit"))
+    assert rows["q_by_phase"]["commit"]>=64 and rows["t2t_edits"]>0
+
+
 def test_external_offers_interleaved_across_blocks():
     from bdlm_serving.methods.t2t.slot_trace import BudgetOffer
     kernel = LLaDASparseKernel(_Toy().eval(), 8, 0, 8, policy="hard_prefix_zero")

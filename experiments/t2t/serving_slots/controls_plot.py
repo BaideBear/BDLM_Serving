@@ -29,6 +29,53 @@ def comparison(root):
     return out
 
 
+def mixed_plot(source, target):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    metrics = ("correct", "macro_tpf", "pooled_token_efficiency", "physical_Q")
+    points = {}
+    with source.open() as f:
+        for row in csv.DictReader(f):
+            if row["window"] != "90" or row["scope"] != "all":
+                continue
+            for side in ("arm", "baseline"):
+                key = row[side+"_policy"]
+                values = tuple(float(row[f"{side}_{m}"]) for m in metrics)
+                if points.setdefault(key, values) != values:
+                    raise ValueError(f"Inconsistent {key} result in {source}")
+    title = {"slottrace_256n_256n_128_128":"Ours: 256n x2, 128 x2",
+             "flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2"}
+    def label(name):
+        if name in title:
+            return title[name]
+        mode, slot = name.split("_", 1)
+        cap = slot.startswith("cap_")
+        slots = slot.removeprefix("cap_").replace("_", "/")
+        return f"Optimus {mode.upper()} {slots}" + (" (capped)" if cap else "")
+    if not points:
+        raise ValueError("Missing frozen90 records")
+    n = len(points)
+    fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
+    colors = ["#116f74" if p in title and p.startswith("slottrace") else
+              "#6174a3" if p.startswith("flow") else "#bb713c" if "_cap_" in p else "#8c929a"
+              for p in points]
+    for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
+                                                  "Token efficiency (%)", "Physical Q (thousands)"))):
+        vals = [v[j] * (1, 1, 100, .001)[j] for v in points.values()]
+        bars = ax.barh(range(n), vals, color=colors)
+        ax.bar_label(bars, labels=[f"{v:.{(0,3,2,1)[j]}f}" for v in vals], padding=3, fontsize=9)
+        ax.set_yticks(range(n), [label(p) for p in points] if not j else [])
+        ax.invert_yaxis()
+        ax.set_xlim(0, max(vals)*1.34)
+        ax.spines[["top","right"]].set_visible(False)
+        ax.set_title(heading, fontsize=11)
+    fig.suptitle("DiffusionGemma | mixed slots vs Optimus and FlowBlock | frozen90")
+    fig.savefig(target, dpi=150)
+    plt.close(fig)
+
+
 def main():
     import matplotlib
     matplotlib.use("Agg")
@@ -54,6 +101,7 @@ def main():
     fig.suptitle("DiffusionGemma | same 90 requests, same nominal slot", fontsize=14)
     fig.savefig(HERE/"gemma-optimus.png", dpi=150)
     plt.close(fig)
+    mixed_plot(HERE/"controls/gemma-mixed-vs-external.csv", HERE/"gemma-mixed-vs-external.png")
 
 
 if __name__ == "__main__":

@@ -194,10 +194,8 @@ class LLaDASparseKernel(SerialKernel):
                  exchange_rates=None, context_ranker=None, admission_fit=None):
         super().__init__(model, "llada21")
         self.slots = slots_for(policy, 32, q_budget, fresh_slots, mask_slots)
-        if any(s.native_full for s in self.slots):
-            raise ValueError("Native full-canvas offers require Gemma")
         if self.slots:
-            policy = self.slots[0].plan(32)[2]
+            policy = ("hard_prefix_zero" if self.slots[0].native_full else self.slots[0].plan(32)[2])
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
             raise ValueError(f"Unknown LLaDA quota policy: {policy}")
@@ -302,7 +300,7 @@ class LLaDASparseKernel(SerialKernel):
             )
         return out.logits
 
-    def _forward(self, state, q_start, q_end, store, phase, stage=None):
+    def _forward(self, state, q_start, q_end, store, phase, stage=None, budget=None):
         if state.cache.get_seq_length() != q_start:
             raise RuntimeError("Committed KV / dense Q start mismatch")
         resident_needed = not store and (self.q_budget < 32 or self.prefix_quota is not None)
@@ -310,7 +308,7 @@ class LLaDASparseKernel(SerialKernel):
         cache = state.cache if store else DynamicCache.from_legacy_cache(state.cache.to_legacy_cache())
         audit = _AuditedDenseCache(cache, q_end - q_start, q_end)
         pos = torch.arange(q_start, q_end, device=state.x.device)
-        logits = self._execute(state, pos, q_end, audit, phase, stage or phase, store)
+        logits = self._execute(state, pos, q_end, audit, phase, stage or phase, store, budget)
         if cache.get_seq_length() != q_end:
             raise RuntimeError("Dense pass did not populate complete KV")
         if resident_needed:
@@ -533,10 +531,13 @@ class LLaDASparseKernel(SerialKernel):
             if state.next_budget is not None:
                 info = RoundInfo(state.slot_tick, start, 32, count, len(state.history.fresh))
                 offer, quota, mode = resolve(state.next_budget, info, self.q_budget)
-                if mode == NATIVE_FULL:
-                    raise ValueError("Native full-canvas offers require Gemma")
             editable = range(max(0, state.prompt_length - start), 32)
-            if self.prefix_quota is not None:
+            if mode == NATIVE_FULL:
+                stage, picked = "native_offer", list(range(32))
+                logits = self._forward(state,start,end,False,"denoise",stage,offer)
+                state.events[-1].update(slot_tick=state.slot_tick,slot_offer=offer)
+                state.slot_tick += 1
+            elif self.prefix_quota is not None:
                 prefix_plan = plan_prefix(resolved, editable, state.history.fresh,
                     offer, quota, mode, seed=state.selection_seed,
                     block_start=start, clock=state.step_in_block, last_query=state.last_query)

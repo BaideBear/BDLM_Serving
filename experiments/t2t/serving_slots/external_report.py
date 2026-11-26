@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import sha
+from bdlm_serving.runtime.optimus_limits import validate_trace
 from experiments.t2t.prefix_window.score_run import link_requests, snapshot
 from experiments.t2t.serving_slots.switch_report import audit
 from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
@@ -12,6 +13,33 @@ from tools.prefix_cohorts import load_cases, load_request_set, select_window_cas
 
 def read(path):
     return json.loads(path.read_text())
+
+
+def measured_decoder(row, policy):
+    """One request: physical projections and token admissions are separate ledgers."""
+    cap = "_cap_" in policy
+    if cap:
+        validate_trace(row)
+    events = row["events"]
+    if events[0][0] != "encoder" or any(tag not in ("encoder", "decoder")
+                                         for tag, _ in events[1:]):
+        raise ValueError("Invalid Gemma stage record")
+    observed = [q for tag, q in events[1:] if tag == "decoder"]
+    reencode = [q for tag, q in events[1:] if tag == "encoder"]
+    if (not observed or any(q != 256 for q in reencode)
+            or observed != [s["q"] for s in row["trace"]]
+            or sum(observed)+sum(reencode) != row["generation_physical_padded_rows"]
+            or len(events)-1 != row["generation_forwards"]):
+        raise ValueError("Observed decoder rows differ from reported work")
+    work = []
+    for s in row["trace"]:
+        q, admitted = s["q"], s["accepted"]
+        if not 0 <= admitted <= q:
+            raise ValueError("Admissions outside projected rows")
+        offer = s["offer"] if cap else int(policy.rsplit("_", 1)[1])
+        proposed = s["proposed_q"] if cap else q
+        work.append((q, admitted, max(0, q-offer), max(0, admitted-offer), proposed-q))
+    return work, sum(reencode)
 
 
 def compare(data, out, capped=None):
@@ -50,20 +78,27 @@ def compare(data, out, capped=None):
             if p not in meta["policies"] or read(folder/f"complete-{p}.json")!=dict(policy=p,requests=90):
                 raise ValueError(f"Missing or incomplete {p}")
             rows = by_index(link_requests(folder,p,cache),p)
+            is_optimus = p.startswith(("ibs_","obs_"))
+            if is_optimus:
+                caps = "_cap_" in p
+                ledgers = {i:measured_decoder(read(folder/f"{i:02d}-{p}.json"),p) for i in rows}
             for w in (30,60,90):
                 subset=select_window_cases(cases,w)
                 s=_window_row(subset,rows,own,w,"all","gemma",p,mixed,None)
                 limits=[q for r in subset for q in low[r["index"]]]
                 s.update(mixed_low_rounds=len(limits),mixed_low_over=sum(q>128 for q in limits),
                          mixed_low_max=max(limits),mixed_low_excess=sum(max(0,q-128) for q in limits))
-                if p.startswith(("ibs_","obs_")):
-                    cap = "_cap_" in p
-                    events=[e for r in subset for e in read(folder/f"{r['index']:02d}-{p}.json")["trace"]]
-                    allowances=[e["offer"] if cap else int(p.rsplit("_",1)[1]) for e in events]
-                    excess=[max(0,e["q"]-b) for e,b in zip(events,allowances,strict=True)]
-                    s.update(baseline_decoder_steps=len(events),baseline_max_decoder_q=max(e["q"] for e in events),
-                             baseline_decoder_over=sum(x>0 for x in excess),baseline_decoder_excess=sum(excess),
-                             baseline_actual_rows_cut=sum(e["proposed_q"]-e["q"] for e in events) if cap else "")
+                if is_optimus:
+                    work = [ledgers[r["index"]] for r in subset]
+                    qs, edits, over, edits_over, cuts = zip(*(e for steps, _ in work for e in steps))
+                    s.update(baseline_decoder_steps=len(qs),baseline_max_decoder_q=max(qs),
+                             baseline_decoder_over=sum(x>0 for x in over),baseline_decoder_excess=sum(over),
+                             baseline_actual_rows_cut=sum(cuts) if caps else "",
+                             baseline_requests_over=sum(any(e[2] for e in steps) for steps, _ in work),
+                             baseline_requests_clipped=sum(any(e[4] for e in steps) for steps, _ in work) if caps else "",
+                             baseline_decoder_Q=sum(qs),baseline_reencode_Q=sum(q for _, q in work),
+                             baseline_max_admitted=max(edits),baseline_total_admitted=sum(edits),
+                             baseline_admission_over_steps=sum(x>0 for x in edits_over))
                 lines.append(s)
     with (out/"gemma-mixed-vs-external.csv").open("w",newline="") as f:
         writer=csv.DictWriter(f,fieldnames=list(dict.fromkeys(k for r in lines for k in r)),lineterminator="\n")
