@@ -309,7 +309,9 @@ def test_public_api_signature_and_ledger_shape():
     """Pinned to the orchestrator call in methods/t2t/online.py."""
     signature = inspect.signature(sparse_gemma)
     assert [p.name for p in signature.parameters.values()] == [
-        "model", "q_budget", "fresh_slots", "mask_slots", "policy", "signal", "selection_seed"]
+        "model", "q_budget", "fresh_slots", "mask_slots", "policy", "signal", "selection_seed", "next_budget"]
+    assert signature.parameters["next_budget"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert signature.parameters["next_budget"].default is None
     assert [signature.parameters[n].default for n in ("fresh_slots", "mask_slots")] == [0, 0]
     assert (signature.parameters["policy"].default, signature.parameters["signal"].default,
             signature.parameters["selection_seed"].default) == ("targeted", "uncertain", 0)
@@ -427,6 +429,34 @@ def test_slot_trace_parity_and_live_selected_rows(tiny):
         assert p["budget"] == e["slot_offer"] and e["slot_tick"] == tick
         assert set(p["fresh_rows"]) <= set(e["positions"])
         assert p["actual_width"] == tiny.model.decoder.calls[i][0].shape[-1] == e["q"]
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_external_offer_only_on_physical_selection(tiny, full):
+    from bdlm_serving.methods.t2t.slot_trace import BudgetOffer
+    tiny.config.canvas_length = 6
+    _controlled(tiny, 6, fully_accepted=full)
+    calls = []
+
+    def next_budget(info):
+        calls.append(info)
+        return None if info.tick == 0 else BudgetOffer(6, 2, "right")
+
+    with sparse_gemma(tiny, 4, 0, 4, policy="hard_prefix_zero", next_budget=next_budget) as ledger:
+        tiny.generate(input_ids=PROMPT, max_new_tokens=6, max_denoising_steps=4)
+    selected = [e for e in ledger.trace if e["stage"] == "selected"]
+    assert len(selected) == len(calls) > 0
+    for tick, (e, info) in enumerate(zip(selected, calls)):
+        p = e["prefix_plan"]
+        assert e["slot_tick"] == info.tick == tick
+        assert e["slot_offer"] == p["budget"] == (4 if tick == 0 else 6)
+        assert e["edit_slots"] == p["quota"] == (0 if tick == 0 else 2)
+        assert info.mandatory == len(p["fresh_rows"])
+        assert set(p["fresh_rows"]) <= set(e["positions"])
+    if full:
+        assert any("prefix_empty_verify_plan" in e for e in ledger.trace)
+    else:
+        assert selected[-1]["prefix_plan"]["added_rows"] == [1, 2]
 
 
 @pytest.mark.parametrize("policy", SLACK_POLICIES)

@@ -34,3 +34,36 @@ Gemma 运行参数例（在原有 frozen90 runner 的参数后追加）：
 ```
 
 [严格物理块内的前缀比例实验](../prefix_window/gemma-ratio-decisions.md) · [等宽换位的实测结果](../prefix_window/DONORS.md) · [Optimus 90题复现与评分命令](../prefix_window/README.md)
+
+## 调度器如何供档
+
+在已有原生 decoder 的 batch-one 推理入口传入 `next_budget(info)`。`info` 只含请求内选位序号、物理块起点/宽度、待解码数、必刷数；请求标识和负载信息由调用方闭包持有。回调返回整数 Q（K0），或者 `BudgetOffer(q, prefix=K, selector="right"|"random"|"oldest")`（只补空位，不换走 MASK）。`None` 明确退回执行器构造时的固定 Q、K0；错误值或异常不会被静默改写。这里只接受单块宽度内的 Q。不能把双块请求交给单块执行器并当成大档已执行。
+
+```python
+from bdlm_serving.methods.t2t.slot_trace import BudgetOffer
+
+# llada_kernel = LLaDASparseKernel(model, 8, 0, 8, policy="hard_prefix_zero")
+# lookup 是服务端传入的非阻塞查询；未分配时返回 None，不查询模型 logits。
+state = llada_kernel.create(ids, cfg, cap, seed, mask_id, eos_ids,
+                            next_budget=lambda info: lookup(request_id, info))
+while state.phase != "done":
+    llada_kernel.step(state)
+output = llada_kernel.output(state)
+
+# Gemma 的 context 仅覆盖一个请求；同一模型实例不可并发安装 hook。
+def offer_gemma(info):
+    q = lookup(request_id, info)
+    return BudgetOffer(32, 8, "right") if q == 32 else q
+
+with sparse_gemma(model, 32, 0, 32, policy="hard_prefix_zero",
+                  selection_seed=seed, next_budget=offer_gemma) as ledger:
+    output = model.generate(**inputs, max_new_tokens=cap)
+```
+
+两种后端均让预录实验通过同一个回调入口；必刷超过外部给的预算时按实收费。单独运行或交错推进 LLaDA 请求时，各自保留调档游标和缓存。全宽步骤不回调、不免单。Gemma 即使拟进行选位，若当前全接受且无必刷行，也直接验证，不消费新预算。接口的 CPU 集成测试不等于真实模型切档的质量验证。
+
+## Gemma 已完成的 90 题对照
+
+![Same 90 requests: quality, TPF and physical efficiency](gemma-optimus.png)
+
+[原30、新60、全90的数值（包含实际 N/F/Q）](gemma-optimus.csv) · [重画脚本](controls_plot.py)。Q32 的 Slack 为 K8 右端，Q128 为 K32 可复现随机。固定档零加回是独立对照。IBS/OBS 沿用原 Optimus 策略；虽然名义档位相同，采样、终止、实际 Q/F 和输出长度可能不同。这是执行方法对比，不是前缀的单因素收益。

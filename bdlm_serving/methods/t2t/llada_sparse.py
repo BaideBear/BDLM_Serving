@@ -25,7 +25,7 @@ from .context_gate import ADMISSION, CONTEXT, CROWDED, GATES, crowded_plan, sele
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
-from .slot_trace import slots_for
+from .slot_trace import BudgetSource, RoundInfo, request_source, resolve, slots_for
 
 
 _GATED = ("near_miss", "gate_random")
@@ -121,6 +121,7 @@ class _SelectedCache(DynamicCache):
 @dataclass
 class SparseRequestState(RequestState):
     slot_tick: int = 0
+    next_budget: BudgetSource | None = None
     usage_history: CommittedUsage | None = None
     seat_audit: SeatAudit | None = None
     history: History | None = None
@@ -230,13 +231,16 @@ class LLaDASparseKernel(SerialKernel):
         if policy in _HAZARD and (hazard_weights is None or len(hazard_weights) != 25):
             raise ValueError("Missing frozen hazard calibration")
 
-    def create(self, input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True):
+    def create(self, input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True,
+               *, next_budget=None):
         if not cached or input_ids.ndim != 2 or input_ids.shape[0] != 1:
             raise ValueError("This backend requires cached batch-one input")
         if bool((input_ids == mask_id).any()):
             raise ValueError("Prompt cannot contain the generation mask ID")
+        source = request_source(self.slots, next_budget, self.policy)
         base = super().create(input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True)
         return SparseRequestState(**vars(base),
+                                  next_budget=source,
                                   usage_history=CommittedUsage() if self.policy == "hard_committed_usage" else None,
                                   seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *CROWDED) else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
@@ -523,11 +527,14 @@ class LLaDASparseKernel(SerialKernel):
             logits = self._forward(state, start, end, False, "denoise", stage)
         else:
             stage = "selected"
-            offer = self.slots[state.slot_tick % len(self.slots)] if self.slots else self.q_budget
+            offer, quota, mode = self.q_budget, self.prefix_quota, self.policy
+            if state.next_budget is not None:
+                info = RoundInfo(state.slot_tick, start, 32, count, len(state.history.fresh))
+                offer, quota, mode = resolve(state.next_budget, info, self.q_budget)
             editable = range(max(0, state.prompt_length - start), 32)
             if self.prefix_quota is not None:
                 prefix_plan = plan_prefix(resolved, editable, state.history.fresh,
-                    offer, self.prefix_quota, self.policy, seed=state.selection_seed,
+                    offer, quota, mode, seed=state.selection_seed,
                     block_start=start, clock=state.step_in_block, last_query=state.last_query)
                 picked, hard_reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
             elif hard:
@@ -542,8 +549,10 @@ class LLaDASparseKernel(SerialKernel):
             positions = local + start
             cache = _SelectedCache(state.resident, positions, start, end)
             logits = self._execute(state, positions, end, cache, "denoise", stage, False, offer)
-            if self.slots:
+            if state.next_budget is not None:
                 state.events[-1].update(slot_tick=state.slot_tick, slot_offer=offer)
+                if quota:
+                    state.events[-1]["slot_prefix_mode"] = mode
                 state.slot_tick += 1
             if prefix_plan is not None:
                 state.events[-1]["prefix_plan"] = prefix_plan.audit()

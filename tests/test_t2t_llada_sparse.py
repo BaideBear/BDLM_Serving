@@ -74,8 +74,8 @@ class _Toy(nn.Module):
         return draft, logits.softmax(-1).gather(-1, draft[..., None]).squeeze(-1)
 
 
-def _state(kernel, *, cfg=CFG, prompt_length=34, gen_length=1, eos_ids=()):
-    return kernel.create(torch.full((1, prompt_length), 3), cfg, gen_length, 29, MASK, eos_ids)
+def _state(kernel, *, cfg=CFG, prompt_length=34, gen_length=1, eos_ids=(), **kw):
+    return kernel.create(torch.full((1, prompt_length), 3), cfg, gen_length, 29, MASK, eos_ids, **kw)
 
 
 @pytest.mark.parametrize("q", [6, 32])
@@ -368,6 +368,40 @@ def test_slot_trace_roundtrip_with_live_cache():
         assert p["budget"] == e["slot_offer"] == (4,8)[tick%2] and e["slot_tick"] == tick
         assert set(p["fresh_rows"]) <= set(p["selected_rows"])
         assert e["layer_physical_q"] == [len(p["selected_rows"])] * 2
+
+
+def test_external_offers_interleaved_across_blocks():
+    from bdlm_serving.methods.t2t.slot_trace import BudgetOffer
+    kernel = LLaDASparseKernel(_Toy().eval(), 8, 0, 8, policy="hard_prefix_zero")
+    calls = [[], []]
+
+    def source(i):
+        def offer(info):
+            calls[i].append(info)
+            return (BudgetOffer(32, 4) if i == 0 and info.tick % 2 else None) if not i else 4
+        return offer
+
+    states = [_state(kernel, gen_length=64, next_budget=source(i)) for i in range(2)]
+    for _ in range(256):
+        for st in states:
+            if st.phase != "done":
+                kernel.step(st)
+        if all(st.phase == "done" for st in states):
+            break
+    for i, st in enumerate(states):
+        assert st.phase == "done"
+        rows = [e for e in st.events if e["stage"] == "selected"]
+        assert len({r.block_start for r in calls[i]}) > 1
+        assert len(rows) == st.slot_tick == len(calls[i])
+        for tick, (r,e) in enumerate(zip(calls[i], rows)):
+            p = e["prefix_plan"]
+            assert tick == e["slot_tick"] == r.tick
+            assert (r.block_start, r.mandatory, r.masks) == (
+                p["block_start"], len(p["fresh_rows"]), e["masked_before"])
+            assert p["budget"] == e["slot_offer"] == ((32 if tick % 2 else 8) if i == 0 else 4)
+            assert p["quota"] == (4 if i == 0 and tick % 2 else 0)
+            assert set(p["fresh_rows"]) <= set(p["selected_rows"])
+            assert e["layer_physical_q"] == [p["actual_width"]] * 2
 
 
 @pytest.mark.parametrize("policy", SLACK_POLICIES)
