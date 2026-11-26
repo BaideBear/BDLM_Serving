@@ -19,6 +19,11 @@ def arms(model, q, study):
         # Reuse the same already-qualified zero arm for this Q when scoring.
         specs = []
         modes = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+    elif study == "oldest":
+        if q != pilot:
+            raise ValueError("First oldest-row pilot is restricted to the two registered budgets")
+        specs = []
+        modes = ("hard_prefix_slack_oldest",)
     else:
         raise ValueError(f"Unknown study {study}")
     for k in ([1, pilot_k] if q == pilot else [1]):
@@ -33,6 +38,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", choices=MODELS)
     p.add_argument("q", type=int)
-    p.add_argument("study", choices=("matched", "slack"))
+    p.add_argument("study", choices=("matched", "slack", "oldest"))
     args = p.parse_args()
     print(" ".join(arms(args.model, args.q, args.study)))

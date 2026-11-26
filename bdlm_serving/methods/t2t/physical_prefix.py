@@ -5,7 +5,7 @@ from random import Random
 
 
 MATCHED_MODES = ("hard_prefix_zero", "hard_prefix_random", "hard_prefix_frontier_right")
-SLACK_MODES = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+SLACK_MODES = ("hard_prefix_slack_right", "hard_prefix_slack_random", "hard_prefix_slack_oldest")
 PREFIX_MODES = MATCHED_MODES + SLACK_MODES
 
 
@@ -37,6 +37,7 @@ class PrefixPlan:
     added_rows: tuple[int, ...]
     evicted_rows: tuple[int, ...]
     positions: tuple[int, ...]
+    eligible_last_query: tuple[int, ...] | None = None
 
     def audit(self):
         """All rows are physical block-local; add block_start for absolute IDs."""
@@ -49,10 +50,13 @@ class PrefixPlan:
                     added_rows=list(self.added_rows), evicted_rows=list(self.evicted_rows),
                     selected_rows=list(self.positions), zero_width=len(self.zero_rows),
                     actual_width=len(self.positions), underfill=max(0, self.budget - len(self.positions)),
-                    overflow=max(0, len(self.positions) - self.budget))
+                    overflow=max(0, len(self.positions) - self.budget),
+                    **({"eligible_last_query": list(self.eligible_last_query)}
+                       if self.eligible_last_query is not None else {}))
 
 
-def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block_start, clock):
+def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block_start, clock,
+                last_query=None):
     """Build zero first, then exchange unprotected rows or use genuine slack.
 
     ``accepted`` covers the full *current* physical block, including any
@@ -89,8 +93,18 @@ def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block
         capacity = max(0, budget - len(zero)) if zero else 0
     count = min(quota, len(pool), capacity)
     added = ()
+    stamps = None
+    if policy == "hard_prefix_slack_oldest":
+        if last_query is None or len(last_query) != len(accepted):
+            raise ValueError("oldest requires a block-local last physical Q timestamp per row")
+        stamps = tuple(last_query[i] for i in pool)
+        if any(type(t) is not int or t < 0 for t in stamps):
+            raise ValueError("eligible prefix row missing physical Q history")
     if count:
-        if policy in ("hard_prefix_random", "hard_prefix_slack_random"):
+        if stamps is not None:
+            added = tuple(sorted(i for _, i in sorted(zip(stamps, pool),
+                          key=lambda pair: (pair[0], -pair[1]))[:count]))
+        elif policy in ("hard_prefix_random", "hard_prefix_slack_random"):
             ranked = list(pool)
             Random(f"physical-prefix:{seed}:{block_start}:{clock}").shuffle(ranked)
             added = tuple(sorted(ranked[:count]))
@@ -99,4 +113,5 @@ def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block
     evicted = () if slack_only else tuple(sorted(evictable[:count]))
     positions = tuple(sorted((set(zero) - set(evicted)).union(added)))
     return PrefixPlan(budget, quota, block_start, clock, prefix_end, tuple(sorted(fresh)), pool,
-                      masks[0] if masks else None, zero, masks, backfill, added, evicted, positions)
+                      masks[0] if masks else None, zero, masks, backfill, added, evicted, positions,
+                      stamps)

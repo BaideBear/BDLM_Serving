@@ -1,6 +1,6 @@
 """Audit prefix exposure against each event's own endogenous zero plan.
 
-Nominal Q is ``prefix_plan.budget``; actual physical rows (Gemma ``q``, LLaDA
+Executable Q is ``prefix_plan.budget``; actual physical rows (Gemma ``q``, LLaDA
 ``actual_q``) must equal ``actual_width``.  ``slack`` is unused fixed-Q seats in
 the zero plan, ``pool`` is ``eligible_prefix_rows``, and opportunity is
 ``min(K, slack, pool)`` summed for K=1/4.  Fresh-only overflow is separate.  No
@@ -20,7 +20,7 @@ COHORTS = (("original30", range(30)), ("added60", range(30, 90)),
 DATASETS = ("gsm8k", "math500", "humaneval")
 MODES = frozenset(("hard_prefix_zero", "hard_prefix_frontier_right",
                    "hard_prefix_random", "hard_prefix_slack_right",
-                   "hard_prefix_slack_random"))
+                   "hard_prefix_slack_random", "hard_prefix_slack_oldest"))
 FIELDS = ("model", "policy", "kind", "cohort", "requests", "events",
           "mean_q_rows", "positive_slack_events", "positive_slack_requests",
           "slack_rows", "fresh_overflow_events", "fresh_overflow_rows",
@@ -177,8 +177,10 @@ def classify(kind_schema, width, policy, index, event):
 
     parsed = parse_policy(policy)
     need(parsed is not None and parsed["mode"] in MODES, label, "bad policy")
-    need(parsed["budget"] == b and parsed["fresh"] == 0
-         and q == b - parsed["mask"], label, "policy/plan mismatch")
+    nominal = parsed["budget"]
+    effective = 32 if (kind_schema, width, nominal) == ("llada", 32, 64) else nominal
+    need(effective == b and 1 <= b <= width and parsed["fresh"] == 0
+         and 0 <= q < b and q == nominal - parsed["mask"], label, "policy/plan mismatch")
 
     if kind_schema == "gemma":
         need(all(k in event for k in ("q", "block", "clock", "positions")),
@@ -210,6 +212,14 @@ def classify(kind_schema, width, policy, index, event):
         shape = "slack"
         need(not ev and ss == zs | ads and aw == zw + len(ad), label,
              "slack shape mismatch")
+        target = min(q, len(el), max(0, b - zw))
+        need(len(ad) == target, label, "slack did not use exact eligible seats")
+        if mode == "hard_prefix_slack_oldest":
+            stamps = plan.get("eligible_last_query")
+            need(isinstance(stamps, list) and len(stamps) == len(el)
+                 and all(type(t) is int and t >= 0 for t in stamps), label, "invalid age evidence")
+            ranked = sorted(zip(stamps, el), key=lambda pair: (pair[0], -pair[1]))
+            need(ads == {i for _, i in ranked[:target]}, label, "oldest order mismatch")
     elif not ad and not ev:
         shape = "noop" if q > 0 else "zero"
     else:
@@ -229,13 +239,39 @@ def classify(kind_schema, width, policy, index, event):
                 noop=q > 0 and not ad, saturated=q > 0 and len(ad) >= q)
 
 
+def verify_query_history(events, kind, width):
+    """Rebuild physical-query timestamps BEFORE applying the current forward."""
+    stamps = None
+    block = None
+    for index, event in enumerate(events, 1):
+        stage = event["stage"]
+        if stage == "prefill":
+            continue
+        if stage == "bootstrap":
+            block, stamps, tick = event["block"], [-1] * width, 0
+        need(stamps is not None and event["block"] == block, kind, "missing block bootstrap")
+        tick = tick + 1 if kind == "gemma" else index
+        need(event.get("hard_clock") == tick, kind, "physical history clock mismatch")
+        if stage == "selected":
+            plan = event["prefix_plan"]
+            need(plan["eligible_last_query"] == [stamps[i] for i in plan["eligible_prefix_rows"]],
+                 kind, "physical history does not reproduce eligible timestamps")
+        queried = event["positions"] if kind == "gemma" else [
+            p - block * width for p in event["absolute_positions"]]
+        for row in queried:
+            need(0 <= row < width, kind, "history position outside physical block")
+            stamps[row] = tick
+
+
 def audit(run_dir, policy, cases, model, kind_schema, width):
     requests = load_requests(run_dir, policy, cases, model)
     totals = {name: Counter() for name, _ in COHORTS}
     kinds = {name: set() for name, _ in COHORTS}
     for index in sorted(requests):
-        events = [e for e in requests[index].get("events", [])
-                  if e.get("stage") == "selected"]
+        trace = requests[index].get("events", [])
+        if policy.endswith("_slack_oldest"):
+            verify_query_history(trace, kind_schema, width)
+        events = [e for e in trace if e.get("stage") == "selected"]
         per = Counter()
         for event in events:
             item = classify(kind_schema, width, policy, index, event)

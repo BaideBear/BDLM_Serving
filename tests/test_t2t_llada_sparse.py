@@ -342,7 +342,7 @@ def test_gate_random_full_run_no_free_sampling():
                for e in state.events)
 
 
-SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random", "hard_prefix_slack_oldest")
 
 
 def _slack_run(q, k, policy, *, steps=4, edit=False):

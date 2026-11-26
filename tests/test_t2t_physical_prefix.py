@@ -11,10 +11,11 @@ ZERO, RANDOM, RIGHT = MATCHED_MODES
 
 
 def plan(accepted, fresh=(), q=5, k=0, mode=ZERO, *, editable=None,
-         seed=29, block_start=32, clock=3):
+         seed=29, block_start=32, clock=3, last_query=None):
     rows = range(len(accepted)) if editable is None else editable
     return plan_prefix(accepted, rows, fresh, q, k, mode, seed=seed,
-                       block_start=block_start, clock=clock)
+                       block_start=block_start, clock=clock,
+                       last_query=[0] * len(accepted) if last_query is None else last_query)
 
 
 def test_strict_physical_prefix_stops_at_first_hole_before_removing_fresh():
@@ -40,6 +41,19 @@ def test_zero_underfills_instead_of_backfilling_retired_prefix_rows():
     assert right.added_rows == (5,) and right.evicted_rows == (7,)
     assert right.audit()["underfill"] == 2
     assert plan([True] * 8).positions == ()
+
+
+def test_oldest_uses_last_physical_query_then_rightmost_tie():
+    tokens = [True] * 6 + [False, True]
+    times = [0, 2, 7, 2, 3, 5, 1, 1]
+    p = plan(tokens, {2}, q=5, k=2, mode="hard_prefix_slack_oldest",
+             editable=range(1, 8), last_query=times)
+    assert p.added_rows == (1, 3) and p.evicted_rows == ()
+    assert p.audit()["eligible_last_query"] == [2, 2, 3, 5]
+    assert plan(tokens, {2}, q=5, k=1, mode="hard_prefix_slack_oldest",
+                editable=range(1, 8), last_query=times).added_rows == (3,)
+    with pytest.raises(ValueError, match="history"):
+        plan(tokens, k=2, mode="hard_prefix_slack_oldest", last_query=[-1] * 8)
 
 
 def test_first_mask_is_protected_and_all_extra_masks_precede_old_backfill():

@@ -102,6 +102,28 @@ def test_gemma_swap_slack_and_noop():
     assert view["kind"] == "noop" and view["noop"] and not view["saturated"]
 
 
+def test_q64_b32_capacity_preserves_quota():
+    policy = "t2t_q64_f0_m63_hard_prefix_slack_right"
+    event = llada(budget=32, quota=1, eligible=(1,), added=(1,))
+    assert exposure.classify("llada", 32, policy, 0, event)["added"] == 1
+    with pytest.raises(ValueError, match="policy/plan mismatch"):
+        exposure.classify("llada", 32, policy.replace("m63", "m62"), 0, event)
+    with pytest.raises(ValueError, match="policy/plan mismatch"):
+        exposure.classify("gemma", 256, policy, 0, event)
+
+
+def test_audit_age_is_from_prior_physical_positions():
+    events = [dict(stage="bootstrap", block=16, positions=[0, 1, 2], hard_clock=1),
+              dict(stage="selected", block=16, positions=[0, 2], hard_clock=2,
+                   prefix_plan=dict(eligible_prefix_rows=[0, 1], eligible_last_query=[1, 1])),
+              dict(stage="selected", block=16, positions=[1, 2], hard_clock=3,
+                   prefix_plan=dict(eligible_prefix_rows=[0, 1], eligible_last_query=[2, 1]))]
+    exposure.verify_query_history(events, "gemma", 3)
+    events[2]["prefix_plan"]["eligible_last_query"] = [1, 1]
+    with pytest.raises(ValueError, match="physical history does not reproduce"):
+        exposure.verify_query_history(events, "gemma", 3)
+
+
 def test_opportunity_is_min_k_slack_pool():
     one_pool = gemma(ZERO8, budget=8, quota=0, fresh=(0,), mask=(6,),
                      backfill=(), eligible=(2,))

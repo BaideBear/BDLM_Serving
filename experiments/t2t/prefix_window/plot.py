@@ -32,6 +32,7 @@ MODES = {
     "random": ("Swap random", "#9b4614", "D"),
     "slack_right": ("Slack right", "#155e92", "^"),
     "slack_random": ("Slack random", "#9b4614", "v"),
+    "slack_oldest": ("Slack oldest", "#30704e", "p"),
 }
 
 

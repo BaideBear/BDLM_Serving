@@ -385,7 +385,7 @@ def test_selected_rows_gather_canvas_sc_and_cache_raw_logits(tiny):
         assert torch.equal(masks[i][0][active], native_masks[i][0][active])
 
 
-SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random", "hard_prefix_slack_oldest")
 
 
 def _controlled(tiny, width, *, fully_accepted=False):

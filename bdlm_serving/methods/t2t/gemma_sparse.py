@@ -269,7 +269,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         prefix_plan = None
         if stage == "selected" and quota is not None:
             prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, q_budget, quota, policy,
-                                      seed=selection_seed, block_start=block, clock=clock)
+                                      seed=selection_seed, block_start=block, clock=clock,
+                                      last_query=last_query)
             if not prefix_plan.positions:
                 # All rows are accepted and none is fresh. No sparse Q can be
                 # issued; use the charged native verification path instead.

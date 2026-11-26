@@ -521,7 +521,7 @@ class LLaDASparseKernel(SerialKernel):
             if self.prefix_quota is not None:
                 prefix_plan = plan_prefix(resolved, editable, state.history.fresh,
                     self.q_budget, self.prefix_quota, self.policy, seed=state.selection_seed,
-                    block_start=start, clock=state.step_in_block)
+                    block_start=start, clock=state.step_in_block, last_query=state.last_query)
                 picked, hard_reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
             elif hard:
                 picked, hard_reserved = self._hard_pick(state, editable, resolved, before)
