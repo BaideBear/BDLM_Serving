@@ -2,6 +2,7 @@
 from experiments.t2t.serving_slots.llada_all_slots import (
     AllSlotKernel, BLOCK, OFFERS, PAIR, TopRequestState,
 )
+from experiments.t2t.serving_slots.llada_spawn import SpawnGatedKernel
 
 
 def with_quotes(kernel, state, next_budget):
@@ -26,7 +27,7 @@ def quote(kernel, state, offer):
     """
     if type(offer) is not int or offer not in OFFERS:
         raise ValueError(f"Expected an integer offer in {OFFERS}")
-    if (type(kernel) is not AllSlotKernel or not isinstance(state, TopRequestState)
+    if (type(kernel) not in (AllSlotKernel, SpawnGatedKernel) or not isinstance(state, TopRequestState)
             or state.model_kind != kernel.kind):
         raise ValueError("Quote supports only the pinned AllSlotKernel and its request state")
     phase = state.phase
@@ -62,6 +63,8 @@ def quote(kernel, state, offer):
         return result("commit_head", BLOCK + tail_debt, head)
 
     wants_tail = offer == PAIR and end < state.x.shape[1]
+    if wants_tail and type(kernel) is SpawnGatedKernel and not kernel._tail_resident(state):
+        wants_tail = kernel.admit_new_tail(state)
     if state.resident is None:
         rows = PAIR if wants_tail else BLOCK
         return result("pair_bootstrap" if wants_tail else "head_bootstrap",
