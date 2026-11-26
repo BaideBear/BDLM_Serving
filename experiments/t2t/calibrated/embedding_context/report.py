@@ -88,7 +88,7 @@ def gated_arm(folder, mode, keys, source, *, scored=None):
     return arm, p, x
 
 
-def gated_report(out, root=ROOT, *, crowded=False):
+def gated_report(out, root=ROOT, *, crowded=False, admission=False):
     exp = root / "experiments/t2t"
     fixed = exp / "calibrated/embedding_context/rollout"
     keys = sorted(request_key(r) for r in json.loads(
@@ -96,7 +96,15 @@ def gated_report(out, root=ROOT, *, crowded=False):
     draws = stratified_draws(keys)
     arms, plot_rows = {}, []
     zero = ("noedit", exp / "hard", "archive_zero", "Zero reserve", "hard")
-    if crowded:
+    if admission:
+        configs = [zero, ("context_once_rank", fixed.parent / "crowded", "archive_first",
+                          "First offer: ranked", "adaptive"),
+                   ("admit_low", out, "measured", "Defer: low MASK risk", "geometry"),
+                   ("admit_coin", out, "measured", "Defer: random timing", "placebo")]
+        comparisons = {"admit_low": [("noedit", "primary_feasibility"),
+                       ("admit_coin", "timing_attribution"), ("context_once_rank", "always_first")],
+                       "admit_coin": [("noedit", "descriptive")]}
+    elif crowded:
         base, rank, rand = ("context_once_" + s for s in ("base", "rank", "random"))
         configs = [(base, out, "measured", "One switch: base", "hard"),
                    (rank, out, "measured", "One switch: ranked", "geometry"),
@@ -163,7 +171,7 @@ def gated_report(out, root=ROOT, *, crowded=False):
                 delta_eff_pp=100*(p.efficiency-control.efficiency),
                 **{f"delta_{k}": a[k]-b[k] for k in ("N", "F", "physical_Q")},
                 **paired_uncertainty(x, y, draws)))
-    prefix = "crowded" if crowded else "gated"
+    prefix = "admission" if admission else "crowded" if crowded else "gated"
     if crowded:
         dd = []
         for other, control in ((rand, base), ("context_gate", "noedit")):
@@ -179,7 +187,8 @@ def gated_report(out, root=ROOT, *, crowded=False):
                                                            "delta_TPF_lo", "delta_TPF_hi")}))
         table(out / "crowded-delta-delta.csv", dd)
     render(out / f"{prefix}.svg", "llada21", 32, [(8, plot_rows)], adaptive=True,
-           study_title="Crowded seats: one switch at Q8" if crowded else "Gated embedding placement at Q8")
+           study_title=("Q8: when may a MASK give up its seat?" if admission else
+                        "Crowded seats: one switch at Q8" if crowded else "Gated embedding placement at Q8"))
     table(out / f"{prefix}-arms.csv", [a for a, _, _ in arms.values()])
     table(out / f"{prefix}-matched.csv", contrasts)
     table(out / f"{prefix}-request-deltas.csv", per_request)
@@ -192,10 +201,12 @@ def main(argv=None):
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--gated", action="store_true", help="Q8 same-gate randomization and zero-reserve feasibility")
     mode.add_argument("--crowded", action="store_true", help="Q8 isolated one-switch comparison")
+    mode.add_argument("--admission", action="store_true", help="Q8 first-approved low-risk vs coin timing")
     args = p.parse_args(argv)
-    out = args.out or Path(__file__).resolve().parent / ("crowded" if args.crowded else "gated" if args.gated else "rollout")
-    if args.gated or args.crowded:
-        for policy, feasible in gated_report(out, crowded=args.crowded).items():
+    out = args.out or Path(__file__).resolve().parent / ("admission" if args.admission else
+                        "crowded" if args.crowded else "gated" if args.gated else "rollout")
+    if args.gated or args.crowded or args.admission:
+        for policy, feasible in gated_report(out, crowded=args.crowded, admission=args.admission).items():
             reference = "one-switch base" if args.crowded else "zero reserve"
             print(f"{policy} feasibility vs {reference}: {'PASS' if feasible else 'FAIL'}")
     else:

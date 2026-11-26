@@ -1,0 +1,6 @@
+rule,requests,offers,approved,strict_hits,lost_admissions,hit_no_loss,hit_and_loss,miss_no_loss,miss_and_loss
+always,30,120,120,16,45,9,7,66,38
+low_risk,30,120,59,7,9,5,2,45,7
+matched_random,30,120,59.0,8.696357989836251,19.65933559194429,5.106314699792961,3.5900432900432904,34.234349708262755,16.069292301900997
+admission_oracle,30,120,75,9,0,9,0,66,0
+edit_and_safe_oracle,30,120,9,9,0,9,0,0,0

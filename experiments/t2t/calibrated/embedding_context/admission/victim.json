@@ -1,0 +1,30 @@
+{
+  "calibration_sha256": "d4457807244a5941cc43dc7ed3b4ba665eba962b8730c73babf8705cf1476478",
+  "cutoff": 0.38581211397850956,
+  "features": [
+    "intercept",
+    "mask_ordinal",
+    "mask_population",
+    "fresh_population",
+    "left_mask_gap",
+    "right_mask_gap",
+    "nearest_fresh",
+    "local_mask_fraction"
+  ],
+  "fit_requests": 24,
+  "keep_probability": 0.5051546391752577,
+  "ranker_sha256": "dbcaf8d1496bbd4867a9ad9f44e592bec520c14872c1cb6476f257521d03081d",
+  "schema": "llada21-q8-victim-admission-v1",
+  "training_admissions": 40,
+  "training_offers": 97,
+  "weights": [
+    0.8014864159760695,
+    -0.7319588081039645,
+    -0.3054536794810633,
+    0.6404663490013738,
+    0.098902147875857,
+    -0.02811273411059745,
+    -1.3316206260491301,
+    -0.3359335946685252
+  ]
+}
