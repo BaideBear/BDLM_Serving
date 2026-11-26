@@ -373,7 +373,7 @@ def capture_llada(args, tasks, staging, prepare):
     plan = dict(policies=["native32"], mix_policies=False, batch_size=1)
     namespace = argparse.Namespace(
         model="llada21", checkpoint=args.checkpoint, output=staging,
-        experiment="baselines", batch_size=1)
+        experiment="baselines", batch_size=1, capture_traces=True)
 
     def staged(model):
         import torch

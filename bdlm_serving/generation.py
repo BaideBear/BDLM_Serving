@@ -169,6 +169,12 @@ def run(args, tasks, plan, before_cuda=None):
                 "dense_equivalent_q": sum(e.get("dense_q", e["q_tokens"]) for e in events if e["phase"] != "prefill"),
                 "request_failure": request_failure,
             }
+            # Opt-in raw ledgers for native32 only.  The default archived format
+            # is unchanged; sparse policies never set capture_traces.
+            if (getattr(args, "capture_traces", False)
+                    and policy == "native32" and args.model == "llada21"):
+                result["events"] = events
+                result["calls"] = facade.calls
 
             # Stored only in the user's ignored output directory for offline scoring.
             path = args.output / f"{index:02d}-{policy}.json"

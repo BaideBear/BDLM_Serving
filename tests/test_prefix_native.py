@@ -1,9 +1,11 @@
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.prefix_native import (
-    copy_verified, split_added, verify_gemma, verify_llada,
+    capture_llada, copy_verified, split_added, verify_gemma, verify_llada,
 )
 
 
@@ -113,6 +115,17 @@ class PrefixNativeTest(unittest.TestCase):
             self.assertEqual(len(digest), 64)
             with self.assertRaises(FileExistsError):
                 copy_verified(source, destination)
+
+    def test_capture_llada_opts_into_raw_traces(self):
+        seen = {}
+
+        def fake_run(namespace, tasks, plan, before_cuda=None):
+            seen["namespace"] = namespace
+
+        with patch("bdlm_serving.generation.run", fake_run):
+            capture_llada(SimpleNamespace(checkpoint=Path("/tmp/model")),
+                          [], Path("/tmp/staging"), None)
+        self.assertTrue(seen["namespace"].capture_traces)
 
 
 if __name__ == "__main__":

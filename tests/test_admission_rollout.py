@@ -92,7 +92,9 @@ def test_runner_checks_fit_before_backend_and_hashes_loaded_artifacts(tmp_path, 
     expected = dict(schema=ag.SCHEMA, calibration_sha256=ag.CAL_SHA, ranker_sha256=ag.RANK_SHA,
                     features=list(ag.FEATURES), weights=[0.]*8, cutoff=.5, keep_probability=.4, fit_requests=24)
     fit.write_text(json.dumps(expected))
-    args = SimpleNamespace(model='llada21', samples=None, reference=None, checkpoint=None, context_weights=weights,
+    samples = tmp_path/'samples.json'
+    samples.write_text(json.dumps({'samples': []}))
+    args = SimpleNamespace(model='llada21', samples=samples, reference=None, checkpoint=None, context_weights=weights,
                            arm=['8:0:7:'+mode for mode in ag.MODES], output=tmp_path/'run')
     monkeypatch.setattr(runner, 'load_tasks', lambda _: [])
     monkeypatch.setattr(ec, 'input_table', lambda _: nullcontext(None))
@@ -114,6 +116,7 @@ def test_runner_checks_fit_before_backend_and_hashes_loaded_artifacts(tmp_path, 
     with pytest.raises(StopIteration):
         runner.main(args)
     meta = json.loads((args.output/'run.json').read_text())
+    assert meta['suite'] == 'frozen30' and meta['samples_sha256'] == runner.sha(samples)
     assert meta['admission_fit_sha256'] == runner.sha(fit) and meta['context_weights_sha256'] == runner.sha(weights)
     assert meta['policies'] == ['t2t_q8_f0_m7_'+m for m in ag.MODES]
     weights.write_text(weights.read_text() + '\n')
