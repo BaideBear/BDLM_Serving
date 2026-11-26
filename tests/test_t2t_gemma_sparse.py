@@ -407,6 +407,9 @@ def _controlled(tiny, width, *, fully_accepted=False):
 
 def _gemma_run(tiny, width, q, mask_slots, policy):
     tiny.model.decoder.calls.clear()
+    # The toy decoder derives its draft token from a per-canvas call counter.
+    # Consecutive one-canvas requests have the same prompt length.
+    tiny.model.decoder.last_prefix = None
     torch.manual_seed(13)
     with sparse_gemma(tiny, q, 0, mask_slots, policy=policy) as ledger:
         tiny.generate(input_ids=PROMPT, max_new_tokens=width, max_denoising_steps=4)
@@ -429,6 +432,21 @@ def test_slot_trace_parity_and_live_selected_rows(tiny):
         assert p["budget"] == e["slot_offer"] and e["slot_tick"] == tick
         assert set(p["fresh_rows"]) <= set(e["positions"])
         assert p["actual_width"] == tiny.model.decoder.calls[i][0].shape[-1] == e["q"]
+
+
+def test_flat_prefix_offers_reproduce_complete_audit_and_mixed_quota(tiny):
+    tiny.config.canvas_length = 6
+    _controlled(tiny, 6)
+    fixed = _gemma_run(tiny, 6, 6, 4, "hard_prefix_slack_right")
+    flat = _gemma_run(tiny, 6, 6, 4, "slottrace_6r2")
+    assert fixed.work == flat.work
+    assert fixed.trace == [{k:v for k,v in e.items()
+                            if k not in ("slot_tick","slot_offer","slot_prefix_mode")} for e in flat.trace]
+    mixed = _gemma_run(tiny, 6, 4, 4, "slottrace_4_6r2")
+    selected = [e for e in mixed.trace if e["stage"] == "selected"]
+    assert [e["prefix_plan"]["quota"] for e in selected] == [0,2]
+    assert "prefix_actions" not in selected[0] and "prefix_actions" in selected[1]
+    assert selected[1]["prefix_plan"]["added_rows"] == [1,2]
 
 
 @pytest.mark.parametrize("full", [False, True])

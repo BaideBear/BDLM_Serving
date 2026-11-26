@@ -195,7 +195,7 @@ class LLaDASparseKernel(SerialKernel):
         super().__init__(model, "llada21")
         self.slots = slots_for(policy, 32, q_budget, fresh_slots, mask_slots)
         if self.slots:
-            policy = "hard_prefix_zero"
+            policy = self.slots[0].plan(32)[2]
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
             raise ValueError(f"Unknown LLaDA quota policy: {policy}")

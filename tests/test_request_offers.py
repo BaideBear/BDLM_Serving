@@ -18,3 +18,19 @@ def test_one_owner_and_missing_offer_fallback():
     with pytest.raises(ValueError):
         request_source((), 8, "hard_prefix_zero")
     assert resolve(lambda _: None, RoundInfo(1, 0, 32, 3, 10), 4) == (4, 0, "hard_prefix_zero")
+
+
+@pytest.mark.parametrize("field", ["0","4r0","4r4","4v1","3o-1","064","８","8u02","8.0"])
+def test_invalid_encoded_offers(field):
+    from bdlm_serving.methods.t2t.slot_trace import parse_offer
+    with pytest.raises(ValueError):
+        parse_offer(field,256)
+
+
+def test_encoded_flat_and_mixed_share_source():
+    from bdlm_serving.methods.t2t.slot_trace import slots_for
+    slots = slots_for("slottrace_32r8_64_128u32_32o4",256,32,0,24)
+    source = request_source(slots,None,"hard_prefix_slack_right")
+    observed = [resolve(source,RoundInfo(i,0,256,20,3),32) for i in range(5)]
+    assert [x[:2] for x in observed] == [(32,8),(64,0),(128,32),(32,4),(32,8)]
+    assert [x[2] for x in observed[1:4]] == ["hard_prefix_zero","hard_prefix_slack_random","hard_prefix_slack_oldest"]

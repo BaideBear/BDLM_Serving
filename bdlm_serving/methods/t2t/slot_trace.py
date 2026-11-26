@@ -1,5 +1,6 @@
 """Request-scoped budget offers. A fixed trace is one possible external source."""
 from dataclasses import dataclass
+import re
 from typing import Callable
 
 
@@ -49,14 +50,23 @@ def resolve(source, info, fallback):
     return value.plan(info.block_width)
 
 
+def parse_offer(field, width):
+    match = re.fullmatch(r"([1-9][0-9]*)(?:([ruo])([1-9][0-9]*))?", field)
+    if not match:
+        raise ValueError("Expected Q or Q{r|u|o}K for right/uniform/oldest slack")
+    q, mode, k = match.groups()
+    value = BudgetOffer(int(q), int(k or 0), {None:"right","r":"right","u":"random","o":"oldest"}[mode])
+    value.plan(width)
+    return value
+
+
 def slots_for(policy, width, initial, fresh, mask):
     if not policy.startswith("slottrace_"):
         return ()
     fields = policy.removeprefix("slottrace_").split("_")
-    if not 1 <= len(fields) <= 16 or not all(x.isascii() and x.isdecimal() for x in fields):
+    if not 1 <= len(fields) <= 16:
         raise ValueError("Expected slottrace_<Q>[_<Q>...] with up to 16 slots")
-    slots = tuple(int(x) for x in fields)
-    if (any(str(q) != x or not 1 <= q <= width for q,x in zip(slots, fields))
-            or slots[0] != initial or fresh != 0 or mask != initial):
-        raise ValueError("Single-block external slot trace must start at its declared K0 slot")
+    slots = tuple(parse_offer(x,width) for x in fields)
+    if slots[0].q != initial or fresh != 0 or mask != initial - slots[0].prefix:
+        raise ValueError("Single-block trace must start at its declared Q and prefix quota")
     return slots

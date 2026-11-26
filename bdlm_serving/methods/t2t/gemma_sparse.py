@@ -212,7 +212,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     width = model.config.canvas_length
     slots = slots_for(policy, width, q_budget, fresh_slots, mask_slots)
     if slots:
-        policy = "hard_prefix_zero"
+        policy = slots[0].plan(width)[2]
     source = request_source(slots, next_budget, policy)
     slot_tick = 0
     action_lock = policy in GEMMA_ACTION_LOCK
@@ -415,7 +415,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         before_ids, after_ids = canvas[0].tolist(), after[0].tolist()
         accepted = sampler.accepted_token_mask[0].tolist()
         prefix_actions = None
-        if selected and prefix_plan is not None and policy in GEMMA_ACTION_LOCK.values():
+        if selected and prefix_plan is not None and mode in GEMMA_ACTION_LOCK.values():
             strict, revoked = _prefix_actions(reserved, h.resolved, before_ids, after_ids, accepted)
             if action_lock and (strict or revoked):
                 # The sampler has already run unchanged. Do not freeze logits,
@@ -466,7 +466,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if selected and policy in DONOR_MODES:
             record["prefix_pre_canvas_sha256"] = canvas_digest(before_ids, previous.resolved)
             record["prefix_pre_draft_sha256"] = canvas_digest(prior_draft[0].tolist(), previous.resolved)
-        if quota is not None and policy in GEMMA_ACTION_LOCK.values():
+        if quota is not None and mode in GEMMA_ACTION_LOCK.values():
             record["prefix_canvas_sha256"] = canvas_digest(after_ids, accepted)
             record["prefix_draft_sha256"] = canvas_digest(draft[0].tolist(), accepted)
         if prefix_actions is not None:

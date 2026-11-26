@@ -1,0 +1,89 @@
+"""Score both complete Gemma wave references and K0 Q256 on the same frozen90."""
+import argparse
+import csv
+import json
+from pathlib import Path
+
+from bdlm_serving.evaluation.frozen import ROOT, sha
+from experiments.t2t.prefix_window.score_run import link_requests, snapshot
+from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
+
+
+def read(path):
+    return json.loads(path.read_text())
+
+
+def wave_rows(data, original, cases, policy, cache):
+    run = data/"gemma-wave-reference90"
+    meta = read(run/"run.json")
+    if (meta["suite"],meta["block_size"],meta["samples_sha256"],meta["policies"],
+            meta["flowblock_spawn_threshold"],meta["seed_offset"]) != (
+            "frozen90",256,sha(data/"samples.json"),["flow_w1","flow_w2"],0.8,0):
+        raise ValueError("Invalid wave metadata")
+    if read(run/f"complete-{policy}.json") != dict(policy=policy,requests=90):
+        raise ValueError("Incomplete wave arm")
+    old = [original/f"{i:02d}-{policy}.json" for i in range(30)]
+    if read(run/f"reproduced30-{policy}.json") != dict(policy=policy, matched=30,
+            reference_sha256=[sha(path) for path in old]):
+        raise ValueError("Original30 references changed")
+    with (ROOT/"archive/diffusiongemma-wave/requests.csv").open() as f:
+        public = {int(r["index"]):r for r in csv.DictReader(f) if r["policy"] == policy}
+    folder = link_requests(run, policy, cache)
+    rows,m,_,_ = load_request_set(folder,cases,"wave",policy)
+    if m != "gemma" or set(public) != set(range(30)):
+        raise ValueError("Wrong archived model or incomplete original30")
+    active = {}
+    for r in rows:
+        i = r["index"]
+        raw = read(folder/f"{i:02d}-{policy}.json")
+        t = raw["trace"]
+        active[i] = (sum(s["active"] for s in t),len(t))
+        if i < 30:
+            h = public[i]
+            if (raw != read(old[i]) or r["task_id"] != h["task_id"] or
+                    (r["correct"],r["N"],r["F"],r["physical_Q"],*active[i]) != tuple(
+                    int(h[k]) for k in ("correct","output_tokens","generation_forwards",
+                                         "generation_physical_padded_rows","active_slot_sum","decoder_forwards"))):
+                raise ValueError(f"Archived row or score mismatch: {policy}/{i}")
+    return {r["index"]:r for r in rows}, active
+
+
+def report(data, original, out):
+    cache = out/".inputs"
+    cases = load_cases(data/"samples.json")
+    labels = ["flow_w1","flow_w2","t2t_q256_f0_m256_hard_prefix_zero"]
+    groups = {}
+    active = {}
+    for p in labels[:2]:
+        groups[p],active[p] = wave_rows(data, original,cases,p,cache)
+    p = labels[-1]
+    dest = snapshot(data/"gemma-grid-k1",p,sha(data/"samples.json"),cache)
+    rs,m,_,q = load_request_set(dest,cases,"K0",p)
+    if (m,q) != ("gemma",256):
+        raise ValueError("Wrong fixed Q256 reference")
+    groups[p] = {r["index"]:r for r in rs}
+    summary = []
+    for window in (30,60,90):
+        subset = select_window_cases(cases,window)
+        for base,arm in ((labels[0],labels[1]), (labels[0],p),(labels[1],p)):
+            row = _window_row(subset,groups[base],groups[arm],window,"all","gemma",base,arm,None)
+            for side, label in (("baseline",base),("arm",arm)):
+                row[f"{side}_mean_active_blocks_per_decoder"] = ""
+                if label in active:
+                    counts = [active[label][r["index"]] for r in subset]
+                    row[f"{side}_mean_active_blocks_per_decoder"] = sum(a for a,_ in counts)/sum(f for _,f in counts)
+            summary.append(row)
+            if window == 90:
+                print(base,arm,*(row[k] for k in ("baseline_correct","arm_correct","baseline_macro_tpf",
+                      "arm_macro_tpf","baseline_pooled_token_efficiency","arm_pooled_token_efficiency")))
+    with (out/"gemma-wave-vs-fixed.csv").open("w",newline="") as f:
+        w = csv.DictWriter(f,fieldnames=list(summary[0]),lineterminator="\n")
+        w.writeheader()
+        w.writerows(summary)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    for k in ("data","original","out"):
+        parser.add_argument("--"+k, type=Path,required=True)
+    report(**vars(parser.parse_args()))

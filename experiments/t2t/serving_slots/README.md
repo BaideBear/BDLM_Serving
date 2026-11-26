@@ -85,6 +85,10 @@ with sparse_gemma(model, 32, 0, 32, policy="hard_prefix_zero",
 
 ## 复现切档评分和 FlowBlock 对照
 
+[Gemma FlowBlock W1、W2 与固定 Q256 的实测配对](controls/gemma-wave-vs-fixed.csv)。在同一90题，W1（逐题输出和工作与原生一致）/ W2 / Q256 K0 分别答对 **85 / 84 / 85**，TPF **25.510 / 25.390 / 21.490**，物理效率 **8.77% / 4.38% / 9.22%**；总 Q 为 **357632 / 742912 / 356311**。W2 的实际平均活跃块只有 1.116 个，却物理计算两个块。Q256 K0 对 W1 救3丢3，TPF 差 −4.020，配对95%区间[−5.375,−2.665]；几乎未省总物理 Q，forward 却从1397增至1702。**固定 Q256 该优先比较原生全块路径；它是已验证的独立固定档，不是已验证可在稀疏请求中原地切入的高档。**
+
+**下一组预注册：** 在 Gemma 的相同两轮切档序列中，只在 Q32 轮使用右端 K8 补空位，Q64 仍为 K0；与同相位 K0 配对。另测两个方向各连续停留8个选位轮的 K0 序列，与对应停留2轮的 K0 比较。所有切换瞬间和短请求均保留。此实验回答前缀干预/驻留长度，不代表实测线上负载或时延收益。运行器支持 `32:0:24:slottrace_32r8_32r8_64_64`，`r/u/o` 表示右侧、均匀随机或最久未刷新；必须先复现各固定端点，`--slot-control 32r8=DIR` 指向同 K、同选择器的原始已合格目录。
+
 `python -m experiments.t2t.serving_slots.switch_report --run "$RUN" --cases "$FROZEN90" --out "$PRIVATE_SCORES"` 对已完成的两个端点、两个切换相位做六组配对。每题独立核对选位的时钟和方向、真实 Q、必刷溢出，以及必刷/MASK/普通回填/额外前缀四项的加和；非选位轮及重编码单列。`--out` 包含逐题输出链接与评分，请放在集群私有目录，只发布汇总 CSV。
 
 `python -m bdlm_serving diffusiongemma-wave --checkpoint "$DG_CHECKPOINT" --samples "$FROZEN90" --output "$NEW_RUN" --suite frozen90 --flow-only --block-size 256 --flowblock-windows 1 2 --reference30-root "$ORIGINAL_WAVE" --native-reference "$NATIVE90"` 复用同一 wave 生成器。每个 W 独立逐字段复现其历史30（含工作、输出、种子）之后才进入新增60。W1 还对全部90逐题校验原生输出及前向；W2 每次 decoder 按实际打包的 512 行计费，即使只有一个块处于活跃状态。这是大窗口基线，不是已实现了可切换的 512 档。

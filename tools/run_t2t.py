@@ -11,7 +11,7 @@ from bdlm_serving.methods.t2t.admission_gate import read_admission_fit
 from bdlm_serving.methods.t2t.context_gate import ADMISSION, CONTEXT
 from bdlm_serving.methods.t2t.physical_prefix import PREFIX_MODES
 from bdlm_serving.methods.t2t.protocol import Arm, matrix, verify_bridge, verify_work
-from bdlm_serving.methods.t2t.slot_trace import slots_for
+from bdlm_serving.methods.t2t.slot_trace import parse_offer, slots_for
 
 
 def parse_args():
@@ -30,7 +30,7 @@ def parse_args():
     p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
     p.add_argument("--seed-offset", type=int, default=0,
                    help="Frozen30 paired seed repeat; requires matching native references")
-    p.add_argument("--slot-control", action="append", help="Q=qualified frozen90 fixed K0 run directory")
+    p.add_argument("--slot-control", action="append", help="OFFER=qualified frozen90 fixed policy directory; e.g. 32 or 32r8")
     return p.parse_args()
 
 
@@ -47,17 +47,18 @@ def slot_controls(arms, args, extra, block):
     controls = {}
     for spec in getattr(args, "slot_control", None) or ():
         key, folder = spec.split("=", 1)
-        q, folder = int(key), Path(folder)
-        p = f"t2t_q{q}_f0_m{q}_hard_prefix_zero"
+        choice, folder = parse_offer(key,block), Path(folder)
+        q,k,mode = choice.plan(block)
+        p = f"t2t_q{q}_f0_m{q-k}_{mode}"
         meta = json.loads((folder/"run.json").read_text())
-        if (q in controls or extra["suite"] != "frozen90" or meta["suite"] != "frozen90"
+        if (choice in controls or extra["suite"] != "frozen90" or meta["suite"] != "frozen90"
                 or meta["model"] != args.model or meta["samples_sha256"] != extra["samples_sha256"]
                 or p not in meta["policies"]
                 or json.loads((folder/"qualified.json").read_text()) !=
                    dict(model=args.model, full_width=block, matched=90)
                 or json.loads((folder/f"complete-{p}.json").read_text()) != dict(policy=p, requests=90)):
             raise ValueError(f"Invalid fixed slot control: {spec}")
-        controls[q] = folder, p
+        controls[choice] = folder, p
     if required != controls.keys():
         raise ValueError("Require one qualified control per slot in the trace")
     flat = set()
@@ -71,7 +72,7 @@ def slot_controls(arms, args, extra, block):
 
 def check_flat(row, old):
     copy = {**row, "policy": old["policy"], "events": [
-        {k:v for k,v in e.items() if k not in ("slot_tick", "slot_offer")}
+        {k:v for k,v in e.items() if k not in ("slot_tick", "slot_offer", "slot_prefix_mode")}
         for e in row["events"]]}
     if json.loads(json.dumps(copy)) != old:
         raise ValueError(f"Flat slot trajectory disagrees with fixed control at {row['index']}")
