@@ -130,6 +130,125 @@ def perturb(token, tokenizer, mask_id, vocab):
     return out
 
 
+@torch.inference_mode()
+def parked_tail(model, ids, cfg, length, seed, tokenizer):
+    """Perturb one refresh-only row on the actual first 64->32 downgrade."""
+    from contextlib import ExitStack
+    from copy import deepcopy
+    from unittest.mock import patch
+    from experiments.t2t.serving_slots.llada_top_transition import TopTransitionKernel
+
+    k = TopTransitionKernel(model)
+    mask_id = tokenizer.convert_tokens_to_ids("<|mask|>")
+    s = k.create(ids, cfg, length, seed, mask_id, [tokenizer.eos_token_id])
+    k.step(s, BLOCK)
+    if k.step(s, PAIR)["top_action"] != "fused_growth":
+        raise ValueError("Replay did not open a tail")
+    cut = (s.block + 1) * BLOCK
+    if s.committed_end <= 0 or s.committed_end >= cut:
+        raise ValueError("Probe requires a non-empty committed cache")
+    outputs = {}
+    traces = {}
+    geometry = None
+    for arm, changed in (("on", False), ("on", False), ("on", True), ("sham", False),
+                         ("sham", True), ("off", False), ("off", True),
+                         ("split_moe", False), ("split_moe", True)):
+        state = deepcopy(s)
+        seen = []
+
+        def intervene(_, args, kw):
+            pos = kw["position_ids"][0]
+            native = kw["attention_mask"]
+            keys = torch.arange(cut + BLOCK, device=pos.device)
+            expected = (pos[:, None] // BLOCK >= keys[None, :] // BLOCK)[None, None]
+            if native.dtype != torch.bool or not torch.equal(native, expected):
+                raise ValueError("Rectangular sparse mask or absolute origin is incorrect")
+            head, tail = pos < cut, pos >= cut
+            if (not head.any() or not tail.any() or pos[head].min() < state.prompt_length
+                    or pos.numel() >= BLOCK):
+                raise ValueError("Need sparse generated head queries and parked-tail refresh rows")
+            j = int(tail.nonzero()[0].item())
+            p = pos[j].item()
+            token = state.x[0, p].item()
+            replacement = perturb(token, tokenizer, mask_id, model.config.vocab_size)
+            if token == replacement:
+                raise ValueError("Empty token perturbation")
+            if changed:
+                emb = kw["inputs_embeds"].clone()
+                emb[0, j] = model.get_input_embeddings()(pos.new_tensor(replacement))
+                kw = dict(kw, inputs_embeds=emb)
+            if arm in ("sham", "off"):
+                mapping = native.clone()
+                edges = (head[:, None] & (keys >= cut)[None, :])[None, None]
+                mapping.masked_fill_(edges, arm == "off")
+                kw = dict(kw, attention_mask=mapping)
+            seen.append((pos.tolist(), p, token, replacement))
+            return args, kw
+
+        logits = []
+        trace = {}
+        def capture(name):
+            def hook(_, args, out):
+                x = out[0] if isinstance(out, tuple) else out
+                pos = seen[0][0]
+                trace[name] = x[0, :sum(i < cut for i in pos)].detach().clone()
+            return hook
+
+        def separate(fn):
+            def apply(x):
+                h = sum(i < cut for i in seen[0][0])
+                (head, hr), (tail, tr) = (fn(x[:, :h].contiguous()), fn(x[:, h:].contiguous()))
+                return torch.cat((head, tail), dim=1), tuple(
+                    torch.cat(parts, dim=1) for parts in zip(hr, tr, strict=True))
+            return apply
+        with ExitStack() as hooks:
+            for i, layer in enumerate(model.model.layers):
+                for name, mod in (("attention", layer.attention if hasattr(layer, "attention")
+                                   else layer.self_attn), ("mlp", layer.mlp)):
+                    hooks.callback(mod.register_forward_hook(capture(f"{i}/{name}")).remove)
+                if arm == "split_moe" and hasattr(layer.mlp, "experts"):
+                    hooks.enter_context(patch.object(layer.mlp, "forward", separate(layer.mlp.forward)))
+            hooks.callback(model.register_forward_pre_hook(intervene, with_kwargs=True).remove)
+            hooks.callback(model.register_forward_hook(
+                lambda _, a, out: logits.append(out.logits[0].detach())).remove)
+            e = k.step(state, BLOCK)
+        if len(seen) != 1 or len(logits) != 1 or e["top_action"] != "head_denoise":
+            raise ValueError("Expected exactly one parked-tail forward")
+        pos, p, old, new = seen[0]
+        parked = [i for i in pos if i >= cut]
+        if (pos != e["absolute_positions"] or parked != e["refresh_only_positions"]
+                or e["sampled_q"] != len(pos) - len(parked)
+                or e["layer_physical_q"] != [len(pos)] * len(k.projections)):
+            raise ValueError("Projected rows differ from the executor's work ledger")
+        g = dict(boundary=cut, visible_kv=e["visible_kv"], projected=pos, refresh_only=parked,
+                 sampled_q=e["sampled_q"], perturbed_position=p, from_id=old, to_id=new,
+                 physical_q=len(pos), layers=len(k.projections))
+        if geometry is not None and g != geometry:
+            raise ValueError("Intervention changed row selection or work")
+        geometry = g
+        key = arm, changed
+        if key in outputs and (not torch.equal(outputs[key], logits[0]) or
+                               any(not torch.equal(v, traces[key][k]) for k, v in trace.items())):
+            raise ValueError("Unchanged fork did not reproduce its logits")
+        if arm == "sham" and (not torch.equal(outputs["on", changed], logits[0]) or
+                              any(not torch.equal(v, traces["on",changed][k]) for k,v in trace.items())):
+            raise ValueError("Sham path changed the logits or hidden states")
+        outputs[key] = logits[0]
+        traces[key] = trace
+    h = geometry["sampled_q"]
+    deltas = {arm: dict(head=compare(outputs[arm, False][:h], outputs[arm, True][:h]),
+                        tail=compare(outputs[arm, False][h:], outputs[arm, True][h:]))
+              for arm in ("on", "sham", "off", "split_moe")}
+    for arm in deltas:
+        deltas[arm]["first_head_difference"] = next(
+            (k for k,v in traces[arm, False].items() if not torch.equal(v, traces[arm, True][k])), None)
+    return dict(offers=[BLOCK, PAIR, BLOCK], geometry=geometry, unchanged_fork_exact=True, sham_exact=True,
+                intervention=deltas, strict_head_isolation=deltas["on"]["head"]["max_abs"] == 0,
+                positive_controls_pass=(deltas["off"]["head"]["max_abs"] > 0
+                                        and deltas["on"]["tail"]["max_abs"] > 0),
+                correct_task_score=None)
+
+
 def run(args):
     torch.set_num_threads(args.threads)
     try:

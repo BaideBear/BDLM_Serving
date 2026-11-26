@@ -93,7 +93,10 @@ def main():
     p.add_argument("--original",type=Path,required=True,help="One archived LLaDA OBS/IBS request")
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--q",type=int,choices=(4,8,16,32),default=8)
-    p.add_argument("--top",action="store_true",help="Check the external 32/64 route instead")
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument("--top",action="store_true",help="Check the external 32/64 route instead")
+    mode.add_argument("--parked-mask",action="store_true",
+                      help="Fork the first sparse 64->32 step; perturb a refresh-only tail token")
     p.add_argument("--length",type=int,default=38)
     p.add_argument("--threads",type=int,default=12)
     args=p.parse_args()
@@ -110,7 +113,11 @@ def main():
     cfg=dict(confidence_threshold=.5,editing_threshold=.5,max_post_steps=16)
     ids=torch.tensor([row["prompt_ids"]])
     common=(args.length,row["seed"],tok.convert_tokens_to_ids("<|mask|>"),[tok.eos_token_id])
-    result=(measure_top(model,ids,cfg,*common) if args.top else measure(model,ids,cfg,args.q,*common))
+    if args.parked_mask:
+        from experiments.t2t.serving_slots.mask_probe_llada import parked_tail
+        result=parked_tail(model,ids,cfg,args.length,row["seed"],tok)
+    else:
+        result=(measure_top(model,ids,cfg,*common) if args.top else measure(model,ids,cfg,args.q,*common))
     result.update(task_id=row["task_id"],device="cpu",dtype="bfloat16",torch=str(torch.__version__),
                   thresholds=cfg)
     args.out.write_text(json.dumps(result,indent=2)+"\n")

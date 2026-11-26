@@ -1,0 +1,121 @@
+{
+  "offers": [
+    32,
+    64,
+    32
+  ],
+  "geometry": {
+    "boundary": 64,
+    "visible_kv": 96,
+    "projected": [
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72
+    ],
+    "refresh_only": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72
+    ],
+    "sampled_q": 6,
+    "perturbed_position": 64,
+    "from_id": 527,
+    "to_id": 528,
+    "physical_q": 15,
+    "layers": 20
+  },
+  "unchanged_fork_exact": true,
+  "sham_exact": true,
+  "intervention": {
+    "on": {
+      "head": {
+        "max_abs": 0.375,
+        "mean_abs": 0.08623946458101273,
+        "argmax_changed": 0,
+        "rows": 6
+      },
+      "tail": {
+        "max_abs": 16.65625,
+        "mean_abs": 3.5611064434051514,
+        "argmax_changed": 1,
+        "rows": 9
+      },
+      "first_head_difference": "4/mlp"
+    },
+    "sham": {
+      "head": {
+        "max_abs": 0.375,
+        "mean_abs": 0.08623946458101273,
+        "argmax_changed": 0,
+        "rows": 6
+      },
+      "tail": {
+        "max_abs": 16.65625,
+        "mean_abs": 3.5611064434051514,
+        "argmax_changed": 1,
+        "rows": 9
+      },
+      "first_head_difference": "4/mlp"
+    },
+    "off": {
+      "head": {
+        "max_abs": 7.84375,
+        "mean_abs": 0.8641308546066284,
+        "argmax_changed": 0,
+        "rows": 6
+      },
+      "tail": {
+        "max_abs": 14.5625,
+        "mean_abs": 1.8928313255310059,
+        "argmax_changed": 0,
+        "rows": 9
+      },
+      "first_head_difference": "0/attention"
+    },
+    "split_moe": {
+      "head": {
+        "max_abs": 0.0,
+        "mean_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 6
+      },
+      "tail": {
+        "max_abs": 16.5703125,
+        "mean_abs": 3.4391093254089355,
+        "argmax_changed": 1,
+        "rows": 9
+      },
+      "first_head_difference": null
+    }
+  },
+  "strict_head_isolation": false,
+  "positive_controls_pass": true,
+  "correct_task_score": null,
+  "task_id": "gsm8k/167",
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "torch": "2.9.0+cu128",
+  "thresholds": {
+    "confidence_threshold": 0.5,
+    "editing_threshold": 0.5,
+    "max_post_steps": 16
+  }
+}

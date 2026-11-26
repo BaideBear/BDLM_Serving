@@ -29,6 +29,43 @@ def complete(folder, policy):
         raise ValueError(f"Unqualified arm: {folder}/{policy}")
 
 
+def first_eligible(events, prompt_rows, block=32):
+    for i,e in enumerate(events):
+        if e["phase"]=="prefill":
+            continue
+        end=e["visible_kv"]
+        if end % block:
+            raise ValueError("Unexpected LLaDA visible width")
+        if any(max(prompt_rows,end-2*block)<=p<end-block for p in e["absolute_positions"]):
+            return i
+    return None
+
+
+def check_llada_prefix(on, off, prompt_rows):
+    """Reconstruct the first eligible forward from either arm's actual Q and KV.
+
+    The pre-trigger event ledger is post-sampling, so all fields must match
+    before the trigger, but only input/work fields should match at the trigger.
+    This audits observed events, not a bitwise hash of latent KV/RNG state.
+    """
+    a,b=on["events"],off["events"]
+    i=first_eligible(a,prompt_rows)
+    rec=off["mask_pair"]
+    if i!=first_eligible(b,prompt_rows) or (i is not None)!=(rec["opened_forward_count"]>0):
+        raise ValueError("Mask hook disagrees with first eligible forward in independent ledgers")
+    if i is None:
+        if a!=b:
+            raise ValueError("Unexposed request changed its event ledger")
+        return False
+    if i!=rec["first_trigger"]["event_index"] or a[:i]!=b[:i]:
+        raise ValueError("Divergence before first intervention or trigger indexing mismatch")
+    # Only compare input geometry here, not post-step edits or sampling outcomes.
+    for k in ("phase","stage","physical_q","actual_q","absolute_positions","layer_physical_q","visible_kv"):
+        if a[i][k]!=b[i][k]:
+            raise ValueError(f"Different physical inputs at first intervention: {k}")
+    return True
+
+
 def queue(root, model):
     parent,name,_,_,_,_,gpu = CONFIG[model]
     data=root/"prefix90"
@@ -79,7 +116,9 @@ def score(data, model, out):
             if raw["policy"]!=p:
                 raise ValueError("Wrong recorded mask arm")
             if model=="llada21" and role=="off":
-                exposure[i]=raw["mask_pair"]["opened_forward_count"]>0
+                peer=read(folder/"on"/f"{i:02d}-{on}.json")
+                prompt=read(Path(meta["prompt_reference"])/f"{i:02d}-native32.json")["prompt_ids"]
+                exposure[i]=check_llada_prefix(peer,raw,len(prompt))
             row=normalize_request(dict(raw,policy=canonical),c,role)
             if row["model"]!=model:
                 raise ValueError("Wrong model")
@@ -91,6 +130,8 @@ def score(data, model, out):
                 [a["index"] for a in audit]!=list(range(90)) or not all(a["masked_replay_exact"] for a in audit)):
             raise ValueError("Incomplete paired replay")
         exposure={a["index"]:a["first_intervention_step"] is not None for a in audit}
+    if len(exposure)!=90 or not any(exposure.values()):
+        raise ValueError("No qualified mask intervention on the full frozen90 cohort")
     output=[]
     for w in (30,60,90):
         subset=select_window_cases(cases,w)

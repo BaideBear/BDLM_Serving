@@ -692,9 +692,14 @@ def run(args, prepare=None):
             pair, 0, pair, "hard_noedit"):
         raise RuntimeError("Original dual entry no longer exposes the Q64 no-edit arm")
     import bdlm_serving.runtime.serial as serial
+    probe_models = []
+    def stage_for_both(model):
+        prepare(model)
+        probe_models.append(model)
+
     original_install = _install_hook_via_serial()
     try:
-        run_task = dual_backend(call_args, prepare)
+        run_task = dual_backend(call_args, stage_for_both if prepare else prepare)
     finally:
         serial.install_llada_rectangular_mask = original_install
 
@@ -740,6 +745,24 @@ def run(args, prepare=None):
         samples_sha256=samples_sha, arms=summaries,
         provenance=provenance))
     _write_summary_csv(root / "mask_pair_summary.csv", all_rows)
+    # No request counters or quality samples include these diagnostic forwards.
+    if probe_models:
+        from experiments.t2t.serving_slots.mask_probe_llada import parked_tail
+        model, = probe_models
+        task = tasks[0]
+        ids = torch.tensor([_read(prompt_reference/"00-native32.json")["prompt_ids"]],
+                           dtype=torch.long, device=model.device)
+        cfg = dict(confidence_threshold=.5, editing_threshold=.5, max_post_steps=16)
+        try:
+            with torch.random.fork_rng(devices=[model.device]):
+                diag = parked_tail(model, ids, cfg, 38, task["seed"], tok)
+        except (ValueError, RuntimeError) as exc:
+            diag = dict(status="diagnostic_failed", error=str(exc))
+        else:
+            diag["status"] = "measured"
+        durable(root / "parked-tail-diagnostic.json", dict(diag, task_id=task["task_id"],
+                seed=task["seed"], device=str(model.device), torch=str(torch.__version__),
+                gpu=torch.cuda.get_device_name(model.device), dtype=str(model.dtype)))
     print("mask-pair summary:", json.dumps(summaries, ensure_ascii=False), flush=True)
     return summaries
 
