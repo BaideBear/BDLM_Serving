@@ -383,6 +383,16 @@ def normalize_request(raw, case, role):
     elif model == "gemma" and policy.startswith(("ibs_cap_","obs_cap_")):
         from bdlm_serving.runtime.optimus_limits import validate_trace
         fixed_chunk = validate_trace(raw, block)
+    elif model == "gemma" and policy.startswith(("wave_bridge_","wave_guard_")):
+        from bdlm_serving.methods.t2t.wave_offer import TRACES, audit
+        if policy not in TRACES:
+            raise ValueError("Unknown wave offer")
+        audit(raw["trace"],raw["events"],block,TRACES[policy])
+        physical=[q for _,q in raw["events"][1:]]
+        if (sum(physical)!=raw["generation_query_rows"] or sum(physical)!=raw["generation_physical_padded_rows"]
+            or len(physical)!=raw["generation_forwards"] or max(physical)!=raw["max_q"]):
+            raise ValueError("Whole-canvas work counters disagree with model calls")
+        fixed_chunk=TRACES[policy][0] if len(TRACES[policy])==1 else None
     elif model == "gemma" and policy in ("flow_w1", "flow_w2", "active_w2"):
         check_gemma_wave(raw, block)
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:

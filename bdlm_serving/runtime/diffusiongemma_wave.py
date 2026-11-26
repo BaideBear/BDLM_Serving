@@ -9,6 +9,7 @@ import torch
 from ..evaluation.frozen import ROOT, load_tasks, sha
 from ..evaluation.original30 import check_reproduction, pin_rows, save_json
 from ..methods.b3.gate import B3Gate, logits_entropy
+from ..methods.t2t.wave_offer import TRACES, WaveTick, audit as audit_offers, periodic, widths
 from .diffusiongemma import check_snapshot, observe
 
 
@@ -37,7 +38,7 @@ def packing_mask(cache, layer_types, size, width, device):
                                           value=True)[None, None] for kind in set(layer_types)}
 
 
-def generate(model, data, policy, plan):
+def generate(model, data, policy, plan, *, next_budget=None, verify_promotion=True):
     b, cap = plan["block_size"], plan["cap"]
     if b != model.config.canvas_length:
         raise ValueError(f"block_size={b} disagrees with checkpoint canvas_length={model.config.canvas_length}")
@@ -64,7 +65,10 @@ def generate(model, data, policy, plan):
     processor = model._prepare_logits_processor(cfg)
     eos = torch.tensor(cfg.eos_token_id, device=device)
     b3 = policy == "b3"
-    compact = policy == "active_w2"
+    external = next_budget is not None
+    if external and policy!="external_w2":
+        raise ValueError("External offers require the whole-canvas request executor")
+    compact = policy == "active_w2" or external
     w = 2 if b3 or compact else int(policy.removeprefix("flow_w"))
     gate = B3Gate(block_size=b) if b3 else None
     active, trace = [], []
@@ -73,19 +77,34 @@ def generate(model, data, policy, plan):
         ids = sampler.initialize_canvas(1, device)
         active.append(SimpleNamespace(ids=ids, arg=ids, sampler=sampler,
             stop=model._prepare_diffusion_stopping_criteria(cfg), sc=None, previous=None,
-            age=0, done=False, ordinal=(prefix.shape[1]-plen)//b + len(active)))
+            age=0, done=False, tentative=False, debt=[], ratio=0.,
+            ordinal=(prefix.shape[1]-plen)//b + len(active)))
     spawn()
+    may_open=False
     while True:
         # Packed FlowBlock charges all W slots; B3 activates its second slot on demand.
         width = len(active) if b3 or compact else w
-        pad_slots = width-len(active)
-        ids = torch.cat([s.ids for s in active] + [torch.zeros_like(active[0].ids)]*pad_slots, dim=1)
+        sample_width=len(active)
+        if external:
+            state=WaveTick(len(trace),active[0].ordinal,len(active),tuple(len(s.debt) for s in active),may_open)
+            offer=next_budget(state)
+            widths(b,offer,[s.debt for s in active])  # validate before admission
+            if may_open and offer==2*b:
+                spawn()
+            before=[s.debt for s in active]
+            width,sample_width=widths(b,offer,before)
+            ages=[s.age for s in active]
+            admissions=[[] for s in active]
+            edit_rows=[[] for s in active]
+        projected=active[:width]
+        pad_slots = width-len(projected)
+        ids = torch.cat([s.ids for s in projected] + [torch.zeros_like(active[0].ids)]*pad_slots, dim=1)
         masks = packing_mask(cache, model.config.text_config.layer_types, b, width, device)
-        existing = next((s.sc for s in active if s.sc is not None), None)
+        existing = next((s.sc for s in projected if s.sc is not None), None)
         sc = None
         hook = nullcontext()
         if existing is not None:
-            slots = [s.sc for s in active] + [None]*pad_slots
+            slots = [s.sc for s in projected] + [None]*pad_slots
             sc = torch.cat([v if v is not None else torch.zeros_like(existing) for v in slots], dim=1)
             if any(v is None for v in slots):
                 valid = torch.tensor([v is not None for v in slots], device=device).repeat_interleave(b)[None,:,None]
@@ -97,13 +116,23 @@ def generate(model, data, policy, plan):
             logits = model(decoder_input_ids=ids, self_conditioning_logits=sc, past_key_values=cache,
                 decoder_attention_mask=masks, decoder_position_ids=positions(prefix.shape[1], width*b), **kw).logits
         accepted_abs, entropies = [], []
-        for i, s in enumerate(active):
+        for i, s in enumerate(projected):
             raw = logits[:, i*b:(i+1)*b]
+            if external:
+                s.debt=[]
+                if i>=sample_width:
+                    continue
             if b3:
                 entropies.append(logits_entropy(raw)[0])
             if s.done:
                 continue
+            if external and verify_promotion and i and (
+                    s.tentative or s.age>=cfg.max_denoising_steps-1):
+                # Leave at least one native step for the real committed prefix.
+                continue
             prior = s.previous
+            if external:
+                old_ids=s.ids.clone()
             result = model._denoising_step(
                 decoder_forward=lambda **ignored: SimpleNamespace(logits=raw), current_canvas=s.ids,
                 argmax_canvas=s.arg, input_ids=prefix, decoder_position_ids=None,
@@ -115,13 +144,20 @@ def generate(model, data, policy, plan):
             now = s.sampler.accepted_token_mask[0]
             eligible = torch.ones_like(now) if prior is None else ~prior
             new = now & eligible
+            if external:
+                strict=(now & prior & (old_ids[0]!=s.ids[0])) if prior is not None else torch.zeros_like(now)
+                s.debt=(new | strict).nonzero().flatten().tolist()
+                admissions[i]=new.nonzero().flatten().tolist()
+                edit_rows[i]=strict.nonzero().flatten().tolist()
             s.ratio = int(new.sum())/max(int(eligible.sum()), 1)
             if b3:
                 accepted_abs.extend((new.nonzero().flatten()+s.ordinal*b).tolist())
             s.previous = now.clone()
             s.age += 1
             s.done = bool(finished) or s.age == cfg.max_denoising_steps
-            if s.done:
+            if external and verify_promotion and i:
+                s.tentative,s.done=s.done,False
+            elif s.done:
                 s.ids = s.arg
         if b3:
             open_next = gate.observe(active[0].ordinal, entropies[0], accepted_abs, len(active)>1,
@@ -130,6 +166,11 @@ def generate(model, data, policy, plan):
         else:
             open_next = active[-1].ratio >= plan["flowblock_spawn_threshold"]
         trace.append({"width":width,"active":len(active),"q":width*b,"head":active[0].ordinal})
+        if external:
+            trace[-1].update(tick=state.tick,offer=offer,open_eligible=may_open,
+                dirty_before=before,dirty_after=[s.debt for s in active],ages_before=ages,
+                ages_after=[s.age for s in active],sample_width=sample_width,
+                refresh_only=width-sample_width,encoded=[],promoted=[],admitted=admissions,strict_edits=edit_rows)
         del logits, raw, sc
         while active and active[0].done:
             s = active.pop(0)
@@ -141,7 +182,19 @@ def generate(model, data, policy, plan):
                 return suffix[:end].tolist(), trace
             mask = torch.nn.functional.pad(mask, (0,b), value=True)
             encode(False)
-        if not active or (open_next and len(active)<w and (prefix.shape[1]-plen)//b+len(active)<cap//b):
+            if external:
+                trace[-1]["encoded"].append(s.ordinal)
+                if active and verify_promotion:
+                    active[0].tentative=False
+                    # The old soft draft was produced against the speculative
+                    # head, not the newly encoded prefix. Keep canvas and age.
+                    active[0].sc=None
+                    active[0].stop=model._prepare_diffusion_stopping_criteria(cfg)
+                    trace[-1]["promoted"].append(active[0].ordinal)
+                    if active[0].done or active[0].age>=cfg.max_denoising_steps:
+                        raise ValueError("Speculative tail exhausted its authoritative verification step")
+        may_open=bool(active and open_next and len(active)<w and (prefix.shape[1]-plen)//b+len(active)<cap//b)
+        if not active or (may_open and not external):
             spawn()
 
 
@@ -166,6 +219,9 @@ def run_wave(args, before_cuda=None):
     if getattr(args, "flow_only", False):
         plan.update(include_b3=False, policies=[p for p in plan["policies"] if p != "b3"])
     tier512 = getattr(args, "tier512_reference", None)
+    switch = getattr(args, "wave_switch_reference", None)
+    if switch is not None and tier512 is None:
+        raise ValueError("Switch suite requires the archived wave controls")
     if tier512 is not None:
         if args.suite != "frozen90" or plan["block_size"] != 256 or plan["flowblock_windows"] != [1,2]:
             raise ValueError("Active-width W2 requires the registered 512-tier reference")
@@ -191,6 +247,12 @@ def run_wave(args, before_cuda=None):
                 raise ValueError("Wrong W2 reference or missing complete 90")
             settings.update(policies=["flow_w2","active_w2"], nominal_q=512,
                             qualification="replay packed W2 on all 90 before active_w2")
+            if switch is not None:
+                if (json.loads((switch/"run.json").read_text())!=settings or
+                    json.loads((switch/"complete-active_w2.json").read_text())!=dict(policy="active_w2",requests=90)):
+                    raise ValueError("Fixed active W2 was not qualified")
+                settings.update(policies=list(TRACES),offer_sequences=TRACES,nominal_q=None,
+                                qualification="flat W1 and flat active W2 output, events and original wave trace")
     else:
         tasks = load_tasks(args.samples)
     check_snapshot(args.checkpoint)
@@ -214,7 +276,12 @@ def run_wave(args, before_cuda=None):
                     add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
                 torch.manual_seed(task["seed"])
                 with observe(model) as events:
-                    seq, trace = generate(model, data, policy, plan)
+                    if switch is not None:
+                        seq,trace=generate(model,data,"external_w2",plan,next_budget=periodic(TRACES[policy]),
+                                           verify_promotion=not policy.startswith("wave_bridge_"))
+                        audit_offers(trace,events,plan["block_size"],TRACES[policy])
+                    else:
+                        seq, trace = generate(model, data, policy, plan)
                 b = plan["block_size"]
                 if (events[0] != ("encoder", data["input_ids"].shape[1]) or
                     [q for tag,q in events[1:] if tag=="decoder"] != [t["q"] for t in trace] or
@@ -235,6 +302,12 @@ def run_wave(args, before_cuda=None):
                     max_q=max(k for _,k in events[1:]), tpf=n/f, token_efficiency=n/q, events=events,
                     trace=trace, eos=seq[-1] in eos, truncated=seq[-1] not in eos)
                 path = args.output/f"{task['index']:02d}-{policy}.json"
+                if switch is not None and policy.startswith("wave_bridge_"):
+                    old,folder=("flow_w1",tier512) if TRACES[policy]==(256,) else ("active_w2",switch)
+                    peer=json.loads((folder/f"{task['index']:02d}-{old}.json").read_text())
+                    core=[{k:e[k] for k in ("width","active","q","head")} for e in trace]
+                    if dict(row,policy=old,trace=core,events=[list(e) for e in events])!=peer:
+                        raise ValueError(f"Flat offer did not replay {old}: {task['task_id']}")
                 if tier512 is not None and policy == "flow_w2":
                     peer = json.loads((tier512/path.name).read_text())
                     if dict(row,events=[list(e) for e in events]) != peer:
