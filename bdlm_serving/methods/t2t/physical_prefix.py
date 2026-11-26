@@ -7,6 +7,7 @@ from random import Random
 MATCHED_MODES = ("hard_prefix_zero", "hard_prefix_random", "hard_prefix_frontier_right")
 SLACK_MODES = ("hard_prefix_slack_right", "hard_prefix_slack_random", "hard_prefix_slack_oldest")
 PREFIX_MODES = MATCHED_MODES + SLACK_MODES
+GEMMA_ACTION_LOCK = {f"{selector}_action_lock": selector for selector in SLACK_MODES[:2]}
 
 
 def prefix_quota(width, budget, fresh_slots, mask_slots, policy):

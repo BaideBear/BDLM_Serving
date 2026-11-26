@@ -507,3 +507,39 @@ def test_slack_prefix_added_rows_are_read_from_the_real_canvas(tiny):
     assert added
     local = [se["positions"].index(i) for i in added]
     assert tiny.model.decoder.calls[idx][1][0, local].tolist() == canvases[idx][0, added].tolist()
+
+
+@pytest.mark.parametrize("locked", [False, True])
+def test_prefix_action_lock_forced_revoke_and_strict_edit(tiny, locked):
+    from bdlm_serving.methods.t2t.seat_audit import canvas_digest
+    _controlled(tiny, 6)
+    inner = tiny._denoising_step
+    pre = {}
+    def forces_actions(**kw):
+        after, draft, sc, done = inner(**kw)
+        if kw["cur_step"] == 2:
+            pre["ids"] = kw["current_canvas"][0].tolist()
+            after[0, 1] = (after[0, 1] + 1) % 8
+            kw["sampler"].accepted_token_mask[0, 2] = False
+            pre["draft"] = draft[0].tolist()
+        return after, draft, sc, done
+    tiny._denoising_step = forces_actions
+    mode = "hard_prefix_slack_right" + ("_action_lock" if locked else "")
+    evidence = next(e for e in _gemma_run(tiny, 6, 6, 4, mode).trace if e["clock"] == 2)
+    assert evidence["prefix_plan"]["added_rows"] == [1, 2]
+    assert evidence["prefix_actions"] == dict(locked=locked, proposed_strict=[1], proposed_revoked=[2])
+    assert (evidence["reserved_strict_edit_positions"], evidence["revoked"]) == (([], 0) if locked else ([1], 1))
+    mask = [True, True, locked, False, True, False]
+    ids = list(pre["ids"])
+    if not locked:
+        ids[1] = (ids[1]+1) % 8
+    assert evidence["prefix_canvas_sha256"] == canvas_digest(ids, mask)
+    assert evidence["prefix_draft_sha256"] == canvas_digest(pre["draft"], mask)
+
+
+def test_action_lock_id_is_separate_and_gemma_only():
+    from bdlm_serving.methods.t2t.protocol import Arm
+    policy = "32:0:24:hard_prefix_slack_right_action_lock"
+    assert Arm.parse(policy, 256).policy.endswith("_action_lock")
+    with pytest.raises(ValueError):
+        Arm.parse(policy, 32)

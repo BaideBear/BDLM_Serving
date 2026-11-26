@@ -1,0 +1,9 @@
+# Do accepted prefix rows need to be rewritten?
+
+Registered before either action-lock run is scored. Use the same frozen90, seed and full-width parity gate. Two previously observed Gemma arms: Q32/K8 right and Q128/K32 random. No test-set or position filtering.
+
+* **Normal**: repeat the original arm, adding counters for proposed strict token changes and revocations on the newly added old prefix rows. Require all 90 outputs, work and old event fields to reproduce the archived run.
+* **Lock**: same planner, model, physical attention/LM-head queries, KV writes, sampler, draft, raw logits, self-conditioning scores, and stopping rule on a common state. Only after this step's sampler and stopping decision, restore the input token and accepted flag on added rows where an old accepted token would change or be revoked. Never suppress a fresh/MASK row or the full verification step. After divergence, replan normally, and charge all work. Different trajectories are not required to have equal total Q.
+* **Zero**: existing same-budget no-add control. The above comparison is within each Q; the two Q values differ in K and selector and are not a placement head-to-head.
+
+Report original30/added60/all90 paired correctness, TPF, efficiency, counts of exact proposals, affected requests and per-question rescues/losses against both controls. Check identical planned selections, sampled proposals and outputs up to the first suppression and full trajectory identity for requests never directly suppressed. If lock preserves the improvements over zero without direct prefix actions, the sample does not establish that those actions are necessary. This does **not** isolate KV: attention, scores (including draft and self-conditioning) and RNG/shape effects remain. This is not a new holdout or a test of T2T recall.

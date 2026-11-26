@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import torch
 
 from .planner import History, allocate
-from .physical_prefix import PREFIX_MODES, plan_prefix, prefix_quota
+from .physical_prefix import GEMMA_ACTION_LOCK, PREFIX_MODES, plan_prefix, prefix_quota
 from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
@@ -186,6 +186,14 @@ def _publish_scores(raw, index, measured, freeze_index):
         raw.index_copy_(1, freeze_index, previous)
 
 
+def _prefix_actions(rows, resolved, before, proposal, accepted):
+    if any(not resolved[i] for i in rows):
+        raise RuntimeError("Optional prefix row was not previously accepted")
+    strict = [i for i in rows if accepted[i] and before[i] != proposal[i]]
+    revoked = [i for i in rows if not accepted[i]]
+    return strict, revoked
+
+
 @contextmanager
 def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted",
                  signal="uncertain", selection_seed=0):
@@ -201,6 +209,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     the checkpoint's default logits processor/sampler/stopping configuration.
     """
     width = model.config.canvas_length
+    action_lock = policy in GEMMA_ACTION_LOCK
+    policy = GEMMA_ACTION_LOCK.get(policy, policy)
     if not (all(type(n) is int for n in (q_budget, fresh_slots, mask_slots))
             and 1 <= q_budget <= width <= CAP and min(fresh_slots, mask_slots) >= 0
             and fresh_slots + mask_slots <= q_budget):
@@ -393,6 +403,19 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         closed = not selected and (clock == 1 or proposed_stop)
         before_ids, after_ids = canvas[0].tolist(), after[0].tolist()
         accepted = sampler.accepted_token_mask[0].tolist()
+        prefix_actions = None
+        if selected and prefix_plan is not None and policy in GEMMA_ACTION_LOCK.values():
+            strict, revoked = _prefix_actions(reserved, h.resolved, before_ids, after_ids, accepted)
+            if action_lock and (strict or revoked):
+                # The sampler has already run unchanged. Do not freeze logits,
+                # draft, self-conditioning, KV or this step's stopping decision.
+                changed = index.new_tensor(strict + revoked)
+                after.index_copy_(1, changed, canvas.index_select(1, changed))
+                sampler.accepted_token_mask.index_copy_(1, changed, old_acceptance.index_select(1, changed))
+                after_ids, accepted = after[0].tolist(), sampler.accepted_token_mask[0].tolist()
+                if any(after_ids[i] != before_ids[i] or not accepted[i] for i in reserved):
+                    raise RuntimeError("Prefix action-lock leaked a token or revocation")
+            prefix_actions = dict(locked=action_lock, proposed_strict=strict, proposed_revoked=revoked)
         # Only newly measured margins are features, never stale rows rescaled
         # at the current temperature. Dense bridge and hard policies have no
         # planner to feed, so skip the extra topk there.
@@ -424,6 +447,11 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         )
         if prefix_plan is not None:
             record["prefix_plan" if selected else "prefix_empty_verify_plan"] = prefix_plan.audit()
+        if quota is not None and policy in GEMMA_ACTION_LOCK.values():
+            record["prefix_canvas_sha256"] = canvas_digest(after_ids, accepted)
+            record["prefix_draft_sha256"] = canvas_digest(draft[0].tolist(), accepted)
+        if prefix_actions is not None:
+            record["prefix_actions"] = prefix_actions
         if hard:
             record.update(
                 reserved_extra_edit_positions=reserved,
