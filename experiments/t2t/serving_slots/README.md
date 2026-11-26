@@ -35,6 +35,21 @@
 
 ### Gemma 高档：与 Optimus、FlowBlock 的实测对照
 
+**受限 Optimus 最终结果。** 8 种设置 × 同一90题全部完成，每轮先限制真实 decoder 投影行数，再计算；核对 OBS 的两个块合计不超过 offer，720 条轨迹无超限。下面是同供档顺序的结果，每格依次为 **答对数 / 宏 TPF / token efficiency**。256 档在我们一侧走原生整块路径，128 档走稀疏 K0。最后三列是三种方法各自90题实际消耗的总Q；包括生成阶段的跨块重编码。
+
+| 名义供档顺序，重复 | 我们 | 受限 IBS | 受限 OBS | 我们总 Q | IBS 总 Q | OBS 总 Q |
+|---|---|---|---|---:|---:|---:|
+| 128 | 84 / 17.437 / 11.18% | 79 / 16.408 / 13.41% | 80 / 16.686 / 9.87% | 285967 | 229731 | 345601 |
+| 256 | 85 / 25.510 / 8.77% | 79 / 23.656 / 10.35% | 80 / 21.747 / 6.45% | 357632 | 311129 | 504064 |
+| 256,256,128,128 | 86 / 22.357 / 9.49% | 80 / 18.898 / 11.01% | 79 / 18.780 / 7.60% | 346119 | 289152 | 441856 |
+| 128,128,256,256 | 84 / 21.226 / 10.14% | 74 / 18.126 / 10.68% | 76 / 18.111 / 7.66% | 321377 | 301928 | 415104 |
+
+![Same nominal offers, four plans and actual capped controls](gemma-matched-offers.png)
+
+高档先行对受限 OBS 救7丢0，总Q少21.7%，51/90题实际更省Q；对受限 IBS 救7丢1，总Q多19.7%，只在21/90题上更省Q。前者质量差95%配对区间为 +0.87 至 +15.77 个百分点，后者为 −0.75 至 +14.99 个百分点，未作多重比较校正。自己的低档必刷仍可超过128，并不声称自己的每轮宽度也受相同硬上限或获得等算力胜利。
+
+[原始 Optimus 对比同档硬限额的直接配对](controls/gemma-original-vs-capped-fixed.csv)：IBS256 90/90 逐事件复现。OBS256 受限后相对原版救1丢1、正确总数仍是80；F 从1852升至1969，Q从474160升至504064。固定 IBS128 救0丢0；固定 OBS128 救1丢2。所有固定臂均核对原始轨迹的首次超额轮及其以前的逐轮状态，未触发的请求要求输出ID及物理工作一致。候选图还保留原版 Optimus 和 FlowBlock；同档图只比较有对应供档顺序的策略。
+
 ![Same 90 requests: quality, tokens per forward, token efficiency and actual work](gemma-mixed-vs-external.png)
 
 [配对表：原30、新60、全90、质量差区间及实际工作](controls/gemma-mixed-vs-external.csv)。下表是相同90题及种子，从该基线改用「两轮原生256、两轮稀疏128」的救回/丢失。纯 prompt 不计，其余 forward 及物理 Q 全计；TPF 为逐题 `N/F` 的均值，效率为总 `N/Q`。
@@ -65,6 +80,8 @@ OBS256 是目前较好的对照：混合少用27.0%总Q，TPF 点估略高；IBS
 新 Gemma Optimus 对照以 `--suite frozen90 --modes ibs obs --capped-plans 256,256,128,128 256 128 128,128,256,256 --uncapped90 "$D"` 启用；checkpoint、samples、output 参数同原 runner。每次 decoder 的 Q/K/V 投影前限制真实行数，双块 OBS 共用一份限额（范围为 B+最高档）。上轮 admission 未刷完不提前移入已缓存前缀。原生选位没有触发限额时不改它；固定臂未触发的请求校验原版 ID、事件、旧 trace 和 F/Q 全等。Optimus Gemma 本适配器只对选中的未解码位置提交 token；重算 KV 不计新 token。encoder 跨块 256 行照常计入总账，但不占 decoder offer。每次 decoder 消耗一次 offer，无跨题/跨块重置（只在新请求重置）。新臂须完整90题、审计通过后才报告分数。
 
 重建：`python -m experiments.t2t.serving_slots.external_report --data "$D" --out "$PRIVATE_SCORES"`；受限臂齐全后加 `--capped "$CAP_RUN"`。物理审计另核验每次所选位置与真实 decoder 宽度、候选/裁掉行数、admit 与已刷位置关系，不用名义 Q×F 代替实际工作。
+
+另有[同供档顺序的对照](controls/gemma-matched-offers-vs-external.csv)：加 `--matched`，固定128对稀疏128、固定256对原生256，两种切档相位分别和本方法的同相位配对。没有真实可切换的512档，因此不把 W2 放进同档表；它仍保留在候选的外部对照。原版固定128下，K0 对 IBS 救7丢2、对 OBS 救6丢3；实际 Q 分别为 285967（K0）、228563（IBS）、364699（OBS）。固定256下，原生对 W1 的 N/F/Q、总分与逐题正确性均完全一致。不同方法各自消耗 offer 的时钟不同；同供档顺序不保证同物理成本。受限运行也可加 `--cap-policy POLICY`，只纳入已完整通过的该臂，另存带策略名的表，不冒充全矩阵。
 
 [单一 K0 策略的原30、新60、全90](fixed-k0.csv)，可用 `python -m experiments.t2t.serving_slots.fixed_slots` 重建。每个预算均为同一零注入算法，不从已观察的多个前缀选法中挑赢家拼成曲线。`macro_tpf=mean(N/F)`，`pooled_token_efficiency=sum(N)/sum(physical_Q)`，`q_per_f=sum(physical_Q)/sum(F)`，纯 prompt prefill 除外。Gemma 主槽 32/64/128/256，16 保留作低预算诊断；LLaDA 主槽 4/8/16/32，真正 Q64 要两个块。Gemma 512 同理，暂不列有效配置。
 
@@ -188,6 +205,8 @@ K0 在前三档的质量和 TPF 点估计均超过两种 Optimus，但各档的 
 LLaDA 基线扩展共10臂：`python -m experiments.t2t.serving_slots.llada_reference --samples "$FROZEN90" --reference "$HISTORICAL_RUN" --check-only` 检查公开原30成绩、原始工作账、身份和种子。300条归档记录通过此检查。原始 LLaDA 实际 batch 为 1；IBS4、OBS32 各有一次生成失败，均计错且保留已执行的 F/Q。去掉 `--check-only` 并指定 `--checkpoint`、新 `--output` 和可重复的 `--policy` 可在同一生成器逐臂扩展：原30重新生成，对齐原始输出 ID、停止状态、失败记录、逐前向位置及物理 F/Q 后才允许该臂进入新增60。原30校验不等于已取得90题结果。
 
 **真双块 Q64 的独立准入。** 30题的既有 `rolling_pair` 端点是24/30、TPF 5.609、效率9.17%、143513个物理Q。相同历史实验中，单块满宽 `hard_noedit` 为26/30、5.728、15.55%、82400个Q；该单块方法也不是 K0。新增的 `dual64_noedit` 标签只指真实的两个B32。`python -m tools.run_dual_t2t --suite frozen90 --model llada21 --checkpoint "$MODEL" --samples "$FROZEN90" --reference "$NATIVE90_LLADA" --reference-pair30 "$DUAL30" --output "$NEW_RUN"`。先用原30复现完整输出、所有动作及工作账，再进入新增60。原两种预留策略在原30的输出、选位和阶段完全相同，所以只扩一个端点。此项不代表已实现请求内32↔64切换，混合实验必须独立验证必刷、RNG、两块可见性、左提交与右重编码边界。尤其不可把未刷的右块新写入在降档时直接丢弃。
+
+[真双块90题与单块的跨预算对照](controls/llada21-true64.csv)，用 `python -m experiments.t2t.serving_slots.fixed_slots --true64 "$D"` 重建。历史30逐题复现后，Q64 全90为 **24+45=69、TPF 5.831、效率9.86%、7960 F、395363 Q**；原生 B32 为 **26+49=75、5.677、15.56%、8182 F、261824 Q**。相对 B32 救5丢11，少222次 forward，却多用51.0%总Q，TPF差的配对95%区间为 [−0.108,+0.415]；稀疏 Q16 则比双块多答对7题。这个真实双块端点不适合作为质量优先的默认高档，不能用单块 Q64 别名替代这一结论。
 
 ## 同档位多停留几轮有没有帮助？
 

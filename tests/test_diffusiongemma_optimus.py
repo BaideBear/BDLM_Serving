@@ -11,6 +11,7 @@ from bdlm_serving.runtime.diffusiongemma_optimus import B, CAP, CHUNKS, Resident
 from bdlm_serving.runtime.diffusiongemma_optimus import check_reproduction, historical_refs
 from bdlm_serving.runtime.optimus_limits import limited_rows, parse_caps, validate_trace
 from bdlm_serving.evaluation.frozen import sha
+from experiments.t2t.serving_slots.external_report import check_first_cut, measured_decoder, offered_plan
 from tools.prefix_cohorts import optimus_chunk
 
 
@@ -43,6 +44,27 @@ class GemmaOptimusTest(unittest.TestCase):
             old = np.zeros(2*B,dtype=np.uint8)
             old[1:1+c] = 1
             self.assertGreater(len(self.select("obs",c,old)),c)
+
+    def test_matched_control_uses_order_and_separates_updates(self):
+        self.assertEqual(offered_plan("obs_cap_128_128_256_256"), (128,128,256,256))
+        self.assertEqual(offered_plan("ibs_cap_256_256_128_128"), (256,256,128,128))
+        self.assertEqual(offered_plan("flow_w1"), (256,))
+        self.assertIsNone(offered_plan("flow_w2"))
+        with self.assertRaises(ValueError):
+            offered_plan("obs_cap_128_256")
+        row = dict(events=[("encoder",10),("decoder",129),("encoder",256)],
+                   generation_forwards=2,generation_physical_padded_rows=385,
+                   trace=[dict(q=129,accepted=9)])
+        self.assertEqual(measured_decoder(row,"obs_128"), ([(129,9,1,0,0)],256))
+        with self.assertRaisesRegex(ValueError,"differ"):
+            measured_decoder(dict(row,generation_physical_padded_rows=129),"obs_128")
+        old=dict(trace=[dict(q=128,accepted=16),dict(q=129,accepted=1)])
+        new=dict(trace=[dict(q=128,accepted=16,proposed_q=128,offer=128),
+                        dict(q=128,accepted=0,proposed_q=129,offer=128)])
+        check_first_cut(old,new,128)
+        new["trace"][0]["accepted"]=15
+        with self.assertRaisesRegex(ValueError,"before"):
+            check_first_cut(old,new,128)
 
     def test_limit_only_when_binding_and_drain_before_new_admit(self):
         prior = np.array([1,0,1,1,1,0], dtype=np.uint8)

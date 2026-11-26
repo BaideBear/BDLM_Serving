@@ -29,10 +29,11 @@ def comparison(root):
     return out
 
 
-def mixed_plot(source, target):
+def mixed_plot(source, target, matched=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from itertools import groupby
 
     metrics = ("correct", "macro_tpf", "pooled_token_efficiency", "physical_Q")
     points = {}
@@ -40,25 +41,38 @@ def mixed_plot(source, target):
         for row in csv.DictReader(f):
             if row["window"] != "90" or row["scope"] != "all":
                 continue
+            if matched and "_cap_" not in row["baseline_policy"]:
+                continue
             for side in ("arm", "baseline"):
                 key = row[side+"_policy"]
                 values = tuple(float(row[f"{side}_{m}"]) for m in metrics)
                 if points.setdefault(key, values) != values:
                     raise ValueError(f"Inconsistent {key} result in {source}")
-    title = {"slottrace_256n_256n_128_128":"Ours: 256n x2, 128 x2",
-             "flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2"}
+    title = {"flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2"}
+    def compact(slots):
+        return " / ".join(q+(f" x{len(g)}" if len(g)>1 else "")
+                          for q,group in groupby(slots.split("_")) for g in [list(group)])
     def label(name):
         if name in title:
             return title[name]
+        if name.startswith("slottrace_"):
+            return "Ours: "+compact(name.removeprefix("slottrace_"))
         mode, slot = name.split("_", 1)
         cap = slot.startswith("cap_")
-        slots = slot.removeprefix("cap_").replace("_", "/")
-        return f"Optimus {mode.upper()} {slots}" + (" (capped)" if cap else "")
+        return ("Capped " if cap else "Original ")+f"{mode.upper()} "+compact(slot.removeprefix("cap_"))
     if not points:
         raise ValueError("Missing frozen90 records")
+    if matched:
+        order=[]
+        for plan in ("128","256","128_128_256_256","256_256_128_128"):
+            own="slottrace_"+"_".join("256n" if x=="256" else x for x in plan.split("_"))
+            order.extend([own,"ibs_cap_"+plan,"obs_cap_"+plan])
+        if set(order)!=set(points):
+            raise ValueError("Require the complete matched matrix")
+        points={p:points[p] for p in order}
     n = len(points)
     fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
-    colors = ["#116f74" if p in title and p.startswith("slottrace") else
+    colors = ["#116f74" if p.startswith("slottrace") else
               "#6174a3" if p.startswith("flow") else "#bb713c" if "_cap_" in p else "#8c929a"
               for p in points]
     for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
@@ -71,7 +85,8 @@ def mixed_plot(source, target):
         ax.set_xlim(0, max(vals)*1.34)
         ax.spines[["top","right"]].set_visible(False)
         ax.set_title(heading, fontsize=11)
-    fig.suptitle("DiffusionGemma | mixed slots vs Optimus and FlowBlock | frozen90")
+    detail="matched nominal offers vs capped Optimus" if matched else "high-first candidate vs Optimus and FlowBlock"
+    fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
 
@@ -102,6 +117,11 @@ def main():
     fig.savefig(HERE/"gemma-optimus.png", dpi=150)
     plt.close(fig)
     mixed_plot(HERE/"controls/gemma-mixed-vs-external.csv", HERE/"gemma-mixed-vs-external.png")
+    matches=HERE/"controls/gemma-matched-offers-vs-external.csv"
+    if matches.exists():
+        with matches.open() as f:
+            if any("_cap_" in r["baseline_policy"] for r in csv.DictReader(f)):
+                mixed_plot(matches,HERE/"gemma-matched-offers.png",matched=True)
 
 
 if __name__ == "__main__":

@@ -74,10 +74,50 @@ def write_rows(path, rows):
         w.writerows(rows)
 
 
+def true64_controls(data):
+    import json
+    from bdlm_serving.evaluation.frozen import sha
+    from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
+
+    cases_path=data/"samples.json"
+    cases=load_cases(cases_path)
+    target=data/"llada21-rolling-dual64"
+    def read(folder,file):
+        return json.loads((folder/file).read_text())
+    def load(folder,p):
+        meta=read(folder,"run.json")
+        if (meta["samples_sha256"]!=sha(cases_path) or meta["model"]!="llada21" or
+                meta["suite"]!="frozen90"):
+            raise ValueError("Wrong LLaDA suite")
+        if p=="fullwidth":
+            if read(folder,"qualified.json")!=dict(model="llada21",full_width=32,matched=90):
+                raise ValueError("Missing native endpoint proof")
+        elif read(folder,"complete-"+p+".json")!=dict(policy=p,requests=90):
+            raise ValueError("Incomplete LLaDA control")
+        rows,m,label,_=load_request_set(folder,cases,"cross-slot",p)
+        if (m,label)!=("llada21",p):
+            raise ValueError("Wrong LLaDA policy")
+        return {r["index"]:r for r in rows}
+    proof=read(target,"reproduced30-dual64_noedit.json")
+    if proof["matched"]!=30 or proof["policy"]!="dual64_noedit":
+        raise ValueError("Missing true64 historical reproduction")
+    dual=load(target,"dual64_noedit")
+    for n,p in ((16,"t2t_q16_f0_m16_hard_prefix_zero"),(32,"fullwidth")):
+        baseline=load(data/f"llada21-{n}-matched",p)
+        for w in (30,60,90):
+            yield dict(_window_row(select_window_cases(cases,w),baseline,dual,w,"all",
+                                   "llada21",p,"dual64_noedit",None),
+                       baseline_nominal_q=n,arm_nominal_q=64)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, help="also compute adjacent-slot pairs from private runs")
+    parser.add_argument("--true64",type=Path,help="Publish cross-budget comparisons for the completed true two-block run")
     args = parser.parse_args()
+    if args.true64:
+        write_rows(HERE/"controls/llada21-true64.csv", true64_controls(args.true64))
+        raise SystemExit(0)
     source = HERE.parent/"prefix_window"
     write_rows(HERE/"fixed-k0.csv", fixed_rows(source))
     if args.data:
