@@ -5,6 +5,7 @@ import csv
 import json
 from pathlib import Path
 from itertools import groupby
+from random import Random
 
 from bdlm_serving.evaluation.frozen import sha
 from bdlm_serving.methods.t2t.slot_trace import parse_offer
@@ -155,7 +156,63 @@ def first_changed_offer(reference, row):
     return None
 
 
-def report(run, cases, out, reference_switch_run=None):
+def prefix_ablation(reference,row):
+    """Verify common observed history and exact block-local random additions."""
+    if any(reference[k]!=row[k] for k in ("model","index","task_id","dataset","seed","prefill_rows")):
+        raise ValueError("Different requests in prefix ablation")
+    seen=False
+    c=Counter(prefix_exposed_requests=0,prefix_exposed_rounds=0,prefix_strict_edits=0,prefix_revokes=0)
+    for i,e in enumerate(row["events"]):
+        p=e.get("prefix_plan")
+        add=[]
+        if p:
+            # This experiment has just one sparse plan; H is native full-canvas.
+            if p["budget"]!=128 or p["quota"]!=32 or e.get("slot_prefix_mode")!="hard_prefix_slack_random":
+                raise ValueError("Unregistered sparse prefix arm")
+            pool=list(p["eligible_prefix_rows"])
+            count=min(32,len(pool),max(0,128-len(p["zero_rows"]))) if p["zero_rows"] else 0
+            Random(f"physical-prefix:{row['seed']}:{e['block']}:{e['clock']}").shuffle(pool)
+            add=sorted(pool[:count])
+            if (e["block"]!=p["block_start"] or e["clock"]!=p["clock"] or
+                    add!=p["added_rows"] or p["evicted_rows"] or set(add)&set(p["zero_rows"]) or
+                    sorted(p["zero_rows"]+add)!=e["positions"]):
+                raise ValueError("Prefix dose, seed, block, or donor mismatch")
+            actions=e["prefix_actions"]
+            if actions["locked"] or not (set(actions["proposed_strict"])|set(actions["proposed_revoked"]))<=set(add):
+                raise ValueError("Unexpected prefix action")
+            c.update(prefix_exposed_rounds=int(bool(add)),prefix_strict_edits=len(actions["proposed_strict"]),
+                     prefix_revokes=len(actions["proposed_revoked"]))
+        if seen:
+            continue
+        if i>=len(reference["events"]):
+            raise ValueError("Unexplained additional event")
+        old=reference["events"][i]
+        if add:
+            if (any(e.get(k)!=old.get(k) for k in ("stage","block","clock","available_fresh","slot_tick","slot_offer"))
+                    or old["positions"]!=p["zero_rows"]
+                    or any(old["prefix_plan"][k]!=p[k] for k in
+                        ("fresh_rows","zero_mask_rows","zero_backfill_rows","eligible_prefix_rows","prefix_end"))):
+                raise ValueError("First exposure does not extend the same zero plan")
+            seen=True
+        else:
+            # Discard only added diagnostics, not actions, positions or realized work.
+            def canonical(event):
+                d={k:v for k,v in event.items() if k not in
+                   ("slot_prefix_mode","edit_slots","prefix_actions","prefix_canvas_sha256","prefix_draft_sha256")}
+                for k in ("prefix_plan","prefix_empty_verify_plan"):
+                    if k in d:
+                        d[k]={field:v for field,v in d[k].items() if field!="quota"}
+                return d
+            if canonical(old)!=canonical(e):
+                raise ValueError("Divergence before first physical prefix injection")
+    if not seen and (len(reference["events"])!=len(row["events"]) or
+                     any(reference[k]!=row[k] for k in ("physical_events","output_ids","eos","truncated","status"))):
+        raise ValueError("No-op prefix request changed output or work")
+    c["prefix_exposed_requests"]=int(seen)
+    return c
+
+
+def report(run, cases, out, reference_switch_run=None, thinning_run=None):
     meta = json.loads((run/"run.json").read_text())
     model = meta["model"]
     a,b = {"gemma": (32,64), "llada21": (8,16)}[model]
@@ -166,15 +223,19 @@ def report(run, cases, out, reference_switch_run=None):
     native = ((mid,),(high,),(mid,mid,high,high),(high,high,mid,mid))
     sparse_high = ((128,),(256,),(128,128,256,256),(256,256,128,128))
     thin = ((128,),("256n",),("256n",128,128,128),(128,"256n",128,128))
+    u,h="128u32","256n"
+    prefix_high=((u,),(h,),(h,h,u,u),(u,u,h,h),(h,u,u,u),(u,h,u,u))
     dose = ((32,), (64,), ("32r8",), ("32r8","32r8",64,64), (64,64,"32r8","32r8"),
             (32,)*8+(64,)*8, (64,)*8+(32,)*8)
-    options = [base,native] + ([dose,sparse_high,thin] if model == "gemma" else [])
+    options = [base,native] + ([dose,sparse_high,thin,prefix_high] if model == "gemma" else [])
     phases = next((t for t in options if labels_for(t) == meta["policies"]),None)
-    if phases is None or (phases in (dose,sparse_high,thin)) != bool(reference_switch_run):
+    if (phases is None or (phases in (dose,sparse_high,thin,prefix_high)) != bool(reference_switch_run)
+            or (phases==prefix_high)!=bool(thinning_run)):
         raise ValueError("Unregistered slot experiment")
     labels = labels_for(phases)
     sources = [run] * len(labels)
     pairs = [(0,1),(0,2),(1,2),(0,3),(1,3),(2,3)]
+    prefix_peers={}
     if phases == dose:
         ref = json.loads((reference_switch_run/"run.json").read_text())
         if (ref["model"],ref["policies"]) != (model,labels_for(base)):
@@ -184,6 +245,18 @@ def report(run, cases, out, reference_switch_run=None):
         sources += [reference_switch_run]*2
         pairs = [(0,2),(7,3),(8,4),(7,5),(8,6),(3,4),(5,6)]
         pairs += [(endpoint,mixed) for endpoint in (0,1) for mixed in (3,4,5,6)]
+    elif phases==prefix_high:
+        peers=(native[0],native[3],native[2],thin[2],thin[3])
+        if any(json.loads((r/"run.json").read_text())["policies"]!=labels_for(s)
+               for r,s in ((reference_switch_run,native),(thinning_run,thin))):
+            raise ValueError("Incomplete zero-prefix sources")
+        peer_runs=[reference_switch_run]*3+[thinning_run]*2
+        prefix_peers={labels[i]:(r,label) for i,r,label in
+                      zip((0,2,3,4,5),peer_runs,labels_for(peers),strict=True)}
+        phases+=peers
+        labels+=labels_for(peers)
+        sources+=peer_runs
+        pairs=[(6,0),(7,2),(8,3),(9,4),(10,5),(1,2)]
     elif phases in (sparse_high,thin):
         ref = json.loads((reference_switch_run/"run.json").read_text())
         if (ref["model"],ref["policies"]) != (model,labels_for(native)):
@@ -204,13 +277,18 @@ def report(run, cases, out, reference_switch_run=None):
     for label, pattern, source in zip(labels, phases, sources, strict=True):
         folder = snapshot(source, label, sha(cases), cache)
         dirs.append(folder)
+        peer=prefix_peers.get(label)
+        peer_path=snapshot(peer[0],peer[1],sha(cases),cache) if peer else None
         counts,stage_counts = [],[]
         for i in range(90):
             raw = json.loads((folder / f"{i:02d}-{label}.json").read_text())
             if (raw["index"], raw["policy"], raw["model"]) != (i, label, model):
                 raise ValueError("Request identity mismatch")
             counts.append(audit(raw, pattern))
-            if pattern in thin[2:]:
+            if peer:
+                zero=json.loads((peer_path/f"{i:02d}-{peer[1]}.json").read_text())
+                counts[-1].update(prefix_ablation(zero,raw))
+            if pattern in thin[2:] and not prefix_peers:
                 ref_label=labels_for(native[-1:])[0]
                 ref=json.loads((reference_switch_run/f"{i:02d}-{ref_label}.json").read_text())
                 first=first_changed_offer(ref,raw)
@@ -247,4 +325,5 @@ if __name__ == "__main__":
     for key in ("run","cases","out"):
         parser.add_argument("--"+key, type=Path, required=True)
     parser.add_argument("--reference-switch-run",type=Path)
+    parser.add_argument("--thinning-run",type=Path)
     report(**vars(parser.parse_args()))

@@ -1,0 +1,9 @@
+model,cohort,policy,requests,nominal,correct,physical_Q,F,peak_physical_Q,requests_over,steps_over,excess_rows,peak_admitted_or_edited,hard_cap_enforced
+llada21,original30,optimus_ibs_c4,30,4,18,43554,11068,32,30,769,1169,4,False
+llada21,original30,optimus_obs_c4,30,4,22,48838,11947,32,30,667,1066,4,False
+llada21,original30,optimus_ibs_c8,30,8,23,61239,8298,32,30,480,788,8,False
+llada21,original30,optimus_obs_c8,30,8,21,60808,7512,32,30,423,751,8,False
+llada21,original30,optimus_ibs_c16,30,16,24,73098,5549,32,29,244,393,16,False
+llada21,original30,optimus_obs_c16,30,16,24,83929,5229,32,30,211,363,15,False
+llada21,original30,optimus_ibs_c32,30,32,25,106270,5099,32,0,0,0,32,False
+llada21,original30,optimus_obs_c32,30,32,21,161012,5024,35,27,213,459,32,False

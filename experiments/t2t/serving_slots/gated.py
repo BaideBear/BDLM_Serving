@@ -41,8 +41,7 @@ def validate_gate(row, decisions, phase, mode):
         previous=event
     if tick!=len(decisions) or mode not in ("tail","early","all"):
         raise ValueError("Spurious gate decision")
-    audit(row,pattern or [LOW])
-    gemma_stages(row)
+    return audit(row,pattern or [LOW]),gemma_stages(row)
 
 
 def run(args, prepare=None):
