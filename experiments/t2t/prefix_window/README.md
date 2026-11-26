@@ -1,5 +1,21 @@
 # 固定物理块前缀加回：首轮实验约定
 
+Gemma 的数量结论见[五档 Q、六档 K/Q 的完整扫描与数值图](gemma-ratio-decisions.md)；等宽换位见[普通已解码行与 MASK 让位的对照](DONORS.md)。
+
+### 在同一 90 题上补原版 Optimus 对照
+
+固定 IBS/OBS × C32/C128，对照各自同名义 Q 的零注入和 25% 上限补空位（Q32 右端、Q128 随机）。复用[原版 Gemma Optimus 适配](../../../archive/diffusiongemma-optimus/README.md)，解码逻辑未改；与前缀方法的差别也含采样与停止策略，不能将比较结果单独归因为前缀。每个配置的前30题须逐题完全复现原私有记录，含输出、事件与物理工作，才继续同一配置的新增60题。任一题不符即停止，不剔题。再用公开原30逐题表核对正确数与工作量。**这个入口或已通过单元测试不代表该配置已完成实测。**
+
+```bash
+python -m bdlm_serving.runtime.diffusiongemma_optimus \
+  --checkpoint "$CHECKPOINT" --suite frozen90 --samples "$D/samples.json" \
+  --reference30-root "$OLD30" --output "$D/gemma-optimus-reference90" \
+  --chunks 32 128 --modes ibs obs
+# 每个配置 90 题全部完成后执行，示例 C32 IBS；原始逐题输出留在集群。
+python -m experiments.t2t.prefix_window.optimus_reference \
+  --data "$D" --references "$OLD30" --out "$D/optimus-scores" --q 32 --mode ibs
+```
+
 ## LLaDA 2.1：K1 是换位还是补空位？
 
 相同 90 题、同名义 Q、相同必刷逻辑，以下数字依次为 **原30/新60/全90 正确数；全90宏平均 TPF；token efficiency**。换位组会从零组替换普通行或 MASK（必刷行保留），空位组只加行、不替换任何零组查询。

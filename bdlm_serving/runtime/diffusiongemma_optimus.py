@@ -9,7 +9,8 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
-from ..evaluation.frozen import ROOT, load_tasks
+from ..evaluation import frozen90
+from ..evaluation.frozen import ROOT, load_tasks, sha
 from ..methods.optimus.upstream import COMMIT, load_controls
 from .diffusiongemma import check_snapshot, observe
 
@@ -205,6 +206,40 @@ def _generate(bank, model, data, controls, unmask, mode, c, qualify):
     raise RuntimeError("generation ended without EOS or cap")
 
 
+def historical_refs(root, policies, settings):
+    refs = {}
+    if root is None:
+        raise ValueError("frozen90 requires the original frozen30 reference runs")
+    for mode, c in policies:
+        policy = f"{mode}_{c}"
+        folder = root / mode
+        meta = json.loads((folder / "run.json").read_text())
+        if policy not in meta["policies"] or any(
+                meta[k] != v for k, v in settings.items() if k != "policies"):
+            raise ValueError(f"{policy}: historical environment or settings differ")
+        paths = [folder / f"{i:02d}-{policy}.json" for i in range(30)]
+        refs[policy] = [(path, sha(path)) for path in paths]
+    return refs
+
+
+def check_reproduction(reference, row):
+    path, digest = reference
+    if sha(path) != digest:
+        raise ValueError(f"{path.name}: historical reference changed during generation")
+    old = json.loads(path.read_text())
+    new = json.loads(json.dumps(row))
+    if old != new:
+        fields = sorted(k for k in old.keys() | new.keys() if k not in old or k not in new
+                        or old[k] != new[k])
+        raise ValueError(f"{path.name}: original30 reproduction failed: {fields}")
+
+
+def save_json(path, data):
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False))
+    tmp.replace(path)
+
+
 def run(args, before_cuda=None):
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
@@ -214,7 +249,21 @@ def run(args, before_cuda=None):
     controls, strategy, hashes = load_controls()
     unmask = controls.UnmaskingProcessor(SimpleNamespace(confidence_threshold=.9, block_length=B,
         denoising_steps=B, unmasking_strategy=strategy.LOW_CONFIDENCE_DYNAMIC))
-    tasks = load_tasks(args.samples)
+    suite = getattr(args, "suite", "frozen30")
+    if suite not in ("frozen30", "frozen90"):
+        raise ValueError(f"Unknown suite: {suite}")
+    tasks = (frozen90.load_tasks if suite == "frozen90" else load_tasks)(args.samples)
+    policies = [(m,c) for c in args.chunks for m in args.modes]
+    if not policies or len(set(policies)) != len(policies):
+        raise ValueError("empty or duplicate configurations")
+    settings = dict(native, policies=[f"{m}_{c}" for m,c in policies],
+                    upstream=COMMIT, hashes=hashes, acceptance="optimus_dynamic_sparse_argmax_0.9",
+                    hard_q_cap=False, torch=str(torch.__version__))
+    refs = {}
+    if suite == "frozen90":
+        refs = historical_refs(getattr(args, "reference30_root", None), policies, settings)
+        settings.update(model="gemma", block=B, suite=suite, seed_offset=0,
+                        samples_sha256=sha(args.samples))
     check_snapshot(args.checkpoint)
     proc = AutoProcessor.from_pretrained(args.checkpoint,local_files_only=True)
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(args.checkpoint,local_files_only=True,
@@ -222,13 +271,8 @@ def run(args, before_cuda=None):
         device_map={"":"cpu" if before_cuda else "cuda"}).eval()
     if model.config.canvas_length != B:
         raise ValueError("checkpoint is not B256")
-    policies = [(m,c) for c in args.chunks for m in args.modes]
-    if len(set(policies)) != len(policies):
-        raise ValueError("duplicate configurations")
     args.output.mkdir(exist_ok=False,parents=True)
-    (args.output/"run.json").write_text(json.dumps(dict(native, policies=[f"{m}_{c}" for m,c in policies],
-        upstream=COMMIT,hashes=hashes,acceptance="optimus_dynamic_sparse_argmax_0.9",
-        hard_q_cap=False, torch=str(torch.__version__)),indent=2))
+    (args.output/"run.json").write_text(json.dumps(settings, indent=2))
     if before_cuda:
         before_cuda(model)
     model.to("cuda")
@@ -241,6 +285,9 @@ def run(args, before_cuda=None):
             torch.manual_seed(tasks[0]["seed"])
             generate(model,inputs[0],controls,unmask,m,B,qualify=True)
         print("Smoke passed: native/selected first-step logits bit-identical; sparse Q observed.",flush=True)
+        if refs:
+            save_json(args.output/"qualified-logits.json", dict(modes=list(args.modes), chunk=B,
+                      first_step_logits="bit_identical", index=0))
         for mode,c in policies:
             policy = f"{mode}_{c}"
             for t,data in zip(tasks,inputs,strict=True):
@@ -261,10 +308,15 @@ def run(args, before_cuda=None):
                     max_q=max(q for _,q in events[1:]),max_decoder_q=max(x["q"] for x in trace),
                     tpf=n/f,token_efficiency=n/q,eos=seq[-1] in eos,truncated=seq[-1] not in eos)
                 path = args.output/f"{t['index']:02d}-{policy}.json"
-                tmp = path.with_suffix(".tmp")
-                tmp.write_text(json.dumps(row,ensure_ascii=False))
-                tmp.replace(path)
+                if refs and t["index"] < 30:
+                    check_reproduction(refs[policy][t["index"]], row)
+                save_json(path, row)
+                if refs and t["index"] == 29:
+                    save_json(args.output/f"reproduced30-{policy}.json", dict(policy=policy,
+                              reference_sha256=[h for _, h in refs[policy]], matched=30))
                 print(policy,t["task_id"],f"N={n} F={f} Q={q}",flush=True)
+            if refs:
+                save_json(args.output/f"complete-{policy}.json", dict(policy=policy, requests=len(tasks)))
 
 
 if __name__ == "__main__":
@@ -273,4 +325,6 @@ if __name__ == "__main__":
         parser.add_argument("--"+key,type=Path,required=True)
     parser.add_argument("--modes",choices=["ibs","obs"],nargs="+",default=["ibs","obs"])
     parser.add_argument("--chunks",choices=CHUNKS,type=int,nargs="+",default=CHUNKS)
+    parser.add_argument("--suite", choices=("frozen30", "frozen90"), default="frozen30")
+    parser.add_argument("--reference30-root", type=Path)
     run(parser.parse_args())

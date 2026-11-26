@@ -223,6 +223,29 @@ def _number_field(raw, name, index):
 
 
 _POLICY_Q = re.compile(r"(?:^|_)q(\d+)(?:_|$)")
+_GEMMA_OPTIMUS = re.compile(r"(ibs|obs)_(4|8|16|32|64|128|256)")
+
+
+def optimus_chunk(raw, block):
+    """Optimus reports observed max Q, not a model block-size setting."""
+    match = _GEMMA_OPTIMUS.fullmatch(raw["policy"])
+    mode, c = match.group(1), int(match.group(2))
+    events, trace = raw["events"], raw["trace"]
+    if not events or events[0][0] != "encoder" or not trace:
+        raise ValueError("Missing Optimus prefill or decoder trace")
+    gen = events[1:]
+    dec = [q for tag, q in gen if tag == "decoder"]
+    if (not dec or any(tag not in {"encoder", "decoder"} or type(q) is not int or q < 1
+                       or (tag == "encoder" and q != block) for tag, q in gen)
+            or any(width > block + (c if mode == "obs" else 0) for width in dec)
+            or dec != [step["q"] for step in trace]
+            or any(not 0 <= step["cross"] <= min(c if mode == "obs" else 0, step["q"]) for step in trace)
+            or raw["max_q"] != max(q for _, q in gen) or raw["max_decoder_q"] != max(dec)
+            or raw["generation_forwards"] != len(gen)
+            or raw["generation_query_rows"] != sum(q for _, q in gen)
+            or _nominal_q(raw, raw["index"]) not in (None, c)):
+        raise ValueError("Optimus policy or work counters disagree with observed events")
+    return c
 
 
 def _nominal_q(raw, index):
@@ -278,7 +301,10 @@ def normalize_request(raw, case, role):
         raise ValueError(f"{role} request {index}: unsupported model {raw_model!r}")
     block = MODEL_BLOCK[model]
     max_q = raw.get("max_q", block)
-    if isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
+    fixed_chunk = None
+    if model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
+        fixed_chunk = optimus_chunk(raw, block)
+    elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
         raise ValueError(f"{role} request {index}: max_q {max_q!r} does not match {model} B{block}")
     if _request_failed(raw, index):
         raise ValueError(f"{role} request {index}: failed status {raw.get('status')!r}")
@@ -315,7 +341,7 @@ def normalize_request(raw, case, role):
     if "correct" in raw and _as_bool(raw["correct"], "correct", index) != correct:
         raise ValueError(f"{role} request {index}: provided correct disagrees with scorer")
     truncated = _as_bool(raw.get("truncated", False), "truncated", index)
-    nominal_q = _nominal_q(raw, index)
+    nominal_q = fixed_chunk or _nominal_q(raw, index)
     return dict(index=index, dataset=case["dataset"], task_id=case["task_id"],
                 seed=case["seed"], model=model, policy=policy, max_q=max_q,
                 N=n, F=f, Q=q, physical_Q=physical_q, tpf=tpf,

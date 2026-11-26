@@ -19,6 +19,10 @@ def snapshot(run, policy, cases_sha, cache):
     if (qual != dict(model=meta["model"], full_width=meta["block"], matched=90)
             or complete != dict(policy=policy, requests=90)):
         raise ValueError("Missing full-width qualification or complete arm")
+    return link_requests(run, policy, cache)
+
+
+def link_requests(run, policy, cache):
     # Run files are atomically finalized by durable(). Do not hash or load
     # unrelated policies from a live multi-arm directory in the scorer.
     target = cache / run.name / policy
