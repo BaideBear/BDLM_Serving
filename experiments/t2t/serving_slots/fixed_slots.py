@@ -444,34 +444,40 @@ def unified_adjacent(data):
         prev=b,rows
 
 
-def profile_transfer(data):
+def profile_transfer(data, *, dwell=False):
     from experiments.t2t.serving_slots import unified90 as u
     from experiments.t2t.serving_slots.mask_pair_report import efficiency_interval
     from tools.prefix_cohorts import load_cases, select_window_cases, _window_row
-    a,b=u.TRANSFER
+    a,b=group=u.DWELL if dwell else u.TRANSFER
+    offers=u.PAIRED_OFFERS if dwell else u.OFFERS
     cases=load_cases(data/"samples.json")
-    path=data/("gemma-unified90-"+"-".join(u.TRANSFER))
-    old=data/"gemma-unified90-replay-replay_open"
+    path=data/("gemma-unified90-"+"-".join(group))
+    old=(data/("gemma-unified90-"+"-".join(u.TRANSFER)) if dwell else data/"gemma-unified90-replay-replay_open")
     m=u.read(path/"run.json")
     oldm=u.read(old/"run.json")
     if (m["suite"]!="frozen90" or m["device"]!="cuda:0" or m["indices"]!=list(range(90))
             or m["profiles"]!=["economy","q128_prefix_candidate"] or not m["quote_costs"]
-            or m["arms"]!={a:[list(u.OFFERS),True,{}],b:[list(u.OFFERS),True,{"128":32}]}
+            or m["arms"]!={a:[list(offers),True,{}],b:[list(offers),True,{"128":32}]}
             or u.sha(data/"samples.json")!=m["samples_sha256"] or m["samples_sha256"]!=u.caps.SAMPLES_SHA
             or any(m[k]!=oldm[k] for k in ("revision","device","model","suite","indices","samples_sha256",
                 "wave_config","native_config","torch","transformers","rng","launcher_sha256"))
             or any(u.read(p/"returned.json")!={"gpu":0,"restored":True} for p in (path,old))
             or any(u.read(p/f"complete-{arm}.json")!={"policy":arm,"requests":90}
-                   for p,arm in ((path,a),(path,b),(old,a)))):
+                   for p,arm in ((path,a),(path,b),(old,u.TRANSFER[0])))):
         raise ValueError("Not a completed frozen profile study")
     left,right,exposed,tail_at_first={}, {}, {}, {}
     for c in cases:
         i=c["index"]
         x,y=(u.read(path/f"{i:02d}-{arm}.json") for arm in (a,b))
-        twin=u.read(old/f"{i:02d}-{a}.json")
-        if (any(x[k]!=twin[k] for k in (*u.KEYS,"policy","model","input_sha256","output_ids","output_text","trace",
-                  "first_geometry_sha256","generation_forwards","generation_physical_padded_rows"))
-                or x["input_sha256"]!=y["input_sha256"] or x["effective_prefix_q"]!=0
+        twin=u.read(old/f"{i:02d}-{u.TRANSFER[0]}.json")
+        if dwell:
+            if any(u.common_offers(ref,now)!=now["first_different_offer"] for ref,now in
+                   ((twin,x),(u.read(old/f"{i:02d}-{u.TRANSFER[1]}.json"),y))):
+                raise ValueError("Changed route lacks shared same-profile prefix")
+        elif any(x[k]!=twin[k] for k in (*u.KEYS,"policy","model","input_sha256","output_ids","output_text","trace",
+                  "first_geometry_sha256","generation_forwards","generation_physical_padded_rows")):
+            raise ValueError("No exact frozen K0 replay")
+        if (x["input_sha256"]!=y["input_sha256"] or x["effective_prefix_q"]!=0
                 or any(r["quote_verified_decoder_calls"]!=len(r["trace"]) for r in (x,y))):
             raise ValueError("Missing replay or price confirmation")
         for r,arm,yielded in ((x,a,left),(y,b,right)):
@@ -479,7 +485,7 @@ def profile_transfer(data):
                                       or e["q"]>128) for e in r["trace"])
                     or sum(e["prefix"] for e in r["trace"])!=r["effective_prefix_q"]):
                 raise ValueError("Refresh outside its profile")
-            yielded[i]=unified_work_row(r,c,arm,u.OFFERS)
+            yielded[i]=unified_work_row(r,c,arm,offers)
         first=next((j for j,e in enumerate(y["trace"]) if e["prefix"]),None)
         if first != x["first_added_prefix"] or first!=y["first_added_prefix"]:
             raise ValueError("First added prefix does not match physical tape")
@@ -566,13 +572,15 @@ if __name__ == "__main__":
     parser.add_argument("--exchange",action="store_true",help="Compare the paired Q128/K32 equal-width exchange")
     parser.add_argument("--spawn50",action="store_true",help="Validate and score earlier Q512 tail admission vs Q256/Q512/W2")
     parser.add_argument("--transfer",action="store_true",help="Audit the Q128 profile on the external five-slot path")
+    parser.add_argument("--dwell",action="store_true",help="Audit the permuted five-slot path with two adjacent Q128 offers")
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
-    if args.transfer:
+    if args.transfer or args.dwell:
         if not args.data:
             parser.error("--transfer requires --data")
-        write_rows(HERE/"controls/gemma-unified-profile-transfer.csv",profile_transfer(args.data))
+        label="dwell" if args.dwell else "transfer"
+        write_rows(HERE/f"controls/gemma-unified-profile-{label}.csv",profile_transfer(args.data,dwell=args.dwell))
         raise SystemExit(0)
     if args.spawn50:
         if not args.data:

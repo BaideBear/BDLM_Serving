@@ -5,6 +5,30 @@ import pytest
 from experiments.t2t.serving_slots.unified90 import ARMS, paired, work_row
 
 
+def test_dwell_profile_only_moves_two_external_offers():
+    from collections import Counter
+    from experiments.t2t.serving_slots.unified90 import GROUPS,TRANSFER,DWELL,OFFERS,PAIRED_OFFERS
+    assert GROUPS.index(DWELL)==GROUPS.index(TRANSFER)+1
+    assert Counter(OFFERS*2)==Counter(PAIRED_OFFERS)
+    assert [i for i,(a,b) in enumerate(zip(OFFERS*2,PAIRED_OFFERS)) if a!=b]==[3,10]
+    assert PAIRED_OFFERS[2:4]==(128,128)
+    assert ARMS[DWELL[0]]==(PAIRED_OFFERS,True,{})
+    assert ARMS[DWELL[1]]==(PAIRED_OFFERS,True,{128:32})
+
+
+def test_changed_load_requires_identical_history_before_changed_offer():
+    from experiments.t2t.serving_slots.unified90 import common_offers
+    a=dict(index=0,dataset="demo",task_id="d/0",seed=3,input_sha256="x",prefill_q=12,
+           trace=[dict(tick=0,offer=512,q=256),dict(tick=1,offer=32,q=64)],output_ids=[7])
+    b=deepcopy(a)
+    assert common_offers(a,b) is None
+    b["trace"][1]["offer"]=128
+    assert common_offers(a,b)==1
+    b["trace"][0]["q"]=14
+    with pytest.raises(ValueError,match="before"):
+        common_offers(a,b)
+
+
 def record(arm, *, exposed=False):
     first = ARMS[arm][0][0]
     step = dict(tick=0, offer=first, q=2, head=0, phase="sample", mandatory_q=1, overflow=0,

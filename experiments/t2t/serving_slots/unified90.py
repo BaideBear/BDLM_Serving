@@ -46,6 +46,25 @@ PILOT_SPAWN = "gemma-q512-spawn50-cpu3-v1"
 TRANSFER = ("replay","replay_q128_prefix32")
 ARMS[TRANSFER[1]] = (OFFERS,True,{128:32})
 GROUPS += (TRANSFER,)
+PAIRED_OFFERS = (512,512,128,128,64,256,512,32,512,512,32,32,64,256,512,32)
+DWELL = ("dwell","dwell_q128_prefix32")
+for arm,quota in zip(DWELL, ({}, {128:32}), strict=True):
+    ARMS[arm] = (PAIRED_OFFERS, True, quota)
+GROUPS += (DWELL,)
+
+
+def common_offers(a,b):
+    """On a permuted load path, keep the observed prefix of the same-profile replay."""
+    if any(a[k]!=b[k] for k in (*KEYS,"input_sha256","prefill_q")):
+        raise ValueError("Changed same-profile task or input")
+    for x,y in zip(a["trace"],b["trace"]):
+        if x["offer"]!=y["offer"]:
+            return x["tick"]
+        if x!=y:
+            raise ValueError("Same-profile trace changed before the first different offer")
+    if a["trace"]!=b["trace"] or a["output_ids"]!=b["output_ids"]:
+        raise ValueError("No different offers but changed result")
+    return None
 
 
 def check_early_spawn(control, trial, ids_a, ids_b):
@@ -416,7 +435,7 @@ def run(args, before_cuda=None):
         group = SPAWN
     price = exchange or spawn or cpu and getattr(args, "price", False)
     rank = all(arm in RANKS for arm in group)
-    transfer = group == TRANSFER
+    transfer = group in (TRANSFER,DWELL)
     price = price or transfer
     if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange or spawn):
         raise ValueError("Unregistered CPU pilot")
@@ -468,7 +487,7 @@ def run(args, before_cuda=None):
                     config.update(flowblock_spawn_threshold=0.5)
                 if transfer:
                     from bdlm_serving.methods.t2t.serving_profiles import gemma_plan
-                    config=gemma_plan(plan,"economy" if arm==TRANSFER[0] else "q128_prefix_candidate")
+                    config=gemma_plan(plan,"economy" if arm==group[0] else "q128_prefix_candidate")
                 ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
@@ -485,13 +504,18 @@ def run(args, before_cuda=None):
                 first,n=transfer_witness(*witnesses,*[r["output_ids"] for r in rows],data["input_ids"].shape[1])
                 if rows[0]["input_sha256"]!=rows[1]["input_sha256"]:
                     raise ValueError("Unpaired dynamic inputs")
-                twin=read(output(0)/f"{task['index']:02d}-replay.json")
-                if any(twin[k]!=rows[0][k] for k in (*KEYS,"input_sha256","output_ids","trace",
-                        "generation_physical_padded_rows","generation_forwards","first_geometry_sha256")):
-                    raise ValueError("Original no-prefix replay did not reproduce")
+                if group==TRANSFER:
+                    twin=read(output(0)/f"{task['index']:02d}-replay.json")
+                    if any(twin[k]!=rows[0][k] for k in (*KEYS,"input_sha256","output_ids","trace",
+                            "generation_physical_padded_rows","generation_forwards","first_geometry_sha256")):
+                        raise ValueError("Original no-prefix replay did not reproduce")
+                else:
+                    for row,old_arm in zip(rows,TRANSFER,strict=True):
+                        twin=read(output(GROUPS.index(TRANSFER))/f"{task['index']:02d}-{old_arm}.json")
+                        row["first_different_offer"]=common_offers(twin,row)
                 for row in rows:
                     row["first_added_prefix"]=first
-                    row["effective_prefix_q"]=n if row["policy"]==TRANSFER[1] else 0
+                    row["effective_prefix_q"]=n if row["policy"]==group[1] else 0
             if spawn:
                 opening=check_early_spawn(*witnesses,*[r["output_ids"] for r in rows])
                 for row in rows:
@@ -605,6 +629,12 @@ def protected():
     if GROUPS[i]==TRANSFER and (read(output(0)/"returned.json")!={"gpu":0,"restored":True}
             or read(output(0)/"complete-replay.json")!={"policy":"replay","requests":90}):
         raise ValueError("Missing independent five-slot causal replay")
+    if GROUPS[i]==DWELL:
+        from experiments.t2t.serving_slots import spawn_mask_gpu as prev
+        r=read(prev.OUT/"returned.json")
+        if (r["gpu"]!=0 or r["uuid"]!=prev.GPU or r["restored"] is not True or r["pid"]<=0
+                or r["full90"]!=prev.sealed(90) or r["original30"]!=prev.sealed(30)):
+            raise ValueError("No completed LLaDA mask experiment or GPU0 not returned")
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
@@ -624,9 +654,9 @@ def protected():
     save_json(output(i) / "returned.json", {"gpu": 0, "restored": True})
 
 
-def queue(*, rank=False, exchange=False, spawn=False, transfer=False):
-    indices = (GROUPS.index(TRANSFER),) if transfer else (GROUPS.index(SPAWN),) if spawn else (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
-    predecessor = "prefix90-gemma-q512-spawn50" if transfer else "prefix90-gemma-q128-exchange" if spawn else "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
+def queue(*, rank=False, exchange=False, spawn=False, transfer=False, dwell=False):
+    indices = (GROUPS.index(DWELL),) if dwell else (GROUPS.index(TRANSFER),) if transfer else (GROUPS.index(SPAWN),) if spawn else (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
+    predecessor = "prefix90-llada-q64-progress80-mask-gpu0" if dwell else "prefix90-gemma-q512-spawn50" if transfer else "prefix90-gemma-q128-exchange" if spawn else "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
     if any(output(i).exists() for i in indices):
         raise ValueError("Refusing to overwrite an existing registered run")
     for session in ([predecessor,"gemma-rank-cpu3-v1"] if rank else [predecessor]):
@@ -660,6 +690,8 @@ if __name__ == "__main__":
         queue(spawn=True)
     elif sys.argv[1:] == ["queue-transfer"]:
         queue(transfer=True)
+    elif sys.argv[1:] == ["queue-dwell"]:
+        queue(dwell=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
     elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"], ["cpu-pilot-spawn50"]):
