@@ -1,5 +1,6 @@
 """CPU-only: no checkpoint or GPU. Integration cases use the pinned 5.12 mixin."""
 import inspect
+import random
 from random import Random
 from types import SimpleNamespace as NS
 
@@ -382,3 +383,127 @@ def test_selected_rows_gather_canvas_sc_and_cache_raw_logits(tiny):
         # Off-Q acceptance is frozen; Q rows keep the native sampler's decision.
         assert torch.equal(masks[i][0][~active], masks[i - 1][0][~active])
         assert torch.equal(masks[i][0][active], native_masks[i][0][active])
+
+
+SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+
+
+def _controlled(tiny, width, *, fully_accepted=False):
+    native = tiny._denoising_step
+
+    def controlled(**kw):
+        _, draft, sc, done = native(**kw)
+        # Bootstrap admits a strict prefix and a noncontiguous old row; the
+        # next pass has no writes so those positions become non-fresh.
+        mask = ([True] * width if fully_accepted else
+                [True, True, True, False, True] + [False] * (width - 5))
+        kw["sampler"].accepted_token_mask[:] = torch.tensor([mask], dtype=torch.bool)
+        return kw["current_canvas"].clone(), draft, sc, torch.zeros_like(done)
+
+    tiny._denoising_step = controlled
+
+
+def _gemma_run(tiny, width, q, mask_slots, policy):
+    tiny.model.decoder.calls.clear()
+    torch.manual_seed(13)
+    with sparse_gemma(tiny, q, 0, mask_slots, policy=policy) as ledger:
+        tiny.generate(input_ids=PROMPT, max_new_tokens=width, max_denoising_steps=4)
+    return ledger
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+@pytest.mark.parametrize("k", [1, 2, 4])
+def test_slack_prefix_positive_slack_projects_real_rows(tiny, policy, k):
+    width, q = 6, 6
+    tiny.config.canvas_length = width
+    _controlled(tiny, width)
+    zero = _gemma_run(tiny, width, q, q, "hard_prefix_zero")
+    slack = _gemma_run(tiny, width, q, q - k, policy)
+    ze = next(e for e in zero.trace if e.get("prefix_plan", {}).get("zero_width") == 3)
+    se = next(e for e in slack.trace if e.get("prefix_plan", {}).get("zero_width") == 3)
+    za, sa = ze["prefix_plan"], se["prefix_plan"]
+    assert sa["zero_rows"] == za["zero_rows"] == [3, 4, 5]
+    assert sa["eligible_prefix_rows"] == za["eligible_prefix_rows"] == [0, 1, 2]
+    assert sa["evicted_rows"] == []
+    assert set(za["selected_rows"]) <= set(sa["selected_rows"])
+    assert sa["added_rows"] == sorted(set(sa["selected_rows"]) - set(za["selected_rows"]))
+    assert len(sa["added_rows"]) == min(k, 3, 3)
+    assert set(sa["added_rows"]) <= {0, 1, 2}
+    if policy == "hard_prefix_slack_right":
+        assert sa["added_rows"] == ([2] if k == 1 else [1, 2] if k == 2 else [0, 1, 2])
+    assert sa["actual_width"] == 3 + len(sa["added_rows"])
+    assert sa["underfill"] == q - sa["actual_width"]
+    assert se["positions"] == sa["selected_rows"]
+    assert se["q"] == sa["actual_width"]
+    assert se["selected_mask"] == len(za["zero_mask_rows"])
+    assert se["selected_fresh"] == len(za["fresh_rows"])
+    assert zero.trace.index(ze) == slack.trace.index(se)
+    idx = slack.trace.index(se)
+    assert tiny.model.decoder.calls[idx][0][0].tolist() == [2 + i for i in sa["selected_rows"]]
+    assert tiny.model.decoder.calls[idx][0][0].numel() == sa["actual_width"]
+    # One widened selected forward; no extra call merely to spend K.
+    assert len(slack.work[:idx + 1]) == len(zero.work[:idx + 1])
+    assert slack.work[idx][1] == za["actual_width"] + len(sa["added_rows"])
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+@pytest.mark.parametrize("k", [1, 2])
+def test_slack_prefix_zero_slack_is_identical_no_extra_calls(tiny, policy, k):
+    width, q = 6, 4
+    tiny.config.canvas_length = width
+    _controlled(tiny, width)
+    zero = _gemma_run(tiny, width, q, q, "hard_prefix_zero")
+    before = random.getstate()
+    slack = _gemma_run(tiny, width, q, q - k, policy)
+    assert random.getstate() == before
+    ze, se = zero.trace[1], slack.trace[1]
+    assert ze["stage"] == se["stage"] == "selected"
+    assert se["prefix_plan"]["added_rows"] == []
+    assert se["prefix_plan"]["selected_rows"] == ze["prefix_plan"]["selected_rows"]
+    assert se["prefix_plan"]["actual_width"] == ze["prefix_plan"]["actual_width"] == 4
+    assert se["positions"] == ze["positions"] and se["q"] == ze["q"] == 4
+    # The zero-slack step is locally identical; later steps may use real slack.
+    assert slack.work[:2] == zero.work[:2]
+    assert [(e["stage"], e["q"], e["positions"]) for e in slack.trace[:2]] == [
+        (e["stage"], e["q"], e["positions"]) for e in zero.trace[:2]]
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+def test_slack_prefix_zero_width_uses_full_native_verify(tiny, policy):
+    width, q = 6, 6
+    tiny.config.canvas_length = width
+    _controlled(tiny, width, fully_accepted=True)
+    zero = _gemma_run(tiny, width, q, q, "hard_prefix_zero")
+    slack = _gemma_run(tiny, width, q, q - 2, policy)
+    assert zero.work == slack.work == [
+        ("bootstrap", 6), ("selected", 6), ("verify", 6), ("verify", 6)]
+    for ledger in (zero, slack):
+        event = ledger.trace[2]
+        audit = event["prefix_empty_verify_plan"]
+        assert event["stage"] == "verify" and event["q"] == 6
+        assert audit["zero_width"] == 0 and audit["actual_width"] == 0
+        assert audit["added_rows"] == [] and audit["selected_rows"] == []
+        assert audit["underfill"] == 6
+    assert [(e["stage"], e["q"], e["positions"]) for e in slack.trace] == [
+        (e["stage"], e["q"], e["positions"]) for e in zero.trace]
+
+
+def test_slack_prefix_added_rows_are_read_from_the_real_canvas(tiny):
+    width, q, k = 6, 6, 2
+    tiny.config.canvas_length = width
+    _controlled(tiny, width)
+    canvases = []
+    inner = tiny._denoising_step
+
+    def spy(**kw):
+        canvases.append(kw["current_canvas"].clone())
+        return inner(**kw)
+
+    tiny._denoising_step = spy
+    slack = _gemma_run(tiny, width, q, q - k, "hard_prefix_slack_right")
+    se = next(e for e in slack.trace if e.get("prefix_plan", {}).get("zero_width") == 3)
+    idx = slack.trace.index(se)
+    added = se["prefix_plan"]["added_rows"]
+    assert added
+    local = [se["positions"].index(i) for i in added]
+    assert tiny.model.decoder.calls[idx][1][0, local].tolist() == canvases[idx][0, added].tolist()

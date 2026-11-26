@@ -275,6 +275,10 @@ def save_figure(model, q, arms, output):
             ):
                 path = stem.with_suffix(f".{ext}")
                 fig.savefig(path, dpi=300, metadata={"Title": title, **meta})
+                if ext == "svg":
+                    lines = path.read_text(encoding="utf-8").splitlines()
+                    path.write_text("\n".join(line.rstrip() for line in lines) + "\n",
+                                    encoding="utf-8", newline="\n")
                 print(path)
         finally:
             plt.close(fig)

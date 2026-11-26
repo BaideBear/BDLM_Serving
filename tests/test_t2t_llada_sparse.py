@@ -340,3 +340,101 @@ def test_gate_random_full_run_no_free_sampling():
     assert any(e.get("gate", {}).get("released_edit_slots_to_mask") == 2 for e in state.events)
     assert all("gate" not in e or len(e["gate"]["selected_evidence_age"]) == e["actual_q"]
                for e in state.events)
+
+
+SLACK_POLICIES = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+
+
+def _slack_run(q, k, policy, *, steps=4, edit=False):
+    model = _Toy(edit=edit).eval()
+    kernel = LLaDASparseKernel(model, q, 0, q - k, policy=policy)
+    state = _state(kernel)
+    for _ in range(steps):
+        kernel.step(state)
+    return model, state
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+@pytest.mark.parametrize("k", [1, 2, 4])
+def test_slack_prefix_positive_slack_projects_real_rows(policy, k):
+    zero_model, zero_state = _slack_run(32, 0, "hard_prefix_zero")
+    model, state = _slack_run(32, k, policy)
+    za = zero_state.events[-1]["prefix_plan"]
+    sa = state.events[-1]["prefix_plan"]
+    assert sa["zero_rows"] == za["selected_rows"]
+    assert sa["eligible_prefix_rows"] == za["eligible_prefix_rows"] == [2, 3]
+    assert sa["fresh_rows"] == za["fresh_rows"]
+    assert sa["first_mask"] == za["first_mask"]
+    assert sa["evicted_rows"] == []
+    assert set(za["selected_rows"]) <= set(sa["selected_rows"])
+    assert sa["added_rows"] == sorted(set(sa["selected_rows"]) - set(za["selected_rows"]))
+    assert len(sa["added_rows"]) == min(k, 4, 2)
+    assert set(sa["added_rows"]) <= {2, 3}
+    if policy == "hard_prefix_slack_right":
+        assert sa["added_rows"] == ([3] if k == 1 else [2, 3])
+    assert sa["actual_width"] == len(sa["selected_rows"])
+    assert sa["underfill"] == 32 - sa["actual_width"]
+    event = state.events[-1]
+    assert event["absolute_positions"] == [32 + i for i in sa["selected_rows"]]
+    assert event["actual_q"] == event["physical_q"] == sa["actual_width"]
+    assert event["layer_physical_q"] == [sa["actual_width"]] * 2
+    assert event["q_tokens"] == sa["actual_width"]
+    assert event["selected_masked_before"] == len(za["zero_mask_rows"])
+    assert model.embedding_rows[-1] == sa["actual_width"]
+    assert len(model.embedding_rows) == len(zero_model.embedding_rows)
+    assert model.embedding_rows[-1] == zero_model.embedding_rows[-1] + len(sa["added_rows"])
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+@pytest.mark.parametrize("k", [1, 2])
+def test_slack_prefix_zero_slack_is_identical_no_extra_calls(policy, k):
+    zero_model, zero_state = _slack_run(6, 0, "hard_prefix_zero")
+    before = random.getstate()
+    model, state = _slack_run(6, k, policy)
+    assert random.getstate() == before
+    ze, se = zero_state.events[-1], state.events[-1]
+    assert se["prefix_plan"]["added_rows"] == []
+    assert se["prefix_plan"]["selected_rows"] == ze["prefix_plan"]["selected_rows"]
+    assert se["prefix_plan"]["actual_width"] == ze["prefix_plan"]["actual_width"] == 6
+    assert se["actual_q"] == se["physical_q"] == ze["actual_q"] == ze["physical_q"] == 6
+    assert se["selected_masked_before"] == ze["selected_masked_before"]
+    assert model.embedding_rows == zero_model.embedding_rows
+    assert len(state.events) == len(zero_state.events)
+
+
+@pytest.mark.parametrize("policy", SLACK_POLICIES)
+def test_slack_prefix_zero_width_uses_native_verify(policy):
+    def run(mode, mask_slots):
+        model = _Toy(edit=False).eval()
+        kernel = LLaDASparseKernel(model, 32, 0, mask_slots, policy=mode)
+        state = _state(kernel)
+        kernel.step(state)  # prefill
+        kernel.step(state)  # bootstrap
+        state.x[:, 32:64] = 1
+        state.history = History([True] * 32, [None] * 32, [0] * 32, set(), set())
+        kernel.step(state)
+        return state.events[-1]
+
+    zero = run("hard_prefix_zero", 32)
+    slack = run(policy, 30)
+    assert zero["stage"] == slack["stage"] == "verify"
+    assert zero["actual_q"] == slack["actual_q"] == 32
+    assert "prefix_plan" not in zero and "prefix_plan" not in slack
+
+
+def test_slack_prefix_added_rows_run_native_readout_and_edit():
+    model = _Toy(edit=True).eval()
+    kernel = LLaDASparseKernel(model, 32, 0, 30, policy="hard_prefix_slack_right")
+    state = _state(kernel)
+    for _ in range(3):
+        kernel.step(state)
+    state.x[0, 34:36] = 1
+    history = state.history
+    state.history = History(history.resolved, history.certainty, history.streak, set(), set())
+    kernel.step(state)
+    event = state.events[-1]
+    plan = event["prefix_plan"]
+    assert plan["added_rows"] == [2, 3] and plan["evicted_rows"] == []
+    assert event["actual_q"] == event["physical_q"] == len(plan["selected_rows"])
+    assert state.x[0, 34:36].tolist() == [2, 2]
+    assert event["edited"] >= 2
