@@ -277,6 +277,69 @@ def unified_fixed(data, budgets, *, rank_quota=None):
                 base[arm]=ours
 
 
+def unified_adjacent(data):
+    """Paired fixed endpoints on the same executable. These are not live switches."""
+    from math import isclose
+    from bdlm_serving.evaluation.frozen import sha
+    from experiments.t2t.serving_slots import unified90 as u
+    from experiments.t2t.serving_slots.mask_pair_report import efficiency_interval
+    from experiments.t2t.serving_slots.external_report import cost_gaps
+    from tools.prefix_cohorts import load_cases, select_window_cases, _window_row
+
+    if sha(data/"samples.json")!=u.caps.SAMPLES_SHA:
+        raise ValueError("Wrong frozen suite")
+    cases=load_cases(data/"samples.json")
+    prev=None
+    common=None
+    fingerprints=None
+    for b in u.SLOTS:
+        arm=f"q{b}"
+        group=next(g for g in u.GROUPS if arm in g)
+        folder=data/("gemma-unified90-"+"-".join(group))
+        m=u.read(folder/"run.json")
+        signature={k:m[k] for k in ("revision","model","device","suite","wave_config","native_config",
+                                    "samples_sha256","indices","sources","torch","transformers","rng","launcher_sha256")}
+        if (m["indices"]!=list(range(90)) or m["samples_sha256"]!=u.caps.SAMPLES_SHA
+                or m["suite"]!="frozen90" or m["device"]!="cuda:0" or m["model"]!="diffusiongemma"
+                or m["arms"][arm]!=[[b],True,{}] or u.read(folder/f"complete-{arm}.json")!={"policy":arm,"requests":90}
+                or u.read(folder/"returned.json")!={"gpu":0,"restored":True} or common is not None and signature!=common):
+            raise ValueError("Endpoint run manifests differ in more than the offer")
+        common=signature
+        rows={}
+        digests={}
+        for c in cases:
+            i=c["index"]
+            raw=u.read(folder/f"{i:02d}-{arm}.json")
+            rows[i]=unified_fixed_row(raw,c,arm,b)
+            digests[i]=raw["input_sha256"]
+        if fingerprints is not None and fingerprints!=digests:
+            raise ValueError("Paired prompt fingerprint mismatch")
+        fingerprints=digests
+        # Independently reconcile against the published fixed-slot table at each endpoint.
+        with (HERE/f"controls/gemma-unified-q{b}-vs-baselines.csv").open() as f:
+            published={int(r["window"]):r for r in csv.DictReader(f)
+                       if r["arm_policy"]==arm and r["scope"]=="all"}
+        for w in (30,60,90):
+            sub=select_window_cases(cases,w)
+            items=[rows[c["index"]] for c in sub]
+            ref=published[w]
+            if (any(sum(r[k] for r in items)!=int(ref["arm_"+k]) for k in ("N","F","physical_Q","correct"))
+                    or not isclose(sum(r["tpf"] for r in items)/w,float(ref["arm_macro_tpf"]),rel_tol=1e-12)):
+                raise ValueError("Published endpoint differs from the re-scored requests")
+            if prev is None:
+                continue
+            lo,old=prev
+            r=_window_row(sub,old,rows,w,"all","gemma",f"q{lo}",arm,None)
+            ids=[c["index"] for c in sub]
+            q0,q1=([side[i]["physical_Q"] for i in ids] for side in (old,rows))
+            yield dict(r, low=lo, high=b, **cost_gaps(q0,q1),
+                       requests_less_Q=sum(y<x for x,y in zip(q0,q1)),
+                       requests_equal_Q=sum(y==x for x,y in zip(q0,q1)),
+                       requests_more_Q=sum(y>x for x,y in zip(q0,q1)),
+                       efficiency_ci_low=(eff:=efficiency_interval(sub,old,rows))[0],efficiency_ci_high=eff[1])
+        prev=b,rows
+
+
 def gemma_capped_controls(data):
     from bdlm_serving.evaluation.frozen import sha
     from experiments.t2t.prefix_window.score_run import snapshot, link_requests
@@ -325,9 +388,16 @@ if __name__ == "__main__":
     parser.add_argument("--gemma-fixed-caps",type=Path,help="Compare Q32/Q64 K0 with decoder-capped IBS/OBS")
     parser.add_argument("--unified-slots",type=int,nargs="+",
                         help="Rebuild per-slot tables from completed GPU90 arms; use with --data")
+    parser.add_argument("--unified-adjacent",action="store_true",
+                        help="Compare adjacent fixed Gemma offers on the identical measured executor")
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.unified_adjacent:
+        if not args.data:
+            parser.error("--unified-adjacent requires --data")
+        write_rows(HERE/"controls/gemma-unified-adjacent.csv", unified_adjacent(args.data))
+        raise SystemExit(0)
     if args.rank_groups:
         if not args.data:
             parser.error("--rank-groups requires --data")
