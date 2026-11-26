@@ -164,7 +164,38 @@ def rank_evidence(a, b, quota):
     return True
 
 
-def unified_fixed(data, budgets, *, rank_quota=None):
+def exchange_evidence(control, trial):
+    first=trial["first_exchange_tick"]
+    if control["first_exchange_tick"]!=first or control["input_sha256"]!=trial["input_sha256"]:
+        raise ValueError("Different exchange witnesses")
+    for r in (control,trial):
+        if (r["oldest_reproduced"] is not True or r["quote_verified_decoder_calls"]!=len(r["trace"])
+                or len(r["trace"])!=len(r["exchange_by_tick"])):
+            raise ValueError("Missing quote or historical control")
+        for n,t in zip(r["exchange_by_tick"],r["trace"]):
+            if (type(n) is not int or not 0<=n<=min(4,t["prefix"]) or n and (t["tick"]%2 or t["phase"]!="sparse"
+                    or t["q"]-t["prefix"]-t["mandatory_q"]<3*n)):
+                raise ValueError("Move outside the paid unresolved budget")
+        if sum(r["exchange_by_tick"])!=r["total_exchanged_rows"]:
+            raise ValueError("Per-tick exchange count mismatch")
+    if (control["total_exchanged_rows"]!=0 or
+            first!=next((i for i,n in enumerate(trial["exchange_by_tick"]) if n),None)):
+        raise ValueError("Wrong first physical intervention")
+    if first is None:
+        if (control["trace"], control["output_ids"])!=(trial["trace"],trial["output_ids"]):
+            raise ValueError("Changed a request without exchanging rows")
+    else:
+        if type(first) is not int or not 0<=first<min(len(r["trace"]) for r in (control,trial)):
+            raise ValueError("Not a matched intervention")
+        a,b=(r["trace"][first] for r in (control,trial))
+        if (control["trace"][:first]!=trial["trace"][:first] or
+                any(a[k]!=b[k] for k in ("tick","offer","q","mandatory_q","phase","head"))
+                or b["prefix"]-a["prefix"]!=trial["exchange_by_tick"][first]):
+            raise ValueError("Not an equal-width exchange")
+    return first is not None
+
+
+def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
     from bdlm_serving.evaluation.frozen import sha
     from experiments.t2t.serving_slots import unified90 as u, gemma_fixed_caps as caps
     from experiments.t2t.serving_slots.external_report import cost_gaps
@@ -172,6 +203,8 @@ def unified_fixed(data, budgets, *, rank_quota=None):
     from tools.prefix_cohorts import canonical_model, load_cases, normalize_request, select_window_cases, _window_row
     if not budgets or len(set(budgets)) != len(budgets) or not set(budgets) <= set(u.SLOTS):
         raise ValueError("Give distinct registered Gemma slots")
+    if exchange and (list(budgets)!=[128] or rank_quota!=32):
+        raise ValueError("Only Q128/K32 has a registered exchange")
     samples = data/"samples.json"
     if sha(samples) != caps.SAMPLES_SHA:
         raise ValueError("Wrong samples")
@@ -180,6 +213,8 @@ def unified_fixed(data, budgets, *, rank_quota=None):
         primary = f"q{b}"
         base_group = next(g for g in u.GROUPS if primary in g)
         group = base_group if rank_quota is None else (f"q{b}_k{rank_quota}_random",f"q{b}_k{rank_quota}_oldest")
+        if exchange:
+            group=u.EXCHANGE
         if group not in u.GROUPS:
             raise ValueError("Unregistered rank comparison")
         path = data/("gemma-unified90-"+"-".join(group))
@@ -203,7 +238,9 @@ def unified_fixed(data, budgets, *, rank_quota=None):
         if rank_quota is not None:
             refpath=data/("gemma-unified90-"+"-".join(base_group))
             refmeta=u.read(refpath/"run.json")
-            if (m["prefix_rank"] != {p:u.RANKS[p] for p in group} or
+            policy_ok=(m.get("exchange")==u.EX_SPEC and m.get("quote_costs") is True if exchange
+                       else m["prefix_rank"]=={p:u.RANKS[p] for p in group})
+            if (not policy_ok or
                     any(refmeta[k]!=m[k] for k in ("revision","suite","model","indices","samples_sha256","wave_config",
                     "native_config","torch","transformers","rng","launcher_sha256","device")) or
                     refmeta["arms"][primary]!=[[b],True,{}] or u.read(refpath/"returned.json")!={"gpu":0,"restored":True}
@@ -212,6 +249,19 @@ def unified_fixed(data, budgets, *, rank_quota=None):
             # Different engine revisions: both use identical registered inputs, checked per request below.
             base_raw={c["index"]:u.read(refpath/f"{c['index']:02d}-{primary}.json") for c in cases}
             base[primary]={c["index"]:unified_fixed_row(base_raw[c["index"]],c,primary,b) for c in cases}
+            if exchange:
+                rankpath=data/"gemma-unified90-q128_k32_random-q128_k32_oldest"
+                if (u.read(rankpath/"returned.json")!={"gpu":0,"restored":True}
+                        or u.read(rankpath/f"complete-{group[0]}.json")!={"policy":group[0],"requests":90}):
+                    raise ValueError("Missing official oldest control")
+                random="q128_slack_random"
+                base[random]={}
+                for c in cases:
+                    i=c["index"]
+                    raw=u.read(refpath/f"{i:02d}-{random}.json")
+                    if raw["input_sha256"]!=base_raw[i]["input_sha256"]:
+                        raise ValueError("Wrong independent random control")
+                    base[random][i]=unified_fixed_row(raw,c,random,b)
         for folder,label in refs:
             meta=u.read(folder/"run.json")
             if (meta["samples_sha256"] != caps.SAMPLES_SHA or meta["suite"] != "frozen90"
@@ -248,9 +298,18 @@ def unified_fixed(data, budgets, *, rank_quota=None):
                         raise ValueError("Wrong rank inputs, cross-block execution or quota")
                     if arm==group[0]:
                         raw_random[i]=raw
+                        if exchange:
+                            twin=u.read(rankpath/f"{i:02d}-{arm}.json")
+                            if any(twin[k]!=raw[k] for k in (*u.KEYS,"input_sha256","output_ids","trace",
+                                                             "generation_forwards","generation_physical_padded_rows")):
+                                raise ValueError("Oldest control replay failed")
                     else:
-                        intervention[i]=rank_evidence(raw_random[i],raw,rank_quota)
-                    if b==128 and rank_quota==32 and arm==group[0]:
+                        intervention[i]=(exchange_evidence(raw_random[i],raw) if exchange
+                                         else rank_evidence(raw_random[i],raw,rank_quota))
+                    if exchange:
+                        ours[i]["swaps"]=raw["total_exchanged_rows"]
+                        ours[i]["swap_ticks"]=sum(bool(n) for n in raw["exchange_by_tick"])
+                    if not exchange and b==128 and rank_quota==32 and arm==group[0]:
                         twin=u.read(refpath/f"{i:02d}-q128_slack_random.json")
                         if any(twin[k]!=raw[k] for k in ("input_sha256","output_ids","trace","generation_forwards","generation_physical_padded_rows")):
                             raise ValueError("Registered Q128/K32 random did not replicate")
@@ -267,8 +326,11 @@ def unified_fixed(data, budgets, *, rank_quota=None):
                     r["ours_prefix_requests"] = sum(ours[i]["prefix_ticks"]>0 for i in ids)
                     if rank_quota is not None:
                         r["prefix_quota"]=rank_quota
-                        r["ranking_changed_requests"]=(sum(intervention[i] for i in ids)
+                        r["exchange_exposed_requests" if exchange else "ranking_changed_requests"]=(sum(intervention[i] for i in ids)
                             if label==group[0] and arm==group[1] else "")
+                        if exchange:
+                            r.update(exchanged_rows=sum(ours[i]["swaps"] for i in ids),
+                                     exchange_ticks=sum(ours[i]["swap_ticks"] for i in ids))
                         for k in ("sparse_q","sparse_mandatory_q","sparse_prefix_q","sparse_mask_only_q"):
                             r["ours_"+k]=sum(ours[i][k] for i in ids)
                     yield r
@@ -390,9 +452,15 @@ if __name__ == "__main__":
                         help="Rebuild per-slot tables from completed GPU90 arms; use with --data")
     parser.add_argument("--unified-adjacent",action="store_true",
                         help="Compare adjacent fixed Gemma offers on the identical measured executor")
+    parser.add_argument("--exchange",action="store_true",help="Compare the paired Q128/K32 equal-width exchange")
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.exchange:
+        if not args.data:
+            parser.error("--exchange requires --data")
+        write_rows(HERE/"controls/gemma-unified-q128-k32-exchange.csv",unified_fixed(args.data,[128],rank_quota=32,exchange=True))
+        raise SystemExit(0)
     if args.unified_adjacent:
         if not args.data:
             parser.error("--unified-adjacent requires --data")

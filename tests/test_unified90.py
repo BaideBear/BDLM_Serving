@@ -119,3 +119,19 @@ def test_exchange_matches_earliest_physical_change_and_never_spends_dirty_rows()
         check_exchange([a],[dict(b,q=6)],[0],[1])
     with pytest.raises(ValueError,match="without exchanging"):
         check_exchange([a],[dict(a,displaced_mask=[])],[0],[1])
+
+
+def test_archive_exchange_requires_measured_width_and_counts():
+    from experiments.t2t.serving_slots.fixed_slots import exchange_evidence
+    base=record("q512")
+    t=dict(base["trace"][0], offer=128, q=8, mandatory_q=1, prefix=1, phase="sparse")
+    a=dict(base,trace=[t],oldest_reproduced=True,quote_verified_decoder_calls=1,
+           exchange_by_tick=[0],total_exchanged_rows=0,first_exchange_tick=0)
+    b=dict(a,trace=[dict(t,prefix=2)],exchange_by_tick=[1],total_exchanged_rows=1)
+    assert exchange_evidence(a,b)
+    with pytest.raises(ValueError,match="equal-width"):
+        exchange_evidence(a,dict(b, trace=[dict(t, q=9,prefix=2)]))
+    with pytest.raises(ValueError,match="count mismatch"):
+        exchange_evidence(a,dict(b,total_exchanged_rows=2))
+    with pytest.raises(ValueError,match="paid unresolved"):
+        exchange_evidence(a,dict(b,trace=[dict(t,prefix=3)], exchange_by_tick=[2], total_exchanged_rows=2))
