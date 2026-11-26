@@ -10,10 +10,10 @@ opening or parking a tail does not consume the head's random draws.
 """
 
 from collections.abc import Mapping
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass, field
 from random import Random
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 
 import torch
 
@@ -168,21 +168,8 @@ def _sample(model, s, rows, measured, prefix, cache, masks, steps, device):
     return stopped, full and (stopped or s.age == steps), changes
 
 
-@torch.inference_mode()
-def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs=False):
-    """Return generated IDs and a physical decoder/encoder tape.
-
-    Trace row lists (``visible``, ``selected``, ``sampled``, ``refresh_only``,
-    ``prefix_selected``)
-    use absolute positions including the prompt offset. ``visible`` describes
-    generated keys resident after this decoder call, before any eviction; the
-    encoder prefix is implicit and causal visibility is query-dependent.
-    Dirty, ages and sampler changes (``admitted``, ``strict_edits``, ``revoked``)
-    are per resident canvas, in head-to-tail order, with local row indices.
-    Set quote_costs=True to call next_budget(tick, options) before each
-    decoder. Otherwise only next_budget(tick) is called, without building a menu.
-    ``encoded`` and ``promoted`` list ordinals. ``phase`` describes the head.
-    """
+def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
+    """One implementation of denoising. Yield only at the offer boundary."""
     block, cap = plan["block_size"], plan["cap"]
     threshold = plan["flowblock_spawn_threshold"]
     if (type(block) is not int or block != 256 or block != model.config.canvas_length
@@ -193,8 +180,8 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs
         raise ValueError("quote_costs must be Boolean")
     if quote_costs:
         from .gemma_quote import quote_options
-    if type(causal) is not bool or type(seed) is not int or not callable(next_budget):
-        raise ValueError("Expected Boolean causal, integer seed and callable offer source")
+    if type(causal) is not bool or type(seed) is not int:
+        raise ValueError("Expected Boolean causal and integer seed")
     prefix_mode, prefix_slots = _prefix_policy(plan)
     if getattr(model, "training", False):
         raise ValueError("Unified generation requires an eval-mode model")
@@ -257,17 +244,14 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs
     encode(origin)
     spawn(0)
     may_open = False
-    with wave_attention(model, bank):
+    with nullcontext() if cooperative else wave_attention(model, bank):
         while live:
             head = live[0]
             state = Tick(len(trace), head.ordinal, len(live),
                          tuple(len(s.dirty) for s in live), may_open)
-            if quote_costs:
-                options = quote_options(live, may_open=may_open, steps=steps, cap=cap,
-                                        prefix_slots=prefix_slots, choose=_choose)
-                offer = next_budget(state, options)
-            else:
-                offer = next_budget(state)
+            options = quote_options(live, may_open=may_open, steps=steps, cap=cap,
+                                    prefix_slots=prefix_slots, choose=_choose) if quote_costs else None
+            offer = yield state, options, trace[-1] if trace else None
             if type(offer) is not int or offer not in _OFFERS:
                 raise ValueError(f"Unsupported decoder offer: {offer!r}")
             if offer == 2 * block and may_open:
@@ -331,8 +315,10 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs
             q = len(selected)
             if not q or (phase in ("sparse", "tail_dirty_drain") and q > max(offer, mandatory_q)):
                 raise RuntimeError("Sparse Q exceeds the shared offer and mandatory debt")
-            bank.begin(selected, origin, device, causal=causal)
             with ExitStack() as stack:
+                if cooperative:
+                    stack.enter_context(wave_attention(model, bank))
+                bank.begin(selected, origin, device, causal=causal)
                 sc = None
                 if any(sc_valid):
                     ref = next(x for x in sc_parts if x is not None)
@@ -427,3 +413,83 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs
                 and live[0].ordinal + 1 < cap // block
             )
     raise RuntimeError("Request exhausted without EOS or output cap")
+
+
+@torch.inference_mode()
+def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs=False):
+    """Run one request to completion and return its IDs and physical work tape.
+
+    The synchronous callback runs once per decoder, receiving (tick, options)
+    if quote_costs else (tick,). Do not run another model request in this
+    callback; use start_request for cooperative execution. Positions on the
+    trace include the prompt offset, except local per-canvas changes/dirty rows.
+    Encoder work after commit is recorded in `encoded`.
+    """
+    if not callable(next_budget):
+        raise ValueError("Expected a callable offer source")
+    loop = _loop(model, data, plan, causal=causal, seed=seed, quote_costs=quote_costs, cooperative=False)
+    try:
+        tick, options, _ = next(loop)
+        while True:
+            offer = next_budget(tick, options) if quote_costs else next_budget(tick)
+            try:
+                tick, options, _ = loop.send(offer)
+            except StopIteration as completed:
+                return completed.value
+    finally:
+        loop.close()
+
+
+class Request:
+    """A paused, batch-one Gemma request, confined to a serial inference lane.
+
+    start_request does prompt prefill only; advance(offer) executes one decoder
+    and its mandatory subsequent encoder, if any. No attention routing or RNG
+    override survives the return to the caller. Different handles may share
+    weights in sequence on one thread; concurrent forwards are not supported.
+    Input tensors and returned events must not be mutated while the request is live.
+    """
+    @torch.inference_mode()
+    def __init__(self, loop):
+        self._loop = loop
+        self._result = None
+        self.tick, prices, _ = next(loop)
+        self.options = MappingProxyType(prices) if prices is not None else None
+
+    @property
+    def done(self):
+        return self._result is not None
+
+    def result(self):
+        if not self.done:
+            raise RuntimeError("Request has no completed result")
+        return self._result
+
+    def close(self):
+        if self._loop is not None:
+            self._loop.close()
+        self._loop = self.tick = self.options = None
+
+    @torch.inference_mode()
+    def advance(self, offer):
+        if self._loop is None:
+            raise RuntimeError("Cannot advance a completed or cancelled request")
+        if type(offer) is not int or offer not in _OFFERS:
+            raise ValueError(f"Unsupported decoder offer: {offer!r}")  # Remains at the same tick.
+        try:
+            self.tick, prices, record = self._loop.send(offer)
+        except StopIteration as completed:
+            self._result = completed.value
+            self.close()
+            return self._result[1][-1]
+        except BaseException:
+            self.close()
+            raise
+        self.options = MappingProxyType(prices) if prices is not None else None
+        return record
+
+
+def start_request(model, data, plan, *, causal=True, seed=0, quote_costs=False):
+    """Create one request at tick zero, before its first decoder invocation."""
+    return Request(_loop(model, data, plan, causal=causal, seed=seed,
+                         quote_costs=quote_costs, cooperative=True))

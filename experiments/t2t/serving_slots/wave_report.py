@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import ROOT, sha
 from experiments.t2t.prefix_window.score_run import link_requests, snapshot
-from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
+from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row, score_files
 
 
 def read(path):
@@ -82,8 +82,38 @@ def report(data, original, out):
         w.writerows(summary)
 
 
+def active_report(data, out):
+    """Same mask on both arms. Qualify the full-width control before scoring compact W2."""
+    from experiments.t2t.serving_slots.mask_pair_gemma import active_settings, require_complete
+    samples = data/"samples.json"
+    ref, run = data/"gemma-wave-reference90", data/"gemma-fixed512-active-w2"
+    control, compact = "flow_w2", "active_w2"
+    base = read(ref/"run.json")
+    meta = read(run/"run.json")
+    if (meta != active_settings(base) or base["suite"] != "frozen90" or
+            base["samples_sha256"] != sha(samples) or base["flowblock_spawn_threshold"] != 0.8):
+        raise ValueError("Not the registered compact W2 control")
+    require_complete(run, [control, compact])
+    require_complete(ref, [control])
+    for i in range(90):
+        name = f"{i:02d}-{control}.json"
+        if read(run/name) != read(ref/name):
+            raise ValueError(f"Changed full-width W2 control: {i}")
+    return score_files(link_requests(run, control, out/".inputs"),
+                       link_requests(run, compact, out/".inputs"),
+                       samples, out/"gemma-fixed512-active-vs-flow.csv",
+                       baseline_policy=control, arm_policy=compact, nominal_q=512)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for k in ("data","original","out"):
-        parser.add_argument("--"+k, type=Path,required=True)
-    report(**vars(parser.parse_args()))
+        parser.add_argument("--"+k, type=Path,required=k!="original")
+    parser.add_argument("--active", action="store_true", help="Compare Q512 active-only vs padded W2")
+    args = parser.parse_args()
+    if args.active:
+        active_report(args.data, args.out)
+    elif args.original:
+        report(args.data, args.original, args.out)
+    else:
+        parser.error("Without --active, provide --original for original30 control qualification")

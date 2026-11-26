@@ -13,8 +13,8 @@ COHORTS = ("original-0-29", "added-30-89", "all-0-89")
 REQ = dict(zip(COHORTS, (30, 60, 90)))
 ORIG, ADD, ALL = COHORTS
 TOL = 1e-6
-INTERNAL = {"k0_zero", "k0_slack", "native_fullwidth", "dual64"}
-VORDER = ("k0_zero", "k0_slack", "native_fullwidth", "dual64", "ibs_original", "obs_original", "ibs_capped", "obs_capped", "flow_w1", "flow_w2")
+INTERNAL = {"k0_zero", "k0_slack", "native_fullwidth", "dual64", "active_w2"}
+VORDER = ("k0_zero", "k0_slack", "native_fullwidth", "dual64", "active_w2", "ibs_original", "obs_original", "ibs_capped", "obs_capped", "flow_w1", "flow_w2")
 FIELDS = "model endpoint variant family offer cohort requests correct N F physical_Q raw_Q q_per_f macro_tpf efficiency cap policy source".split()
 DEFAULT = Path(__file__).resolve().parent
 # Intentional, not a directory scan.
@@ -26,7 +26,7 @@ ALLOWLIST = (
     "gemma-ibs_32-zero.csv", "gemma-ibs_64-zero.csv", "gemma-ibs_128-zero.csv",
     "gemma-ibs_256-zero.csv", "gemma-obs_32-zero.csv", "gemma-obs_64-zero.csv",
     "gemma-obs_128-zero.csv", "gemma-obs_256-zero.csv",
-    "gemma-original-vs-capped-fixed.csv", "gemma-wave-vs-fixed.csv",
+    "gemma-original-vs-capped-fixed.csv", "gemma-wave-vs-fixed.csv", "gemma-fixed512-active-vs-flow.csv",
     "llada21-native32-vs-flow-w1.csv", "llada21-dual64-vs-flow-w2.csv",
     "llada21-true64.csv",
 )
@@ -58,6 +58,8 @@ def variant(model, policy):
         return "native_fullwidth", 32, "native_full"
     if p == "dual64_noedit":
         return "dual64", 64, "dual_block"
+    if p == "active_w2" and model == "gemma":
+        return p, 512, "active_canvases"
     m = re.fullmatch(r"flow_w([12])", p)
     if m:
         w = int(m.group(1)); offer = ((256, 512) if model == "gemma" else (32, 64))[w - 1]
