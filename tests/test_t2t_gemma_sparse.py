@@ -411,6 +411,24 @@ def _gemma_run(tiny, width, q, mask_slots, policy):
     return ledger
 
 
+def test_slot_trace_parity_and_live_selected_rows(tiny):
+    tiny.config.canvas_length = 6
+    _controlled(tiny, 6)
+    static = _gemma_run(tiny, 6, 4, 4, "hard_prefix_zero")
+    flat = _gemma_run(tiny, 6, 4, 4, "slottrace_4")
+    assert static.work == flat.work
+    assert static.trace == [{k:v for k,v in e.items() if k not in ("slot_tick","slot_offer")}
+                            for e in flat.trace]
+    switched = _gemma_run(tiny, 6, 4, 4, "slottrace_4_2")
+    changes = [(i,e) for i,e in enumerate(switched.trace) if "slot_tick" in e]
+    assert [e["slot_offer"] for _,e in changes] == [4,2]
+    for tick, (i,e) in enumerate(changes):
+        p = e["prefix_plan"]
+        assert p["budget"] == e["slot_offer"] and e["slot_tick"] == tick
+        assert set(p["fresh_rows"]) <= set(e["positions"])
+        assert p["actual_width"] == tiny.model.decoder.calls[i][0].shape[-1] == e["q"]
+
+
 @pytest.mark.parametrize("policy", SLACK_POLICIES)
 @pytest.mark.parametrize("k", [1, 2, 4])
 def test_slack_prefix_positive_slack_projects_real_rows(tiny, policy, k):

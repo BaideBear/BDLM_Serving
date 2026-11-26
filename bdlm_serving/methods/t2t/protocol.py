@@ -5,6 +5,7 @@ from .context_gate import CONTEXT, CROWDED, FIXED_CONTEXT, GATES
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .physical_prefix import DONOR_MODES, GEMMA_ACTION_LOCK, PREFIX_MODES, prefix_quota
 from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES
+from .slot_trace import slots_for
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,8 @@ class Arm:
 
     @property
     def policy(self):
+        if self.selection.startswith("slottrace_"):
+            return self.selection
         return f"t2t_q{self.budget}_f{self.fresh}_m{self.mask}_{self.selection}"
 
     def prefix_executable(self, block):
@@ -31,6 +34,8 @@ class Arm:
     def parse(cls, text, block):
         q, f, m, selection = text.split(":")
         obj = cls(int(q), int(f), int(m), selection)
+        if slots_for(selection, block, obj.budget, obj.fresh, obj.mask):
+            return obj
         # An explicitly labelled, single-block B32 saturation measurement, not
         # two-block Q64. Do not silently accept oversize legacy configurations.
         saturated = block == 32 and obj == cls(64, 0, 64, "hard_noedit")

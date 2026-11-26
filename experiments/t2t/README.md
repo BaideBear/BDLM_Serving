@@ -1,5 +1,7 @@
 # 当前物理块内的前缀重算
 
+**单请求 Serving 执行设计：** [24 小时逐小时计划](serving_slots/PLAN_24H.md) · [固定槽位、在线切档与对照](serving_slots/README.md)。
+
 ## 当前：前缀加多少、加哪些
 
 [固定 90 题，含历史 30 题](../../benchmarks/frozen90/README.md)。本轮主目标是质量和 TPF，另报实际 Q、token efficiency；T2T 是模型允许的推理动作，不再是预测目标。只在当前严格物理块的连续已解码前缀内选位，不跨块。下面的 frozen30 轨迹及 T2T 结果属于前序实验证据。

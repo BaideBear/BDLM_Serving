@@ -354,6 +354,22 @@ def _slack_run(q, k, policy, *, steps=4, edit=False):
     return model, state
 
 
+def test_slot_trace_roundtrip_with_live_cache():
+    _, static = _slack_run(4, 0, "hard_prefix_zero", steps=8)
+    _, flat = _slack_run(4, 0, "slottrace_4", steps=8)
+    assert torch.equal(static.x, flat.x)
+    assert static.events == [{k:v for k,v in e.items() if k not in ("slot_tick","slot_offer")}
+                             for e in flat.events]
+    _, switched = _slack_run(4, 0, "slottrace_4_8", steps=8)
+    rows = [e for e in switched.events if "slot_offer" in e]
+    assert len(rows) >= 3
+    for tick, e in enumerate(rows):
+        p = e["prefix_plan"]
+        assert p["budget"] == e["slot_offer"] == (4,8)[tick%2] and e["slot_tick"] == tick
+        assert set(p["fresh_rows"]) <= set(p["selected_rows"])
+        assert e["layer_physical_q"] == [len(p["selected_rows"])] * 2
+
+
 @pytest.mark.parametrize("policy", SLACK_POLICIES)
 @pytest.mark.parametrize("k", [1, 2, 4])
 def test_slack_prefix_positive_slack_projects_real_rows(policy, k):

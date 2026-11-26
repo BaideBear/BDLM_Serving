@@ -23,6 +23,7 @@ from types import SimpleNamespace
 import torch
 
 from .planner import History, allocate
+from .slot_trace import slots_for
 from .physical_prefix import DONOR_MODES, GEMMA_ACTION_LOCK, PREFIX_MODES, plan_prefix, prefix_quota
 from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
@@ -209,6 +210,10 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     the checkpoint's default logits processor/sampler/stopping configuration.
     """
     width = model.config.canvas_length
+    slots = slots_for(policy, width, q_budget, fresh_slots, mask_slots)
+    if slots:
+        policy = "hard_prefix_zero"
+    slot_tick = 0
     action_lock = policy in GEMMA_ACTION_LOCK
     policy = GEMMA_ACTION_LOCK.get(policy, policy)
     if not (all(type(n) is int for n in (q_budget, fresh_slots, mask_slots))
@@ -245,6 +250,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     def step(**kw):
         nonlocal h, raw, previous_clock, block, need_check, closed, first_canvas
         nonlocal last_write, last_query, hard_clock, previous_strict
+        nonlocal slot_tick
         canvas, prior_draft = kw["current_canvas"], kw["argmax_canvas"]
         pos, sc = kw["decoder_position_ids"], kw["self_conditioning_logits"]
         prefix = kw["input_ids"].shape[1]
@@ -277,8 +283,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if hard:
             hard_clock += 1
         prefix_plan = None
+        offer = slots[slot_tick % len(slots)] if slots and stage == "selected" else q_budget
         if stage == "selected" and quota is not None:
-            prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, q_budget, quota, policy,
+            prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, offer, quota, policy,
                                       seed=selection_seed, block_start=block, clock=clock,
                                       last_query=last_query)
             if not prefix_plan.positions:
@@ -295,7 +302,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         if selected and prefix_plan is not None:
             picked, reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
             fresh_selected = mandatory_fresh
-            overflow = max(0, len(picked) - q_budget)
+            overflow = max(0, len(picked) - offer)
         elif selected and hard:
             (picked, reserved, mandatory_fresh, fresh_selected,
              overflow, edit_slots) = _hard_pick(
@@ -447,6 +454,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         )
         if prefix_plan is not None:
             record["prefix_plan" if selected else "prefix_empty_verify_plan"] = prefix_plan.audit()
+        if slots and selected:
+            record.update(slot_tick=slot_tick, slot_offer=offer)
+            slot_tick += 1
         if selected and policy in DONOR_MODES:
             record["prefix_pre_canvas_sha256"] = canvas_digest(before_ids, previous.resolved)
             record["prefix_pre_draft_sha256"] = canvas_digest(prior_draft[0].tolist(), previous.resolved)

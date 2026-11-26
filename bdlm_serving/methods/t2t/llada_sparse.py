@@ -25,6 +25,7 @@ from .context_gate import ADMISSION, CONTEXT, CROWDED, GATES, crowded_plan, sele
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
+from .slot_trace import slots_for
 
 
 _GATED = ("near_miss", "gate_random")
@@ -119,6 +120,7 @@ class _SelectedCache(DynamicCache):
 
 @dataclass
 class SparseRequestState(RequestState):
+    slot_tick: int = 0
     usage_history: CommittedUsage | None = None
     seat_audit: SeatAudit | None = None
     history: History | None = None
@@ -190,6 +192,9 @@ class LLaDASparseKernel(SerialKernel):
                  policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None,
                  exchange_rates=None, context_ranker=None, admission_fit=None):
         super().__init__(model, "llada21")
+        self.slots = slots_for(policy, 32, q_budget, fresh_slots, mask_slots)
+        if self.slots:
+            policy = "hard_prefix_zero"
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
             raise ValueError(f"Unknown LLaDA quota policy: {policy}")
@@ -236,7 +241,8 @@ class LLaDASparseKernel(SerialKernel):
                                   seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *CROWDED) else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
 
-    def _execute(self, state, positions, end, cache, phase, stage, store):
+    def _execute(self, state, positions, end, cache, phase, stage, store, budget=None):
+        budget = self.q_budget if budget is None else budget
         q = positions.numel()
         rows = [[0, None] for _ in self.projections]
 
@@ -272,7 +278,7 @@ class LLaDASparseKernel(SerialKernel):
             store_kv=store, context_version=state.context_version, stage=stage,
             absolute_positions=absolute, actual_q=q, physical_q=rows[0][1],
             layer_physical_q=[r[1] for r in rows], F=1, visible_kv=end,
-            q_budget=self.q_budget, approximate_same_block_kv=stage == "selected",
+            q_budget=budget, approximate_same_block_kv=stage == "selected",
         ))
         if self.policy in _HARD:
             clock = len(state.events)
@@ -285,7 +291,7 @@ class LLaDASparseKernel(SerialKernel):
                 mandatory_fresh=len(state.history.fresh) if state.history else 0,
                 reserved_extra_edit_positions=[],
                 reserved_strict_edit_positions=[],
-                overflow=max(0, q - self.q_budget),
+                overflow=max(0, q - budget),
                 hard_strict_edits=0,
             )
         return out.logits
@@ -517,10 +523,11 @@ class LLaDASparseKernel(SerialKernel):
             logits = self._forward(state, start, end, False, "denoise", stage)
         else:
             stage = "selected"
+            offer = self.slots[state.slot_tick % len(self.slots)] if self.slots else self.q_budget
             editable = range(max(0, state.prompt_length - start), 32)
             if self.prefix_quota is not None:
                 prefix_plan = plan_prefix(resolved, editable, state.history.fresh,
-                    self.q_budget, self.prefix_quota, self.policy, seed=state.selection_seed,
+                    offer, self.prefix_quota, self.policy, seed=state.selection_seed,
                     block_start=start, clock=state.step_in_block, last_query=state.last_query)
                 picked, hard_reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
             elif hard:
@@ -534,7 +541,10 @@ class LLaDASparseKernel(SerialKernel):
         if stage == "selected":
             positions = local + start
             cache = _SelectedCache(state.resident, positions, start, end)
-            logits = self._execute(state, positions, end, cache, "denoise", stage, False)
+            logits = self._execute(state, positions, end, cache, "denoise", stage, False, offer)
+            if self.slots:
+                state.events[-1].update(slot_tick=state.slot_tick, slot_offer=offer)
+                state.slot_tick += 1
             if prefix_plan is not None:
                 state.events[-1]["prefix_plan"] = prefix_plan.audit()
         if self.capture_logits:

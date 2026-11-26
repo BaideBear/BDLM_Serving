@@ -11,6 +11,7 @@ from bdlm_serving.methods.t2t.admission_gate import read_admission_fit
 from bdlm_serving.methods.t2t.context_gate import ADMISSION, CONTEXT
 from bdlm_serving.methods.t2t.physical_prefix import PREFIX_MODES
 from bdlm_serving.methods.t2t.protocol import Arm, matrix, verify_bridge, verify_work
+from bdlm_serving.methods.t2t.slot_trace import slots_for
 
 
 def parse_args():
@@ -29,6 +30,7 @@ def parse_args():
     p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
     p.add_argument("--seed-offset", type=int, default=0,
                    help="Frozen30 paired seed repeat; requires matching native references")
+    p.add_argument("--slot-control", action="append", help="Q=qualified frozen90 fixed K0 run directory")
     return p.parse_args()
 
 
@@ -37,6 +39,42 @@ def durable(path, data):
     with temp.open("x") as f:
         json.dump(data, f, ensure_ascii=False)
     temp.replace(path)
+
+
+def slot_controls(arms, args, extra, block):
+    traces = [slots_for(a.selection, block, a.budget, a.fresh, a.mask) for a in arms]
+    required = set().union(*traces)
+    controls = {}
+    for spec in getattr(args, "slot_control", None) or ():
+        key, folder = spec.split("=", 1)
+        q, folder = int(key), Path(folder)
+        p = f"t2t_q{q}_f0_m{q}_hard_prefix_zero"
+        meta = json.loads((folder/"run.json").read_text())
+        if (q in controls or extra["suite"] != "frozen90" or meta["suite"] != "frozen90"
+                or meta["model"] != args.model or meta["samples_sha256"] != extra["samples_sha256"]
+                or p not in meta["policies"]
+                or json.loads((folder/"qualified.json").read_text()) !=
+                   dict(model=args.model, full_width=block, matched=90)
+                or json.loads((folder/f"complete-{p}.json").read_text()) != dict(policy=p, requests=90)):
+            raise ValueError(f"Invalid fixed slot control: {spec}")
+        controls[q] = folder, p
+    if required != controls.keys():
+        raise ValueError("Require one qualified control per slot in the trace")
+    flat = set()
+    for t in traces:
+        if len(t) == 1:
+            flat.add(t[0])
+        elif not set(t) <= flat:
+            raise ValueError("Reproduce each fixed slot before mixed traces")
+    return controls
+
+
+def check_flat(row, old):
+    copy = {**row, "policy": old["policy"], "events": [
+        {k:v for k,v in e.items() if k not in ("slot_tick", "slot_offer")}
+        for e in row["events"]]}
+    if json.loads(json.dumps(copy)) != old:
+        raise ValueError(f"Flat slot trajectory disagrees with fixed control at {row['index']}")
 
 
 def main(args, prepare=None):
@@ -58,7 +96,8 @@ def main(args, prepare=None):
         raise ValueError("Samples changed while loading")
     arms = [Arm.parse(s, block) for s in args.arm] if args.arm else matrix(args.model)
     if len(set(arms)) != len(arms) or any(
-            a.budget >= block and a.selection not in ("hard_noedit", *PREFIX_MODES) for a in arms):
+            a.budget >= block and a.selection not in ("hard_noedit", *PREFIX_MODES)
+            and not slots_for(a.selection, block, a.budget, a.fresh, a.mask) for a in arms):
         raise ValueError("Require distinct arms; at or above block width use a prefix arm or hard_noedit")
     extra = dict(suite=suite, samples_sha256=samples_sha256)
     admission_fit = None
@@ -104,6 +143,7 @@ def main(args, prepare=None):
 
 def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admission_fit=None):
     from bdlm_serving.methods.t2t.online import load_backend
+    controls = slot_controls(arms, args, extra, block)
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
         block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms],
@@ -120,6 +160,11 @@ def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admiss
                        model=args.model, policy=policy)
             verify_work(row)
             idx = task["index"]
+            if arm is not None and policy.startswith("slottrace_"):
+                spec = slots_for(arm.selection, block, arm.budget, arm.fresh, arm.mask)
+                if len(spec) == 1:
+                    directory, pp = controls[spec[0]]
+                    check_flat(row, json.loads((directory / f"{idx:02d}-{pp}.json").read_text()))
             if arm is None or saturated:
                 ref = json.loads((args.reference / f"{idx:02d}-native{block}.json").read_text())
                 verify_bridge(row, ref)
