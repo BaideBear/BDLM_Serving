@@ -23,6 +23,8 @@ REPLAY = "gemma-unified-mask-pilot3.csv"
 LLADA = "llada21-all-slots-mask-pilot3.json"
 Q512 = "gemma-unified-q512-mask-pilot3.csv"
 ADMISSION = "llada21-q64-admission-mask-pilot3.json"
+CPU30 = "llada21-all-slots-mask-cpu-original30.json"
+GPU90 = "gemma-fixed512-mask-pair.csv"
 DATASETS = {0: "gsm8k", 10: "math500", 20: "humaneval"}
 
 
@@ -214,6 +216,61 @@ def admission(data):
     return rows
 
 
+def cpu30(data):
+    require(data["formal"] is False and data["complete"] is True and data["cohort"] == "original30"
+            and data["indices"] == list(range(30)) and data["trace"] == [4, 8, 16, 32, 64]
+            and data["cap"] == 2048 and data["reused_indices"] == [0,10,20]
+            and re.fullmatch(r"[0-9a-f]{64}", data["complete_sha256"]), "Unsealed CPU original30")
+    ds_order = ("gsm8k","math500","humaneval")
+    require(set(data["by_dataset"]) == set(ds_order), "Wrong dataset set")
+    rows = []
+    for ds, scope in [("Original 30", data)] + [(ds, data["by_dataset"][ds]) for ds in ds_order]:
+        n = scope["pairs"]
+        require(n == (30 if not rows else 10), "Wrong dataset weight")
+        sides = []
+        for policy in ("replay_open", "replay"):
+            s = scope["arms"][policy]
+            sides.append(arm(n, *(s[k] for k in ("correct","N","F","Q","macro_TPF","token_efficiency"))))
+        gain, loss = len(scope["lost"]), len(scope["rescued"])  # Stored intervention opens attention.
+        require(sides[1].correct-sides[0].correct == gain-loss and 0 <= scope["exposed"] <= n,
+                "Wrong mask direction or exposure")
+        rows.append(Pair(ds, f"{gain} rescued / {loss} lost; {scope['exposed']} exposed", *sides))
+    for side in ("on","off"):
+        total = pool(getattr(p,side) for p in rows[1:])
+        expected = getattr(rows[0],side)
+        require((total.n,total.f,total.q,total.correct) == (expected.n,expected.f,expected.q,expected.correct)
+                and isclose(total.tpf, expected.tpf), "CPU dataset aggregates disagree")
+    return rows
+
+
+def gpu90(rows):
+    pairs = {}
+    for r in rows:
+        if r["scope"] != "all":
+            continue
+        n = int(r["requests"])
+        require((r["model"], r["baseline_policy"], r["arm_policy"], int(r["nominal_q"])) ==
+                ("gemma","active_w2_mask_off","active_w2_mask_on",512)
+                and r["cohort"] == {30:"original-0-29",60:"added-30-89",90:"all-0-89"}.get(n)
+                and n not in pairs, "Wrong GPU pair, cohort or endpoint")
+        exposure = int(r["requests_exposed"])
+        require(0 <= exposure <= n and int(r["failed"]) == 0, "Invalid GPU exposure or failures")
+        sides = [arm(n, *(r[f"{p}_{k}"] for k in ("correct","N","F","physical_Q","macro_tpf",
+                                                   "pooled_token_efficiency"))) for p in ("baseline","arm")]
+        gain, loss = int(r["rescued"]), int(r["lost"])
+        require(sides[1].correct-sides[0].correct == gain-loss and gain+loss <= exposure,
+                "Wrong GPU paired direction or unexposed discordance")
+        pairs[n] = Pair({30:"Original 30",60:"New 60",90:"All 90"}[n],
+                        f"{gain} rescued / {loss} lost; {exposure} exposed", *sides)
+    require(set(pairs) == {30,60,90}, "Incomplete GPU original/new/full cohorts")
+    for side in ("on","off"):
+        total = pool(getattr(pairs[i],side) for i in (30,60))
+        expected = getattr(pairs[90],side)
+        require((total.n,total.f,total.q,total.correct) == (expected.n,expected.f,expected.q,expected.correct)
+                and isclose(total.tpf,expected.tpf), "GPU cohort aggregates disagree")
+    return [pairs[i] for i in (90,30,60)]
+
+
 def load(controls):
     def csv_rows(name):
         with (controls / name).open(encoding="utf-8", newline="") as f:
@@ -222,7 +279,8 @@ def load(controls):
         return json.loads((controls / name).read_text(encoding="utf-8"))
     panels = {OBS: historical(csv_rows(OBS)), ACTIVE: active(read_json(ACTIVE)),
               REPLAY: replay(csv_rows(REPLAY)), LLADA: llada(read_json(LLADA))}
-    for name, read, parse in ((Q512, csv_rows, lambda r: replay(r, "q512")), (ADMISSION, read_json, admission)):
+    for name, read, parse in ((Q512, csv_rows, lambda r: replay(r, "q512")), (ADMISSION, read_json, admission),
+                              (CPU30, read_json, cpu30), (GPU90, csv_rows, gpu90)):
         try:
             data = read(name)
         except FileNotFoundError:
@@ -257,6 +315,10 @@ def figure(panels):
         LLADA: ("D   LLaDA 2.1-mini  |  Five-tier external replay", "CPU pilot3  /  offers 4, 8, 16, 32, 64  /  replay_open (OFF) \u2192 replay (ON); exposure subsets partition the same three cases"),
         Q512: ("E   DiffusionGemma  |  Unified fixed Q512", "CPU pilot3  /  fixed offer, not equal work  /  q512_open (OFF) \u2192 q512 (ON); subsets partition All three"),
         ADMISSION: ("F   LLaDA 2.1-mini  |  Fixed Q64 admission \u00d7 mask", "CPU pilot3  /  cases 0, 10, 20  /  open (OFF) \u2192 causal (ON) within each policy; fixed offer, not equal work"),
+        CPU30: ("G   LLaDA 2.1-mini  |  Five-tier external replay, original 30",
+                "CPU BF16  /  full requests; same three pilot cases are included, not independent  /  10 per dataset"),
+        GPU90: ("H   DiffusionGemma  |  Fixed Q512, active-only W2",
+                "n164 GPU  /  90 frozen requests; the original 30 and new 60 partition this cohort  /  same W2 admission"),
     }
     require({OBS, ACTIVE, REPLAY, LLADA} <= panels.keys() <= headings.keys(), "Missing or unknown panel")
     y = 108
@@ -310,11 +372,14 @@ def figure(panels):
             if obs:
                 text(1039, z+19, f"[{lo:+.2f}, {hi:+.2f}]", 12, mute)
         y += 108+42*len(rows)
-    text(40, y+10, "TPF = mean request N/F. Efficiency = total output tokens / total physical Q. No cross-panel average or official frozen90 GPU score.", 14)
+    text(40, y+10, "TPF = mean request N/F. Efficiency = total output tokens / total physical Q. No cross-panel average.", 14)
     text(40, y+33, f"A: {OBS}     B: {ACTIVE}     C: {REPLAY}", 12, mute)
     text(40, y+51, "     ".join(f"{letter}: {name}" for letter, name in
          (("D", LLADA), ("E", Q512), ("F", ADMISSION)) if name in panels), 12, mute)
-    height = y+68
+    if CPU30 in panels or GPU90 in panels:
+        text(40, y+69, "     ".join(f"{letter}: {name}" for letter, name in
+             (("G", CPU30),("H", GPU90)) if name in panels), 12, mute)
+    height = y+(86 if CPU30 in panels or GPU90 in panels else 68)
     root.set("height", str(height))
     root.set("viewBox", f"0 0 1200 {height}")
     root.find("rect").set("height", str(height))

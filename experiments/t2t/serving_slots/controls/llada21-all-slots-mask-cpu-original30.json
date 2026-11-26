@@ -1,0 +1,258 @@
+{
+  "cohort": "original30",
+  "formal": false,
+  "expected_pairs": 30,
+  "complete": true,
+  "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "reused_indices": [
+    0,
+    10,
+    20
+  ],
+  "contrast": "replay_open vs replay",
+  "pairs": 30,
+  "arms": {
+    "replay": {
+      "correct": 26,
+      "N": 13795,
+      "F": 3415,
+      "Q": 105951,
+      "triggered_calls": 0,
+      "edges": 0,
+      "accuracy": 0.8666666666666667,
+      "macro_TPF": 5.014437081335287,
+      "token_efficiency": 0.13020169701088238
+    },
+    "replay_open": {
+      "correct": 25,
+      "N": 13224,
+      "F": 3622,
+      "Q": 109895,
+      "triggered_calls": 1159,
+      "edges": 894272,
+      "accuracy": 0.8333333333333334,
+      "macro_TPF": 5.127579629300561,
+      "token_efficiency": 0.1203330451794895
+    }
+  },
+  "exposed": 30,
+  "same_ids": 3,
+  "rescued": [
+    24
+  ],
+  "lost": [
+    17,
+    27
+  ],
+  "by_dataset": {
+    "gsm8k": {
+      "pairs": 10,
+      "arms": {
+        "replay": {
+          "correct": 10,
+          "N": 2604,
+          "F": 897,
+          "Q": 26657,
+          "triggered_calls": 0,
+          "edges": 0,
+          "accuracy": 1.0,
+          "macro_TPF": 3.801222507672841,
+          "token_efficiency": 0.09768541096147354
+        },
+        "replay_open": {
+          "correct": 10,
+          "N": 2465,
+          "F": 654,
+          "Q": 20172,
+          "triggered_calls": 201,
+          "edges": 159232,
+          "accuracy": 1.0,
+          "macro_TPF": 4.394871448734671,
+          "token_efficiency": 0.12219908784453698
+        }
+      },
+      "exposed": 10,
+      "same_ids": 1,
+      "rescued": [],
+      "lost": []
+    },
+    "humaneval": {
+      "pairs": 10,
+      "arms": {
+        "replay": {
+          "correct": 7,
+          "N": 2487,
+          "F": 401,
+          "Q": 14617,
+          "triggered_calls": 0,
+          "edges": 0,
+          "accuracy": 0.7,
+          "macro_TPF": 6.656437465393063,
+          "token_efficiency": 0.17014435246630635
+        },
+        "replay_open": {
+          "correct": 7,
+          "N": 2484,
+          "F": 394,
+          "Q": 14238,
+          "triggered_calls": 124,
+          "edges": 111328,
+          "accuracy": 0.7,
+          "macro_TPF": 6.857232137019023,
+          "token_efficiency": 0.17446270543615677
+        }
+      },
+      "exposed": 10,
+      "same_ids": 2,
+      "rescued": [
+        24
+      ],
+      "lost": [
+        27
+      ]
+    },
+    "math500": {
+      "pairs": 10,
+      "arms": {
+        "replay": {
+          "correct": 9,
+          "N": 8704,
+          "F": 2117,
+          "Q": 64677,
+          "triggered_calls": 0,
+          "edges": 0,
+          "accuracy": 0.9,
+          "macro_TPF": 4.585651270939957,
+          "token_efficiency": 0.13457643366266214
+        },
+        "replay_open": {
+          "correct": 8,
+          "N": 8275,
+          "F": 2574,
+          "Q": 75485,
+          "triggered_calls": 834,
+          "edges": 623712,
+          "accuracy": 0.8,
+          "macro_TPF": 4.130635302147991,
+          "token_efficiency": 0.10962442869444261
+        }
+      },
+      "exposed": 10,
+      "same_ids": 0,
+      "rescued": [],
+      "lost": [
+        17
+      ]
+    }
+  },
+  "run_sha256": "11dad3da3e7f41deab681862a28209c79ed63eb8e317dc0b8c36cd0d46146dd3",
+  "reuse_sha256": "ce694a862b9be401798ac8aea86f63fa4e3a77b9bb3cabee3289e6dab7f0c638",
+  "control": "replay: native block-causal mask",
+  "treatment": "replay_open: open generated head queries to visible tail keys",
+  "trace": [
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "cap": 2048,
+  "contrast_direction": "treatment minus control",
+  "ci_method": "paired percentile bootstrap; resample requests within scope, unstratified",
+  "draws": 2000,
+  "seed": 17000,
+  "delta_order": [
+    "accuracy_fraction",
+    "macro_TPF",
+    "pooled_token_efficiency"
+  ],
+  "paired_contrasts": {
+    "all": {
+      "requests": 30,
+      "rescued": 1,
+      "lost": 2,
+      "same_ids": 3,
+      "delta": [
+        -0.03333333333333333,
+        0.11314254796527405,
+        -0.009868651831392877
+      ],
+      "ci95": [
+        [
+          -0.16666666666666666,
+          0.06666666666666667
+        ],
+        [
+          -0.3985373128216894,
+          0.6235049968727604
+        ],
+        [
+          -0.02740761309630299,
+          0.014041784407986466
+        ]
+      ]
+    },
+    "exposed": {
+      "requests": 30,
+      "rescued": 1,
+      "lost": 2,
+      "same_ids": 3,
+      "delta": [
+        -0.03333333333333333,
+        0.11314254796527405,
+        -0.009868651831392877
+      ],
+      "ci95": [
+        [
+          -0.16666666666666666,
+          0.06666666666666667
+        ],
+        [
+          -0.3985373128216894,
+          0.6235049968727604
+        ],
+        [
+          -0.02740761309630299,
+          0.014041784407986466
+        ]
+      ]
+    },
+    "unexposed": {
+      "requests": 0,
+      "delta": null,
+      "ci95": null
+    }
+  },
+  "complete_sha256": "97802ec1ce80bbb055a5ecc7b6eaf1740abdbe594fdd2bca9a06bedd5f30da6b"
+}
