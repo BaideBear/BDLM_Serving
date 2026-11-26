@@ -33,7 +33,13 @@ MODES = {
     "slack_right": ("Slack right", "#155e92", "^"),
     "slack_random": ("Slack random", "#9b4614", "v"),
     "slack_oldest": ("Slack oldest", "#30704e", "p"),
+    "slack_right_action_lock": ("Lock right", "#30704e", "P"),
+    "slack_random_action_lock": ("Lock random", "#30704e", "P"),
 }
+for family, label, marker in (("backfill", "Old only", "D"), ("paired_backfill", "Pair old", "o"),
+                              ("paired_mask", "Pair MASK", "v")):
+    for selector, color in (("right", "#155e92"), ("random", "#9b4614")):
+        MODES[f"{family}_{selector}"] = (label + " " + selector, color, marker)
 
 
 @dataclass(frozen=True)
@@ -85,6 +91,29 @@ def check_windows(metrics):
     if (a.correct + b.correct != full.correct
             or not math.isclose((30 * a.tpf + 60 * b.tpf) / 90, full.tpf, abs_tol=1e-9)):
         raise ValueError("Full90 counts or macro TPF disagree with original30 + added60")
+
+
+def load_action_group(path, q):
+    selector = {32: "right", 128: "random"}[q]
+    p = f"t2t_q{q}_f0_m{q-q//4}_hard_prefix_slack_{selector}"
+    key = {"zero": f"t2t_q{q}_f0_m{q}_hard_prefix_zero", "normal": p, "lock": p + "_action_lock"}
+    vals = {k: {} for k in key}
+    seen = set()
+    with path.open(newline="") as f:
+        for r in csv.DictReader(f):
+            c, n = r["control"], int(r["window"])
+            if ((c, n) in seen or r["scope"] != "all" or (c not in ("zero", "normal"))
+                    or r["baseline_policy"] != key[c] or r["arm_policy"] != key["lock"]):
+                raise ValueError(f"Invalid action-lock comparison: {path}")
+            seen.add((c, n))
+            for arm, col in ((c, "baseline"), ("lock", "arm")):
+                metric = Metrics(n, int(r[f"{col}_correct"]), float(r[f"{col}_macro_tpf"]),
+                                 float(r[f"{col}_pooled_token_efficiency"]))
+                if vals[arm].setdefault(n, metric) != metric:
+                    raise ValueError("Inconsistent locked-arm scores")
+    for v in vals.values():
+        check_windows(v)
+    return [Arm(key[c], *parse_policy(key[c], q), vals[c], (path.name,)) for c in key]
 
 
 def read_comparison(rows, source):
@@ -291,9 +320,16 @@ def main():
     parser.add_argument("--output-dir", type=Path, default=HERE / "figures")
     parser.add_argument("--model", choices=MODELS)
     parser.add_argument("--q", type=int, help="Nominal Q; omit to plot all available budgets")
+    parser.add_argument("--action-lock", action="store_true", help="Plot the two controls and locked arm")
     args = parser.parse_args()
     try:
-        groups = load_groups(args.input_dir, model=args.model, q=args.q)
+        if args.action_lock:
+            if args.model not in ("gemma", None) or args.q not in (32, 128, None):
+                parser.error("Action-lock supports Gemma Q32/Q128")
+            groups = {("gemma", q): load_action_group(args.input_dir / f"action-lock-q{q}-summary.csv", q)
+                      for q in ((32, 128) if args.q is None else (args.q,))}
+        else:
+            groups = load_groups(args.input_dir, model=args.model, q=args.q)
     except ValueError as exc:
         parser.error(str(exc))
     for (model, q), arms in groups.items():
