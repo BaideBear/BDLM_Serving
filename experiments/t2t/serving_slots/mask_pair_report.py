@@ -4,6 +4,7 @@ import csv
 import json
 import os
 from pathlib import Path
+from random import Random
 import subprocess
 import sys
 import time
@@ -112,6 +113,29 @@ def check_llada_prefix(on, off, prompt_rows):
     return True
 
 
+def efficiency_interval(cases, off, on, draws=4000, seed=17000):
+    """Paired percentile interval for the difference of two pooled ratios."""
+    strata={}
+    for c in cases:
+        a,b=off[c["index"]],on[c["index"]]
+        if a["physical_Q"]<=0 or b["physical_Q"]<=0:
+            raise ValueError("Nonpositive physical Q")
+        strata.setdefault(c["dataset"],[]).append((a["N"],a["physical_Q"],b["N"],b["physical_Q"]))
+    if not strata or draws<40:
+        raise ValueError("Empty paired scope or too few bootstrap draws")
+    rng=Random(seed)
+    deltas=[]
+    for _ in range(draws):
+        n0=q0=n1=q1=0
+        for ds in sorted(strata):
+            rows=strata[ds]
+            for a,b,c,d in rng.choices(rows,k=len(rows)):
+                n0+=a; q0+=b; n1+=c; q1+=d
+        deltas.append(n1/q1-n0/q0)
+    deltas.sort()
+    return deltas[int(.025*draws)],deltas[int(.975*draws)-1]
+
+
 def queue(root, model):
     parent,name,_,_,_,_,gpu = CONFIG[model]
     data=root/"prefix90"
@@ -183,7 +207,13 @@ def score(data, model, out):
         subset=select_window_cases(cases,w)
         for scope in ("all","gsm8k","humaneval","math500"):
             r=_window_row(subset,tables["off"],tables["on"],w,scope,model,off,on,q)
-            r["requests_exposed"]=sum(exposure[c["index"]] for c in subset if scope in ("all",c["dataset"]))
+            chosen=[c for c in subset if scope in ("all",c["dataset"])]
+            r["requests_exposed"]=sum(exposure[c["index"]] for c in chosen)
+            for label in ("baseline","arm"):
+                r[label+"_pooled_token_efficiency"]=r[label+"_N"]/r[label+"_physical_Q"]
+            r["pooled_token_efficiency_delta"]=r["arm_pooled_token_efficiency"]-r["baseline_pooled_token_efficiency"]
+            r["efficiency_ci_low"],r["efficiency_ci_high"]=efficiency_interval(chosen,tables["off"],tables["on"])
+            r["efficiency_ci_method"]="stratified paired percentile bootstrap; 4000 draws, seed 17000; denominator physical_Q"
             output.append(r)
     out.parent.mkdir(parents=True,exist_ok=True)
     with out.open("w",newline="") as handle:

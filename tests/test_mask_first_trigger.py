@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from experiments.t2t.serving_slots.mask_pair_report import check_llada_prefix, first_eligible
+from experiments.t2t.serving_slots.mask_pair_report import check_llada_prefix, efficiency_interval, first_eligible
 
 
 def events():
@@ -38,3 +38,13 @@ def test_zero_edges_and_first_forward_work_require_exact_parity():
     off["events"][2]["layer_physical_q"] = [9]
     with pytest.raises(ValueError, match="physical inputs"):
         check_llada_prefix(on, off, 61)
+
+
+def test_bootstrap_reuses_paired_ids_dataset_sizes_and_physical_rows():
+    cases=[dict(index=0,dataset="a"),dict(index=1,dataset="b")]
+    old={0:dict(N=5,physical_Q=10,Q=9),1:dict(N=20,physical_Q=200,Q=80)}
+    new={0:dict(N=8,physical_Q=8,Q=6),1:dict(N=12,physical_Q=24,Q=15)}
+    delta=20/32-25/210
+    assert efficiency_interval(cases,old,new,40)==(delta,delta)
+    cases[1]["dataset"]="a"
+    assert efficiency_interval(cases,old,old,200)==(0.,0.)
