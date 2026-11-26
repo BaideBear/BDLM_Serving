@@ -1,0 +1,85 @@
+{
+  "model": "google/diffusiongemma-26B-A4B-it",
+  "revision": "cd40195554d3cfcb56f34b9adfb66efc790ed5b6",
+  "seed": 17050,
+  "index": 50,
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "attention": "sdpa",
+  "experts": "grouped_mm",
+  "expert_layout": "packed",
+  "diagnostics": {
+    "block_causal": {
+      "same_input": {
+        "max_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 512
+      },
+      "first_same_input_layer_diff": null,
+      "first_head_layer_diff": "5/experts"
+    },
+    "bidirectional": {
+      "same_input": {
+        "max_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 512
+      },
+      "first_same_input_layer_diff": null,
+      "first_head_layer_diff": "0/attn"
+    }
+  },
+  "prompt_rows": 85,
+  "canvas": 256,
+  "q": 512,
+  "torch": "2.9.0+cu128",
+  "results": [
+    {
+      "mask": "block_causal",
+      "changed": "tail_first",
+      "read": "head",
+      "max_abs": 13.455439567565918,
+      "argmax_changed": 24,
+      "rows": 256
+    },
+    {
+      "mask": "block_causal",
+      "changed": "head_last",
+      "read": "tail",
+      "max_abs": 5.1746110916137695,
+      "argmax_changed": 86,
+      "rows": 256
+    },
+    {
+      "mask": "block_causal",
+      "changed": "head_last",
+      "read": "earlier_head",
+      "max_abs": 16.408470153808594,
+      "argmax_changed": 27,
+      "rows": 255
+    },
+    {
+      "mask": "bidirectional",
+      "changed": "tail_first",
+      "read": "head",
+      "max_abs": 11.899781227111816,
+      "argmax_changed": 80,
+      "rows": 256
+    },
+    {
+      "mask": "bidirectional",
+      "changed": "head_last",
+      "read": "tail",
+      "max_abs": 6.686657905578613,
+      "argmax_changed": 81,
+      "rows": 256
+    },
+    {
+      "mask": "bidirectional",
+      "changed": "head_last",
+      "read": "earlier_head",
+      "max_abs": 14.081598281860352,
+      "argmax_changed": 157,
+      "rows": 255
+    }
+  ]
+}
