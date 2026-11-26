@@ -12,6 +12,7 @@ def arms(model, q, study):
     block, budgets, pilot, pilot_k = MODELS[model]
     if q not in budgets:
         raise ValueError(f"{q} is not a registered {model} budget")
+    ks = [1, pilot_k] if q == pilot else [1]
     if study == "matched":
         specs = [(0, "hard_prefix_zero")]
         modes = ("hard_prefix_frontier_right", "hard_prefix_random")
@@ -24,9 +25,15 @@ def arms(model, q, study):
             raise ValueError("First oldest-row pilot is restricted to the two registered budgets")
         specs = []
         modes = ("hard_prefix_slack_oldest",)
+    elif study == "dose":
+        if model != "gemma":
+            raise ValueError("The cross-budget dose grid is registered for Gemma")
+        ks = [2] if q == pilot else [2, 4]
+        specs = []
+        modes = ("hard_prefix_slack_right", "hard_prefix_slack_random")
     else:
         raise ValueError(f"Unknown study {study}")
-    for k in ([1, pilot_k] if q == pilot else [1]):
+    for k in ks:
         specs.extend((k, mode) for mode in modes)
     commands = [f"{q}:0:{q-k}:{mode}" for k, mode in specs]
     for s in commands:
@@ -38,6 +45,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", choices=MODELS)
     p.add_argument("q", type=int)
-    p.add_argument("study", choices=("matched", "slack", "oldest"))
+    p.add_argument("study", choices=("matched", "slack", "oldest", "dose"))
     args = p.parse_args()
     print(" ".join(arms(args.model, args.q, args.study)))
