@@ -449,6 +449,47 @@ def test_flat_prefix_offers_reproduce_complete_audit_and_mixed_quota(tiny):
     assert selected[1]["prefix_plan"]["added_rows"] == [1,2]
 
 
+def test_sparse_native_sparse_keeps_projected_kv(tiny, monkeypatch):
+    from bdlm_serving.methods.t2t.gemma_sparse import _CanvasKV
+    _controlled(tiny, 6)
+    prior = {}
+    inspected = []
+    extend = _CanvasKV.extend
+
+    def checked(self, layer, q, k, v):
+        if layer in prior:
+            assert torch.equal(self.buffers[layer][0], prior[layer])
+        keys, vals = extend(self, layer, q, k, v)
+        store = self.buffers[layer][0]
+        assert torch.equal(store.index_select(-2,self.index),k[..., -len(self.index):, :])
+        if layer in prior and len(self.index) < self.width:
+            skipped = sorted(set(range(self.width)) - set(self.index.tolist()))
+            assert torch.equal(store[..., skipped, :],prior[layer][..., skipped, :])
+            inspected.append((layer,len(self.index)))
+        prior[layer] = store.clone()
+        return keys, vals
+
+    monkeypatch.setattr(_CanvasKV,"extend",checked)
+    with sparse_gemma(tiny,4,0,4,policy="slottrace_4_6n_2") as ledger:
+        tiny.generate(input_ids=PROMPT,max_new_tokens=6,max_denoising_steps=5)
+    assert [(e["stage"],e["slot_offer"]) for e in ledger.trace if "slot_tick" in e] == [
+        ("selected",4),("native_offer",6),("selected",2)]
+    assert ledger.trace[2]["positions"] == list(range(6))
+    assert ledger.work[-1] == ("verify",6)
+    assert len(inspected) == 4
+
+
+def test_native_offer_can_close_canvas(tiny):
+    native = tiny._denoising_step
+    def close_on_second(**kw):
+        after,draft,sc,done = native(**kw)
+        return after,draft,sc,torch.full_like(done,len(tiny.model.decoder.calls)==2)
+    tiny._denoising_step = close_on_second
+    flat = _gemma_run(tiny,6,6,6,"slottrace_6n")
+    assert flat.work == [("bootstrap",6),("native_offer",6)]
+    assert flat.trace[-1]["finished"] and not flat.trace[-1]["terminal_clock"]
+
+
 @pytest.mark.parametrize("full", [False, True])
 def test_external_offer_only_on_physical_selection(tiny, full):
     from bdlm_serving.methods.t2t.slot_trace import BudgetOffer

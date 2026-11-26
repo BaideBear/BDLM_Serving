@@ -8,9 +8,9 @@ METRICS = ("correct", "macro_tpf", "pooled_token_efficiency", "N", "F", "physica
 
 def comparison(root):
     out = {}
-    for q in (32, 128):
+    for q in (32, 64, 128, 256):
         for ref in ("ibs", "obs"):
-            for label in ("zero", "slack"):
+            for label in (("zero", "slack") if q in (32,128) else ("zero",)):
                 path = root / f"gemma-{ref}_{q}-{label}.csv"
                 with path.open() as f:
                     rows = [r for r in csv.DictReader(f) if r["scope"] == "all"]
@@ -38,14 +38,14 @@ def main():
         writer = csv.DictWriter(f, fieldnames=list(next(iter(rows.values()))), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows.values())
-    order = ("IBS", "OBS", "zero", "slack")
-    fig, axes = plt.subplots(2, 3, figsize=(11, 6.4), layout="constrained")
-    for axrow, q in zip(axes, (32, 128)):
+    fig, axes = plt.subplots(4, 3, figsize=(11, 11.2), layout="constrained")
+    for axrow, q in zip(axes, (32, 64, 128, 256)):
+        order = ["IBS","OBS","zero"] + (["slack"] if q in (32,128) else [])
         for ax, col, desc in zip(axrow, METRICS, ("Correct / 90", "Tokens / forward", "Token efficiency (%)")):
             vals = [float(rows[q, method, 90][col]) for method in order]
             if col == "pooled_token_efficiency":
                 vals = [v*100 for v in vals]
-            bars = ax.bar(["IBS", "OBS", "K0", "Slack"], vals,
+            bars = ax.bar(["IBS", "OBS", "K0", "Slack"][:len(order)], vals,
                           color=["#827b8b", "#afa7b5", "#34839b", "#d58636"])
             ax.bar_label(bars, labels=[f"{v:.0f}" if col == "correct" else f"{v:.2f}" for v in vals])
             ax.set_ylim(0, 96 if col == "correct" else max(vals)*1.20)

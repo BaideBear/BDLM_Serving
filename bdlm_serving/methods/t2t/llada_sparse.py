@@ -25,7 +25,7 @@ from .context_gate import ADMISSION, CONTEXT, CROWDED, GATES, crowded_plan, sele
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
-from .slot_trace import BudgetSource, RoundInfo, request_source, resolve, slots_for
+from .slot_trace import NATIVE_FULL, BudgetSource, RoundInfo, request_source, resolve, slots_for
 
 
 _GATED = ("near_miss", "gate_random")
@@ -194,6 +194,8 @@ class LLaDASparseKernel(SerialKernel):
                  exchange_rates=None, context_ranker=None, admission_fit=None):
         super().__init__(model, "llada21")
         self.slots = slots_for(policy, 32, q_budget, fresh_slots, mask_slots)
+        if any(s.native_full for s in self.slots):
+            raise ValueError("Native full-canvas offers require Gemma")
         if self.slots:
             policy = self.slots[0].plan(32)[2]
         policy = {"targeted": "ranked"}.get(policy, policy)
@@ -531,6 +533,8 @@ class LLaDASparseKernel(SerialKernel):
             if state.next_budget is not None:
                 info = RoundInfo(state.slot_tick, start, 32, count, len(state.history.fresh))
                 offer, quota, mode = resolve(state.next_budget, info, self.q_budget)
+                if mode == NATIVE_FULL:
+                    raise ValueError("Native full-canvas offers require Gemma")
             editable = range(max(0, state.prompt_length - start), 32)
             if self.prefix_quota is not None:
                 prefix_plan = plan_prefix(resolved, editable, state.history.fresh,

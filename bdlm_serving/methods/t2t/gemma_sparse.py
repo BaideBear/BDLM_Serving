@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import torch
 
 from .planner import History, allocate
-from .slot_trace import RoundInfo, request_source, resolve, slots_for
+from .slot_trace import NATIVE_FULL, RoundInfo, request_source, resolve, slots_for
 from .physical_prefix import DONOR_MODES, GEMMA_ACTION_LOCK, PREFIX_MODES, plan_prefix, prefix_quota
 from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
@@ -212,7 +212,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
     width = model.config.canvas_length
     slots = slots_for(policy, width, q_budget, fresh_slots, mask_slots)
     if slots:
-        policy = slots[0].plan(width)[2]
+        policy = "hard_prefix_zero" if slots[0].native_full else slots[0].plan(width)[2]
     source = request_source(slots, next_budget, policy)
     slot_tick = 0
     action_lock = policy in GEMMA_ACTION_LOCK
@@ -289,13 +289,16 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             if source is not None and (h.fresh or not all(h.resolved)):
                 info = RoundInfo(slot_tick, block, width, h.resolved.count(False), len(h.fresh))
                 offer, step_quota, mode = resolve(source, info, q_budget)
-            prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, offer, step_quota, mode,
-                                      seed=selection_seed, block_start=block, clock=clock,
-                                      last_query=last_query)
-            if not prefix_plan.positions:
-                # All rows are accepted and none is fresh. No sparse Q can be
-                # issued; use the charged native verification path instead.
-                stage = "verify"
+            if mode == NATIVE_FULL:
+                # Use the native sampler and stopper; measured() refreshes all
+                # resident rows and raw scores for a possible subsequent downshift.
+                stage = "native_offer"
+            else:
+                prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, offer, step_quota, mode,
+                                          seed=selection_seed, block_start=block, clock=clock,
+                                          last_query=last_query)
+                if not prefix_plan.positions:
+                    stage = "verify"
         selected = stage == "selected"
         prev_fresh = sorted(h.fresh) if hard else []
         mandatory_fresh = len(prev_fresh)
@@ -458,7 +461,7 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         )
         if prefix_plan is not None:
             record["prefix_plan" if selected else "prefix_empty_verify_plan"] = prefix_plan.audit()
-        if source is not None and selected:
+        if source is not None and (selected or stage == "native_offer"):
             record.update(slot_tick=slot_tick, slot_offer=offer)
             if step_quota:
                 record["slot_prefix_mode"] = mode

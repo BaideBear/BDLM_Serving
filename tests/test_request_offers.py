@@ -34,3 +34,14 @@ def test_encoded_flat_and_mixed_share_source():
     observed = [resolve(source,RoundInfo(i,0,256,20,3),32) for i in range(5)]
     assert [x[:2] for x in observed] == [(32,8),(64,0),(128,32),(32,4),(32,8)]
     assert [x[2] for x in observed[1:4]] == ["hard_prefix_zero","hard_prefix_slack_random","hard_prefix_slack_oldest"]
+
+
+def test_native_is_explicit_and_full_width_only():
+    from bdlm_serving.methods.t2t.slot_trace import parse_offer
+    assert parse_offer("256n",256).plan(256) == (256,0,"native_full")
+    assert parse_offer("256",256).plan(256) == (256,0,"hard_prefix_zero")
+    for bad in ("128n","256nr2","256nn","0256n"):
+        with pytest.raises(ValueError):
+            parse_offer(bad,256)
+    with pytest.raises(ValueError):
+        BudgetOffer(256,1,native_full=True).plan(256)

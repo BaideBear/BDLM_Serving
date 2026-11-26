@@ -4,6 +4,9 @@ import re
 from typing import Callable
 
 
+NATIVE_FULL = "native_full"
+
+
 @dataclass(frozen=True)
 class RoundInfo:
     tick: int
@@ -18,12 +21,19 @@ class BudgetOffer:
     q: int
     prefix: int = 0
     selector: str = "right"
+    native_full: bool = False
 
     def plan(self, width):
         if (type(self.q) is not int or type(self.prefix) is not int
                 or not 0 <= self.prefix < self.q <= width
                 or self.selector not in ("right", "random", "oldest")):
             raise ValueError("Require 0 <= prefix < Q <= physical width and a known selector")
+        if type(self.native_full) is not bool:
+            raise ValueError("native_full must be boolean")
+        if self.native_full:
+            if (self.q, self.prefix, self.selector) != (width, 0, "right"):
+                raise ValueError("Native offer requires a complete canvas with no prefix quota")
+            return self.q, 0, NATIVE_FULL
         return self.q, self.prefix, ("hard_prefix_slack_" + self.selector
                                      if self.prefix else "hard_prefix_zero")
 
@@ -51,6 +61,10 @@ def resolve(source, info, fallback):
 
 
 def parse_offer(field, width):
+    if re.fullmatch(r"[1-9][0-9]*n", field):
+        value = BudgetOffer(int(field[:-1]), native_full=True)
+        value.plan(width)
+        return value
     match = re.fullmatch(r"([1-9][0-9]*)(?:([ruo])([1-9][0-9]*))?", field)
     if not match:
         raise ValueError("Expected Q or Q{r|u|o}K for right/uniform/oldest slack")

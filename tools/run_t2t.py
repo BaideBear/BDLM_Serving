@@ -51,12 +51,17 @@ def slot_controls(arms, args, extra, block):
         q,k,mode = choice.plan(block)
         p = f"t2t_q{q}_f0_m{q-k}_{mode}"
         meta = json.loads((folder/"run.json").read_text())
+        if choice.native_full:
+            p = "fullwidth"
+            ready = args.model == "gemma"
+        else:
+            ready = (p in meta["policies"] and json.loads((folder/f"complete-{p}.json").read_text())
+                     == dict(policy=p, requests=90))
         if (choice in controls or extra["suite"] != "frozen90" or meta["suite"] != "frozen90"
                 or meta["model"] != args.model or meta["samples_sha256"] != extra["samples_sha256"]
-                or p not in meta["policies"]
+                or not ready
                 or json.loads((folder/"qualified.json").read_text()) !=
-                   dict(model=args.model, full_width=block, matched=90)
-                or json.loads((folder/f"complete-{p}.json").read_text()) != dict(policy=p, requests=90)):
+                   dict(model=args.model, full_width=block, matched=90)):
             raise ValueError(f"Invalid fixed slot control: {spec}")
         controls[choice] = folder, p
     if required != controls.keys():
@@ -74,6 +79,35 @@ def check_flat(row, old):
     copy = {**row, "policy": old["policy"], "events": [
         {k:v for k,v in e.items() if k not in ("slot_tick", "slot_offer", "slot_prefix_mode")}
         for e in row["events"]]}
+    if old["policy"] == "fullwidth":
+        # Only scheduler bookkeeping is new. Compare every native event field,
+        # phase count (after relabeling), raw output ID and physical model call.
+        extra = ("reserved_extra_edit_positions", "reserved_strict_edit_positions", "hard_strict_edits",
+                 "mandatory_fresh", "fresh_selected", "edit_slots", "overflow", "hard_clock",
+                 "prefix_empty_verify_plan")
+        tick = 0
+        for original, e in zip(row["events"], copy["events"], strict=True):
+            stage = e["stage"]
+            if stage == "native_offer":
+                if original["slot_tick"] != tick or original["slot_offer"] != e["q"]:
+                    raise ValueError("Invalid native offer clock")
+                tick += 1
+            elif "slot_tick" in original or stage not in ("verify", "bootstrap"):
+                raise ValueError("Unexpected action in fixed native schedule")
+            if (e["mandatory_fresh"] != e["fresh_selected"] or e["fresh_selected"] != e["available_fresh"]
+                    or e["hard_strict_edits"] != e["edited"] or e["overflow"] or e["edit_slots"]
+                    or e["reserved_extra_edit_positions"] or e["reserved_strict_edit_positions"]):
+                raise ValueError("Native offer lost a mandatory action or used a sparse quota")
+            if stage != "bootstrap":
+                e["stage"] = "dense"
+            for k in extra:
+                e.pop(k, None)
+        for col in ("forwards_by_phase", "q_by_phase"):
+            counts = dict(copy[col])
+            for k in ("verify", "native_offer"):
+                if k in counts:
+                    counts["dense"] = counts.get("dense", 0) + counts.pop(k)
+            copy[col] = counts
     if json.loads(json.dumps(copy)) != old:
         raise ValueError(f"Flat slot trajectory disagrees with fixed control at {row['index']}")
 
