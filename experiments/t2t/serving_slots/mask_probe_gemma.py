@@ -25,7 +25,7 @@ def compare(left, right):
 
 
 @torch.inference_mode()
-def probe(checkpoint, samples, index, experts, expert_layout):
+def probe(checkpoint, samples, index, experts, expert_layout, parked=False):
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
     native = json.loads((ROOT/"archive/diffusiongemma-native/config.json").read_text())
     task = load_tasks(samples)[index]
@@ -35,7 +35,99 @@ def probe(checkpoint, samples, index, experts, expert_layout):
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(checkpoint, local_files_only=True,
         dtype=torch.bfloat16, attn_implementation=native["attention"], experts_implementation=experts,
         device_map={"":"cpu"}).eval()
+    if parked:
+        from bdlm_serving.evaluation.frozen import sha
+        from experiments.t2t.serving_slots.gemma_fixed_caps import SAMPLES_SHA
+        if (sha(samples) != SAMPLES_SHA or index != 0 or experts != native["experts"]
+                or expert_layout != "packed"):
+            raise ValueError("Use the registered index 0 parked-cache probe and native experts")
+        return parked_probe(model,data,task)
     return measure(model,data,task,experts,expert_layout)
+
+
+@torch.inference_mode()
+def parked_probe(model,data,task):
+    """Read final head logits on the identical first head-only step with a parked tail."""
+    from bdlm_serving.runtime.diffusiongemma_wave import resolve_plan
+    from experiments.t2t.serving_slots import gemma_unified as engine
+    from bdlm_serving.evaluation.frozen import sha
+    b = model.config.canvas_length
+    plan = dict(resolve_plan(ROOT/"archive/diffusiongemma-wave/config.json"),cap=512,flowblock_spawn_threshold=0.0)
+    offers = (256,512,32,64,128,256,512,32)
+    begin = engine.WaveKV.begin
+    origin = int(data["input_ids"].shape[1])
+    if b != 256 or model.training or model.device.type != "cpu":
+        raise ValueError("Expected B256 CPU evaluation model")
+
+    class StopAfterLogits(Exception):
+        pass
+
+    def replay(blocked, perturb):
+        tick=-1
+        witness=[]
+        out=None
+        target=False
+        def before(bank,positions,canvas_origin,device,causal=True):
+            nonlocal tick,target
+            tick+=1
+            boundary=origin+b
+            future=[p for p in bank.live if p>=boundary]
+            target=bool(future) and max(positions)<boundary
+            begin(bank,positions,canvas_origin,device,causal=blocked if target else causal)
+            h=hashlib.sha256()
+            if target:
+                if len(future)!=b or len(bank.buffers)!=len(model.model.decoder.layers):
+                    raise ValueError("Tail is not fully initialized")
+                idx=torch.tensor([p-bank.base for p in future],dtype=torch.long,device=device)
+                for layer in sorted(bank.buffers):
+                    k,v=bank.buffers[layer]
+                    for src in (k,v):
+                        frozen=src.index_select(-2,idx).contiguous()
+                        h.update(frozen.view(torch.uint8).cpu().numpy().tobytes())
+                    if perturb:
+                        # Only the cached value vectors change; keys and projected rows are untouched.
+                        v.index_copy_(-2,idx,v.index_select(-2,idx)+1)
+            witness.append((tick,list(positions),list(bank.live),h.hexdigest() if target else None))
+            return bank
+        def finish(_,args,result):
+            nonlocal out
+            if target:
+                out=result.logits[0].detach().cpu().clone()
+                if not torch.isfinite(out).all() or out.shape[0]!=len(witness[-1][1]):
+                    raise ValueError("Wrong logits readout")
+                raise StopAfterLogits
+            logits=result.logits.contiguous().view(torch.uint8)
+            witness[-1]+= (hashlib.sha256(logits.cpu().numpy().tobytes()).hexdigest(),)
+        with patch.object(engine.WaveKV,"begin",before), model.register_forward_hook(finish):
+            try:
+                engine.generate(model,data,plan,next_budget=lambda state: offers[state.tick%len(offers)],
+                                seed=task["seed"],causal=True)
+            except StopAfterLogits:
+                pass
+        if out is None:
+            raise ValueError("No resident tail on a head-only decoder step")
+        return out,witness
+
+    ref=None
+    rows=[]
+    for blocked in (True,False):
+        a,w=replay(blocked,False)
+        twin,tw=replay(blocked,False)
+        changed,cw=replay(blocked,True)
+        if ref is None: ref=w
+        if w!=tw or w!=cw or w!=ref:
+            raise ValueError("Changed pre-intervention logits, geometry or cached tail")
+        same=compare(a,twin)
+        delta=compare(a,changed)
+        if same["max_abs"]!=0 or (delta["max_abs"]==0)!=blocked:
+            raise ValueError(f"Failed parked-cache directional control: {blocked}, {same}, {delta}")
+        rows.append(dict(causal=blocked,twin=same,perturbed=delta))
+    tick,q,live,tail_sha=ref[-1]
+    return dict(index=task["index"],task_id=task["task_id"],seed=task["seed"],device="cpu",dtype="bfloat16",
+                tick=tick,offer=offers[tick%len(offers)],head_q=len(q),tail_q=0,cached_tail_rows=b,
+                visible_rows=len(live),cached_tail_sha256=tail_sha,results=rows,quality_evaluated=False,
+                test_only=dict(spawn_threshold=0,cap=512,offers=offers,perturbation="add 1 to parked V at every layer"),
+                sources={p.name:sha(p) for p in (Path(__file__),Path(engine.__file__),Path(engine.__file__).with_name("gemma_wave_kv.py"))})
 
 
 @torch.inference_mode()
@@ -137,9 +229,12 @@ if __name__ == "__main__":
     p.add_argument("--experts",choices=("grouped_mm","eager"),default="grouped_mm")
     p.add_argument("--expert-layout",choices=("packed","per_canvas"),default="packed",
                    help="Diagnostic control: split only expert calls, keep two-canvas attention unchanged")
+    p.add_argument("--parked",action="store_true",help="Probe cached-only tail influence on real sparse head logits")
     a=p.parse_args()
     report=probe(**vars(a))
     print(json.dumps(report,indent=2),flush=True)
+    if a.parked:
+        raise SystemExit(0)
     signals=[r["max_abs"] for r in report["results"]]
     if (any(v["same_input"]["max_abs"]!=0 for v in report["diagnostics"].values())
         or signals[0]!=0 or not all(s>0 for s in signals[1:])):

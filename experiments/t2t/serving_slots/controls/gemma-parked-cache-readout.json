@@ -1,0 +1,63 @@
+{
+  "index": 0,
+  "task_id": "gsm8k/167",
+  "seed": 17000,
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "tick": 3,
+  "offer": 64,
+  "head_q": 64,
+  "tail_q": 0,
+  "cached_tail_rows": 256,
+  "visible_rows": 512,
+  "cached_tail_sha256": "d4d923e74cc34ced5954628e4ffacbbb41408bb5ed9408dafefcad60d48259b6",
+  "results": [
+    {
+      "causal": true,
+      "twin": {
+        "max_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 64
+      },
+      "perturbed": {
+        "max_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 64
+      }
+    },
+    {
+      "causal": false,
+      "twin": {
+        "max_abs": 0.0,
+        "argmax_changed": 0,
+        "rows": 64
+      },
+      "perturbed": {
+        "max_abs": 13.69070053100586,
+        "argmax_changed": 0,
+        "rows": 64
+      }
+    }
+  ],
+  "quality_evaluated": false,
+  "test_only": {
+    "spawn_threshold": 0,
+    "cap": 512,
+    "offers": [
+      256,
+      512,
+      32,
+      64,
+      128,
+      256,
+      512,
+      32
+    ],
+    "perturbation": "add 1 to parked V at every layer"
+  },
+  "sources": {
+    "mask_probe_gemma.py": "01e1667b0d84c324138215beda2fe9f27f2f52bc3ce235255c9dc0e306ef8673",
+    "gemma_unified.py": "afa95f9c0e9234b8e5f7db12d103e1100f15c5a9234812c15752d5211eaac1d9",
+    "gemma_wave_kv.py": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+  }
+}

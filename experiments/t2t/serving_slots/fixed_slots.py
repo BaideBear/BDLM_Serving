@@ -193,7 +193,7 @@ def unified_fixed(data, budgets):
                     raise ValueError("Physical/raw mismatch in Gemma reference")
                 base[label][i]=r
         for arm in (a for a in group if not a.endswith("_open")):
-            if m["arms"][arm] != [[b],True,u.ARMS[arm][2]]:
+            if m["arms"][arm] != [[b],True,{str(k):v for k,v in u.ARMS[arm][2].items()}]:
                 raise ValueError("Wrong causal mode, prefix quota or fixed slot")
             ours = {c["index"]: unified_fixed_row(u.read(path/f"{c['index']:02d}-{arm}.json"),c,arm,b) for c in cases}
             for w in (30,60,90):

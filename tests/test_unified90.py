@@ -47,3 +47,21 @@ def test_after_first_visibility_divergence_is_not_filtered():
 def test_different_offers_are_not_a_mask_comparison():
     with pytest.raises(ValueError, match="mask-only"):
         paired(record("q512"), record("replay_open"))
+
+
+def test_first_rank_change_may_not_remove_a_mask_or_dirty_row():
+    from experiments.t2t.serving_slots.unified90 import check_rank_change
+    a,b=record("q64_k16_random"),record("q64_k16_oldest")
+    x=dict(optional=[5],selected=[5,10,12],pre=[[10]],phase="sparse",edits=[[]],
+           head=0,ages=[2],prefix_end=9)
+    y=dict(x,optional=[4],selected=[4,10,12])
+    assert check_rank_change(a,b,[x,x],[x,y])==1
+    assert check_rank_change(a,b,[x],[x]) is None
+    with pytest.raises(ValueError,match="width"):
+        check_rank_change(a,b,[x],[dict(y,selected=[4,10,11])])
+    with pytest.raises(ValueError,match="prefix witness"):
+        check_rank_change(a,b,[x],[dict(y,optional=[3])])
+    with pytest.raises(ValueError,match="No rank intervention"):
+        check_rank_change(a,dict(b,generation_forwards=7),[x],[x])
+    with pytest.raises(ValueError,match="inputs differ"):
+        check_rank_change(a,dict(b,input_sha256="other"),[x],[x])

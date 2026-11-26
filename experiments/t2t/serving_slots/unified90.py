@@ -24,6 +24,14 @@ ARMS.update(q128_slack_random=((128,), True, {128: 32}),
             q512_open=((512,), False, {}))
 GROUPS = (("replay", "replay_open"), ("q512", "q512_open"), ("q32",),
           ("q64",), ("q128", "q128_slack_random"), ("q256",))
+BASE_GROUPS = len(GROUPS)
+RANKS = {}
+for budget, quota in ((64,16), (32,8), (128,32), (128,64), (128,96)):
+    group = tuple(f"q{budget}_k{quota}_{mode}" for mode in ("random","oldest"))
+    GROUPS += (group,)
+    for policy, mode in zip(group, ("random","oldest")):
+        ARMS[policy] = ((budget,), True, {budget:quota})
+        RANKS[policy] = mode
 KEYS = ("index", "task_id", "dataset", "seed")
 
 
@@ -73,6 +81,82 @@ def work_row(task, policy, ids, trace, obs, tok, cfg, cap, prompt_digest):
                 decoder_layers=obs["decoder_layers"], trace=compact)
 
 
+def rank_witness(trace):
+    return [dict(selected=e["selected"], optional=e["prefix_selected"],
+                 pre=e["dirty_before"], ids=e["admitted"], edits=e["strict_edits"],
+                 revoked=e["revoked"], phase=e["phase"], head=e["head"],
+                 prefix_end=e["prefix_end"], ages=e["ages_before"]) for e in trace]
+
+
+def check_rank_change(a, b, trace_a, trace_b):
+    if a["input_sha256"] != b["input_sha256"] or any(a[k]!=b[k] for k in KEYS):
+        raise ValueError("Rank inputs differ")
+    for tick,(x,y) in enumerate(zip(trace_a,trace_b)):
+        for z in (x,y):
+            if (len(set(z["selected"])) != len(z["selected"]) or
+                    z["optional"] != sorted(set(z["optional"])) or
+                    not set(z["optional"]).issubset(z["selected"])):
+                raise ValueError("Invalid prefix witness")
+        if x["optional"] != y["optional"]:
+            if (any(x[k] != y[k] for k in ("pre","phase","prefix_end","head","ages")) or
+                    len(x["optional"]) != len(y["optional"]) or
+                    set(x["selected"])-set(x["optional"]) != set(y["selected"])-set(y["optional"])):
+                raise ValueError("First rank intervention also changed width, dirty rows or non-prefix rows")
+            return tick
+        if x != y:
+            raise ValueError("Rank traces diverged before first rank change")
+    if (len(trace_a)!=len(trace_b) or any(a[k]!=b[k] for k in (
+            "trace","output_ids","output_tokens","generation_forwards","generation_physical_padded_rows"))):
+        raise ValueError("No rank intervention but trajectories differ")
+    return None
+
+
+def rank_pilot(folder):
+    """Qualify ranking and price estimates before releasing GPU0 for the sweep."""
+    meta = read(folder/"run.json")
+    arms = GROUPS[BASE_GROUPS]
+    paths = [HERE.with_name(f) for f in ("gemma_unified.py","gemma_unified_audit.py",
+                                          "gemma_wave_kv.py","gemma_quote.py")]
+    paths.append(ROOT/"benchmarks/checkpoints/diffusiongemma.json")
+    if (meta["device"] != "cpu" or meta["suite"] != "cpu-pilot" or meta["indices"] != [0,10,20]
+            or meta["samples_sha256"] != caps.SAMPLES_SHA or sha(caps.SAMPLES) != caps.SAMPLES_SHA
+            or meta.get("quote_costs") is not True or meta.get("prefix_rank") != {p:RANKS[p] for p in arms}
+            or meta["arms"] != {p:[[64],True,{"64":16}] for p in arms}
+            or meta["launcher_sha256"] != caps.LAUNCHER_SHA or
+            any(meta["sources"][p.name] != sha(p) for p in paths)):
+        raise ValueError("Wrong rank CPU preflight or engine")
+    for p in arms:
+        if read(folder/f"complete-{p}.json") != {"policy":p,"requests":3}:
+            raise ValueError("Incomplete rank CPU preflight")
+    tasks = load_tasks(caps.SAMPLES)
+    changed = []
+    for i in meta["indices"]:
+        pair = [read(folder/f"{i:02d}-{p}.json") for p in arms]
+        for p,r in zip(arms,pair,strict=True):
+            if (r["policy"] != p or r["status"] != "success" or
+                    any(r[k]!=tasks[i][k] for k in KEYS) or
+                    not r["trace"] or r["quote_verified_decoder_calls"] != len(r["trace"])
+                    or (r["projection_modules"],r["decoder_layers"]) != (85,30)):
+                raise ValueError("Unqualified quote/projection in CPU preflight")
+        a,b=pair
+        first=a["first_rank_change"]
+        if a["input_sha256"] != b["input_sha256"] or first != b["first_rank_change"]:
+            raise ValueError("CPU rank arms not paired")
+        if first is None:
+            if any(a[k]!=b[k] for k in ("output_ids","trace","generation_forwards","generation_physical_padded_rows")):
+                raise ValueError("Unchanged CPU selection changed outputs or work")
+        else:
+            if not (type(first) is int and 0 <= first < min(len(r["trace"]) for r in pair)
+                    and a["trace"][:first] == b["trace"][:first]
+                    and a["trace"][first]["prefix"] == b["trace"][first]["prefix"] > 0
+                    and a["trace"][first]["q"] == b["trace"][first]["q"]):
+                raise ValueError("Missing equal-width CPU intervention")
+            changed.append(i)
+    if not changed:
+        raise ValueError("CPU pilot never exercised the rank intervention")
+    return changed
+
+
 def paired(on, off):
     a, b = ARMS[on["policy"]], ARMS[off["policy"]]
     if not (a[0] == b[0] and a[1] and not b[1] and a[2] == b[2]):
@@ -105,8 +189,9 @@ def run(args, before_cuda=None):
         raise ValueError("Nonregistered suite or runtime")
     group = GROUPS[getattr(args, "pilot_group", 0)] if cpu else GROUPS[int(os.environ["UNIFIED_GROUP"])]
     price = cpu and getattr(args, "price", False)
-    if cpu and group not in (GROUPS[0], GROUPS[1]):
-        raise ValueError("Only registered mask pairs may be CPU pilots")
+    rank = all(arm in RANKS for arm in group)
+    if cpu and group not in (GROUPS[0], GROUPS[1]) and not rank:
+        raise ValueError("Unregistered CPU pilot")
     if cpu:
         torch.set_num_threads(8)
         torch.set_num_interop_threads(1)
@@ -130,6 +215,7 @@ def run(args, before_cuda=None):
         sources={p.name: sha(p) for p in source_paths}, launcher_sha256=caps.LAUNCHER_SHA,
         wave_config=plan, native_config=native, arms={k: ARMS[k] for k in group},
         rng="independent streams seeded by task.seed + canvas ordinal",
+        **({"prefix_rank":{p:RANKS[p] for p in group}} if rank else {}),
         indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
         before_cuda(model)
@@ -139,10 +225,10 @@ def run(args, before_cuda=None):
             data = proc.apply_chat_template([{"role": "user", "content": task["prompt"]}],
                 tokenize=True, add_generation_prompt=True, return_tensors="pt", return_dict=True).to(model.device)
             digest = input_digest(data)
-            rows = []
+            rows, witnesses = [], []
             for arm in group:
                 series, causal, prefix = ARMS[arm]
-                config = dict(plan, prefix_slots=prefix, prefix_mode="random" if prefix else "zero")
+                config = dict(plan, prefix_slots=prefix, prefix_mode=RANKS.get(arm,"random" if prefix else "zero"))
                 ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
@@ -151,6 +237,12 @@ def run(args, before_cuda=None):
                 if price:
                     row["quote_verified_decoder_calls"] = obs["quoted_decoder_calls"]
                 rows.append(row)
+                if rank:
+                    witnesses.append(rank_witness(trace))
+            if rank:
+                first = check_rank_change(*rows, *witnesses)
+                for row in rows:
+                    row["first_rank_change"] = first
             if group[-1].endswith("_open"):
                 paired(*rows)
             for row in rows:
@@ -184,10 +276,12 @@ def score(folder):
                 raise ValueError("Inconsistent stored metrics")
             rows.append(dict(row, correct=bool(judge(row["output_text"], task)["correct"])))
         cohorts = {"pilot3": rows} if pilot else {"original30": rows[:30], "new60": rows[30:], "full90": rows}
+        rank = arm in RANKS
         for name, subset in cohorts.items():
-            for scope in ("all", "exposed", "unexposed"):
+            for scope in (("all","changed_rank","unchanged_rank") if rank else ("all","exposed","unexposed")):
                 values = [r for r in subset if scope == "all" or
-                          (r["first_opportunity"] is not None) == (scope == "exposed")]
+                          (r["first_rank_change" if rank else "first_opportunity"] is not None)
+                          == (scope in ("changed_rank","exposed"))]
                 n = sum(r["output_tokens"] for r in values)
                 f = sum(r["generation_forwards"] for r in values)
                 q = sum(r["generation_physical_padded_rows"] for r in values)
@@ -217,6 +311,8 @@ def protected():
             raise ValueError("Missing predecessor receipt")
     elif read(output(i-1) / "returned.json") != {"gpu": 0, "restored": True}:
         raise ValueError("Missing preceding group")
+    if i == BASE_GROUPS:
+        rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1")
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
@@ -232,16 +328,21 @@ def protected():
     save_json(output(i) / "returned.json", {"gpu": 0, "restored": True})
 
 
-def queue():
-    if any(output(i).exists() for i in range(len(GROUPS))):
+def queue(*, rank=False):
+    indices = range(BASE_GROUPS,len(GROUPS)) if rank else range(BASE_GROUPS)
+    predecessor = "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
+    if any(output(i).exists() for i in indices):
         raise ValueError("Refusing to overwrite an existing registered run")
-    while True:
-        check = subprocess.run(["tmux", "has-session", "-t", "=prefix90-gemma-fixed-caps"], capture_output=True)
-        if check.returncode == 1:
-            break
-        check.check_returncode()
-        time.sleep(10)
-    for i in range(len(GROUPS)):
+    for session in ([predecessor,"gemma-rank-cpu3-v1"] if rank else [predecessor]):
+        while True:
+            check = subprocess.run(["tmux", "has-session", "-t", "="+session], capture_output=True)
+            if check.returncode == 1:
+                break
+            check.check_returncode()
+            time.sleep(10)
+    if rank:
+        print("rank CPU preflight changed requests:",rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1"),flush=True)
+    for i in indices:
         with output(i).with_suffix(".log").open("x") as log:
             subprocess.run([sys.executable, "-u", str(HERE), "gemma", "0"],
                 env=dict(os.environ, UNIFIED_GROUP=str(i)), stdout=log, stderr=subprocess.STDOUT, check=True)
@@ -251,13 +352,16 @@ def queue():
 if __name__ == "__main__":
     if sys.argv[1:] == ["queue"]:
         queue()
+    elif sys.argv[1:] == ["queue-prefix-rank"]:
+        queue(rank=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
-    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"]):
+    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"]):
         from argparse import Namespace
         folder = Path(sys.argv[2])
         fixed = sys.argv[1] == "cpu-pilot-q512"
-        run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=int(fixed), price=fixed,
+        rank = sys.argv[1] == "cpu-pilot-rank"
+        run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=BASE_GROUPS if rank else int(fixed), price=fixed or rank,
                       checkpoint=ROOT.parent.parent / "models/diffusiongemma-cd40195"))
         score(folder)
     else:

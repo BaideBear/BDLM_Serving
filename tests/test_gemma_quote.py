@@ -72,6 +72,20 @@ def test_dirty_prefix_is_not_an_optional_seat(engine):
     assert (q.mandatory_q, q.prefix_q, q.decoder_q) == (4, 5, 10)
 
 
+def test_oldest_uses_projection_time_not_id_confidence_or_dirty_age(engine):
+    h=canvas(dirty=[0,17], unresolved=[16,17,18])
+    h.last_projected=[9]*B
+    h.last_projected[2]=1
+    h.last_projected[5]=1
+    h.last_projected[0]=0  # mandatory, never an extra prefix seat
+    rows,optional,end=engine._choose(h,32,3,"oldest",seed=1,tick=10)
+    control,rr,_=engine._choose(h,32,3,"random",seed=1,tick=10)
+    assert optional==[2,5,15] and end==16
+    assert set(rows)-set(optional)==set(control)-set(rr)=={0,16,17,18}
+    assert len(rows)==len(control)==7
+    assert menu(engine,h,quotas={32:3})[32].decoder_q==len(rows)
+
+
 def test_verifying_head_cannot_park_to_absorb_tail_debt(engine):
     q = menu(engine, canvas(verify=True), canvas(1, dirty=range(40)))[32]
     assert (q.verify_reason, q.parked_dirty_q, q.decoder_q) == ("sparse_stop", 40, 296)

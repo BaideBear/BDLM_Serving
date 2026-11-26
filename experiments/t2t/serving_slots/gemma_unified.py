@@ -48,6 +48,7 @@ class _Canvas:
     verify: bool = False
     tentative: bool = False
     promoted: bool = False
+    last_projected: list[int] | None = None
 
 
 def _with_rng(state, device, fn):
@@ -80,8 +81,8 @@ def _prefix_policy(plan):
             raise ValueError("Invalid prefix_slots; only sparse offers have optional prefix seats")
         quotas[offer] = count
     mode = plan.get("prefix_mode", "right" if any(quotas.values()) else "zero")
-    if mode not in ("zero", "right", "random") or (mode == "zero" and any(quotas.values())):
-        raise ValueError("Expected prefix_mode zero, right or random; zero requires zero quotas")
+    if mode not in ("zero", "right", "random", "oldest") or (mode == "zero" and any(quotas.values())):
+        raise ValueError("Expected prefix_mode zero, right, random or oldest; zero requires zero quotas")
     return mode, quotas
 
 
@@ -101,6 +102,11 @@ def _choose(canvas, capacity, quota, mode, *, seed, tick):
             optional = sorted(pool[:count])
         elif mode == "right":
             optional = pool[-count:]
+        elif mode == "oldest":
+            stamps = canvas.last_projected
+            if stamps is None or any(stamps[r] < 0 for r in pool):
+                raise RuntimeError("Optional prefix row lacks a projected KV")
+            optional = sorted(sorted(pool, key=lambda r: (stamps[r], -r))[:count])
         else:
             raise RuntimeError("Zero mode cannot select optional prefix rows")
     return sorted(picked.union(optional)), optional, prefix_end
@@ -239,6 +245,7 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
         live.append(_Canvas(
             ordinal, ids, ids, sampler, model._prepare_diffusion_stopping_criteria(cfg),
             model._prepare_logits_processor(cfg), rng,
+            last_projected=[-1]*block if prefix_mode == "oldest" else None,
         ))
 
     encode(origin)
@@ -354,6 +361,9 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
             for s, rows, do_sample in projected:
                 measured = logits[:, offset:offset + len(rows)]
                 offset += len(rows)
+                if s.last_projected is not None:
+                    for r in rows:
+                        s.last_projected[r] = state.tick
                 s.dirty.difference_update(rows)
                 if not do_sample:
                     continue
