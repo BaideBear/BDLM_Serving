@@ -44,6 +44,28 @@ def pack30(rows, ids, prefix="", historical=False):
     return packed, logical
 
 
+def summary_sources(folder, private):
+    sources = {p.name: p for p in folder.glob("*-q*.csv")}
+    # Large Gemma sweeps are published as one aggregate table. Resolve only
+    # its published arms, not arbitrary in-progress files from the private run.
+    listing = folder / "gemma-ratio-online.csv"
+    if listing.exists():
+        for row in read(listing):
+            if row["cohort"] != "original30":
+                continue
+            q, k, selector = int(row["q"]), int(row["k"]), row["selector"]
+            if selector not in ("right", "random") or not 0 < k < q:
+                raise ValueError("Unknown published ratio arm")
+            name = f"gemma-q{q}-slack-k{k}-{selector}.csv"
+            path = sources.setdefault(name, private / name)
+            original, = [s for s in read(path) if s["scope"] == "all" and s["window"] == "30"]
+            if any(original[a] != row[b] for a, b in
+                   (("arm_correct", "correct"), ("arm_physical_Q", "full_generation_q"),
+                    ("arm_macro_tpf", "tpf"), ("baseline_correct", "zero_correct"))):
+                raise ValueError(f"Ratio listing disagrees with paired score: {name}")
+    return sorted(sources.values(), key=lambda p: p.name)
+
+
 def pairs(private):
     old, new = (json.loads((ROOT / f"benchmarks/frozen{n}/manifest.json").read_text()) for n in (30, 90))
     if (old["samples"] != new["samples"][:30] or old["samples_sha256"] != new["original_samples_sha256"]
@@ -56,7 +78,7 @@ def pairs(private):
             archive[r["model"], r["policy"], r["role"], r["run"]].append(r)
     refs = {k: pack30(rs, ids, historical=True) for k, rs in archive.items()}
     arms = {}
-    for path in sorted(HERE.glob("*-q*.csv")):
+    for path in summary_sources(HERE, private):
         rows = [r for r in read(path) if r.get("scope") == "all" and r["window"] == "30"]
         if not rows:
             continue
