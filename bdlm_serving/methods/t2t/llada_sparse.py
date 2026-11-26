@@ -18,7 +18,7 @@ from transformers.cache_utils import DynamicCache
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import MODES, SeatAudit, canvas_digest, digest
-from .context_gate import CONTEXT, GATES, select as select_context_gate
+from .context_gate import CONTEXT, GATES, ONCE, crowded_plan, select as select_context_gate
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
@@ -207,7 +207,7 @@ class LLaDASparseKernel(SerialKernel):
         if policy in CONTEXT and (context_ranker is None or fresh_slots or
                 (q_budget, q_budget - mask_slots) not in ((4, 1), (8, 1), (16, 2))):
             raise ValueError("Context rollout requires its frozen ranker and registered budgets")
-        if policy in GATES and (q_budget, mask_slots) != (8, 7):
+        if policy in (*GATES, *ONCE) and (q_budget, mask_slots) != (8, 7):
             raise ValueError("Context gate requires Q8/1")
         if policy in EXCHANGE and not exchange_rates:
             raise ValueError("Missing exchange calibration")
@@ -221,7 +221,7 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("Prompt cannot contain the generation mask ID")
         base = super().create(input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True)
         return SparseRequestState(**vars(base),
-                                  seat_audit=SeatAudit(self.policy) if self.policy in MODES else None,
+                                  seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *ONCE) else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
 
     def _execute(self, state, positions, end, cache, phase, stage, store):
@@ -332,11 +332,19 @@ class LLaDASparseKernel(SerialKernel):
 
     def _hard_pick(self, state, editable, resolved, before):
         fresh = state.history.fresh.intersection(editable)
-        if self.policy in GATES:
+        once = self.policy in ONCE
+        if self.policy in GATES or (once and not state.seat_audit.used):
+            clock = len(state.events)+1
             picked, reserved, state.context_move = select_context_gate(
-                editable, resolved, fresh, state.last_write, state.previous_strict, len(state.events)+1,
-                self.q_budget, self.policy, state.selection_seed, state.block,
+                editable, resolved, fresh, state.last_write, state.previous_strict, clock,
+                self.q_budget, "hard_context_gate" if once else self.policy, state.selection_seed, state.block,
                 lambda old, pos: self.context_ranker.scores(before, fresh, old, pos))
+            if once:
+                screen = state.context_move
+                plan = crowded_plan(screen, state.selection_seed, state.block, clock)
+                # Even the base records the common first opportunity; no later scoring.
+                picked, reserved = state.seat_audit.apply_plan(screen["base"], plan)
+                self._begin_seat(state, resolved, fresh)
             return picked, reserved
         if len(fresh) > self.q_budget:
             return sorted(fresh), []
@@ -369,20 +377,15 @@ class LLaDASparseKernel(SerialKernel):
                 .05 if self.policy == "hard_hazard_gate" else 0., score_rows=score_rows)
         picked, reserved = select_hard(
             list(editable), resolved, fresh, state.last_write, state.last_query,
-            len(state.events) + 1, self.q_budget, 0 if oracle else edit_slots,
+            len(state.events) + 1, self.q_budget, 0 if oracle or once else edit_slots,
             "hard_noedit" if oracle or state.seat_audit else self.policy, state.selection_seed,
             previous_strict=state.previous_strict,
         )
-        if state.seat_audit:
+        if state.seat_audit and not once:
             picked, reserved = state.seat_audit.choose(
                 picked, editable, resolved, fresh, state.last_write, state.last_query,
                 len(state.events)+1, self.q_budget, "llada21", state.selection_seed, state.previous_strict)
-            if state.seat_audit.current:
-                fingerprint = digest(state.x, state.cache.to_legacy_cache(), state.resident,
-                    state.rng_cpu, state.rng_cuda, state.block, state.step_in_block, state.post_steps,
-                    state.committed_end, state.context_version, state.prompt_length, state.last_write,
-                    state.last_query, sorted(fresh), sorted(state.previous_strict), resolved)
-                state.seat_audit.begin(fingerprint, state.resident[15], state.block * 32)
+            self._begin_seat(state, resolved, fresh)
         if oracle:
             from .shadow import screened_swap
             picked, reserved = screened_swap(picked, resolved, fresh, editable,
@@ -395,6 +398,14 @@ class LLaDASparseKernel(SerialKernel):
                 or not set(reserved).issubset(set(picked) - fresh)):
             raise RuntimeError("select_hard returned invalid B32 positions")
         return picked, reserved
+
+    def _begin_seat(self, state, resolved, fresh):
+        if state.seat_audit.current:
+            fingerprint = digest(state.x, state.cache.to_legacy_cache(), state.resident,
+                state.rng_cpu, state.rng_cuda, state.block, state.step_in_block, state.post_steps,
+                state.committed_end, state.context_version, state.prompt_length, state.last_write,
+                state.last_query, sorted(fresh), sorted(state.previous_strict), resolved)
+            state.seat_audit.begin(fingerprint, state.resident[15], state.block * 32)
 
     def _shadow_probe(self, state, rows, pool, stage):
         # Diagnostic forwards read the live pre-step tokens and resident KV;
@@ -512,7 +523,7 @@ class LLaDASparseKernel(SerialKernel):
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]
         if state.seat_audit:
-            if self.policy in MODES:
+            if self.policy in (*MODES, *ONCE):
                 state.seat_audit.observe_masks(state.events[-1], state.block, start - state.prompt_length,
                                                after, now_resolved)
             state.events[-1]["trajectory_sha256"] = canvas_digest(after, now_resolved)
@@ -525,7 +536,7 @@ class LLaDASparseKernel(SerialKernel):
         if hard:
             event = state.events[-1]
             if state.context_move is not None:
-                event["context_move"], state.context_move = state.context_move, None
+                event["crowded_screen" if self.policy in ONCE else "context_move"], state.context_move = state.context_move, None
             if state.placebo_exchange is not None:
                 event["placebo_exchange"] = state.placebo_exchange
                 state.placebo_exchange = None

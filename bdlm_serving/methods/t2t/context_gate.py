@@ -6,7 +6,8 @@ from .hazard import features
 
 GATES = ("hard_context_slack", "hard_context_slack_random", "hard_context_gate",
          "hard_context_gate_random")
-CONTEXT = ("hard_context_fixed", *GATES)
+ONCE = tuple("hard_context_once_"+arm for arm in ("base", "rank", "random"))
+CONTEXT = ("hard_context_fixed", *GATES, *ONCE)
 CUTOFF = math.log(.05 / .95)
 
 
@@ -52,3 +53,17 @@ def select(valid, resolved, fresh, writes, strict, clock, q, mode, seed, block, 
             return sorted(set(base) - {victim} | {entrant}), [entrant], event
     event["reason"] = reason
     return base, [], event
+
+
+def crowded_plan(move, seed, block, clock):
+    """Only a real MASK displacement is an anchor; earlier slack is not spent."""
+    if move["reason"] != "swap_mask":
+        return None
+    base, victim, top = move["base"], move["victim"], move["rank"]
+    pool = sorted(set(move["old_pool"]) - set(base))
+    other = random.Random(f"context-swap:{seed}:{block}:{clock}").choice(pool)
+    def replace(i):
+        return sorted(set(base) - {victim} | {i})
+    return dict(base=base, targeted=replace(top), random=replace(other), victim=victim,
+                candidate=top, random_candidate=other, fresh=move["fresh"], masks=move["masks"],
+                stratum="mask", clock=clock, risk_score=move["score"])

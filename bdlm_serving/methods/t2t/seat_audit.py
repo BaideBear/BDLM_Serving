@@ -1,12 +1,14 @@
 """Request-local instrumentation for a one-seat intervention; not a serving policy."""
 import hashlib
 import json
+from .context_gate import ONCE
 
 
 MODES = ("hard_once_base", "hard_once_rank", "hard_once_random")
 GEMMA_CONDITIONAL = "hard_once_mask"
 GEMMA_FACTORIAL = tuple("hard_once_" + k + s for k in "kd" for s in "kd")
 _KEY = dict(zip(MODES, ("base", "targeted", "random")))
+_KEY.update(zip(ONCE, ("base", "targeted", "random")))
 _KEY[GEMMA_CONDITIONAL] = "conditional_mask"
 
 
@@ -71,6 +73,11 @@ class SeatAudit:
         from .intervention import plan_seat
         plan = plan_seat(eligible, resolved, fresh, writes, queries, clock, budget,
                          model, seed, previous_strict=strict)
+        return self.apply_plan(base, plan)
+
+    def apply_plan(self, base, plan):
+        if self.used:
+            raise ValueError("One-seat intervention already spent")
         if plan is None:
             return base, []
         if list(base) != plan["base"]:
