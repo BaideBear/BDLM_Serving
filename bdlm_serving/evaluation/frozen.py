@@ -41,9 +41,8 @@ def load_tasks(path, *, seed_offset=0):
     return [{**task, "seed": task["seed"] + seed_offset} for task in tasks]
 
 
-def restore(raw_dir, output):
+def source_rows(raw_dir, manifest):
     import pyarrow.parquet as pq
-    manifest = json.loads(MANIFEST.read_text())
     for logical, expected in manifest["source_sha256"].items():
         path = raw_dir / Path(logical).name
         if sha(path) != expected:
@@ -54,17 +53,25 @@ def restore(raw_dir, output):
     }
     with gzip.open(raw_dir / "HumanEval.jsonl.gz", "rt", encoding="utf-8") as stream:
         datasets["humaneval"] = [json.loads(line) for line in stream]
+    return datasets
+
+
+def prompt_and_reference(kind, row):
+    if kind == "humaneval":
+        return ("Complete the following Python function. Return the full function "
+                "implementation in one Python code block.\n\n"+row["prompt"]), row["canonical_solution"]
+    prompt = row["question" if kind == "gsm8k" else "problem"] + "\nPut your final answer in \\boxed{}."
+    return prompt, row["answer"].split("####")[-1].strip() if kind == "gsm8k" else row["answer"]
+
+
+def restore(raw_dir, output):
+    manifest = json.loads(MANIFEST.read_text())
+    datasets = source_rows(raw_dir, manifest)
     rows = []
     for entry in manifest["samples"]:
         kind = entry["dataset"]
         row = datasets[kind][entry["source_index"]]
-        if kind == "humaneval":
-            prompt = ("Complete the following Python function. Return the full function "
-                      "implementation in one Python code block.\n\n"+row["prompt"])
-            ref = row["canonical_solution"]
-        else:
-            prompt = row["question" if kind == "gsm8k" else "problem"] + "\nPut your final answer in \\boxed{}."
-            ref = row["answer"].split("####")[-1].strip() if kind == "gsm8k" else row["answer"]
+        prompt, ref = prompt_and_reference(kind, row)
         if hashlib.sha256(prompt.encode()).hexdigest() != entry["prompt_sha256"]:
             raise ValueError(f"Prompt mismatch: {entry['task_id']}")
         rows.append({**{k: entry[k] for k in ("index", "source_index", "dataset", "task_id")},

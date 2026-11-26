@@ -1,6 +1,8 @@
-# Predicting native token edits
+# 当前物理块内的前缀重算
 
-## 当前：选位不使用 logits，硬刷新不截断
+## 当前：前缀加多少、加哪些
+
+[固定 90 题，含历史 30 题](../../benchmarks/frozen90/README.md)。本轮主目标是质量和 TPF，另报实际 Q、token efficiency；T2T 是模型允许的推理动作，不再是预测目标。只在当前严格物理块的连续已解码前缀内选位，不跨块。下面的 frozen30 轨迹及 T2T 结果属于前序实验证据。
 
 **研究主线：把部分已解码前缀放回真实 Q 窗口。** [研究备忘录](RESEARCH_MEMO.md)区分“停止重算但保留可见 KV”和“删除 KV”，并定义同预算零加回、随机加回、信号加回的直接对照。既有旧位排序实验不等价于这个前缀限定实验。[已提交上下文的选位与消融](calibrated/embedding_context/committed_usage/README.md)。
 
