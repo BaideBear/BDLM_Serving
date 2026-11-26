@@ -80,7 +80,16 @@ def offered_plan(policy):
     return plan
 
 
-def compare(data, out, capped=None, matched=False, cap_policy=None):
+def nearest_plan(target, totals):
+    """Use all-90 physical work only. Resolve ties consistently in input order."""
+    if target <= 0 or not totals or min(totals.values()) <= 0:
+        raise ValueError("Expected positive complete-run work")
+    return min(totals, key=lambda plan: abs(totals[plan]-target))
+
+
+def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=False):
+    if nearest and (matched or not capped or cap_policy):
+        raise ValueError("Nearest-Q needs all capped controls and its own matching mode")
     samples = data/"samples.json"
     cases = load_cases(samples)
     digest = sha(samples)
@@ -118,19 +127,27 @@ def compare(data, out, capped=None, matched=False, cap_policy=None):
         if cap_policy and cap_policy not in meta["policies"]:
             raise ValueError("Unknown cap policy in this run")
         dirs.append((capped,[cap_policy] if cap_policy else meta["policies"]))
+    plans = ((128,), (256,), HIGH_FIRST, tuple(reversed(HIGH_FIRST)))
+    totals = {plan:sum(r["physical_Q"] for r in own_for(plan)[1].values())
+              for plan in plans} if nearest else {}
     lines, fixed_effects = [], []
     for folder,policies in dirs:
         meta = read(folder/"run.json")
         if meta["samples_sha256"]!=digest or meta["suite"]!="frozen90":
             raise ValueError(f"Wrong suite for {folder}")
         for p in policies:
+            if nearest and folder!=capped and not p.startswith("flow_"):
+                continue
+            if p not in meta["policies"] or read(folder/f"complete-{p}.json")!=dict(policy=p,requests=90):
+                raise ValueError(f"Missing or incomplete {p}")
             plan=offered_plan(p) if matched else HIGH_FIRST
             if plan is None:
                 continue
-            mixed,own,low=own_for(plan)
-            if p not in meta["policies"] or read(folder/f"complete-{p}.json")!=dict(policy=p,requests=90):
-                raise ValueError(f"Missing or incomplete {p}")
             rows = by_index(link_requests(folder,p,cache),p)
+            if nearest:
+                target = sum(r["physical_Q"] for r in rows.values())
+                plan = nearest_plan(target, totals)
+            mixed,own,low=own_for(plan)
             is_optimus = p.startswith(("ibs_","obs_"))
             if is_optimus:
                 caps = "_cap_" in p
@@ -149,6 +166,10 @@ def compare(data, out, capped=None, matched=False, cap_policy=None):
             for w in (30,60,90):
                 subset=select_window_cases(cases,w)
                 s=_window_row(subset,rows,own,w,"all","gemma",p,mixed,None)
+                if nearest:
+                    s.update(match_on="all90_absolute_physical_Q_gap",
+                             all90_relative_Q_gap=(totals[plan]-target)/target,
+                             slice_relative_Q_gap=s["arm_physical_Q"]/s["baseline_physical_Q"]-1)
                 limits=[q for r in subset for q in low[r["index"]]]
                 deltas=[own[r["index"]]["physical_Q"]-rows[r["index"]]["physical_Q"] for r in subset]
                 if sum(deltas)!=s["arm_physical_Q"]-s["baseline_physical_Q"]:
@@ -180,11 +201,12 @@ def compare(data, out, capped=None, matched=False, cap_policy=None):
                         row.update(requests_clipped=s["baseline_requests_clipped"],rows_clipped=sum(cuts))
                         fixed_effects.append(row)
                 lines.append(s)
-    stem = "gemma-matched-offers-vs-external" if matched else "gemma-mixed-vs-external"
+    stem = ("gemma-nearest-physical-Q" if nearest else
+            "gemma-matched-offers-vs-external" if matched else "gemma-mixed-vs-external")
     if cap_policy:
         stem += "-only-"+cap_policy
     write(out/(stem+".csv"),lines)
-    if capped and not matched and not cap_policy:
+    if capped and not matched and not cap_policy and not nearest:
         if len(fixed_effects)!=12:
             raise ValueError("Missing one or more fixed cap controls")
         write(out/"gemma-original-vs-capped-fixed.csv",fixed_effects)
@@ -202,5 +224,6 @@ if __name__=="__main__":
     for key in ("data","out","capped"):
         parser.add_argument("--"+key,type=Path,required=key!="capped")
     parser.add_argument("--matched",action="store_true",help="Use identical nominal offer order, not equal physical cost")
+    parser.add_argument("--nearest",action="store_true",help="Closest of four own plans by all90 physical Q to each capped Optimus and FlowBlock baseline, not equal limits or per-request work")
     parser.add_argument("--cap-policy",help="Include only this fully completed cap arm; distinctly named output")
     compare(**vars(parser.parse_args()))

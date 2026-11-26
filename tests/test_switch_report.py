@@ -2,6 +2,16 @@ import copy
 import pytest
 
 from experiments.t2t.serving_slots.switch_report import audit, gemma_stages
+from experiments.t2t.serving_slots.external_report import nearest_plan
+
+
+def test_physical_matching_by_total_work_only():
+    plans = {(128,): 285967, (256,): 357632, (256,256,128,128): 346119}
+    assert nearest_plan(289152, plans) == (128,)
+    assert nearest_plan(345601, plans) == (256,256,128,128)
+    assert nearest_plan(20, {"first":24, "second":16}) == "first"
+    with pytest.raises(ValueError):
+        nearest_plan(20, {})
 
 
 def fixture():
