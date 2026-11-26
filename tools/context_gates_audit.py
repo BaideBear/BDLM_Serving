@@ -113,6 +113,19 @@ def transition(prev, masks, fresh):
         check((fresh-new) & reserve == hits, 'reserved strict identities disagree with next fresh set')
 
 
+FOLLOWUP = ('dense_verify', 'overflow', 'mask_slot', 'neutral_slot')
+
+
+def followup(stage, fresh_count, mask_count):
+    """Marginal zero-reserve layout at the observed next state, not a counterfactual rollout."""
+    if stage == 'verify':
+        return 'dense_verify'
+    check(stage == 'selected' and fresh_count >= 1, 'missing mandatory follow-up')
+    if fresh_count > Q:
+        return 'overflow'
+    return 'mask_slot' if mask_count > Q - fresh_count else 'neutral_slot'
+
+
 def audit_request(raw, sample, policy):
     check(policy in POLICIES and raw['policy'] == policy and raw['model'] == 'llada21'
           and raw['status'] == 'success' and all(same(raw[k], sample[k]) for k in
@@ -120,6 +133,7 @@ def audit_request(raw, sample, policy):
     c = Counter(dict.fromkeys((*REASONS, 'swaps', 'noops', 'random_rank_collisions',
         'reserved_hits', 'swap_old_hits', 'swap_mask_hits', 'strict_edits', 'admissions',
         'revocations', 'fresh_overflow_rows', 'selected_fresh', 'requests'), 0))
+    c.update(dict.fromkeys(('followup_'+s for s in FOLLOWUP), 0))
     c['requests'] = 1
     fs, qs, hist = Counter(), Counter(), Counter()
     prev = eligible = block = None
@@ -170,6 +184,10 @@ def audit_request(raw, sample, policy):
             check(prev is not None and b == block, 'invalid block continuation')
             masks, fresh = placement(e, eligible, policy, raw['seed']) if selected else (set(), None)
             transition(prev, masks, fresh)
+            prev_hits = prev[3]
+            if prev_hits:
+                check(len(prev_hits) == 1 and prev_hits <= picked, 'edited entrant not refreshed')
+                c['followup_'+followup(stage, next_fresh, len(masks))] += 1
         if denoise:
             step += 1
             post += stage == 'verify'
@@ -206,6 +224,7 @@ def audit_request(raw, sample, policy):
         qs[stage] += q
         last_stage = stage
     check(last_stage == 'commit', 'incomplete request')
+    check(sum(c['followup_'+s] for s in FOLLOWUP) == c['reserved_hits'], 'unaccounted follow-up')
     for stage in STAGES:
         c[stage+'_F'], c[stage+'_Q'] = fs[stage], qs[stage]
     pre = qs.pop('prefill', 0)

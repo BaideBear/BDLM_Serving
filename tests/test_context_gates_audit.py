@@ -194,12 +194,21 @@ def test_end_to_end_overflow_then_rank_random_fork():
     for r in (x,y):
         c = a.audit_request(r,S,r['policy'])
         assert (c['overflow'], c['fresh_overflow_rows'], c['reserved_hits'], c['swaps'], c['admissions']) == (1,1,1,1,32)
+        assert c['followup_mask_slot'] == 1
     c, clock, block = a.audit_pair(x,y)
     assert (clock, block, c['shared_generation_Q'], c['fork_Q_per_arm'], c['fork_left_admissions'],
             c['fork_right_hits']) == (3,0,41,8,1,1)
     y['events'][2]['reserved_strict_edit_positions'] = []
     with pytest.raises(ValueError):
         a.audit_request(y,S,GRAND)
+
+
+@pytest.mark.parametrize('stage,fresh,masks,name', [
+    ('verify', 1, 0, 'dense_verify'), ('selected', 9, 12, 'overflow'),
+    ('selected', 8, 1, 'mask_slot'), ('selected', 6, 2, 'neutral_slot'),
+    ('selected', 1, 8, 'mask_slot')])
+def test_hit_next_mandatory_slot(stage, fresh, masks, name):
+    assert a.followup(stage, fresh, masks) == name
 
 
 def test_nonfork_checks_all_measured_events_and_output():

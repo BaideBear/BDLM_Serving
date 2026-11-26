@@ -1,0 +1,5 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q8_f0_m7_hard_context_slack,30,3535,2441,772,0,256,516,0,,,,
+t2t_q8_f0_m7_hard_context_slack_random,30,3839,2697,789,0,261,528,0,,,,
+t2t_q8_f0_m7_hard_context_gate,30,3492,2397,736,0,288,448,0,,,,
+t2t_q8_f0_m7_hard_context_gate_random,30,3693,2580,708,0,218,490,0,,,,

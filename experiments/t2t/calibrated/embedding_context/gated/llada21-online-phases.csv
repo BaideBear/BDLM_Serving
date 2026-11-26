@@ -1,0 +1,17 @@
+policy,phase,F,Q
+t2t_q8_f0_m7_hard_context_slack,bootstrap,446,14272
+t2t_q8_f0_m7_hard_context_slack,commit,446,14272
+t2t_q8_f0_m7_hard_context_slack,selected,2441,22286
+t2t_q8_f0_m7_hard_context_slack,verify,648,20736
+t2t_q8_f0_m7_hard_context_slack_random,bootstrap,468,14976
+t2t_q8_f0_m7_hard_context_slack_random,commit,468,14976
+t2t_q8_f0_m7_hard_context_slack_random,selected,2697,24025
+t2t_q8_f0_m7_hard_context_slack_random,verify,674,21568
+t2t_q8_f0_m7_hard_context_gate,bootstrap,450,14400
+t2t_q8_f0_m7_hard_context_gate,commit,450,14400
+t2t_q8_f0_m7_hard_context_gate,selected,2397,21983
+t2t_q8_f0_m7_hard_context_gate,verify,645,20640
+t2t_q8_f0_m7_hard_context_gate_random,bootstrap,454,14528
+t2t_q8_f0_m7_hard_context_gate_random,commit,454,14528
+t2t_q8_f0_m7_hard_context_gate_random,selected,2580,23415
+t2t_q8_f0_m7_hard_context_gate_random,verify,659,21088
