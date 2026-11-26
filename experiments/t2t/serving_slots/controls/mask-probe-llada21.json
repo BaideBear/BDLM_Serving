@@ -1,0 +1,108 @@
+{
+  "checkpoint": "/data0/ysy/models/LLaDA2.1-mini",
+  "model": "llada21",
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "attention": "sdpa",
+  "torch": "2.9.0+cu128",
+  "threads": 8,
+  "cuda_visible_devices": "",
+  "prompt_tokens": 64,
+  "pair": 64,
+  "block": 32,
+  "positions": {
+    "left": 21,
+    "right": 54,
+    "single": 22
+  },
+  "perturbations": {
+    "left": {
+      "original": 8257,
+      "changed": 8258
+    },
+    "right": {
+      "original": 13464,
+      "changed": 13465
+    },
+    "single": {
+      "original": 268,
+      "changed": 269
+    }
+  },
+  "mask": {
+    "shape": [
+      1,
+      1,
+      64,
+      64
+    ],
+    "forbidden": 1024,
+    "allowed": 1024
+  },
+  "right_to_left": {
+    "max_abs": 0.0,
+    "mean_abs": 0.0,
+    "argmax_changed": 0,
+    "rows": 32
+  },
+  "right_self_change": {
+    "max_abs": 23.546875,
+    "mean_abs": 1.5143741369247437,
+    "argmax_changed": 1,
+    "rows": 32
+  },
+  "left_to_right": {
+    "max_abs": 7.5625,
+    "mean_abs": 1.0284801721572876,
+    "argmax_changed": 0,
+    "rows": 32
+  },
+  "left_self_change": {
+    "max_abs": 19.8515625,
+    "mean_abs": 1.9051028490066528,
+    "argmax_changed": 1,
+    "rows": 32
+  },
+  "single_block": {
+    "max_abs": 10.28125,
+    "mean_abs": 0.8177462816238403,
+    "argmax_changed": 2,
+    "rows": 31
+  },
+  "opened_front_to_back": {
+    "max_abs": 8.4609375,
+    "mean_abs": 0.47669947147369385,
+    "argmax_changed": 1,
+    "rows": 32
+  },
+  "opened_self_change": {
+    "max_abs": 23.671875,
+    "mean_abs": 1.2921981811523438,
+    "argmax_changed": 1,
+    "rows": 32
+  },
+  "mask_effect_left": {
+    "max_abs": 20.01171875,
+    "mean_abs": 1.036423921585083,
+    "argmax_changed": 4,
+    "rows": 32
+  },
+  "commit_reencode": {
+    "blocked": {
+      "left_max_abs": 1.75,
+      "right_max_abs": 3.0,
+      "left_argmax_changed": 0,
+      "right_argmax_changed": 0
+    },
+    "opened": {
+      "left_max_abs": 19.859375,
+      "right_max_abs": 6.25,
+      "left_argmax_changed": 4,
+      "right_argmax_changed": 0
+    }
+  },
+  "quality_proxy": {
+    "right_left_kl": 0.013805228634737432,
+    "mask_effect_left_kl": 0.25994505174458027
+  }
+}
