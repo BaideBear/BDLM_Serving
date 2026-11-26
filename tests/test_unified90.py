@@ -82,3 +82,40 @@ def test_archived_rank_pair_checks_unchanged_work_and_intervention_price():
     b["trace"][0]["q"]+=1
     with pytest.raises(ValueError,match="matched"):
         rank_evidence(a,b,16)
+
+
+def test_early_open_uses_new_acceptances_not_cumulative_or_correctness():
+    from experiments.t2t.serving_slots.unified90 import check_early_spawn
+    rows=list(range(7,263))
+    def tick(k,adm):
+        return dict(tick=k,head=0,q=256,offer=512,dirty_before=[[]],ages_before=[k],
+                    selected=rows,sampled=rows,admitted=[adm],revoked=[[]])
+    a=tick(0,list(range(96)))
+    b=tick(1,list(range(96,176)))  # 80 of the remaining 160 became accepted.
+    c=tick(2,[])
+    both=list(range(7,519))
+    d=dict(c,q=512,selected=both,sampled=both,dirty_before=[[],[]],ages_before=[2,0])
+    assert check_early_spawn([a,b,c],[a,b,d],[0],[9]) == dict(tick=2,head=0,newly_accepted=80,previously_unaccepted=160)
+    assert check_early_spawn([a,b,c],[a,b,c],[0],[0]) is None
+    with pytest.raises(ValueError,match="thresholds"):
+        x=dict(b,admitted=[list(range(96,96+79))])
+        check_early_spawn([a,x,c],[a,x,d],[0],[9])
+    with pytest.raises(ValueError,match="matched head"):
+        check_early_spawn([a,b,c],[a,b,dict(d,dirty_before=[[2],[]])],[0],[9])
+    with pytest.raises(ValueError,match="Unchanged admission"):
+        check_early_spawn([a,b,c],[a,b,c],[0],[9])
+
+
+def test_exchange_matches_earliest_physical_change_and_never_spends_dirty_rows():
+    from experiments.t2t.serving_slots.unified90 import check_exchange
+    common=dict(offer=128,tick=0,phase="sparse",head=0,visible=list(range(100,356)),
+                dirty_before=[[0]],ages_before=[1],mandatory_q=1,prefix_end=10,q=5)
+    a=dict(common,selected=[100,110,111,112,113],prefix_selected=[])
+    b=dict(common,selected=[100,109,110,111,112],prefix_selected=[109],displaced_mask=[113])
+    assert check_exchange([a],[b],[0],[1])==(0,1)
+    with pytest.raises(ValueError,match="exchange intervention"):
+        check_exchange([a],[dict(b,displaced_mask=[100])],[0],[1])
+    with pytest.raises(ValueError,match="one-for-one"):
+        check_exchange([a],[dict(b,q=6)],[0],[1])
+    with pytest.raises(ValueError,match="without exchanging"):
+        check_exchange([a],[dict(a,displaced_mask=[])],[0],[1])

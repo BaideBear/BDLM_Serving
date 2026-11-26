@@ -35,6 +35,44 @@ for budget, quota in ((64,16), (32,8), (128,32), (128,64), (128,96)):
 KEYS = ("index", "task_id", "dataset", "seed")
 EXCHANGE = ("q128_k32_oldest", "q128_k32_oldest_swap4")
 ARMS[EXCHANGE[1]] = ARMS[EXCHANGE[0]]
+RANK_END = len(GROUPS)
+GROUPS += (EXCHANGE,)
+PILOT_EX = "gemma-q128-k32-exchange-cpu3-v1"
+EX_SPEC = {"offer":128, "quota":32, "cap":4, "tick":"even", "mode":"oldest"}
+SPAWN = ("q512","q512_spawn50")
+ARMS[SPAWN[1]] = ARMS[SPAWN[0]]
+
+
+def check_early_spawn(control, trial, ids_a, ids_b):
+    """The first different admission must open an extra canvas from a shared head."""
+    for tick,(a,b) in enumerate(zip(control,trial)):
+        if a==b:
+            continue
+        if (not tick or len(a["ages_before"])!=1 or len(b["ages_before"])!=2 or b["ages_before"][1]!=0
+                or b["ages_before"][0]!=a["ages_before"][0] or not a["ages_before"][0]
+                or b["dirty_before"]!=a["dirty_before"]+[[]] or a["offer"]!=512 or b["offer"]!=512
+                or a["head"]!=b["head"] or (a["q"],b["q"])!=(256,512)
+                or b["selected"][:256]!=a["selected"]
+                or a["sampled"]!=a["selected"] or b["sampled"]!=b["selected"]):
+            raise ValueError("First contrast must be matched head plus an earlier fresh tail")
+        # Native state starts from zero accepted rows, and its accepted set is
+        # updated only through admissions and revocations. Reconstruct the last
+        # progress fraction on this head, including its time as a tentative tail.
+        accepted=set()
+        num=den=None
+        for e in control[:tick]:
+            k=a["head"]-e["head"]
+            if not 0<=k<len(e["admitted"]):
+                continue
+            num=len(e["admitted"][k]); den=max(1,256-len(accepted))
+            accepted.update(e["admitted"][k])
+            accepted.difference_update(e["revoked"][k])
+        if num is None or not 0.5<=num/den<0.8:
+            raise ValueError("Earlier spawn is not explained by the registered thresholds")
+        return dict(tick=tick,head=a["head"],newly_accepted=num,previously_unaccepted=den)
+    if len(control)!=len(trial) or ids_a!=ids_b:
+        raise ValueError("Unchanged admission changed the request")
+    return None
 
 
 def check_exchange(control, trial, ids_a, ids_b):
@@ -79,6 +117,49 @@ def check_exchange(control, trial, ids_a, ids_b):
 
 def read(path):
     return json.loads(path.read_text())
+
+
+def exchange_pilot(folder):
+    m = read(folder/"run.json")
+    if (m["suite"]!="cpu-pilot" or m["device"]!="cpu" or not m["quote_costs"]
+            or m["exchange"]!=EX_SPEC or m["indices"]!=[0,10,20] or m["samples_sha256"]!=caps.SAMPLES_SHA
+            or m["arms"]!={p:[[128],True,{"128":32}] for p in EXCHANGE}):
+        raise ValueError("Not the registered exchange preflight")
+    for source in ("gemma_unified.py","gemma_quote.py","gemma_unified_audit.py","gemma_wave_kv.py"):
+        if m["sources"][source] != sha(HERE.with_name(source)):
+            raise ValueError("Execution source differs from real-weight pilot")
+    tasks = load_tasks(caps.SAMPLES)
+    changed = []
+    for p in EXCHANGE:
+        if read(folder/f"complete-{p}.json")!={"policy":p,"requests":3}:
+            raise ValueError("Missing complete exchange pilot")
+    for i in m["indices"]:
+        a,b=(read(folder/f"{i:02d}-{p}.json") for p in EXCHANGE)
+        for r,p in zip((a,b),EXCHANGE):
+            if (r["policy"]!=p or r["status"]!="success" or any(r[k]!=tasks[i][k] for k in KEYS)
+                    or r["projection_modules"]!=85 or r["decoder_layers"]!=30
+                    or r["quote_verified_decoder_calls"]!=len(r["trace"])):
+                raise ValueError("Pilot quote, geometry or sample mismatch")
+        if a["input_sha256"]!=b["input_sha256"] or a["total_exchanged_rows"]!=0:
+            raise ValueError("Invalid exchange control")
+        first=b["first_exchange_tick"]
+        if first!=a["first_exchange_tick"]:
+            raise ValueError("Unpaired exchange witness")
+        if first is None:
+            if b["total_exchanged_rows"] or (a["trace"],a["output_ids"])!=(b["trace"],b["output_ids"]):
+                raise ValueError("Unexposed exchange changed the request")
+        else:
+            if (type(first) is not int or first%2 or not 0<=first<min(len(r["trace"]) for r in (a,b))
+                    or a["trace"][:first]!=b["trace"][:first] or not b["total_exchanged_rows"]):
+                raise ValueError("Invalid first CPU exchange")
+            x,y=(r["trace"][first] for r in (a,b))
+            if (any(x[k]!=y[k] for k in ("tick","offer","q","mandatory_q","phase","head"))
+                    or not 1<=y["prefix"]-x["prefix"]<=4):
+                raise ValueError("Exchange did not preserve paid width")
+            changed.append((i, first, b["total_exchanged_rows"]))
+    if not changed:
+        raise ValueError("No registered pilot request actually swapped seats")
+    return changed
 
 
 def work_row(task, policy, ids, trace, obs, tok, cfg, cap, prompt_digest):
@@ -230,12 +311,15 @@ def run(args, before_cuda=None):
             or plan["cap"] != 2048 or transformers.__version__ != native["transformers"]):
         raise ValueError("Nonregistered suite or runtime")
     group = GROUPS[getattr(args, "pilot_group", 0)] if cpu else GROUPS[int(os.environ["UNIFIED_GROUP"])]
-    exchange = cpu and getattr(args, "exchange", False)
+    exchange = group == EXCHANGE or cpu and getattr(args, "exchange", False)
     if exchange:
         group = EXCHANGE
-    price = cpu and getattr(args, "price", False)
+    spawn = cpu and getattr(args,"spawn",False)
+    if spawn:
+        group = SPAWN
+    price = exchange or spawn or cpu and getattr(args, "price", False)
     rank = all(arm in RANKS for arm in group)
-    if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange):
+    if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange or spawn):
         raise ValueError("Unregistered CPU pilot")
     if cpu:
         torch.set_num_threads(8)
@@ -261,7 +345,8 @@ def run(args, before_cuda=None):
         wave_config=plan, native_config=native, arms={k: ARMS[k] for k in group},
         rng="independent streams seeded by task.seed + canvas ordinal",
         **({"prefix_rank":{p:RANKS[p] for p in group}} if rank else {}),
-        **({"exchange": {"offer":128, "quota":32, "cap":4, "tick":"even", "mode":"oldest"}} if exchange else {}),
+        **({"exchange": EX_SPEC} if exchange else {}),
+        **({"spawn_thresholds":dict(zip(SPAWN,[0.8,0.5]))} if spawn else {}),
         indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
         before_cuda(model)
@@ -277,6 +362,8 @@ def run(args, before_cuda=None):
                 config = dict(plan, prefix_slots=prefix, prefix_mode=RANKS.get(arm,"random" if prefix else "zero"))
                 if exchange:
                     config.update(prefix_mode="oldest", exchange_limit=4 if arm == EXCHANGE[1] else 0)
+                if spawn and arm==SPAWN[1]:
+                    config.update(flowblock_spawn_threshold=0.5)
                 ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
@@ -287,13 +374,28 @@ def run(args, before_cuda=None):
                 rows.append(row)
                 if rank:
                     witnesses.append(rank_witness(trace))
-                if exchange:
+                if exchange or spawn:
                     witnesses.append(trace)
+            if spawn:
+                opening=check_early_spawn(*witnesses,*[r["output_ids"] for r in rows])
+                for row in rows:
+                    row["first_earlier_spawn"]=opening
+                    row["dual_ticks"]=sum(e["opportunity"] for e in row["trace"])
             if exchange:
                 first, swaps = check_exchange(*witnesses, *[r["output_ids"] for r in rows])
                 for row in rows:
                     row["first_exchange_tick"] = first
                     row["total_exchanged_rows"] = swaps if row["policy"] == EXCHANGE[1] else 0
+                if not cpu:
+                    ref = caps.DATA/"gemma-unified90-q128_k32_random-q128_k32_oldest"
+                    twin = read(ref/f"{task['index']:02d}-{EXCHANGE[0]}.json")
+                    for k in (*KEYS,"input_sha256","output_ids","trace","output_tokens",
+                              "pretrace_sha256","generation_forwards","generation_physical_padded_rows"):
+                        if rows[0][k]!=twin[k]:
+                            raise ValueError(f"Registered oldest control failed replay: {task['index']} {k}")
+                    for row, tape in zip(rows,witnesses):
+                        row["exchange_by_tick"]=[len(e.get("displaced_mask",())) for e in tape]
+                        row["oldest_reproduced"]=True
             if rank:
                 first = check_rank_change(*rows, *witnesses)
                 for row in rows:
@@ -331,12 +433,14 @@ def score(folder):
                 raise ValueError("Inconsistent stored metrics")
             rows.append(dict(row, correct=bool(judge(row["output_text"], task)["correct"])))
         cohorts = {"pilot3": rows} if pilot else {"original30": rows[:30], "new60": rows[30:], "full90": rows}
-        rank = arm in RANKS
+        exchange = meta.get("exchange")==EX_SPEC
+        rank = arm in RANKS and not exchange
+        key = "first_exchange_tick" if exchange else "first_rank_change" if rank else "first_opportunity"
+        yes, no = ("swapped","unchanged") if exchange else ("changed_rank","unchanged_rank") if rank else ("exposed","unexposed")
         for name, subset in cohorts.items():
-            for scope in (("all","changed_rank","unchanged_rank") if rank else ("all","exposed","unexposed")):
+            for scope in ("all",yes,no):
                 values = [r for r in subset if scope == "all" or
-                          (r["first_rank_change" if rank else "first_opportunity"] is not None)
-                          == (scope in ("changed_rank","exposed"))]
+                          (r[key] is not None) == (scope == yes)]
                 n = sum(r["output_tokens"] for r in values)
                 f = sum(r["generation_forwards"] for r in values)
                 q = sum(r["generation_physical_padded_rows"] for r in values)
@@ -368,11 +472,17 @@ def protected():
         raise ValueError("Missing preceding group")
     if i == BASE_GROUPS:
         rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1")
+    if GROUPS[i]==EXCHANGE:
+        exchange_pilot(caps.DATA/PILOT_EX)
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
         raise ValueError("Protected launcher changed")
     os.environ.update(PREFIX_MODE="wave", TRACE_OUT=str(output(i)), FROZEN90_SAMPLES=str(caps.SAMPLES))
+    route = b'REPO = RUNTIME / "t2t-experiments"'
+    if src.count(route)!=1 or HERE.parents[3].parent != caps.ROOT.parent:
+        raise ValueError("Expected one checkout in the registered n164 runtime")
+    src = src.replace(route, ("REPO = Path("+repr(str(HERE.parents[3]))+")").encode())
     exec(compile(src.replace(call, b"from experiments.t2t.serving_slots.unified90 import run\n"
                                  b"        run(args, before_cuda=prepare)"), str(caps.LAUNCHER), "exec"),
          {"__file__": str(HERE), "__name__": "__main__"})
@@ -383,9 +493,9 @@ def protected():
     save_json(output(i) / "returned.json", {"gpu": 0, "restored": True})
 
 
-def queue(*, rank=False):
-    indices = range(BASE_GROUPS,len(GROUPS)) if rank else range(BASE_GROUPS)
-    predecessor = "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
+def queue(*, rank=False, exchange=False):
+    indices = (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
+    predecessor = "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
     if any(output(i).exists() for i in indices):
         raise ValueError("Refusing to overwrite an existing registered run")
     for session in ([predecessor,"gemma-rank-cpu3-v1"] if rank else [predecessor]):
@@ -397,6 +507,8 @@ def queue(*, rank=False):
             time.sleep(10)
     if rank:
         print("rank CPU preflight changed requests:",rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1"),flush=True)
+    if exchange:
+        print("Validated exchange exposures:",exchange_pilot(caps.DATA/PILOT_EX),flush=True)
     for i in indices:
         with output(i).with_suffix(".log").open("x") as log:
             subprocess.run([sys.executable, "-u", str(HERE), "gemma", "0"],
@@ -409,18 +521,20 @@ if __name__ == "__main__":
         queue()
     elif sys.argv[1:] == ["queue-prefix-rank"]:
         queue(rank=True)
+    elif sys.argv[1:] == ["queue-exchange"]:
+        queue(exchange=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
-    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"]):
+    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"], ["cpu-pilot-spawn50"]):
         from argparse import Namespace
         folder = Path(sys.argv[2])
         fixed = sys.argv[1] == "cpu-pilot-q512"
         rank = sys.argv[1] == "cpu-pilot-rank"
         exchange = sys.argv[1] == "cpu-pilot-exchange"
         run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=BASE_GROUPS if rank else int(fixed),
-                      exchange=exchange, price=fixed or rank or exchange,
+                      exchange=exchange, spawn=sys.argv[1]=="cpu-pilot-spawn50", price=fixed or rank or exchange,
                       checkpoint=ROOT.parent.parent / "models/diffusiongemma-cd40195"))
-        if not exchange:  # Selection/exposure preflight only; never report a pilot score as GPU evidence.
+        if not exchange and sys.argv[1]!="cpu-pilot-spawn50":  # Exposure preflights are not quality results.
             score(folder)
     else:
         protected()
