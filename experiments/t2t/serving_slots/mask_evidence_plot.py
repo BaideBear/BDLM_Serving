@@ -28,6 +28,8 @@ GPU90 = "gemma-fixed512-mask-pair.csv"
 UNIFIED90 = "gemma-unified-replay-mask-gpu90.csv"
 FIXED90 = "gemma-unified-q512-mask-gpu90.csv"
 ADM30 = "llada21-q64-admission-mask-cpu-original30.csv"
+GPU_ADM30 = "llada21-q64-progress80-mask-gpu-original30.csv"
+GPU_ADM90 = "llada21-q64-progress80-mask-gpu90.csv"
 DATASETS = {0: "gsm8k", 10: "math500", 20: "humaneval"}
 
 
@@ -254,7 +256,7 @@ def gpu90(rows):
     return gpu_pairs(rows)
 
 
-def gpu_pairs(rows):
+def gpu_pairs(rows, original_only=False):
     pairs = {}
     for r in rows:
         n = int(r["requests"])
@@ -269,6 +271,9 @@ def gpu_pairs(rows):
                 "Wrong GPU paired direction or unexposed discordance")
         pairs[n] = Pair({30:"Original 30",60:"New 60",90:"All 90"}[n],
                         f"{gain} rescued / {loss} lost; {exposure} exposed", *sides)
+    if original_only:
+        require(set(pairs)=={30}, "Expected only the sealed original 30")
+        return [pairs[30]]
     require(set(pairs) == {30,60,90}, "Incomplete GPU original/new/full cohorts")
     for side in ("on","off"):
         total = pool(getattr(pairs[i],side) for i in (30,60))
@@ -335,6 +340,16 @@ def load(controls):
         except FileNotFoundError:
             continue
         panels[name] = parse(data)
+    for name in (GPU_ADM90,GPU_ADM30):
+        if not (controls/name).is_file():
+            continue
+        rows = [r for r in csv_rows(name) if r["scope"] == "all"]
+        require(all((r["device"],r["model"],r["nominal_q"],r["gate"],r["baseline_policy"],r["arm_policy"])
+                    ==("gpu0","llada21","64","0.8","progress80-open","progress80-causal")
+                    and r["failed"]=="0" for r in rows), "Wrong progress80 GPU controls")
+        panels[name] = gpu_pairs([dict(r,requests_exposed=r["exposed"]) for r in rows],
+                                 original_only=name==GPU_ADM30)
+        break  # The full90 table already contains its original30 subset.
     return panels
 
 
@@ -374,6 +389,10 @@ def figure(panels):
                   "n164 GPU  /  same unified executor and frozen requests as panel I  /  fixed offer, not fixed total Q"),
         ADM30: ("K   LLaDA 2.1-mini  |  Fixed Q64 admission and mask, original 30",
                 "CPU BF16  /  same 30 requests in both rows  /  progress80 opens the next block after at least 80% one-step head progress"),
+        GPU_ADM30: ("L   LLaDA 2.1-mini  |  Fixed Q64, progress80 admission",
+                    "n164 GPU0 / sealed original 30 only / paired fresh GPU runs, identical gate, open to causal"),
+        GPU_ADM90: ("L   LLaDA 2.1-mini  |  Fixed Q64, progress80 admission",
+                    "n164 GPU0 / entire frozen cohort / paired fresh GPU runs, identical gate, open to causal"),
     }
     require({OBS, ACTIVE, REPLAY, LLADA} <= panels.keys() <= headings.keys(), "Missing or unknown panel")
     y = 108
@@ -442,6 +461,10 @@ def figure(panels):
     if ADM30 in panels:
         text(40, y+105, f"K: {ADM30}",12,mute)
         height = y+122
+    for source in (GPU_ADM90,GPU_ADM30):
+        if source in panels:
+            text(40, y+123, f"L: {source}",12,mute)
+            height=y+140
     root.set("height", str(height))
     root.set("viewBox", f"0 0 1200 {height}")
     root.find("rect").set("height", str(height))

@@ -464,7 +464,7 @@ def profile_transfer(data):
             or any(u.read(p/f"complete-{arm}.json")!={"policy":arm,"requests":90}
                    for p,arm in ((path,a),(path,b),(old,a)))):
         raise ValueError("Not a completed frozen profile study")
-    left,right,exposed={}, {}, {}
+    left,right,exposed,tail_at_first={}, {}, {}, {}
     for c in cases:
         i=c["index"]
         x,y=(u.read(path/f"{i:02d}-{arm}.json") for arm in (a,b))
@@ -492,6 +492,9 @@ def profile_transfer(data):
                     or any(ex[k]!=ey[k] for k in ("tick","offer","head","phase","mandatory_q","parked"))):
                 raise ValueError("Unmatched first prefix tick")
         exposed[i]=first is not None
+        # Opportunity is actual head-Q / tail-KV geometry before sampling.
+        # The compact "parked" field is refresh-row count, not tail presence.
+        tail_at_first[i]=first is not None and x["trace"][first]["opportunity"]
     for w in (30,60,90):
         tasks=select_window_cases(cases,w)
         row=_window_row(tasks,left,right,w,"all","gemma",a,b,None)
@@ -499,6 +502,12 @@ def profile_transfer(data):
         lo,hi=efficiency_interval(tasks,left,right)
         yield dict(row, efficiency_ci_low=lo,efficiency_ci_high=hi,
                    exposed=sum(exposed[i] for i in ids),
+                   first_with_tail=sum(tail_at_first[i] for i in ids),
+                   first_without_tail=sum(exposed[i] and not tail_at_first[i] for i in ids),
+                   lost_first_with_tail=sum(tail_at_first[i] and left[i]["correct"]
+                                            and not right[i]["correct"] for i in ids),
+                   lost_first_without_tail=sum(exposed[i] and not tail_at_first[i] and left[i]["correct"]
+                                               and not right[i]["correct"] for i in ids),
                    prefix_rows=sum(right[i]["prefix_rows"] for i in ids),
                    prefix_ticks=sum(right[i]["prefix_ticks"] for i in ids),
                    relative_physical_q_delta=row["arm_physical_Q"]/row["baseline_physical_Q"]-1)
