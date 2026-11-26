@@ -193,7 +193,7 @@ class DriftState:
     """Exact native state machine plus one drift record per same-canvas step."""
 
     def __init__(self, width, layer, top_fraction=DEFAULT_TOP_FRACTION, top_k=None,
-                 drift_floor=DEFAULT_DRIFT_FLOOR):
+                 drift_floor=DEFAULT_DRIFT_FLOOR, *, lag_joint=False):
         if width <= 0:
             raise ValueError("canvas width must be positive")
         if not 0.0 < float(drift_floor) < float("inf"):
@@ -212,6 +212,7 @@ class DriftState:
         self.last_query = None
         self.prev = None
         self.records = []
+        self.lag_frames = [] if lag_joint else None
         self.empty_pool_steps = 0
         self.pos = [dict(pool=0, top=0, selected=0, dk_sum=0.0, dv_sum=0.0,
                          joint_sum=0.0, dk_max=0.0, dv_max=0.0, joint_max=0.0,
@@ -279,10 +280,17 @@ class DriftState:
                 if self.h.resolved[i] and i not in self.h.fresh]
         if not pool:
             self.empty_pool_steps += 1
-            return
+            if self.lag_frames is None:
+                return
         dk = relative_rms(k, prev.k)
         dv = relative_rms(v, prev.v)
         joint = [max(dk[i], dv[i]) for i in range(self.width)]
+        if self.lag_frames is not None:
+            if not all(map(math.isfinite, dk)) or not all(map(math.isfinite, dv)):
+                raise ValueError("Nonfinite native K/V drift")
+            self.lag_frames.append(dict(block=self.block, clock=self.clock, joint=joint))
+            if not pool:
+                return
         if max(prev.last_write) > self.step_id or max(prev.last_query) > self.step_id:
             raise RuntimeError("write/query step id is ahead of the current step")
         scores = _frontier_scores(pool, prev.last_write, prev.last_query, self.step_id)
@@ -497,12 +505,12 @@ def capture_attention(model, layers, canvas, store, impl=None):
 
 
 def kv_drift_trace(out, layer, top_fraction=DEFAULT_TOP_FRACTION, top_k=None,
-                   drift_floor=DEFAULT_DRIFT_FLOOR):
+                   drift_floor=DEFAULT_DRIFT_FLOOR, *, lag_joint=False):
     """Drop-in ``trace_request`` for ``run_native``; writes per-task statistics."""
     @contextmanager
     def capture(model, task):
         state = DriftState(model.config.canvas_length, layer, top_fraction, top_k,
-                           drift_floor)
+                           drift_floor, lag_joint=lag_joint)
         attn = model.model.decoder.layers[layer].self_attn
         state.layer_type = getattr(attn, "layer_type", None)
         state.shared_kv = getattr(attn, "v_proj", None) is None
@@ -555,6 +563,11 @@ def write_task(out, task, state):
         summary=summarize_task(state.records, state.empty_pool_steps),
     )
     write_json(Path(out) / f"{task['index']:02d}-kvdrift-layer{state.layer}.json", payload)
+    if state.lag_frames is not None:
+        identity = {k: task[k] for k in ('index', 'dataset', 'task_id', 'seed')}
+        write_json(Path(out) / f"{task['index']:02d}-lag-joint-layer{state.layer}.json",
+                   dict(**identity, canvas=state.width, layer=state.layer, metric=JOINT,
+                        frames=state.lag_frames))
 
 
 def summary_row(payload):
@@ -763,7 +776,8 @@ def main(args, prepare=None):
         raise ValueError("native_kv_drift requires all 30 frozen tasks")
     run_native(args, before_cuda=prepare,
                trace_request=kv_drift_trace(args.output, layer, fraction, top_k,
-                                            drift_floor))
+                                            drift_floor, lag_joint=(getattr(args, 'lag_joint', False)
+                                                                    or os.getenv('DG_KV_LAG_JOINT') == '1')))
     parity = verify_parity(args.output, args.reference, tasks)
     traces = list(args.output.glob("*.trace.jsonl.gz"))
     if len(traces) != 30:
@@ -787,6 +801,8 @@ def parse_args():
     for key in ("checkpoint", "samples", "output", "reference"):
         parser.add_argument("--" + key, required=True, type=Path)
     parser.add_argument("--layer", type=int, default=DEFAULT_LAYER)
+    parser.add_argument("--lag-joint", action="store_true",
+                        help="write per-row joint drift on every same-canvas transition (also DG_KV_LAG_JOINT=1)")
     parser.add_argument("--top-fraction", type=float, default=DEFAULT_TOP_FRACTION)
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--drift-floor", type=float, default=DEFAULT_DRIFT_FLOOR)
