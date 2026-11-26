@@ -21,7 +21,8 @@ from bdlm_serving.methods.t2t.frontier import select_hard
 from bdlm_serving.methods.t2t.hazard import features
 
 
-def load(path, task, *, old_token_features=None, history_factory=None, context_features=None):
+def load(path, task, *, old_token_features=None, history_factory=None, context_features=None,
+         prefix_factory=None):
     """Append optional old-row features; only completed transitions reach history."""
     steps = []
     with gzip.open(path, "rt") as f:
@@ -29,10 +30,15 @@ def load(path, task, *, old_token_features=None, history_factory=None, context_f
         meta, prompt = next(source), next(source)
         assert all(meta[k] == task[k] for k in ("index", "task_id", "seed", "dataset"))
         last = None
+        prefix = prefix_factory() if prefix_factory is not None else None
         for row in source:
             start, before = row["block"], row["before"]
             new = start != last
             if new:
+                if prefix is not None and last is not None:
+                    if start != last + 32 or any(prior[i] == prompt["mask_id"] for i in valid):
+                        raise ValueError("Previous generated block was not committed")
+                    prefix.commit([prior[i] for i in valid])
                 clock = 0
                 valid = list(range(max(0, prompt["prompt_length"]-start), 32))
                 fresh, strict, write = set(), set(), [-1]*32
@@ -49,6 +55,8 @@ def load(path, task, *, old_token_features=None, history_factory=None, context_f
                 extra = context_features(old, [before[i] for i in old],
                                          [(j, before[j]) for j in sorted(fresh)], x)
                 x = np.column_stack((x, extra))
+            if old and prefix is not None:
+                x = np.column_stack((x, prefix.features(old, before, prompt["mask_id"])))
             if old and old_token_features is not None:
                 extra = [old_token_features(before[i]) for i in old]
                 x = np.column_stack((x, extra))
