@@ -1,0 +1,7 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+gemma,t2t_q32_f0_m31_hard_prefix_slack_oldest,slack,original30,30,1204,32.66860465116279,81,25,1302,21,2026,1129,97465,25,81,25,314,1204,81,0,0,1123,81,5
+gemma,t2t_q32_f0_m31_hard_prefix_slack_oldest,slack,added60,60,2320,32.99008620689655,150,49,2511,35,4658,2168,197458,49,150,49,575,2320,150,0,0,2170,150,11
+gemma,t2t_q32_f0_m31_hard_prefix_slack_oldest,slack,all90,90,3524,32.88024971623155,231,74,3813,56,6684,3297,294923,74,231,74,889,3524,231,0,0,3293,231,16
+gemma,t2t_q32_f0_m28_hard_prefix_slack_oldest,slack,original30,30,1225,32.76571428571429,81,25,1389,22,2013,1148,95389,25,81,25,314,4900,314,0,0,1144,75,5
+gemma,t2t_q32_f0_m28_hard_prefix_slack_oldest,slack,added60,60,2349,33.124308216262236,158,49,2742,37,4777,2199,202276,49,158,49,606,9396,606,0,0,2191,146,11
+gemma,t2t_q32_f0_m28_hard_prefix_slack_oldest,slack,all90,90,3574,33.001398992725235,239,74,4131,59,6790,3347,297665,74,239,74,920,14296,920,0,0,3335,221,16
