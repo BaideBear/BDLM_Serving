@@ -119,13 +119,26 @@ def run(args,prepare=None):
     prompt_refs = ({i:json.loads((args.reference/f"{i:02d}-native32.json").read_text())["prompt_ids"]
                     for i in range(90)} if args.model == "llada21" else {})
     backend = load_backend(args,prepare)
-    def exe(i,source):
-        return backend(rows[i],Arm(lo,0,lo,"hard_prefix_zero"),next_budget=source,
+    def exe(i,source,initial=hi):
+        return backend(rows[i],Arm(initial,0,initial,"hard_prefix_zero"),next_budget=source,
                        **({"prompt_reference":prompt_refs[i]} if prompt_refs else {}))
+    def identify(i,row,policy):
+        row.update({k:rows[i][k] for k in ("index","task_id","dataset","seed")},model=args.model,policy=policy)
+        return row
+    def endpoint(i,row,q):
+        old=json.loads((fixtures[q]/f"{i:02d}-slottrace_{q}.json").read_text())
+        candidate=json.loads(json.dumps(dict(row,policy=old["policy"])))
+        different=[k for k in old.keys()|candidate.keys() if old.get(k)!=candidate.get(k)]
+        if old.keys()!=candidate.keys() or different:
+            raise ValueError(f"Fixed Q{q}/{i} differs from reference: {sorted(different)}")
     def constant(_):
         return hi
     sync = torch.cuda.synchronize
-    exe(0,constant)
+    for q in (lo,hi):
+        warm=identify(0,exe(0,lambda info:q,initial=q),"warmup")
+        verify_work(warm)
+        audit(warm,(q,))
+        endpoint(0,warm,q)
     sync()
     ticks = []
     for i in (0,10,20,30,50,70):
@@ -141,12 +154,13 @@ def run(args,prepare=None):
             device=torch.cuda.get_device_name(),torch=str(torch.__version__)))
     for mode in MODES:
         # Same warmup before every arm; its results do not enter the 90 scored requests.
-        exe(0,constant)
+        initial=Pressure(mode,(lo,hi)).offer(0)
+        exe(0,lambda info:initial,initial)
         sync()
-        out,times = replay(trace,mode,(lo,hi),exe,sync)
+        out,times = replay(trace,mode,(lo,hi),lambda i,src:exe(i,src,initial),sync)
         for row,t in zip(out,times,strict=True):
             i = t["index"]
-            row.update({k:rows[i][k] for k in ("index","task_id","dataset","seed")},model=args.model,policy=mode)
+            identify(i,row,mode)
             verify_work(row)
             observed = [e for e in row["events"] if "slot_offer" in e]
             offers = t["offers"]
@@ -155,9 +169,7 @@ def run(args,prepare=None):
             audit(row,[q for _,_,_,q in offers] or [lo])
             if mode.startswith("fixed"):
                 q = hi if mode=="fixed_high" else lo
-                old = json.loads((fixtures[q]/f"{i:02d}-slottrace_{q}.json").read_text())
-                if json.loads(json.dumps(dict(row,policy=old["policy"]))) != old:
-                    raise ValueError(f"Fixed endpoint is not reproducible: {mode}/{i}")
+                endpoint(i,row,q)
             durable(args.output/f"{i:02d}-{mode}.json",row)
         durable(args.output/f"clock-{mode}.json",dict(mode=mode,requests=times))
         durable(args.output/f"complete-{mode}.json",dict(policy=mode,requests=len(times)))

@@ -21,7 +21,7 @@ def audit(row, pattern):
         work = [(e["stage"], e["physical_q"]) for e in row["events"] if e["phase"] != "prefill"]
     else:
         raw = row["physical_events"]
-        if raw[0] != ["encoder", row["prefill_rows"]]:
+        if tuple(raw[0]) != ("encoder", row["prefill_rows"]):
             raise ValueError("Missing observed Gemma prompt prefill")
         if [q for tag,q in raw[1:] if tag == "decoder"] != [e["q"] for e in row["events"]]:
             raise ValueError("Gemma decoder work disagrees with observer")

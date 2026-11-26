@@ -246,7 +246,7 @@ def dual_backend(args, prepare):
                                          tokenize=False, add_generation_prompt=True)
         ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
         reference = args.reference / ("%02d-native32.json" % task["index"])
-        if reference.exists():
+        if reference.exists() or getattr(args,"suite","frozen30")=="frozen90":
             ref = json.loads(reference.read_text())
             if ids[0].tolist() != ref["prompt_ids"]:
                 raise ValueError("Changed prompt on request %02d" % task["index"])
@@ -306,7 +306,72 @@ def parse_args():
     parser.add_argument("--arm", action="append",
                         help="Q:fresh:mask:selection; default paired Q64 noedit/frontier")
     parser.add_argument("--gen-length", type=int, default=2048)
+    parser.add_argument("--suite",choices=("frozen30","frozen90"),default="frozen30")
+    parser.add_argument("--reference-pair30",type=Path,help="Required historical true dual64 run for frozen90")
     return parser.parse_args()
+
+
+def dual_reference90(args,prepare):
+    from bdlm_serving.evaluation.frozen import sha
+    from bdlm_serving.evaluation.frozen90 import load_tasks
+    from bdlm_serving.methods.t2t.protocol import verify_work
+    archive = args.reference_pair30
+    if not archive or args.gen_length!=2048 or getattr(args,"arm",None):
+        raise ValueError("frozen90 requires the archived two-B32 run and its fixed noedit configuration")
+    tasks = load_tasks(args.samples)
+    arm=default_arms()[0]
+    read=lambda path:json.loads(path.read_text())
+    refmeta=read(archive/"run.json")
+    if (refmeta["mode"]!="llada_dual_rolling_pair" or refmeta["model"]!="llada21"
+            or refmeta["batch_size"]!=1 or refmeta["cap"]!=2048 or refmeta["pair_blocks"]!=2
+            or refmeta["block"]!=32 or refmeta["nominal_q"]!=64 or arm.policy not in refmeta["policies"]
+            or read(archive/f"complete-{arm.policy}.json")!=dict(policy=arm.policy,requests=30)):
+        raise ValueError("Expected the original true two-B32 reference, not a one-block alias")
+    policy="dual64_noedit"
+    args.output.mkdir(exist_ok=False,parents=True)
+    durable(args.output/"run.json",dict(model="llada21",suite="frozen90",samples_sha256=sha(args.samples),
+        block=32,pair_blocks=2,nominal_q=64,mode=refmeta["mode"],cap=2048,batch_size=1,policies=[policy],
+        reference_policy30=arm.policy))
+    run=dual_backend(args,prepare)
+    digests=[]
+    for task in tasks:
+        i=task["index"]
+        row=run(task,arm)
+        row.update({k:task[k] for k in ("index","dataset","seed","task_id")},model="llada21",policy=policy)
+        verify_work(row)
+        audit_dual64(row)
+        if i<30:
+            src=archive/f"{i:02d}-{arm.policy}.json"
+            old=read(src)
+            if json.loads(json.dumps(dict(row,policy=arm.policy)))!=old:
+                raise ValueError(f"True dual64 trajectory differs from original30 at {i}")
+            digests.append(sha(src))
+        durable(args.output/f"{i:02d}-{policy}.json",row)
+        if i==29:
+            durable(args.output/f"reproduced30-{policy}.json",dict(policy=policy,matched=30,reference_sha256=digests))
+        print(f"{policy} {i:02d} N={row['output_tokens']} F={row['generation_forwards']} "
+              f"physical_Q={row['generation_query_rows']}",flush=True)
+    durable(args.output/f"complete-{policy}.json",dict(policy=policy,requests=90))
+
+
+def audit_dual64(row):
+    if (row["dual"]!={"nominal_q":64,"pair_blocks":2,"gen_length":2048,"mode":"rolling_pair"}
+            or row["dual_saturation"]!=saturation_summary(row["events"])):
+        raise ValueError("Incorrect two-block identity or saturation counts")
+    seq=[e for e in row["events"] if e["phase"]!="prefill"]
+    work=[]
+    for e in seq:
+        p=e["absolute_positions"]
+        q=e["physical_q"]
+        if (e["F"]!=1 or not 0<q<=64 or p!=sorted(set(p)) or len(p)!=q
+                or not e["layer_physical_q"] or any(v!=q for v in e["layer_physical_q"])
+                or q!=e["actual_q"] or q!=e["effective_q"]
+                or (q>32 and len({pos//32 for pos in p})!=2)):
+            raise ValueError("Invalid physical two-block trace")
+        work.append(q)
+    if (len(work)!=row["generation_forwards"] or sum(work)!=row["generation_query_rows"]
+            or sum(work)!=row["generation_physical_padded_rows"] or max(work)!=row["max_q"]):
+        raise ValueError("True dual64 totals differ from observer")
 
 
 def main(args, prepare=None):
@@ -315,6 +380,8 @@ def main(args, prepare=None):
 
     if args.model != "llada21":
         raise ValueError("Dual Q64 experiment is LLaDA2.1 only")
+    if getattr(args,"suite","frozen30")=="frozen90":
+        return dual_reference90(args,prepare)
     arms = [parse_arm(text) for text in args.arm] if getattr(args, "arm", None) else default_arms()
     noedit_arm, frontier_arm = validate_arms(arms)
     tasks = load_tasks(args.samples)

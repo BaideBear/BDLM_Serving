@@ -71,5 +71,7 @@ def test_native_offer_is_billed_as_offer_not_forced_verification():
                q_by_phase=dict(bootstrap=256,native_offer=256),output_tokens=60)
     result = audit(row,("256n",))
     assert result["offered_rows"] == result["native_rows"] == result["charged_other"] == 256
+    live=dict(row,physical_events=list(map(tuple,row["physical_events"])))
+    assert audit(live,("256n",))==result
     with pytest.raises(ValueError):
         audit(row,(256,))

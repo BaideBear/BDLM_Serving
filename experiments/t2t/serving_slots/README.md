@@ -127,6 +127,8 @@ K0 在前三档的质量和 TPF 点估计均超过两种 Optimus，但各档的 
 
 LLaDA 基线扩展共10臂：`python -m experiments.t2t.serving_slots.llada_reference --samples "$FROZEN90" --reference "$HISTORICAL_RUN" --check-only` 检查公开原30成绩、原始工作账、身份和种子。300条归档记录通过此检查。原始 LLaDA 实际 batch 为 1；IBS4、OBS32 各有一次生成失败，均计错且保留已执行的 F/Q。去掉 `--check-only` 并指定 `--checkpoint`、新 `--output` 和可重复的 `--policy` 可在同一生成器逐臂扩展：原30重新生成，对齐原始输出 ID、停止状态、失败记录、逐前向位置及物理 F/Q 后才允许该臂进入新增60。原30校验不等于已取得90题结果。
 
+**真双块 Q64 的独立准入。** 30题的既有 `rolling_pair` 端点是24/30、TPF 5.609、效率9.17%、143513个物理Q。相同历史实验中，单块满宽 `hard_noedit` 为26/30、5.728、15.55%、82400个Q；该单块方法也不是 K0。新增的 `dual64_noedit` 标签只指真实的两个B32。`python -m tools.run_dual_t2t --suite frozen90 --model llada21 --checkpoint "$MODEL" --samples "$FROZEN90" --reference "$NATIVE90_LLADA" --reference-pair30 "$DUAL30" --output "$NEW_RUN"`。先用原30复现完整输出、所有动作及工作账，再进入新增60。原两种预留策略在原30的输出、选位和阶段完全相同，所以只扩一个端点。此项不代表已实现请求内32↔64切换，混合实验必须独立验证必刷、RNG、两块可见性、左提交与右重编码边界。尤其不可把未刷的右块新写入在降档时直接丢弃。
+
 ## 同档位多停留几轮有没有帮助？
 
 ![Gemma dwell and physical prefix injection, annotated](gemma-dose-dwell.png)

@@ -372,6 +372,10 @@ def normalize_request(raw, case, role):
     ll_ref = model=="llada21" and (_LL_OPT.fullmatch(policy) or policy in ("flow_w1","flow_w2"))
     if ll_ref:
         fixed_chunk = llada_reference_chunk(raw, block)
+    elif model=="llada21" and policy=="dual64_noedit":
+        from tools.run_dual_t2t import audit_dual64
+        audit_dual64(raw)
+        fixed_chunk=64
     elif model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
         fixed_chunk = optimus_chunk(raw, block)
     elif model == "gemma" and policy in ("flow_w1", "flow_w2"):
