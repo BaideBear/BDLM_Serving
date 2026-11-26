@@ -9,7 +9,8 @@ GATES = ("hard_context_slack", "hard_context_slack_random", "hard_context_gate",
          "hard_context_gate_random")
 ONCE = tuple("hard_context_once_"+arm for arm in ("base", "rank", "random"))
 CROWDED = (*ONCE, *ADMISSION)
-CONTEXT = ("hard_context_fixed", *GATES, *CROWDED)
+FIXED_CONTEXT = ("hard_context_fixed", "hard_committed_usage")
+CONTEXT = (*FIXED_CONTEXT, *GATES, *CROWDED)
 CUTOFF = math.log(.05 / .95)
 
 

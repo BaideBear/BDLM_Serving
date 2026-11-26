@@ -18,6 +18,8 @@ from transformers.cache_utils import DynamicCache
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import MODES, SeatAudit, canvas_digest, digest
+from .committed_usage import CommittedUsage
+from .context_gate import FIXED_CONTEXT
 from .context_gate import ADMISSION, CONTEXT, CROWDED, GATES, crowded_plan, select as select_context_gate
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
@@ -115,6 +117,7 @@ class _SelectedCache(DynamicCache):
 
 @dataclass
 class SparseRequestState(RequestState):
+    usage_history: CommittedUsage | None = None
     seat_audit: SeatAudit | None = None
     history: History | None = None
     resident: tuple | None = None
@@ -225,6 +228,7 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("Prompt cannot contain the generation mask ID")
         base = super().create(input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True)
         return SparseRequestState(**vars(base),
+                                  usage_history=CommittedUsage() if self.policy == "hard_committed_usage" else None,
                                   seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *CROWDED) else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
 
@@ -377,12 +381,16 @@ class LLaDASparseKernel(SerialKernel):
                     editable, resolved, fresh, picked, reserved, offers, tag,
                     last_query=state.last_query if self.policy in AGE_ARMS else None)
             return picked, reserved
-        if self.policy in _HAZARD or self.policy == "hard_context_fixed":
+        if self.policy in _HAZARD or self.policy in FIXED_CONTEXT:
             from .hazard import choose
             score_rows = None
             if self.policy == "hard_context_fixed":
                 def score_rows(old, pos):
                     return self.context_ranker.scores(before, fresh, old, pos)
+            elif self.policy == "hard_committed_usage":
+                def score_rows(old, pos):
+                    return self.context_ranker.scores(before, fresh, old, pos,
+                        usage=state.usage_history, mask=state.mask_id)
             return choose(list(editable), resolved, fresh, state.last_write, state.previous_strict,
                 len(state.events)+1, self.q_budget, edit_slots, self.hazard_weights,
                 .05 if self.policy == "hard_hazard_gate" else 0., score_rows=score_rows)
@@ -459,6 +467,13 @@ class LLaDASparseKernel(SerialKernel):
         if state.phase != "denoise":
             action = super().step(state)
             if action == "commit":
+                if state.usage_history is not None and state.phase != "done":
+                    end = state.committed_end
+                    start = max(state.prompt_length, end - 32)
+                    ids = state.x[0, start:end].tolist()
+                    if state.mask_id in ids:
+                        raise RuntimeError("Unresolved token in committed output")
+                    state.usage_history.commit(ids)
                 state.history, state.resident, state.force_mask_next = None, None, False
                 state.gate_evidence = None
                 state.last_write = state.last_query = None

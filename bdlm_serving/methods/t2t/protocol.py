@@ -1,7 +1,7 @@
 """Shared frozen30 protocol: one case list, explicit budgets, no free closure work."""
 from dataclasses import dataclass
 from .exchange import ONLINE_MODES as EXCHANGE
-from .context_gate import CONTEXT, CROWDED, GATES
+from .context_gate import CONTEXT, CROWDED, FIXED_CONTEXT, GATES
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES
 
@@ -46,7 +46,7 @@ class Arm:
             raise ValueError(f"Unknown selection: {selection}")
         if selection.startswith("hard_") and obj.fresh != 0:
             raise ValueError("Hard refresh selects every fresh row; no fixed fresh quota is allowed")
-        if selection == "hard_context_fixed" and (obj.budget, obj.edit) not in ((4, 1), (8, 1), (16, 2)):
+        if selection in FIXED_CONTEXT and (obj.budget, obj.edit) not in ((4, 1), (8, 1), (16, 2)):
             raise ValueError("Context rollout is bounded to Q4/1, Q8/1, Q16/2")
         if selection in (*GATES, *CROWDED) and (obj.budget, obj.edit) != (8, 1):
             raise ValueError("Context gate rollout is bounded to Q8/1")

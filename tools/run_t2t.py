@@ -71,12 +71,17 @@ def main(args, prepare=None):
         if any(a.selection in CONTEXT for a in arms):
             from bdlm_serving.methods.t2t.embedding_context import (
                 ContextRanker, Projector, input_table, read_context_weights)
-            w = read_context_weights(getattr(args, 'context_weights', None))
+            usage = any(a.selection == "hard_committed_usage" for a in arms)
+            if usage and any(a.selection in CONTEXT and a.selection != "hard_committed_usage" for a in arms):
+                raise ValueError("Cannot mix different context calibrations in one invocation")
+            if usage:
+                from bdlm_serving.methods.t2t.committed_usage import UsageRanker, read_usage_weights
+            w = (read_usage_weights if usage else read_context_weights)(getattr(args, 'context_weights', None))
             extra['context_weights_sha256'] = sha(args.context_weights)
             if admission_fit is not None and extra['context_weights_sha256'] != admission_fit['ranker_sha256']:
                 raise ValueError('Admission study requires the frozen gate ranker')
             projector = Projector(stack.enter_context(input_table(args.checkpoint)))
-            ranker = ContextRanker(projector.unit, w)
+            ranker = (UsageRanker if usage else ContextRanker)(projector.unit, w)
         _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admission_fit)
 
 
