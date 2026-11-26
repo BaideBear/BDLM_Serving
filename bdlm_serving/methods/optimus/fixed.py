@@ -7,8 +7,15 @@ from bdlm_serving.methods.optimus.upstream import load_controls, SelectedResiden
 
 
 class FixedOptimus:
-    def __init__(self, model, kind, chunk, mode):
-        assert chunk in (4, 8, 16, 32) and mode in ("ibs", "obs")
+    def __init__(self, model, kind, chunk, mode, *, physical_caps=()):
+        self.caps = tuple(physical_caps)
+        if self.caps:
+            if (kind != "llada21" or chunk != max(self.caps) or len(self.caps)>16 or
+                    any(type(n) is not int or not 1 <= n <= 32 for n in self.caps)):
+                raise ValueError("Expected LLaDA B32 decoder caps with chunk=max(caps)")
+        elif chunk not in (4, 8, 16, 32):
+            raise ValueError("Unknown uncapped Optimus chunk")
+        assert mode in ("ibs", "obs")
         self.model, self.kind, self.chunk, self.mode = model, kind, chunk, mode
         self.controls, strategy, self.hashes = load_controls()
         self.unmask = self.controls.UnmaskingProcessor(types.SimpleNamespace(
@@ -45,6 +52,8 @@ class FixedOptimus:
         if start:
             forward(torch.arange(start, device=x.device), "prefill")
         previous_shifted = None
+        tick = 0
+        dirty = set()
         while start < total:
             width = min(32 + (self.chunk if self.mode == "obs" else 0), total-start)
             control = self.controls.DelayedCacheState.new(
@@ -59,10 +68,27 @@ class FixedOptimus:
                 old_mask = (before[0].cpu().numpy() != mask_id).astype(np.uint8)
                 index_buffer = np.empty(width, dtype=np.int64)
                 prefix_before = control.cached_prefix_len
-                count, _ = control.fill_processing_buffers(index_buffer, 0, old_mask)
+                offer = self.caps[tick % len(self.caps)] if self.caps else None
+                count, _ = control.fill_processing_buffers(index_buffer, 0, old_mask,
+                                                            chunk_size_override=offer)
                 if not count:
                     raise RuntimeError("Optimus returned an empty unfinished step")
-                selected = torch.as_tensor(index_buffer[:count].copy(), device=x.device)
+                candidate = index_buffer[:count].copy()
+                if offer is not None:
+                    pending = sorted(a-start for a in dirty)
+                    if not set(pending).issubset(candidate):
+                        raise RuntimeError("Upstream window omitted an unrefreshed write")
+                    # Select pending writes first. Remaining seats retain upstream
+                    # order, also initializing a partial first prompt block in order.
+                    if count > offer:
+                        chosen = pending + [int(i) for i in candidate if i+start not in dirty]
+                        picked = np.array(sorted(chosen[:offer]),dtype=candidate.dtype)
+                    else:
+                        picked = candidate
+                    count = len(picked)
+                else:
+                    picked = candidate
+                selected = torch.as_tensor(picked, device=x.device)
                 positions = selected + start
                 if self.mode == "ibs":
                     assert bool((positions < start+32).all())
@@ -93,6 +119,22 @@ class FixedOptimus:
                 cache_mask = old_mask.copy()
                 deferred = selected[edited].cpu().numpy()
                 cache_mask[deferred] = 0
+                if offer is not None:
+                    ran = {start+int(i) for i in picked}
+                    dirty.difference_update(ran)
+                    written = np.flatnonzero((old_mask == 0) & (now_mask != 0)).tolist()
+                    written = set(written) | {int(i) for i in deferred if now_mask[i]}
+                    dirty.update(start+i for i in written)
+                    # Do not freeze uninitialized prompt rows, a carried OBS tail,
+                    # or an admission whose new token has not yet entered KV.
+                    for i in range(width):
+                        if start+i in dirty or start+i not in cache.initialized:
+                            cache_mask[i] = 0
+                    events[-1].update(offer_tick=tick,physical_cap=offer,
+                                      candidate_local=candidate.tolist(),
+                                      dirty_before=[start+i for i in pending],
+                                      written_absolute=sorted(start+i for i in written))
+                    tick += 1
                 control.update_from_mask(cache_mask, mark_ready_if_all_left_non_mask=True,
                                          dllm_mask_cur=now_mask)
                 ready = control.cached_prefix_len
@@ -106,6 +148,8 @@ class FixedOptimus:
                     cross_boundary_rows=int((positions >= start+32).sum()),
                     visible_kv=cache.visible_end, active_width=width)
                 assert not bool((positions[edited] < start+ready).any())
+                if offer is not None and any(a < start+ready for a in dirty):
+                    raise RuntimeError("Retired an unrefreshed write")
                 assert not bool((x[:, :p] != prompt).any())
                 if ready >= 32:
                     assert bool((x[:, start:start+32] != mask_id).all())
@@ -121,5 +165,7 @@ class FixedOptimus:
             "fixed_chunk": self.chunk, "window_switches": 0,
             "m2t_threshold": .9, "t2t_threshold": .5 if self.kind == "llada21" else None,
             "t2t_cache_rule": "edited input must be re-encoded before prefix freeze",
-            "scope": "unchanged official prefix/unmask controls; common backend; selected-only T2T",
+            "scope": ("upstream candidate plan with a shared hard cap before physical projection; selected-only T2T"
+                      if self.caps else "unchanged official prefix/unmask controls; common backend; selected-only T2T"),
+            **({"physical_caps":list(self.caps)} if self.caps else {}),
         }

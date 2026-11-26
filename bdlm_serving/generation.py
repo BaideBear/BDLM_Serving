@@ -96,6 +96,14 @@ def run(args, tasks, plan, before_cuda=None, *, cohort_done=None):
                                       cap, seed, mask_id, eos, cached=True)
                 engine.run(state)
                 raw, events, extra = state.x, state.events, {"native_serial": True}
+            elif policy.startswith("optcap_"):
+                _, mode, *fields = policy.split("_")
+                caps = tuple(map(int,fields))
+                engine = FixedOptimus(facade, args.model, max(caps), mode, physical_caps=caps)
+                try:
+                    raw, events, extra = engine.run(prompt, cap, seed, mask_id, eos)
+                except RuntimeError as error:
+                    raw, events, extra, request_failure = capture_optimus_progress_failure(error, engine)
             elif policy.startswith("optimus"):
                 _, mode, chunk = policy.split("_")
                 engine = FixedOptimus(facade, args.model, int(chunk[1:]), mode)
