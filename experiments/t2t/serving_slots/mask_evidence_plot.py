@@ -27,6 +27,7 @@ CPU30 = "llada21-all-slots-mask-cpu-original30.json"
 GPU90 = "gemma-fixed512-mask-pair.csv"
 UNIFIED90 = "gemma-unified-replay-mask-gpu90.csv"
 FIXED90 = "gemma-unified-q512-mask-gpu90.csv"
+ADM30 = "llada21-q64-admission-mask-cpu-original30.csv"
 DATASETS = {0: "gsm8k", 10: "math500", 20: "humaneval"}
 
 
@@ -297,6 +298,25 @@ def unified_gpu(rows, policy):
     return gpu_pairs(normalized)
 
 
+def admission30(rows):
+    result = {}
+    for r in rows:
+        if r["factor"] != "mask" or r["scope"] != "all":
+            continue
+        gate = r["baseline_policy"].removesuffix("-open")
+        require(r["device"]=="cpu" and r["cohort"]=="original-0-29" and r["requests"]=="30"
+                and r["nominal_q"]=="64" and r["baseline_policy"]==gate+"-open"
+                and r["arm_policy"]==gate+"-causal" and gate not in result, "Invalid CPU mask control")
+        off,on = [arm(30, *(r[p+"_"+k] for k in ("correct","N","F","physical_Q","macro_tpf",
+                                                   "pooled_token_efficiency"))) for p in ("baseline","arm")]
+        win,lose,exposed = map(int,(r["rescued"], r["lost"], r["baseline_exposed"]))
+        require(win-lose==on.correct-off.correct and win+lose<=exposed<=30
+                and exposed==int(r["arm_exposed"]), "Inconsistent paired exposure")
+        result[gate] = Pair(gate, f"{win} rescued / {lose} lost; {exposed} exposed",off,on)
+    require(set(result)=={"eager","progress80"}, "Incomplete GPU-independent CPU30 comparison")
+    return [result["eager"],result["progress80"]]
+
+
 def load(controls):
     def csv_rows(name):
         with (controls / name).open(encoding="utf-8", newline="") as f:
@@ -308,7 +328,8 @@ def load(controls):
     for name, read, parse in ((Q512, csv_rows, lambda r: replay(r, "q512")), (ADMISSION, read_json, admission),
                               (CPU30, read_json, cpu30), (GPU90, csv_rows, gpu90),
                               (UNIFIED90, csv_rows, lambda r: unified_gpu(r, "replay")),
-                              (FIXED90, csv_rows, lambda r: unified_gpu(r, "q512"))):
+                              (FIXED90, csv_rows, lambda r: unified_gpu(r, "q512")),
+                              (ADM30, csv_rows, admission30)):
         try:
             data = read(name)
         except FileNotFoundError:
@@ -351,6 +372,8 @@ def figure(panels):
                     "n164 GPU  /  identical external offer sequence, task seeds and canvas RNG  /  all 90 retained"),
         FIXED90: ("J   DiffusionGemma  |  Unified fixed Q512",
                   "n164 GPU  /  same unified executor and frozen requests as panel I  /  fixed offer, not fixed total Q"),
+        ADM30: ("K   LLaDA 2.1-mini  |  Fixed Q64 admission and mask, original 30",
+                "CPU BF16  /  same 30 requests in both rows  /  progress80 opens the next block after at least 80% one-step head progress"),
     }
     require({OBS, ACTIVE, REPLAY, LLADA} <= panels.keys() <= headings.keys(), "Missing or unknown panel")
     y = 108
@@ -361,7 +384,7 @@ def figure(panels):
         node("rect", x=28, y=y-16, width=1144, height=54, fill="#eff4f5")
         text(40, y+4, title, 20, weight=700)
         text(40, y+26, sub, 14, mute)
-        row_heading = "Window / paired outcomes" if obs else "Admission policy" if name == ADMISSION else "Request / scope"
+        row_heading = "Window / paired outcomes" if obs else "Admission policy" if name in (ADMISSION,ADM30) else "Request / scope"
         columns = [(40, row_heading), (325, "Correct"),
                    (465, "Macro TPF"), (656, "Physical efficiency"),
                    (877, "Accuracy change (pp)  |  paired 95% CI" if obs else "TPF change  |  ON minus OFF")]
@@ -416,6 +439,9 @@ def figure(panels):
         text(40, y+87, "     ".join(f"{letter}: {name}" for letter, name in
              (("I", UNIFIED90),("J", FIXED90)) if name in panels), 12, mute)
         height = y+104
+    if ADM30 in panels:
+        text(40, y+105, f"K: {ADM30}",12,mute)
+        height = y+122
     root.set("height", str(height))
     root.set("viewBox", f"0 0 1200 {height}")
     root.find("rect").set("height", str(height))
