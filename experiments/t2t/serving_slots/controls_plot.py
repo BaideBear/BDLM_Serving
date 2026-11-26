@@ -29,7 +29,7 @@ def comparison(root):
     return out
 
 
-def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, rank=False):
+def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, rank=False, dose_q=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -39,6 +39,11 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
     points = {}
     sources = ([p for q in (32,64,128,256,512) if (p := source/f"gemma-unified-q{q}-vs-baselines.csv").is_file()]
                if unified else [source])
+    if dose_q is not None:
+        if not rank or not source.is_dir():
+            raise ValueError("Dose plot needs the directory of published rank tables")
+        sources=sorted(source.glob(f"gemma-unified-q{dose_q}-k*-rank.csv"),
+                       key=lambda p:int(p.stem.split("-")[3][1:]))
     for path in sources:
       with path.open() as f:
         for row in csv.DictReader(f):
@@ -71,6 +76,14 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
         return ("Capped " if cap else "Original ")+f"{mode.upper()} "+compact(slot.removeprefix("cap_"))
     if not points:
         raise ValueError("Missing frozen90 records")
+    if dose_q is not None:
+        order=[f"ibs_cap_{dose_q}", f"obs_cap_{dose_q}", f"q{dose_q}"]
+        for p in sources:
+            k=p.stem.split("-")[3]
+            order.extend(f"q{dose_q}_{k}_{mode}" for mode in ("random","oldest"))
+        if set(order)!=set(points):
+            raise ValueError("Incomplete paired prefix dose table")
+        points = {name:points[name] for name in order}
     if fixed_low:
         order = [name for q in (32,64) for name in (
             f"t2t_q{q}_f0_m{q}_hard_prefix_zero",f"ibs_cap_{q}",f"obs_cap_{q}")]
@@ -106,7 +119,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
     if unified:
         detail="fixed unified offers vs same-slot baselines; each row has 90 requests"
     if rank:
-        detail="fixed "+source.stem.split("-")[2].upper()+" | slack-only prefix selection vs capped Optimus"
+        slot=f"Q{dose_q}" if dose_q is not None else source.stem.split("-")[2].upper()
+        detail="fixed "+slot+" | slack-only prefix selection vs capped Optimus"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -150,6 +164,8 @@ def main():
         mixed_plot(HERE/"controls",HERE/"gemma-unified-fixed.png",unified=True)
     for p in sorted((HERE/"controls").glob("gemma-unified-q*-k*-rank.csv")):
         mixed_plot(p, HERE/(p.stem+".png"), rank=True)
+    if list((HERE/"controls").glob("gemma-unified-q128-k*-rank.csv")):
+        mixed_plot(HERE/"controls", HERE/"gemma-unified-q128-prefix-doses.png", rank=True,dose_q=128)
 
 
 if __name__ == "__main__":

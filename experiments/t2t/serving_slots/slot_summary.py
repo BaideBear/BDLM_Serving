@@ -32,6 +32,7 @@ ALLOWLIST = (
     "llada21-true64.csv",
     *(f"gemma-unified-q{q}-vs-baselines.csv" for q in (32,64,128,256,512)),
     "gemma-unified-q64-k16-rank.csv", "gemma-unified-q32-k8-rank.csv", "gemma-unified-q128-k32-rank.csv",
+    "gemma-unified-q128-k64-rank.csv",
 )
 
 class SummaryError(ValueError):
