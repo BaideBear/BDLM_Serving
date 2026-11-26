@@ -60,10 +60,10 @@ def report(out, root=ROOT):
         r["delta_correct"] >= 0 for r in primary)
 
 
-def gated_arm(folder, mode, keys, source):
+def gated_arm(folder, mode, keys, source, *, scored=None):
     mask = 8 if mode == "noedit" else 7
     policy = f"t2t_q8_f0_m{mask}_hard_{mode}"
-    s, requests = scored_rows(folder, policy)
+    s, requests = scored if scored is not None else scored_rows(folder, policy)
     for r in [s, *requests]:
         if r["model"] != "llada21" or tuple(int(r[k]) for k in ("nominal_q", "fresh", "mask", "edit")) != (8, 0, mask, 8-mask):
             raise ValueError(f"Model or quota mismatch for {policy}")
@@ -88,22 +88,47 @@ def gated_arm(folder, mode, keys, source):
     return arm, p, x
 
 
-def gated_report(out, root=ROOT):
+def gated_report(out, root=ROOT, *, crowded=False):
     exp = root / "experiments/t2t"
     fixed = exp / "calibrated/embedding_context/rollout"
     keys = sorted(request_key(r) for r in json.loads(
         (root / "benchmarks/frozen30/manifest.json").read_text())["samples"])
     draws = stratified_draws(keys)
     arms, plot_rows = {}, []
-    for mode, folder, source, label, style in (
-            ("noedit", exp / "hard", "archive_zero", "Zero reserve", "hard"),
+    zero = ("noedit", exp / "hard", "archive_zero", "Zero reserve", "hard")
+    if crowded:
+        base, rank, rand = ("context_once_" + s for s in ("base", "rank", "random"))
+        configs = [(base, out, "measured", "One switch: base", "hard"),
+                   (rank, out, "measured", "One switch: ranked", "geometry"),
+                   (rand, out, "measured", "One switch: random", "placebo"),
+                   (*zero[:3], "No edit (historical)", "hard"),
+                   ("context_gate", fixed.parent / "gated", "archive_gated", "Repeated gate (directed)", "adaptive")]
+        comparisons = {rank: [(base, "primary_feasibility"), (rand, "same_gate_placement")],
+                       rand: [(base, "descriptive")]}
+    else:
+        configs = [zero,
             ("context_fixed", fixed, "archive_fixed", "Fixed embedding", "adaptive"),
             ("context_slack", out, "measured", "Slack: ranked", "geometry"),
             ("context_slack_random", out, "measured", "Slack: random", "placebo"),
             ("context_gate", out, "measured", "Gate: ranked", "geometry"),
-            ("context_gate_random", out, "measured", "Gate: random", "placebo")):
-        arms[mode] = gated_arm(folder, mode, keys, source)
+            ("context_gate_random", out, "measured", "Gate: random", "placebo")]
+        comparisons = {m: [(m + "_random", "same_gate_placement"), ("noedit", "primary_feasibility"),
+                           ("context_fixed", "fixed_embedding")] for m in ("context_slack", "context_gate")}
+        comparisons["context_gate"].append(("context_slack", "ranked_vs_ranked"))
+    snapshots = {}
+    for mode, folder, source, label, style in configs:
+        scored = None
+        if crowded and mode in ("noedit", base):
+            mask = 8 if mode == "noedit" else 7
+            scored = scored_rows(folder, f"t2t_q8_f0_m{mask}_hard_{mode}")
+            snapshots[mode] = {request_key(r): r for r in scored[1]}
+        arms[mode] = gated_arm(folder, mode, keys, source, scored=scored)
         plot_rows.append((label, style, arms[mode][1]))
+    if crowded:
+        for key in keys:
+            for field in ("N", "F", "Q", "physical_Q", "max_q", "correct", "failed", "truncated"):
+                if int(snapshots[base][key][field]) != int(snapshots["noedit"][key][field]):
+                    raise ValueError(f"One-switch base differs from noedit: request {key[0]}, {field}")
     baselines = read_baselines(root / "experiments/baselines/summary.csv")
     for kind in ("ibs", "obs"):
         if ("llada21", 8, kind) not in baselines:
@@ -111,11 +136,7 @@ def gated_report(out, root=ROOT):
         plot_rows.append((f"Optimus {kind.upper()}8 (historical)", kind, baselines["llada21", 8, kind]))
 
     contrasts, per_request, feasibility = [], [], {}
-    for ranked in ("context_slack", "context_gate"):
-        refs = [(ranked + "_random", "same_gate_placement"), ("noedit", "primary_feasibility"),
-                ("context_fixed", "fixed_embedding")]
-        if ranked == "context_gate":
-            refs.append(("context_slack", "ranked_vs_ranked"))
+    for ranked, refs in comparisons.items():
         a, p, x = arms[ranked]
         for ref, purpose in refs:
             b, control, y = arms[ref]
@@ -142,23 +163,41 @@ def gated_report(out, root=ROOT):
                 delta_eff_pp=100*(p.efficiency-control.efficiency),
                 **{f"delta_{k}": a[k]-b[k] for k in ("N", "F", "physical_Q")},
                 **paired_uncertainty(x, y, draws)))
-    render(out / "gated.svg", "llada21", 32, [(8, plot_rows)], adaptive=True,
-           study_title="Gated embedding placement at Q8")
-    table(out / "gated-arms.csv", [a for a, _, _ in arms.values()])
-    table(out / "gated-matched.csv", contrasts)
-    table(out / "gated-request-deltas.csv", per_request)
+    prefix = "crowded" if crowded else "gated"
+    if crowded:
+        dd = []
+        for other, control in ((rand, base), ("context_gate", "noedit")):
+            # (rank - base) - (other - control): the two base terms cancel
+            # on EVERY paired draw, including across archives after exact replay parity.
+            a, p, x = arms[rank]
+            b, ref, y = arms[other]
+            ci = paired_uncertainty(x, y, draws)
+            dd.append(dict(policy=a["policy"], base=arms[base][0]["policy"], other=b["policy"],
+                           other_base=arms[control][0]["policy"], requests=len(x),
+                           delta_delta_correct=p.correct-ref.correct, delta_delta_TPF=p.tpf-ref.tpf,
+                           **{f"delta_{k}": ci[k] for k in ("delta_correct_lo", "delta_correct_hi",
+                                                           "delta_TPF_lo", "delta_TPF_hi")}))
+        table(out / "crowded-delta-delta.csv", dd)
+    render(out / f"{prefix}.svg", "llada21", 32, [(8, plot_rows)], adaptive=True,
+           study_title="Crowded seats: one switch at Q8" if crowded else "Gated embedding placement at Q8")
+    table(out / f"{prefix}-arms.csv", [a for a, _, _ in arms.values()])
+    table(out / f"{prefix}-matched.csv", contrasts)
+    table(out / f"{prefix}-request-deltas.csv", per_request)
     return feasibility
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--out", type=Path, help="scored tables and destination (default: rollout, or gated with --gated)")
-    p.add_argument("--gated", action="store_true", help="Q8 same-gate randomization and zero-reserve feasibility")
+    p.add_argument("--out", type=Path, help="scored tables and destination (default: the study variant's directory)")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--gated", action="store_true", help="Q8 same-gate randomization and zero-reserve feasibility")
+    mode.add_argument("--crowded", action="store_true", help="Q8 isolated one-switch comparison")
     args = p.parse_args(argv)
-    out = args.out or Path(__file__).resolve().parent / ("gated" if args.gated else "rollout")
-    if args.gated:
-        for policy, feasible in gated_report(out).items():
-            print(f"{policy} feasibility vs zero reserve: {'PASS' if feasible else 'FAIL'}")
+    out = args.out or Path(__file__).resolve().parent / ("crowded" if args.crowded else "gated" if args.gated else "rollout")
+    if args.gated or args.crowded:
+        for policy, feasible in gated_report(out, crowded=args.crowded).items():
+            reference = "one-switch base" if args.crowded else "zero reserve"
+            print(f"{policy} feasibility vs {reference}: {'PASS' if feasible else 'FAIL'}")
     else:
         print("Passes matched-position preregistration:", report(out))
 

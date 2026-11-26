@@ -1,10 +1,11 @@
-"""CPU audit of the four frozen30 LLaDA B32 Q8/E1 context placement arms.
+"""CPU audit of frozen30 LLaDA B32 Q8/E1 context placement arms.
 
 No selector, scorer, checkpoint or token features are loaded. The winner and
 its linear score are observations, not an independent embedding-model replay.
 """
 import argparse
 from collections import Counter
+from functools import lru_cache
 from itertools import combinations
 import json
 import math
@@ -18,6 +19,7 @@ from tools.t2t_results import table
 B, Q = 32, 8
 POLICIES = tuple('t2t_q8_f0_m7_hard_context_' + s for s in
                  ('slack', 'slack_random', 'gate', 'gate_random'))
+ONCE = tuple('t2t_q8_f0_m7_hard_context_once_' + s for s in ('base', 'rank', 'random'))
 WEIGHTS = 'dbcaf8d1496bbd4867a9ad9f44e592bec520c14872c1cb6476f257521d03081d'
 REASONS = ('overflow', 'no_room', 'no_old', 'protected_mask', 'no_slack',
            'below_threshold', 'already_selected', 'swap_old', 'swap_mask')
@@ -52,8 +54,7 @@ def load(path):
     return json.loads(path.read_text(), object_pairs_hook=unique)
 
 
-def placement(e, eligible, policy, seed):
-    m = e['context_move']
+def replay_move(m, e, eligible, policy, seed):
     check(set(m) == {'base', 'fresh', 'old_pool', 'masks', 'rank', 'score', 'reason', 'entrant', 'victim'},
           'wrong move schema')
     fresh, masks, old, logged = (positions(m[k]) for k in ('fresh', 'masks', 'old_pool', 'base'))
@@ -92,6 +93,11 @@ def placement(e, eligible, policy, seed):
         check(rank is None and score is None, 'unexamined score or rank')
     check(same([reason, victim, entrant], [m['reason'], m['victim'], m['entrant']]),
           'wrong move reason, victim, or entrant')
+    return masks, fresh, base, victim, entrant
+
+
+def placement(e, eligible, policy, seed):
+    masks, fresh, base, victim, entrant = replay_move(e['context_move'], e, eligible, policy, seed)
     expected = base if entrant is None else (base - {victim}) | {entrant}
     shift = B * e['block']
     check(e['absolute_positions'] == [shift+i for i in sorted(expected)] and
@@ -126,8 +132,171 @@ def followup(stage, fresh_count, mask_count):
     return 'mask_slot' if mask_count > Q - fresh_count else 'neutral_slot'
 
 
-def audit_request(raw, sample, policy):
-    check(policy in POLICIES and raw['policy'] == policy and raw['model'] == 'llada21'
+def suffix_noedit(e, possible, picked):
+    """Check existence of a compatible noedit partition; not recovery of latent IDs.
+
+    F must be queried. Within both M and O, queried rows must form an ascending
+    prefix. Quotas fix how many M are queried before any O may be backfilled.
+    Keep the union of feasible labels per row for the next physical transition.
+    """
+    rows = sorted(possible)
+    f, m, pm = (e[k] for k in ('mandatory_fresh', 'masked_before', 'selected_masked_before'))
+    check(all(map(integer, (f,m,pm))) and picked <= possible.keys() and
+          len(picked) == min(len(rows), max(Q,f)) and pm == min(m,len(picked)-f),
+          'post-anchor noedit width or MASK quota')
+    labels = {i:set() for i in rows}
+
+    @lru_cache(None)
+    def visit(j, nf, nm, skipped_m, stop_m, stop_o):
+        if min(nf,nm,skipped_m) < 0 or nf+nm+skipped_m > len(rows)-j:
+            return False
+        if j == len(rows):
+            return True
+        i = rows[j]
+        q = i in picked
+        ok = False
+        for s in possible[i]:
+            if (s == 'F' and not q or q and (s == 'M' and stop_m or s == 'O' and stop_o)):
+                continue
+            if visit(j+1, nf-(s=='F'), nm-(q and s=='M'), skipped_m-(not q and s=='M'),
+                     stop_m or (not q and s=='M'), stop_o or (not q and s=='O')):
+                labels[i].add(s)
+                # Other prefixes can reach this row. Do not stop at the first witness.
+                ok = True
+        return ok
+
+    valid = visit(0,f,pm,m-pm,False,False)
+    visit.cache_clear()
+    check(valid, 'post-anchor Q incompatible with noedit row order or mandatory writes')
+    return labels
+
+
+def digest_value(s):
+    return isinstance(s,str) and len(s) == 64 and all(x in '0123456789abcdef' for x in s)
+
+
+class CrowdedLedger:
+    def __init__(self, policy, seed):
+        self.policy, self.seed = policy, seed
+        self.anchor = None
+        self.possible = {}
+        fields = ('screened', 'screened_slack', 'threshold_checks', 'untriggered', 'anchors',
+                  'candidate_collisions', 'anchor_admissions', 'anchor_accepted', 'anchor_revocations',
+                  'victim_queried', 'victim_accepted', 'rank_direct_hits', 'random_direct_hits',
+                  'post_anchor_selected')
+        self.counts = Counter(dict.fromkeys((*fields, *('screen_'+r for r in REASONS)), 0))
+
+    def select(self, e, eligible, picked, reserve):
+        if self.anchor is not None:
+            check(not reserve, 'second reserve after anchor')
+            self.possible = suffix_noedit(e, self.possible, picked)
+            self.counts['post_anchor_selected'] += 1
+            return None, None
+        m = e['crowded_screen']
+        masks, fresh, base, victim, rank = replay_move(m, e, eligible, POLICIES[2], self.seed)
+        reason = m['reason']
+        self.counts.update(screened=1, screened_slack=int(len(base)-len(fresh)>len(masks)),
+                           threshold_checks=int(reason in ('below_threshold','swap_mask')))
+        self.counts['screen_'+reason] += 1
+        trigger = reason == 'swap_mask'
+        check(('intervention' in e) == trigger, 'missing anchor or intervention on a nontrigger')
+        if not trigger:
+            check(picked == base and not reserve, 'hypothetical screen changed physical placement')
+            return masks, fresh
+        clock = e['hard_clock']
+        pool = sorted(set(m['old_pool'])-base)
+        other = random.Random(f"context-swap:{self.seed}:{e['block']}:{clock}").choice(pool)
+        targeted, placebo = ((base-{victim})|{i} for i in (rank, other))
+        executed = dict(zip(ONCE, (base,targeted,placebo)))[self.policy]
+        p = e['intervention']
+        expected = dict(base=sorted(base), targeted=sorted(targeted), random=sorted(placebo),
+                        executed=sorted(executed), victim=victim, candidate=rank, random_candidate=other,
+                        fresh=sorted(fresh), masks=sorted(masks), clock=clock, stratum='mask', risk_score=m['score'])
+        check(same({k:p[k] for k in expected}, expected) and picked == executed and reserve == executed-base,
+              'anchor plan, salt, reserve or physical Q mismatch')
+        self.anchor = (clock,e['block'])
+        self.counts.update(anchors=1, candidate_collisions=int(rank == other))
+        return masks, fresh
+
+    def observe(self, e, eligible, masks, picked, hits, admits, revokes, strict):
+        check(all(digest_value(e[k]) for k in ('trajectory_sha256','accepted_sha256')), 'invalid canvas digest')
+        if self.anchor is None:
+            return
+        self.advance(e, eligible, masks, picked, admits, revokes, strict)
+        if 'intervention' in e:
+            self.anchor_outcome(e, eligible, picked, hits, admits, revokes, strict)
+
+    def advance(self, e, eligible, masks, picked, admits, revokes, strict):
+        # Unscreened steps only give counts, not a complete partition. Unqueried
+        # rows cannot change. A newly resolved or strictly edited row is fresh.
+        if masks is not None:
+            if e['stage'] == 'verify':
+                check(all(tags-{'M'} for tags in self.possible.values()), 'unresolved row at verify')
+            self.possible = {i:({'M'} if i in masks else {'O'}) for i in eligible}
+        in_q = e['selected_masked_before']
+        unchanged = len(picked & eligible)-in_q-strict-revokes
+        for i, tags in self.possible.items():
+            can_mask, can_resolved = 'M' in tags, bool(tags-{'M'})
+            after = set()
+            if i not in picked:
+                if can_mask:
+                    after.add('M')
+                if can_resolved:
+                    after.add('O')
+            else:
+                if can_mask and in_q > admits or can_resolved and revokes:
+                    after.add('M')
+                if can_mask and admits or can_resolved and strict:
+                    after.add('F')
+                if can_resolved and unchanged:
+                    after.add('O')
+            check(after, 'no feasible physical transition for row')
+            self.possible[i] = after
+
+    def anchor_outcome(self, e, eligible, picked, hits, admits, revokes, strict):
+        p = e['intervention']
+        in_q = e['selected_masked_before']
+        v, r, u = (p[k] for k in ('victim','candidate','random_candidate'))
+        watched = {v,r,u}
+        queried, accepted = v in picked, p['victim_accepted']
+        sr, rr = (positions(p[k]) for k in ('strict_rows','revoked_rows'))
+        resolved = {r,u} & picked
+        check(all(digest_value(p[k]) for k in ('pre_sha256','after_sha256','post_rng_sha256')) and
+              p['after_sha256'] == e['trajectory_sha256'] and same(p['after_admissions'], admits) and
+              p['victim_unresolved_before'] is True and p['victim_queried'] is queried and
+              type(accepted) is bool and int(accepted) <= int(queried) and
+              0 <= admits-int(accepted) <= in_q-int(queried), 'inconsistent anchor admission or fingerprint')
+        check(not sr & rr and sr|rr <= resolved and hits == sr and len(sr) <= strict and len(rr) <= revokes and
+              strict+revokes-len(sr|rr) <= len(picked & eligible)-in_q-len(resolved),
+              'inconsistent watched strict or revoked rows')
+        drift = p['resident_l15']
+        check(same([d['row'] for d in drift], sorted(watched)) and all(
+            type(d[k]) in (int,float) and math.isfinite(d[k]) and d[k] >= 0 and
+            (d['row'] in picked or d[k] == 0) for d in drift for k in ('dK','dV')), 'invalid watched KV drift')
+        known = {i:('F' if i in sr else 'M' if i in rr else 'O') for i in (r,u)}
+        known[v] = 'F' if accepted else 'M'
+        # The optional beneficiary panel independently locates every admitted
+        # MASK at the anchor. Only use it for physical writes, not token outcomes.
+        if 'beneficiary' in e:
+            panel = e['beneficiary']
+            rows, ids = panel['rows'], panel['ids']
+            check(positions(rows) == set(p['base']) & set(p['masks']) and isinstance(ids,list) and
+                  len(ids) == len(rows) and all(t is None or integer(t) for t in ids), 'invalid anchor MASK panel')
+            written = {i for i,t in zip(rows,ids) if t is not None}
+            check(written <= picked and len(written) == admits and (v in written) == accepted,
+                  'victim or admission contradicts anchor MASK panel')
+            known.update({i:'F' if i in written else 'M' for i in rows})
+        for i, tag in known.items():
+            check(tag in self.possible[i], 'anchor outcome impossible on Q')
+            self.possible[i] = {tag}
+        self.counts.update(anchor_admissions=admits, anchor_accepted=e['accepted'], anchor_revocations=revokes,
+                           victim_queried=int(queried), victim_accepted=int(accepted),
+                           rank_direct_hits=len(hits) if self.policy==ONCE[1] else 0,
+                           random_direct_hits=len(hits) if self.policy==ONCE[2] else 0)
+
+
+def audit_request(raw, sample, policy, *, once=None):
+    check(policy in (POLICIES if once is None else ONCE) and raw['policy'] == policy and raw['model'] == 'llada21'
           and raw['status'] == 'success' and all(same(raw[k], sample[k]) for k in
           ('index', 'dataset', 'task_id', 'seed')), 'wrong request identity')
     c = Counter(dict.fromkeys((*REASONS, 'swaps', 'noops', 'random_rank_collisions',
@@ -144,8 +313,11 @@ def audit_request(raw, sample, policy):
               'bad stage/block/clock')
         selected = stage == 'selected'
         denoise = stage in ('bootstrap', 'selected', 'verify')
-        check(('context_move' in e) == selected and e['phase'] == ('denoise' if denoise else stage),
+        check(('context_move' in e) == (selected and once is None) and e['phase'] == ('denoise' if denoise else stage),
               'move missing or outside selected denoise')
+        if once is not None:
+            check(('crowded_screen' in e) == (selected and once.anchor is None) and
+                  ('intervention' not in e or 'crowded_screen' in e), 'screen or anchor at wrong step')
         absolute = positions(e['absolute_positions'])
         q, shift = len(absolute), B*b
         check(e['store_kv'] is (not denoise) and e['approximate_same_block_kv'] is selected
@@ -182,12 +354,18 @@ def audit_request(raw, sample, policy):
             step, post = 0, 0
         else:
             check(prev is not None and b == block, 'invalid block continuation')
-            masks, fresh = placement(e, eligible, policy, raw['seed']) if selected else (set(), None)
-            transition(prev, masks, fresh)
+            if selected and once is not None:
+                masks, fresh = once.select(e, eligible, picked, reserve)
+            else:
+                masks, fresh = placement(e, eligible, policy, raw['seed']) if selected else (set(), None)
+            if once is not None:
+                check(last_after == (e['masked_before'] if selected else 0), 'broken MASK count chain')
+            if masks is not None and prev[0] is not None:
+                transition(prev, masks, fresh)
             prev_hits = prev[3]
             if prev_hits:
                 check(len(prev_hits) == 1 and prev_hits <= picked, 'edited entrant not refreshed')
-                c['followup_'+followup(stage, next_fresh, len(masks))] += 1
+                c['followup_'+followup(stage, next_fresh, e['masked_before'])] += 1
         if denoise:
             step += 1
             post += stage == 'verify'
@@ -197,23 +375,27 @@ def audit_request(raw, sample, policy):
             before, in_q, accepted, edits, after = (e[k] for k in keys)
             revokes = edits-strict
             admits = before-after+revokes
-            check(len(masks) == before and (not selected or before > 0) and len(picked & masks) == in_q
+            check((masks is None or (len(masks) == before and len(picked & masks) == in_q)) and (not selected or before > 0)
                   and 0 <= admits <= accepted <= in_q and after <= len(eligible) and revokes >= 0
-                  and edits <= len((picked & eligible)-masks) and
-                  strict <= len((picked & eligible)-masks-(reserve-hits)), 'impossible denoise outcomes')
+                  and edits <= len(picked & eligible)-in_q and
+                  strict <= len(picked & eligible)-in_q-len(reserve-hits), 'impossible denoise outcomes')
+            if once is not None:
+                once.observe(e, eligible, masks, picked, hits, admits, revokes, strict)
+            last_after = after
             next_fresh = admits+strict
             prev = masks, picked, reserve, hits, admits, revokes, strict
             c.update(strict_edits=strict, admissions=admits, revocations=revokes, native_edits=edits)
             if selected:
-                m = e['context_move']
-                reason = m['reason']
-                c[reason] += 1
+                if once is None:
+                    m = e['context_move']
+                    reason = m['reason']
+                    c[reason] += 1
+                    c['random_rank_collisions'] += int(bool(reserve) and policy.endswith('_random') and
+                                                       m['rank'] == m['entrant'])
+                    if reserve:
+                        c[reason+'_hits'] += len(hits)
                 c.update(swaps=len(reserve), noops=int(not reserve), reserved_hits=len(hits),
-                         selected_fresh=len(fresh), fresh_overflow_rows=e['overflow'],
-                         random_rank_collisions=int(bool(reserve) and policy.endswith('_random') and
-                                                    m['rank'] == m['entrant']))
-                if reserve:
-                    c[reason+'_hits'] += len(hits)
+                         selected_fresh=e['mandatory_fresh'], fresh_overflow_rows=e['overflow'])
         elif stage == 'commit':
             check(last_stage == 'verify' and not strict, 'missing final verify or commit logged strict edits')
             commits += 1
@@ -287,7 +469,7 @@ def audit_pair(a, b):
     return c, None, None
 
 
-def discover(runs):
+def discover(runs, policies=POLICIES):
     arms = {}
     for d in runs:
         meta = load(d/'run.json')
@@ -297,13 +479,13 @@ def discover(runs):
         names = meta['policies']
         check(names and len(meta['arms']) == len(names), 'empty or malformed arm list')
         for p, spec in zip(names, meta['arms']):
-            check(p in POLICIES and p not in arms and same(spec, dict(budget=Q, fresh=0, mask=7,
+            check(p in policies and p not in arms and same(spec, dict(budget=Q, fresh=0, mask=7,
                   selection=p.removeprefix('t2t_q8_f0_m7_'))), 'unknown, duplicated or misdeclared arm')
             check(same(load(d/f'complete-{p}.json'), dict(policy=p,requests=30)), 'incomplete arm')
             check({f.name for f in d.glob(f'[0-9]*-{p}.json')} == {f'{i:02d}-{p}.json' for i in range(30)},
                   'incomplete or unexpected request indices')
             arms[p] = d
-    check(set(arms) == set(POLICIES), 'expected all four arms')
+    check(set(arms) == set(policies), 'missing required rollout arm')
     return arms
 
 
@@ -340,9 +522,66 @@ def audit(runs, out):
         table(out/f'context-gates-{label}.csv', [{k:row.get(k) for k in keys} for row in data])
 
 
+def audit_crowded_request(raw, sample, policy):
+    once = CrowdedLedger(policy, sample['seed'])
+    c = audit_request(raw, sample, policy, once=once)
+    for k in (*REASONS, 'random_rank_collisions', 'swap_old_hits', 'swap_mask_hits'):
+        del c[k]  # One-shot screen reasons are not physical moves.
+    c.update(once.counts)
+    c['untriggered'] = int(once.anchor is None)
+    return c, once.anchor
+
+
+def audit_crowded_match(raws, anchors):
+    """Exact shared screen history, anchor evidence, and all nonforked paths."""
+    check(len(raws) == len(anchors) == 3 and [r['policy'] for r in raws] == list(ONCE) and
+          anchors.count(anchors[0]) == 3, 'unmatched arms or first crowded anchor')
+    anchor = anchors[0]
+    for left, right in combinations(raws, 2):
+        if anchor is not None:
+            j = anchor[0]-1
+            x, y = left['events'][j], right['events'][j]
+            check(same(left['events'][:j], right['events'][:j]) and all(same(x[k],y[k]) for k in
+                  (*FORK_FIELDS,'crowded_screen')) and all(same(x['intervention'][k],y['intervention'][k])
+                  for k in ('pre_sha256','post_rng_sha256')), 'unequal shared path, anchor screen, work or RNG')
+            if x['absolute_positions'] != y['absolute_positions']:
+                continue
+        check(same({k:v for k,v in left.items() if k != 'policy'},
+                   {k:v for k,v in right.items() if k != 'policy'}), 'unequal outcomes at identical placement')
+
+
+def audit_crowded(runs, out):
+    arms = discover(runs, ONCE)
+    samples = load(MANIFEST)['samples']
+    check([s['index'] for s in samples] == list(range(30)), 'not frozen30')
+    rows, totals = [], {p:Counter() for p in ONCE}
+    for s in samples:
+        i = s['index']
+        raws, anchors = [], []
+        for p in ONCE:
+            raw = load(arms[p]/f'{i:02d}-{p}.json')
+            try:
+                counts, anchor = audit_crowded_request(raw, s, p)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f'{p} request {i}: {exc}') from exc
+            raws.append(raw)
+            anchors.append(anchor)
+            clock, block = anchor or (None,None)
+            rows.append(dict(policy=p, index=i, anchor_clock=clock, anchor_block=block, **counts))
+            totals[p].update(counts)
+        try:
+            audit_crowded_match(raws, anchors)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f'three-arm request {i}: {exc}') from exc
+    out.mkdir(parents=True, exist_ok=True)
+    table(out/'context-crowded-requests.csv', rows)
+    table(out/'context-crowded-summary.csv', [dict(policy=p, **counts) for p,counts in totals.items()])
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--crowded', action='store_true', help='audit the three once-only crowded arms')
     parser.add_argument('--run', type=Path, action='append', required=True, help='disjoint rollout directory; repeatable')
     parser.add_argument('--out', type=Path, required=True, help='output directory for the two CSVs')
     args = parser.parse_args()
-    audit(args.run, args.out)
+    (audit_crowded if args.crowded else audit)(args.run, args.out)

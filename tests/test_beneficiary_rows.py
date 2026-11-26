@@ -2,6 +2,9 @@ import csv
 import json
 from copy import deepcopy
 from hashlib import sha256
+import random
+import subprocess
+import sys
 
 import pytest
 
@@ -177,3 +180,180 @@ def test_report_and_historical_replay(tmp_path, monkeypatch, model, q):
     with pytest.raises(ValueError, match="Historical replay mismatch"):
         report.main(new, tmp_path / "bad")
     assert not (tmp_path / "bad").exists()
+
+
+def crowded_case(sample, *, allow=True):
+    """Prompt tail, screened prefix, divergent selected sets, two dense verification steps."""
+    triplet = []
+    for arm, policy in zip(report.MODES, report.ONCE):
+        events = []
+        tokens = [1]*16 + [None]*16
+        fresh, watched = set(), []
+        strict_sum = post = 0
+        def event(stage, picked):
+            q = len(picked)
+            e = dict(phase='commit' if stage=='commit' else 'denoise', stage=stage, block=0,
+                     F=1, hard_clock=len(events)+1, q_budget=8, q_tokens=q, actual_q=q, physical_q=q,
+                     layer_physical_q=[q]*20, absolute_positions=sorted(picked), q_start=min(picked), q_end=max(picked)+1,
+                     prefix_kv_length=0, visible_kv=32, store_kv=stage=='commit', context_version=0,
+                     approximate_same_block_kv=stage=='selected', mandatory_fresh=len(fresh), overflow=max(0,q-8),
+                     hard_strict_edits=0, reserved_extra_edit_positions=[], reserved_strict_edit_positions=[])
+            events.append(e)
+            return e
+        while post < 2:
+            clock = len(events)+1
+            mask = {i for i in range(16,32) if tokens[i] is None}
+            old = set(range(16,32))-mask-fresh
+            stage = 'bootstrap' if clock==1 else 'selected' if mask else 'verify'
+            base = fresh | set((sorted(mask)+sorted(old))[:max(0,8-len(fresh))])
+            screen = plan = None
+            picked = set(range(32)) if stage!='selected' else base
+            if stage=='selected' and not watched:
+                top = min(old) if old else None
+                slack = len(fresh)+len(mask)<8
+                score = report.gate.CUTOFF if allow else -10.
+                if not old: reason = 'no_old'
+                elif len(fresh)>8: reason = 'overflow'
+                elif len(fresh)==8: reason = 'no_room'
+                elif not slack and len(base & mask)==1: reason = 'protected_mask'
+                elif not slack and not allow: reason = 'below_threshold'
+                elif top in base: reason = 'already_selected'
+                else: reason = 'swap_old' if slack else 'swap_mask'
+                screened = reason in ('below_threshold','already_selected','swap_old','swap_mask')
+                victim = max(base & (old if slack else mask)) if reason.startswith('swap_') else None
+                screen = dict(base=sorted(base), old_pool=sorted(old), fresh=sorted(fresh), masks=sorted(mask),
+                              reason=reason, rank=top if screened else None, score=score if screened else None,
+                              entrant=top if victim is not None else None, victim=victim)
+                if reason=='swap_mask':
+                    other = random.Random(f"context-swap:{sample['seed']}:0:{clock}").choice(sorted(old-base))
+                    swap = lambda i: sorted(base-{victim}|{i})
+                    plan = dict(base=sorted(base), targeted=swap(top), random=swap(other), candidate=top,
+                                random_candidate=other, fresh=screen['fresh'], masks=screen['masks'],
+                                victim=victim, stratum='mask', clock=clock, pre_sha256='a'*64, post_rng_sha256='b'*64,
+                                risk_score=score, strict_rows=[], revoked_rows=[])
+                    picked = set(plan[{'base':'base', 'rank':'targeted','random':'random'}[arm]])
+                    watched = sorted(base & mask)
+            e = event(stage,picked)
+            if screen is not None:
+                e['crowded_screen'] = screen
+            new = sorted(picked & mask)[:4 if clock==1 else 1 if clock==2 else 3]
+            for i in new:
+                tokens[i] = i+100
+            strict = set()
+            if stage=='verify':
+                if post == 0:
+                    i = 21
+                    tokens[i] += 100
+                    strict.add(i)
+                post += 1
+            fresh = set(new) | strict
+            strict_sum += len(strict)
+            digest = sha256(str(tokens).encode()).hexdigest()
+            e.update(masked_before=len(mask), selected_masked_before=len(picked & mask), accepted=len(new),
+                     edited=len(strict), hard_strict_edits=len(strict), masked_after=len(mask)-len(new),
+                     step_in_block=clock, post_steps=post, accepted_sha256=digest, trajectory_sha256=digest)
+            if watched:
+                e['beneficiary'] = dict(rows=watched, ids=[tokens[i] for i in watched], output_offsets=[i-16 for i in watched])
+            if plan:
+                e['reserved_extra_edit_positions'] = sorted(picked-base)
+                plan.update(after_sha256=digest, executed=sorted(picked), after_admissions=len(new),
+                            victim_unresolved_before=True, victim_queried=plan['victim'] in picked,
+                            victim_accepted=plan['victim'] in new)
+                e['intervention'] = plan
+        event('commit', set(range(32)))
+        fs, qs, hist = (report.Counter() for _ in range(3))
+        for e in events:
+            fs[e['stage']]+=1; qs[e['stage']]+=e['q_tokens']; hist[str(e['q_tokens'])]+=1
+        n, f, q = 16, len(events), sum(qs.values())
+        triplet.append(dict(**{k:sample[k] for k in ('index','dataset','task_id','seed')}, model='llada21', status='success',
+                            policy=policy, events=events, output_ids=tokens[16:], output_tokens=n, prefill_rows=0,
+                            generation_forwards=f, generation_query_rows=q, generation_physical_padded_rows=q,
+                            tpf=n/f, token_efficiency=n/q, max_q=32, t2t_edits=strict_sum,
+                            forwards_by_phase=dict(fs), q_by_phase=dict(qs), q_histogram=dict(hist)))
+    return triplet
+
+
+@pytest.mark.parametrize('arm',report.MODES)
+def test_crowded_window_and_secondary(arm):
+    raw = crowded_case(dict(index=1, dataset='gsm8k', task_id='toy', seed=3))
+    at, _ = report.inspect([report.strip_watch(r) for r in raw])
+    r = raw[report.MODES.index(arm)]
+    assert report.crowded_path(r, arm, 16, at)['anchored'] == 1
+    report.check_reproduction(r, report.strip_watch(r), 16)
+    def stages(data):
+        return {(x['stage'], x['row_kind']):x for x in report.milestones(data, arm, raw[0]['output_ids'], at)}
+    by = stages(r)
+    assert by['before_first_verify','common_mask']['agreeing_rows'] == 5
+    assert by['after_first_verify','common_mask']['agreeing_rows'] == 6
+    assert by['commit','mask_victim']['agreement'] == 1.
+    assert all(x['compared_rows'] == x['eligible_rows'] for x in by.values())
+    first_verify = next(i for i,e in enumerate(r['events']) if e['stage']=='verify')
+    truncated = stages(dict(r, events=r['events'][:first_verify]))
+    assert all(x['missing_stage_requests'] == 1 and not x['compared_rows'] and x['agreement']=='' for x in truncated.values())
+    missing_commit = stages(dict(r, events=r['events'][:-1]))
+    assert missing_commit['commit','common_mask']['missing_stage_requests']==1
+    assert missing_commit['after_first_verify','common_mask']['compared_rows']==6
+    short = list(report.milestones(r, arm, raw[0]['output_ids'][:10], at))
+    assert all(x['no_base_final_id_rows']>0 for x in short)
+
+
+@pytest.mark.parametrize('mutation', ['screen','early','late','risk','first','salt','digest','layer','physical','later_swap'])
+def test_crowded_rejects_corrupt_evidence(mutation):
+    r = crowded_case(dict(index=1, dataset='gsm8k', task_id='toy', seed=3))[1]
+    at = next(i for i,e in enumerate(r['events']) if 'intervention' in e)
+    e, plan = r['events'][at], r['events'][at]['intervention']
+    if mutation=='screen': del r['events'][at-1]['crowded_screen']
+    if mutation=='early': r['events'][at-1]['intervention']=plan
+    if mutation=='late': r['events'][at+1]['crowded_screen']=e['crowded_screen']
+    if mutation=='risk': plan['risk_score'] = -9.
+    if mutation=='first': plan['victim'] = min(set(plan['base']) & set(plan['masks']))
+    if mutation=='salt': plan['random_candidate'] = -1
+    if mutation=='digest': plan['pre_sha256'] = 'z'*64
+    if mutation=='layer': r['events'][-1]['layer_physical_q'][-1]-=1
+    if mutation=='physical': r['events'][at+1]['actual_q']-=1
+    if mutation=='later_swap': r['events'][at+1]['reserved_extra_edit_positions']=[16]
+    with pytest.raises(ValueError):
+        report.crowded_path(r,'rank',16,at)
+
+
+def test_crowded_two_shard_cli(tmp_path):
+    history, pair, rand, out = [tmp_path / name for name in ('history','pair','rand','out')]
+    samples = report.read_json(report.DEFAULT_MANIFEST)['samples']
+    for d, names in ((history,[report.NOEDIT]),(pair,report.ONCE[:2]),(rand,report.ONCE[2:])):
+        d.mkdir()
+        emit(d/'qualified.json',dict(model='llada21',matched=30,full_width=32))
+        emit(d/'run.json',dict(model='llada21',block=32,batch_size=1,cap=2048,seed_offset=0, policies=names,
+                               context_weights_sha256=report.gate.WEIGHTS, arms=[dict(budget=8,fresh=0,
+                               mask=8 if d==history else 7,selection=p.split('_',4)[4]) for p in names]))
+        for p in names:
+            emit(d/f'complete-{p}.json',dict(policy=p,requests=30))
+    for s in samples:
+        i = s['index']
+        raw = crowded_case(s, allow=i%2==0)
+        full = dict(raw[0], policy='fullwidth')
+        for d in (history,pair,rand):
+            emit(d/f'{i:02d}-fullwidth.json',full)
+        old = dict(raw[0], policy=report.NOEDIT, events=[{k:v for k,v in e.items() if k not in report.OBSERVER}
+                                                         for e in raw[0]['events']])
+        emit(history/f'{i:02d}-{report.NOEDIT}.json',old)
+        for r,d in zip(raw,(pair,pair,rand)):
+            emit(d/f"{i:02d}-{r['policy']}.json",r)
+    args = [sys.executable,'-B','-m','tools.beneficiary_rows','--crowded','--historical',str(history),
+            '--run',str(pair),'--run',str(rand),'--out',str(out)]
+    proc = subprocess.run(args,capture_output=True,text=True)
+    assert proc.returncode==0, proc.stderr
+    assert len(list(out.glob('*.csv')))==6
+    with (out/f'{report.PREFIX}-secondary-summary.csv').open() as f:
+        r = next(r for r in csv.DictReader(f) if (r['arm'],r['stage'],r['dataset'],r['row_kind'])==
+                 ('base','before_first_verify','all','common_mask'))
+        assert [r[k] for k in ('requests','no_anchor_requests','missing_stage_requests','compared_rows','agreeing_rows')]==['30','15','0','90','75']
+    for path, key, val in [(rand/'run.json','context_weights_sha256','0'*64),
+                           (pair/'qualified.json','matched',29), (rand/'29-fullwidth.json','seed',0),
+                           (history/f'29-{report.NOEDIT}.json','output_ids',[]),
+                           (history/f'29-{report.NOEDIT}.json','unknown_archived_field',1)]:
+        orig = report.read_json(path)
+        emit(path,dict(orig,**{key:val}))
+        with pytest.raises(ValueError):
+            report.crowded([pair,rand],tmp_path/'fail',history)
+        assert not (tmp_path/'fail').exists()
+        emit(path,orig)
