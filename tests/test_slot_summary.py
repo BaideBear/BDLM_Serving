@@ -106,6 +106,12 @@ class Base(unittest.TestCase):
 
 
 class TestValid(Base):
+    def test_unified_names_do_not_overwrite_old_k0_and_replicate_random_anchor(self):
+        self.assertEqual(ss.variant("gemma","q128_k32_random"),ss.variant("gemma","q128_slack_random"))
+        self.assertNotEqual(ss.variant("gemma","q32")[0],"k0_zero")
+        self.assertEqual(ss.variant("gemma","q64_k16_oldest")[0],"unified_k16_oldest")
+        with self.assertRaises(ss.SummaryError):
+            ss.variant("gemma","q256_k16_oldest")
     def test_long_format_and_external_labels(self):
         self.control("llada21-q8-original-ibs.csv",
                      pair_rows("llada21", "slottrace_8",

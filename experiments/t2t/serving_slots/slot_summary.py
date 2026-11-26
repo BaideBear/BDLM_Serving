@@ -30,6 +30,8 @@ ALLOWLIST = (
     "gemma-wave-vs-fixed.csv", "gemma-fixed512-active-vs-flow.csv",
     "llada21-native32-vs-flow-w1.csv", "llada21-dual64-vs-flow-w2.csv",
     "llada21-true64.csv",
+    *(f"gemma-unified-q{q}-vs-baselines.csv" for q in (32,64,128,256,512)),
+    "gemma-unified-q64-k16-rank.csv",
 )
 
 class SummaryError(ValueError):
@@ -61,6 +63,15 @@ def variant(model, policy):
         return "dual64", 64, "dual_block"
     if p == "active_w2" and model == "gemma":
         return p, 512, "active_canvases"
+    if model=="gemma":
+        m=re.fullmatch(r"q(32|64|128|256|512)(?:_k(\d+)_(random|oldest)|(_slack_random))?",p)
+        if m:
+            q=int(m[1])
+            k=int(m[2] or (32 if m[4] else 0))
+            if k>q or (k and q>=256) or (m[4] and q!=128):
+                raise SummaryError("invalid unified quota")
+            name=f"unified_k{k}_{m[3] or 'random'}" if k else "unified_k0"
+            return name,q,"nominal_physical_billed"
     m = re.fullmatch(r"flow_w([12])", p)
     if m:
         w = int(m.group(1)); offer = ((256, 512) if model == "gemma" else (32, 64))[w - 1]
@@ -125,7 +136,7 @@ def _emit(by, prefix, model, source, var=None, offer=None, cap=None,
             items[ORIG]["raw_Q"] + items[ADD]["raw_Q"]
             != items[ALL]["raw_Q"]):
         raise SummaryError("%s: raw_Q cohorts do not sum" % source)
-    endpoint = "%s:%s:%s" % (model, var, offer); family = "internal" if var in INTERNAL else "external"
+    endpoint = "%s:%s:%s" % (model, var, offer); family = "internal" if var in INTERNAL or var.startswith("unified_") else "external"
     return [dict(model=model, endpoint=endpoint, variant=var, family=family,
                  offer=offer, cohort=c, cap=cap, policy=policy, source=source,
                  **items[c]) for c in COHORTS]

@@ -65,3 +65,20 @@ def test_first_rank_change_may_not_remove_a_mask_or_dirty_row():
         check_rank_change(a,dict(b,generation_forwards=7),[x],[x])
     with pytest.raises(ValueError,match="inputs differ"):
         check_rank_change(a,dict(b,input_sha256="other"),[x],[x])
+
+
+def test_archived_rank_pair_checks_unchanged_work_and_intervention_price():
+    from experiments.t2t.serving_slots.fixed_slots import rank_evidence
+    a,b=record("q64_k16_random"),record("q64_k16_oldest")
+    for x in (a,b):
+        x["first_rank_change"]=None
+    assert not rank_evidence(a,b,16)
+    with pytest.raises(ValueError,match="diverged"):
+        rank_evidence(a,dict(b,output_ids=[98]),16)
+    for x in (a,b):
+        x["first_rank_change"]=0
+        x["trace"][0].update(phase="sparse",prefix=1)
+    assert rank_evidence(a,b,16)
+    b["trace"][0]["q"]+=1
+    with pytest.raises(ValueError,match="matched"):
+        rank_evidence(a,b,16)

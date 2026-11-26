@@ -29,7 +29,7 @@ def comparison(root):
     return out
 
 
-def mixed_plot(source, target, matched=False, fixed_low=False, unified=False):
+def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, rank=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -58,6 +58,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False):
     def label(name):
         if name in title:
             return title[name]
+        if rank and name.startswith("q"):
+            return name.upper().replace("_", " ") + (" (no prefix)" if "_" not in name else "")
         if name.startswith("q") and name[1:].split("_")[0].isdecimal():
             return "Unified "+name.upper().replace("_SLACK_RANDOM"," (random K32)")
         if name.startswith("t2t_q"):
@@ -103,6 +105,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False):
         detail="Q32 and Q64: K0 vs decoder-capped Optimus"
     if unified:
         detail="fixed unified offers vs same-slot baselines; each row has 90 requests"
+    if rank:
+        detail="fixed "+source.stem.split("-")[2].upper()+" | slack-only prefix selection vs capped Optimus"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -144,6 +148,8 @@ def main():
         mixed_plot(low,HERE/"gemma-q32-q64-capped.png",fixed_low=True)
     if list((HERE/"controls").glob("gemma-unified-q*-vs-baselines.csv")):
         mixed_plot(HERE/"controls",HERE/"gemma-unified-fixed.png",unified=True)
+    for p in sorted((HERE/"controls").glob("gemma-unified-q*-k*-rank.csv")):
+        mixed_plot(p, HERE/(p.stem+".png"), rank=True)
 
 
 if __name__ == "__main__":

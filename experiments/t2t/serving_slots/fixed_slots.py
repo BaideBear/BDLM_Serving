@@ -130,16 +130,41 @@ def unified_fixed_row(raw, case, arm, budget):
     stages = ("bootstrap","verify","sparse","dense","tail_dirty_drain")
     if any(e["phase"] not in stages for e in t):
         raise ValueError("Unregistered decoder phase")
+    sparse = [e for e in t if e["phase"]=="sparse"]
+    if any(e["parked"] or e["opportunity"] for e in sparse):
+        raise ValueError("Cannot infer mask-only rows on a multi-block sparse step")
+    sq = sum(e["q"] for e in sparse)
+    fresh = sum(e["mandatory_q"] for e in sparse)
+    prefix = sum(e["prefix"] for e in sparse)
     breakdown = {"excess_"+phase: sum(e["overflow"] for e in t if e["phase"] == phase) for phase in stages}
     return dict(**{k:case[k] for k in ("index","dataset","seed","task_id")}, **breakdown,
                 N=n, F=f, Q=q, physical_Q=q, max_q=max(e["q"] for e in t),
                 tpf=n/f, failed=0, truncated=raw["truncated"], correct=int(score(raw["output_text"],case)["correct"]),
                 prefix_rows=sum(e["prefix"] for e in t), prefix_ticks=sum(e["prefix"]>0 for e in t),
                 decoder_f=len(t), encoder_f=enc, overflow_ticks=sum(e["overflow"]>0 for e in t),
-                overflow_rows=sum(e["overflow"] for e in t), strict_edits=sum(e["strict_edits"] for e in t))
+                overflow_rows=sum(e["overflow"] for e in t), strict_edits=sum(e["strict_edits"] for e in t),
+                sparse_q=sq,sparse_mandatory_q=fresh,sparse_prefix_q=prefix,sparse_mask_only_q=sq-fresh-prefix)
 
 
-def unified_fixed(data, budgets):
+def rank_evidence(a, b, quota):
+    first = a["first_rank_change"]
+    if (a["input_sha256"] != b["input_sha256"] or b["first_rank_change"] != first
+            or any(e["prefix"] > quota for r in (a,b) for e in r["trace"])):
+        raise ValueError("Unpaired rank witness or quota exceeded")
+    if first is None:
+        if any(a[k]!=b[k] for k in ("output_ids","trace","output_tokens","generation_forwards","generation_physical_padded_rows")):
+            raise ValueError("Unchanged selections diverged")
+        return False
+    if type(first) != int or not 0 <= first < min(len(r["trace"]) for r in (a,b)):
+        raise ValueError("Invalid first intervention")
+    x,y=(r["trace"][first] for r in (a,b))
+    if (a["trace"][:first] != b["trace"][:first] or x["phase"] != "sparse" or not x["prefix"]
+            or any(x[k]!=y[k] for k in ("q","offer","phase","tick","head","mandatory_q","prefix","overflow"))):
+        raise ValueError("First intervention not matched in cost and state")
+    return True
+
+
+def unified_fixed(data, budgets, *, rank_quota=None):
     from bdlm_serving.evaluation.frozen import sha
     from experiments.t2t.serving_slots import unified90 as u, gemma_fixed_caps as caps
     from experiments.t2t.serving_slots.external_report import cost_gaps
@@ -153,7 +178,10 @@ def unified_fixed(data, budgets):
     cases = load_cases(samples)
     for b in sorted(budgets):
         primary = f"q{b}"
-        group = next(g for g in u.GROUPS if primary in g)
+        base_group = next(g for g in u.GROUPS if primary in g)
+        group = base_group if rank_quota is None else (f"q{b}_k{rank_quota}_random",f"q{b}_k{rank_quota}_oldest")
+        if group not in u.GROUPS:
+            raise ValueError("Unregistered rank comparison")
         path = data/("gemma-unified90-"+"-".join(group))
         m = u.read(path/"run.json")
         if (m["suite"] != "frozen90" or m["device"] != "cuda:0" or m["samples_sha256"] != caps.SAMPLES_SHA
@@ -170,6 +198,20 @@ def unified_fixed(data, budgets):
         if b == 512:
             refs.append((data/"gemma-fixed512-active-w2","active_w2"))
         base = {}
+        raw_random = {}
+        intervention = {}
+        if rank_quota is not None:
+            refpath=data/("gemma-unified90-"+"-".join(base_group))
+            refmeta=u.read(refpath/"run.json")
+            if (m["prefix_rank"] != {p:u.RANKS[p] for p in group} or
+                    any(refmeta[k]!=m[k] for k in ("revision","suite","model","indices","samples_sha256","wave_config",
+                    "native_config","torch","transformers","rng","launcher_sha256","device")) or
+                    refmeta["arms"][primary]!=[[b],True,{}] or u.read(refpath/"returned.json")!={"gpu":0,"restored":True}
+                    or u.read(refpath/f"complete-{primary}.json")!={"policy":primary,"requests":90}):
+                raise ValueError("Wrong rank or zero-prefix control")
+            # Different engine revisions: both use identical registered inputs, checked per request below.
+            base_raw={c["index"]:u.read(refpath/f"{c['index']:02d}-{primary}.json") for c in cases}
+            base[primary]={c["index"]:unified_fixed_row(base_raw[c["index"]],c,primary,b) for c in cases}
         for folder,label in refs:
             meta=u.read(folder/"run.json")
             if (meta["samples_sha256"] != caps.SAMPLES_SHA or meta["suite"] != "frozen90"
@@ -195,7 +237,23 @@ def unified_fixed(data, budgets):
         for arm in (a for a in group if not a.endswith("_open")):
             if m["arms"][arm] != [[b],True,{str(k):v for k,v in u.ARMS[arm][2].items()}]:
                 raise ValueError("Wrong causal mode, prefix quota or fixed slot")
-            ours = {c["index"]: unified_fixed_row(u.read(path/f"{c['index']:02d}-{arm}.json"),c,arm,b) for c in cases}
+            ours={}
+            for c in cases:
+                i=c["index"]
+                raw=u.read(path/f"{i:02d}-{arm}.json")
+                ours[i]=unified_fixed_row(raw,c,arm,b)
+                if rank_quota is not None:
+                    if (raw["input_sha256"]!=base_raw[i]["input_sha256"] or
+                            raw["first_opportunity"] is not None or any(e["prefix"]>rank_quota for e in raw["trace"])):
+                        raise ValueError("Wrong rank inputs, cross-block execution or quota")
+                    if arm==group[0]:
+                        raw_random[i]=raw
+                    else:
+                        intervention[i]=rank_evidence(raw_random[i],raw,rank_quota)
+                    if b==128 and rank_quota==32 and arm==group[0]:
+                        twin=u.read(refpath/f"{i:02d}-q128_slack_random.json")
+                        if any(twin[k]!=raw[k] for k in ("input_sha256","output_ids","trace","generation_forwards","generation_physical_padded_rows")):
+                            raise ValueError("Registered Q128/K32 random did not replicate")
             for w in (30,60,90):
                 sub = select_window_cases(cases,w)
                 ids = [c["index"] for c in sub]
@@ -207,9 +265,16 @@ def unified_fixed(data, budgets):
                               "excess_bootstrap","excess_verify","excess_sparse","excess_dense","excess_tail_dirty_drain"):
                         r["ours_"+k] = sum(ours[i][k] for i in ids)
                     r["ours_prefix_requests"] = sum(ours[i]["prefix_ticks"]>0 for i in ids)
+                    if rank_quota is not None:
+                        r["prefix_quota"]=rank_quota
+                        r["ranking_changed_requests"]=(sum(intervention[i] for i in ids)
+                            if label==group[0] and arm==group[1] else "")
+                        for k in ("sparse_q","sparse_mandatory_q","sparse_prefix_q","sparse_mask_only_q"):
+                            r["ours_"+k]=sum(ours[i][k] for i in ids)
                     yield r
-            if arm == primary and len(group)>1 and any("slack" in a for a in group):
-                base[primary]=ours
+            if ((arm == primary and any("slack" in a for a in group)) or
+                    (rank_quota is not None and arm==group[0])):
+                base[arm]=ours
 
 
 def gemma_capped_controls(data):
@@ -260,7 +325,17 @@ if __name__ == "__main__":
     parser.add_argument("--gemma-fixed-caps",type=Path,help="Compare Q32/Q64 K0 with decoder-capped IBS/OBS")
     parser.add_argument("--unified-slots",type=int,nargs="+",
                         help="Rebuild per-slot tables from completed GPU90 arms; use with --data")
+    parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
+                        help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.rank_groups:
+        if not args.data:
+            parser.error("--rank-groups requires --data")
+        for spec in args.rank_groups:
+            b,k=map(int,spec.split(":"))
+            write_rows(HERE/f"controls/gemma-unified-q{b}-k{k}-rank.csv",
+                       unified_fixed(args.data,[b],rank_quota=k))
+        raise SystemExit(0)
     if args.unified_slots:
         if not args.data:
             parser.error("--unified-slots requires --data")
