@@ -1,0 +1,10 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+gemma,t2t_q128_f0_m96_hard_prefix_backfill_random,noop+swap,original30,30,503,115.02982107355865,96,23,7121,8,597,414,31992,23,96,23,384,16096,3099,0,3099,342,62,2
+gemma,t2t_q128_f0_m96_hard_prefix_backfill_random,noop+swap,added60,60,1002,111.53892215568862,253,52,18003,21,1509,869,71424,52,253,52,1008,32064,6750,0,6750,641,128,2
+gemma,t2t_q128_f0_m96_hard_prefix_backfill_random,noop+swap,all90,90,1505,112.70564784053155,349,75,25124,29,2106,1283,103416,75,349,75,1392,48160,9849,0,9849,983,190,4
+gemma,t2t_q128_f0_m96_hard_prefix_paired_backfill_random,noop+swap,original30,30,547,114.12797074954297,110,24,8183,8,595,451,35929,24,110,24,433,17504,2316,0,2316,387,25,2
+gemma,t2t_q128_f0_m96_hard_prefix_paired_backfill_random,noop+swap,added60,60,1006,112.42345924453281,244,52,17248,23,1578,869,69791,52,244,52,972,32192,4344,0,4344,672,47,2
+gemma,t2t_q128_f0_m96_hard_prefix_paired_backfill_random,noop+swap,all90,90,1553,113.02382485511913,354,76,25431,31,2173,1320,105720,76,354,76,1405,49696,6660,0,6660,1059,72,4
+gemma,t2t_q128_f0_m96_hard_prefix_paired_mask_random,noop+swap,original30,30,832,104.90504807692308,290,28,19875,9,660,749,79129,28,290,28,1148,26624,7658,7658,0,402,64,2
+gemma,t2t_q128_f0_m96_hard_prefix_paired_mask_random,noop+swap,added60,60,1489,100.38549361987911,648,57,42969,25,1851,1347,152023,57,648,57,2589,47648,12929,12929,0,724,50,2
+gemma,t2t_q128_f0_m96_hard_prefix_paired_mask_random,noop+swap,all90,90,2321,102.00560103403706,938,85,62844,34,2511,2096,231152,85,938,85,3737,74272,20587,20587,0,1126,114,4

@@ -46,6 +46,10 @@ def pack30(rows, ids, prefix="", historical=False):
 
 def summary_sources(folder, private):
     sources = {p.name: p for p in folder.glob("*-q*.csv")}
+    for p in (folder / "donors").glob("gemma-q*.csv"):
+        if p.name in sources:
+            raise ValueError(f"Duplicate donor result: {p.name}")
+        sources[p.name] = p
     # Large Gemma sweeps are published as one aggregate table. Resolve only
     # its published arms, not arbitrary in-progress files from the private run.
     listing = folder / "gemma-ratio-online.csv"
