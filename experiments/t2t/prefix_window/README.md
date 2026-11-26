@@ -138,9 +138,17 @@ Q16 两种选法都没有一道题改变对错。Q128 随机新增 1 道正确�
 
 ### LLaDA Q8：只用空位
 
-[右端 K1](llada21-q8-slack-k1-right.csv)：原 30 / 新 60 / 全 90 为 25/49/74 题，宏平均 TPF 4.430，token efficiency 19.68%。同 Q 零组也是 25/49/74，TPF 4.405，效率 19.61%；新增 60 中救回 1 题也丢 1 题，原 30 无题改变对错。全 90 的 TPF 差 +0.026，配对 95% 区间 −0.032 至 +0.083。等宽右端 K1 为 73/90、4.096；不能把只用空位视作相同成本的换位。[实际加回及零替换核查](exposure-llada21-8-slack.csv)。
+| LLaDA 2.1 Q8 | 原 30 正确 | 新 60 正确 | 全 90 正确 | 全 90 TPF | Token efficiency | 救回 / 丢失（对零组） | 实际加回行次 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 零加回 | 25 | 49 | 74 | 4.405 | 19.61% | 对照 | 0 |
+| [右端 K1](llada21-q8-slack-k1-right.csv) | 25 | 49 | 74 | 4.430 | 19.68% | 1 / 1 | 1,061 |
+| [随机 K1](llada21-q8-slack-k1-random.csv) | 26 | 46 | 72 | 4.367 | 19.49% | 1 / 3 | 1,082 |
+| [最旧 K1](llada21-q8-slack-k1-oldest.csv) | 27 | 48 | 75 | 4.415 | 19.61% | 3 / 2 | 933 |
+| [右端 K2](llada21-q8-slack-k2-right.csv) | 26 | 48 | 74 | 4.427 | 19.48% | 2 / 2 | 1,897 |
+| [随机 K2](llada21-q8-slack-k2-random.csv) | 26 | 48 | 74 | 4.371 | 19.30% | 2 / 2 | 1,948 |
+| [最旧 K2](llada21-q8-slack-k2-oldest.csv) | 26 | 49 | 75 | 4.363 | 19.18% | 2 / 1 | 1,910 |
 
-[随机 K1](llada21-q8-slack-k1-random.csv) 对应 26/46/72，TPF 4.367，效率 19.49%；相对零组原 30 救回 1 题、不丢题，新增 60 未救回、丢 3 题。该配置在原 30 的增益没有延续到新增 60。
+这些都是不替换 MASK 的真实 Q；[右端和随机的行数](exposure-llada21-8-slack.csv)与[最旧行的物理时间戳审计](exposure-llada21-8-oldest.csv)分别核验。最旧 K1 对零组净多 1 题，TPF 差 +0.010（配对 95% 区间 −0.045 至 +0.066）；对[同 K 右端](direct/direct-llada21-q8-k1-oldest-vs-right.csv)多 1 题，但 TPF 从 4.430 降至 4.415。最旧 K2 也比右端、随机各多 1 题，但 TPF 低于两者。两个 K 均未达到“相对两个同 K 选法都提高正确数且 TPF 不降”的预设标准。另见[最旧 K1 对随机](direct/direct-llada21-q8-k1-oldest-vs-random.csv)、[最旧 K2 对右端](direct/direct-llada21-q8-k2-oldest-vs-right.csv)和[最旧 K2 对随机](direct/direct-llada21-q8-k2-oldest-vs-random.csv)的逐题配对汇总。
 
 ### 跨预算数量扫描
 
