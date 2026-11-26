@@ -164,6 +164,32 @@ def queue(root, model):
                        env=env,stdout=log,stderr=subprocess.STDOUT,check=True)
 
 
+def exposure_breakdown(cases, tables, exposure):
+    """Split on the first eligible forward shared by both arms, never on an outcome."""
+    from tools.prefix_cohorts import select_window_cases
+    rows = []
+    for window in (30, 60, 90):
+        cohort = select_window_cases(cases, window)
+        for exposed in (False, True):
+            chosen = [c["index"] for c in cohort if exposure[c["index"]] == exposed]
+            if not chosen:
+                continue
+            row = dict(window=window, exposed=int(exposed), requests=len(chosen))
+            for role in ("off", "on"):
+                records = [tables[role][i] for i in chosen]
+                for key in ("correct", "N", "F", "physical_Q"):
+                    row[f"{role}_{key}"] = sum(r[key] for r in records)
+                row[f"{role}_macro_tpf"] = sum(r["tpf"] for r in records) / len(records)
+                row[f"{role}_efficiency"] = row[f"{role}_N"] / row[f"{role}_physical_Q"]
+            if not exposed and any(
+                tables["on"][i][k] != tables["off"][i][k]
+                for i in chosen for k in ("correct", "N", "F", "physical_Q", "tpf")
+            ):
+                raise ValueError("Unexposed request differs between arms")
+            rows.append(row)
+    return rows
+
+
 def score(data, model, out):
     from bdlm_serving.evaluation.frozen import sha
     from tools.prefix_cohorts import load_cases, normalize_request, select_window_cases, _window_row
@@ -216,10 +242,12 @@ def score(data, model, out):
             r["efficiency_ci_method"]="stratified paired percentile bootstrap; 4000 draws, seed 17000; denominator physical_Q"
             output.append(r)
     out.parent.mkdir(parents=True,exist_ok=True)
-    with out.open("w",newline="") as handle:
-        writer=csv.DictWriter(handle,fieldnames=list(output[0]),lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(output)
+    for dest, records in ((out, output), (out.with_name("exposure.csv"),
+                                          exposure_breakdown(cases, tables, exposure))):
+        with dest.open("w",newline="") as handle:
+            writer=csv.DictWriter(handle,fieldnames=list(records[0]),lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(records)
 
 
 if __name__=="__main__":
