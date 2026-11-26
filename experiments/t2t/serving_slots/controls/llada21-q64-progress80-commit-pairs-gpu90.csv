@@ -1,0 +1,4 @@
+window,policy,commits,tail_debt_commits,previous_full_head_without_head_debt,adjacent_pairs,pairs_with_tail_debt,duplicate_tail_rows,fresh_head_commits,terminal_commits,head_debt_commits,measured_F,measured_Q,measured_macro_TPF,frozen_trace_if_all_pairs_fused_F,frozen_trace_if_all_pairs_fused_Q,frozen_trace_if_all_pairs_fused_macro_TPF,flow_w2_measured_macro_TPF
+30,progress80-causal,460,335,453,347,327,4971,83,30,1,2562,104681,6.303438493127823,2215,99710,7.450846267855791,9.720801426962556
+60,progress80-causal,912,650,886,665,631,10398,187,60,2,4616,191487,6.68998476483418,3951,181089,7.976548301698549,10.148954884141606
+90,progress80-causal,1372,985,1339,1012,958,15369,270,90,3,7178,296168,6.561136007598728,6166,280799,7.80131429041763,10.006237065081923

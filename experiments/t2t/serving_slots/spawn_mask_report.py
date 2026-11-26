@@ -4,10 +4,49 @@ Run `... -m experiments.t2t.serving_slots.spawn_mask_report 30` after sealed-30,
 or `... 90` after confirmed holder return. No GPU or generation is used.
 """
 from collections import Counter
+from statistics import mean
 import sys
 
 from experiments.t2t.serving_slots import llada_all_slots90 as reg
 from experiments.t2t.serving_slots import spawn_mask_gpu as study
+
+
+def commit_pairs(events):
+    """Classify recorded Q64 commit ticks, not estimated resident cache equality."""
+    c = Counter()
+    for j, event in enumerate(events):
+        if event.get("top_action") != "commit_head":
+            continue
+        prev = events[j-1] if j else {}
+        after = events[j+1] if j+1 < len(events) else {}
+        head = set(range(32 * event["block"], 32 * (event["block"]+1)))
+        tail = {p+32 for p in head}
+        head_debt, tail_debt = map(set,(event["mandatory_head_positions"],event["mandatory_tail_positions"]))
+        reg.require(event["nominal_q"] == 64 and set(event["absolute_positions"]) == head | tail_debt
+                    and event["physical_q"] == 32+len(tail_debt) and not event["sampled_q"]
+                    and head_debt <= head and tail_debt <= tail, "Unexpected commit work")
+        c["commits"] += 1
+        c["head_debt_commits"] += bool(head_debt)
+        c["tail_debt_commits"] += bool(tail_debt)
+        c["previous_full_head_without_head_debt"] += (
+            prev.get("block") == event["block"]
+            and head <= set(prev["absolute_positions"]) and not head_debt)
+        if not after:
+            c["terminal_commits"] += 1
+        elif after["top_action"] == "promote_verify":
+            reg.require(after["block"] == event["block"]+1 and after["offer_tick"] == event["offer_tick"]+1
+                        and after["context_version"] == event["context_version"]+1
+                        and set(after["sampled_positions"]) == set(after["absolute_positions"]) == tail
+                        and after["physical_q"] == 32 and after["nominal_q"] == 64,
+                        "Not a full next-offer verification of this tail")
+            c["adjacent_pairs"] += 1
+            c["pairs_with_tail_debt"] += bool(tail_debt)
+            c["duplicate_tail_rows"] += len(tail_debt)
+        else:
+            reg.require(after["top_action"] == "head_bootstrap" and after["block"] == event["block"]+1,
+                        "Unrecognized post-commit transition")
+            c["fresh_head_commits"] += 1
+    return c
 
 
 def score(n):
@@ -37,7 +76,7 @@ def score(n):
     tasks = load_tasks(path)
     on,off = study.ARMS
     sides = {on:{},off:{}}
-    exposed, actions = {}, {}
+    exposed, actions, pair_counts = {}, {}, {}
     for t in tasks[:n]:
         i=t["index"]
         pair = [reg.read(root/reg.filename(i,a)) for a in (on,off)]
@@ -45,6 +84,8 @@ def score(n):
         exposed[i] = bool(pair[0]["first"])
         for arm, r in zip((on,off),pair,strict=True):
             audits=study.sf.audit(r,arm,opened_control=arm==off)
+            if arm==on:
+                pair_counts[i]=commit_pairs(r["events"])
             reg.require(all(t[k]==r[k] for k in reg.KEYS), "Frozen identity mismatch")
             flow = actions[i,arm] = {}
             for e in r["events"]:
@@ -70,9 +111,22 @@ def score(n):
     refs,model,policy,_=load_request_set(wave,tasks,"flowblock","flow_w2")
     reg.require((model,policy)==("llada21","flow_w2"), "Wrong external comparator")
     ref={r["index"]:r for r in refs}
-    result,external,by_action=[],[],[]
+    result,external,by_action,work_bound=[],[],[],[]
     for w in ((30,) if n == 30 else (30,60,90)):
         selected=select_window_cases(tasks,w)
+        ids=[t["index"] for t in selected]
+        total=sum((pair_counts[i] for i in ids),Counter())
+        raw=sides[on]
+        def macro(remove):
+            return mean(raw[i]["N"]/(raw[i]["F"]-(pair_counts[i]["adjacent_pairs"] if remove else 0)) for i in ids)
+        total_f=sum(raw[i]["F"] for i in ids)
+        total_q=sum(raw[i]["Q"] for i in ids)
+        work_bound.append(dict(window=w,policy=on,**dict(total),
+            measured_F=total_f,measured_Q=total_q,measured_macro_TPF=macro(False),
+            frozen_trace_if_all_pairs_fused_F=total_f-total["adjacent_pairs"],
+            frozen_trace_if_all_pairs_fused_Q=total_q-total["duplicate_tail_rows"],
+            frozen_trace_if_all_pairs_fused_macro_TPF=macro(True),
+            flow_w2_measured_macro_TPF=mean(ref[i]["N"]/ref[i]["F"] for i in ids)))
         for arm in (off,on):
             groups={}
             for t in selected:
@@ -93,6 +147,7 @@ def score(n):
     table(study.HERE.with_name("controls")/name,result)
     table(study.HERE.with_name("controls")/name.replace("-mask-","-vs-flow-w2-"),external)
     table(study.HERE.with_name("controls")/name.replace("-mask-","-work-"),by_action)
+    table(study.HERE.with_name("controls")/name.replace("-mask-","-commit-pairs-"),work_bound)
     return result
 
 

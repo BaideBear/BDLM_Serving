@@ -100,10 +100,16 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
             raise ValueError("Require the complete matched matrix")
         points={p:points[p] for p in order}
     n = len(points)
-    if source.stem.endswith("-profile-transfer"):
-        points={p:points[p] for p in ("replay","replay_q128_prefix32")}
+    profile=source.stem.rsplit("-profile-",1)[-1]
+    if profile in ("transfer","dwell"):
+        policy={"transfer":"replay","dwell":"dwell"}[profile]
+        pair=(policy,policy+"_q128_prefix32")
+        if set(points)!=set(pair):
+            raise ValueError("Incomplete profile comparison")
+        title.update({pair[0]:"K0 on all offers",pair[1]:"Q128 spare seats: K32"})
+        points={p:points[p] for p in pair}
     fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
-    colors = ["#116f74" if p.startswith(("slottrace","t2t_q","q","replay_q")) else
+    colors = ["#116f74" if p.startswith(("slottrace","t2t_q","q","replay_q","dwell_q")) else
               "#6174a3" if p.startswith(("flow","active_w")) else "#bb713c" if "_cap_" in p else "#8c929a"
               for p in points]
     for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
@@ -130,6 +136,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
         detail="fixed Q512 | 50% vs 80% tail admission, Q256 and FlowBlock W2"
     if source.stem.endswith("-profile-transfer"):
         detail="same five-slot external replay | economy vs Q128 spare-prefix candidate"
+    if source.stem.endswith("-profile-dwell"):
+        detail="external replay with consecutive Q128 offers | K0 vs Q128 spare-prefix candidate"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -180,9 +188,10 @@ def main():
     spawn=HERE/"controls/gemma-unified-q512-spawn50.csv"
     if spawn.is_file():
         mixed_plot(spawn,HERE/(spawn.stem+".png"))
-    transfer=HERE/"controls/gemma-unified-profile-transfer.csv"
-    if transfer.is_file():
-        mixed_plot(transfer,HERE/(transfer.stem+".png"))
+    for name in ("transfer","dwell"):
+        path=HERE/f"controls/gemma-unified-profile-{name}.csv"
+        if path.is_file():
+            mixed_plot(path,HERE/(path.stem+".png"))
 
 
 if __name__ == "__main__":
