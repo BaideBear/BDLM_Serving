@@ -18,3 +18,5 @@ The two paired arms use exactly the same recipient ordering and physical width o
 On the archived zero trajectories the paired intervention could have exchanged 5,766 rows over 462 selected forwards in 86/90 requests at Q128; Q32: 413 rows, 98 forwards, 35/90 requests. These counts measure opportunity, not quality. Over the same trajectories backfill-only could use 9,389 and 598 rows respectively. Each new online arm uses all 90 cases regardless of opportunity.
 
 Run-list generator: `python -m experiments.t2t.prefix_window.grid gemma 128 donor` (or `32`). The registered runner separately charges initialization, verification and re-encoding.
+
+From the repository root, `python -m experiments.t2t.prefix_window.donor_audit --data "$PRIVATE_PREFIX90" --q 128 --out "$PRIVATE_REPORT"` audits planned recipients and donors across both trajectories, reconciles first interventions to opportunities on the frozen zero trajectory, and scores the direct pair. Use `--opportunities-only` for the preregistered zero-trajectory diagnostic. [Q128 opportunity counts](donors/gemma-donor-opportunity-128.csv) · [Q32 opportunity counts](donors/gemma-donor-opportunity-32.csv).

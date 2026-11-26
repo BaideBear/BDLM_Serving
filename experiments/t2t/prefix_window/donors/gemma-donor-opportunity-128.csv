@@ -1,0 +1,4 @@
+q,k,cohort,requests,samples_sha256,selected,paired_rows,paired_steps,backfill_rows,backfill_steps,paired_requests,backfill_requests
+128,32,original30,30,bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed,533,1961,159,3237,169,28,28
+128,32,added60,60,bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed,953,3805,303,6152,320,58,58
+128,32,all90,90,bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed,1486,5766,462,9389,489,86,86

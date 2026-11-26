@@ -37,6 +37,35 @@ def test_gemma_paired_donors_same_recipient_and_physical_width(selector):
         Arm.parse(f"16:0:12:hard_prefix_paired_mask_{selector}", 32)
 
 
+def test_paired_donor_audit_requires_equal_entry_and_recipient_set():
+    from copy import deepcopy
+    from experiments.t2t.prefix_window.donor_audit import first_exchange
+
+    def request(d):
+        p = plan([True, True, True, False, False, True, True], {0}, q=5, k=2,
+                 mode=f"hard_prefix_paired_{d}_random")
+        e = dict(stage="selected", block=32, clock=3, q=len(p.positions), prefix_plan=p.audit(),
+                 prefix_pre_canvas_sha256="a"*64, prefix_pre_draft_sha256="b"*64)
+        return dict(task_id="toy", index=0, seed=29, dataset="gsm8k", model="gemma",
+                    policy=d, events=[dict(stage="bootstrap"), e])
+    old, mask = request("backfill"), request("mask")
+    assert first_exchange(old, mask)
+    for location, key, value in ((0, "stage", "verify"), (1, "prefix_pre_canvas_sha256", "0"*64)):
+        other = deepcopy(mask)
+        other["events"][location][key] = value
+        with pytest.raises(ValueError):
+            first_exchange(old, other)
+    mask["events"][1]["prefix_plan"]["added_rows"] = [99]
+    with pytest.raises(ValueError):
+        first_exchange(old, mask)
+    for r in (old, mask):
+        r["events"] = r["events"][:1]
+    assert not first_exchange(old, mask)
+    mask["generation_forwards"] = 12
+    with pytest.raises(ValueError):
+        first_exchange(old, mask)
+
+
 def plan(accepted, fresh=(), q=5, k=0, mode=ZERO, *, editable=None,
          seed=29, block_start=32, clock=3, last_query=None):
     rows = range(len(accepted)) if editable is None else editable
