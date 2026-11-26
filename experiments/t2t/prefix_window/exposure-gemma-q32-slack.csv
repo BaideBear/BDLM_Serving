@@ -1,0 +1,13 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+gemma,t2t_q32_f0_m28_hard_prefix_slack_random,slack,original30,30,1243,32.66532582461786,87,25,1458,21,1948,1166,98876,25,87,25,337,4972,337,0,0,1156,80,5
+gemma,t2t_q32_f0_m28_hard_prefix_slack_random,slack,added60,60,2348,33.19335604770017,161,49,2707,37,4886,2193,202079,49,161,49,623,9392,623,0,0,2187,151,11
+gemma,t2t_q32_f0_m28_hard_prefix_slack_random,slack,all90,90,3591,33.01058201058201,248,74,4165,58,6834,3359,300955,74,248,74,960,14364,960,0,0,3343,231,16
+gemma,t2t_q32_f0_m28_hard_prefix_slack_right,slack,original30,30,1152,32.915798611111114,81,25,1383,22,2124,1078,97796,25,81,25,314,4608,314,0,0,1071,75,5
+gemma,t2t_q32_f0_m28_hard_prefix_slack_right,slack,added60,60,2315,33.24492440604752,143,49,2341,36,4678,2174,194988,49,143,49,545,9260,545,0,0,2172,131,11
+gemma,t2t_q32_f0_m28_hard_prefix_slack_right,slack,all90,90,3467,33.13556388808768,224,74,3724,58,6802,3252,292784,74,224,74,859,13868,859,0,0,3243,206,16
+gemma,t2t_q32_f0_m31_hard_prefix_slack_random,slack,original30,30,1191,32.66834592779177,79,25,1258,21,1975,1112,93488,25,79,25,306,1191,79,0,0,1112,79,5
+gemma,t2t_q32_f0_m31_hard_prefix_slack_random,slack,added60,60,2346,32.907502131287295,162,49,2744,35,4711,2195,200140,49,162,49,628,2346,162,0,0,2184,162,11
+gemma,t2t_q32_f0_m31_hard_prefix_slack_random,slack,all90,90,3537,32.82697201017812,241,74,4002,56,6686,3307,293628,74,241,74,934,3537,241,0,0,3296,241,16
+gemma,t2t_q32_f0_m31_hard_prefix_slack_right,slack,original30,30,1222,32.67266775777414,79,25,1260,22,2003,1145,95093,25,79,25,301,1222,79,0,0,1143,79,5
+gemma,t2t_q32_f0_m31_hard_prefix_slack_right,slack,added60,60,2311,33.09043704024232,140,49,2292,36,4672,2171,194100,49,140,49,532,2311,140,0,0,2171,140,11
+gemma,t2t_q32_f0_m31_hard_prefix_slack_right,slack,all90,90,3533,32.94593829606567,219,74,3552,58,6675,3316,289193,74,219,74,833,3533,219,0,0,3314,219,16
