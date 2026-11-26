@@ -8,6 +8,13 @@ MODELS = {"llada21": (32, (4, 8, 16, 32, 64), 8, 2),
           "gemma": (256, (16, 32, 64, 128, 256), 32, 4)}
 
 
+def ratio_caps(q):
+    """Nominal token caps, not a reservation. Q-1 fills every available seat."""
+    if q not in MODELS["gemma"][1]:
+        raise ValueError("Unregistered Gemma Q")
+    return (q // 16, q // 8, q // 4, q // 2, 3 * q // 4, q - 1)
+
+
 def arms(model, q, study):
     block, budgets, pilot, pilot_k = MODELS[model]
     if q not in budgets:
@@ -31,6 +38,12 @@ def arms(model, q, study):
         ks = [2] if q == pilot else [2, 4]
         specs = []
         modes = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+    elif study == "ratio":
+        if model != "gemma":
+            raise ValueError("The ratio extension is Gemma-only")
+        ks = [k for k in ratio_caps(q) if k not in (1, 2, 4)]
+        specs = []
+        modes = ("hard_prefix_slack_right", "hard_prefix_slack_random")
     else:
         raise ValueError(f"Unknown study {study}")
     for k in ks:
@@ -45,6 +58,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", choices=MODELS)
     p.add_argument("q", type=int)
-    p.add_argument("study", choices=("matched", "slack", "oldest", "dose"))
+    p.add_argument("study", choices=("matched", "slack", "oldest", "dose", "ratio"))
     args = p.parse_args()
     print(" ".join(arms(args.model, args.q, args.study)))
