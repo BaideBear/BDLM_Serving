@@ -34,7 +34,8 @@ def generate(model, tok, task, prompt, name):
     threshold, opened = ARMS[name]
     k = SpawnGatedKernel(model, spawn_threshold=threshold)
     eos, mask = tok.eos_token_id, tok.convert_tokens_to_ids("<|mask|>")
-    s = k.create(torch.tensor([prompt]), CFG, reg.CAP, task["seed"], mask, [eos])
+    s = k.create(torch.tensor([prompt], device=model.device, dtype=torch.long),
+                 CFG, reg.CAP, task["seed"], mask, [eos])
     receipts, witnesses, prices = [], [], []
     first = None
 
@@ -42,7 +43,7 @@ def generate(model, tok, task, prompt, name):
         nonlocal first
         ids, bias = kw["position_ids"], kw["attention_mask"]
         pos, end = ids[0].tolist(), bias.shape[-1]
-        native = ids[0][:, None] // 32 >= torch.arange(end)[None, :] // 32
+        native = ids[0][:, None] // 32 >= torch.arange(end, device=ids.device)[None, :] // 32
         reg.require(torch.equal(bias[0, 0], native), "Invalid incoming mask")
         changed, info = head_to_tail_mask(bias, ids, s.prompt_length, s.block)
         reg.require(info == reg.geometry(s.block, s.prompt_length, pos, end), "Wrong head/tail edges")
@@ -57,7 +58,7 @@ def generate(model, tok, task, prompt, name):
 
     def witness(_module, args, kw):
         bias, pos = kw["attention_mask"][0, 0], kw["position_ids"][0]
-        keys = torch.arange(bias.shape[-1])
+        keys = torch.arange(bias.shape[-1], device=pos.device)
         native = pos[:, None] // 32 >= keys[None, :] // 32
         boundary = (s.block + 1) * 32
         window = ((pos >= max(boundary-32, s.prompt_length)) & (pos < boundary))[:, None] & (
@@ -117,10 +118,12 @@ def reused_rows():
     source = reg.read(OUT/"run.json")
     deps = reg.source_hashes() | {n: reg.sha(Path(__file__).with_name(n))
                                  for n in ("llada_spawn.py", "llada_quote.py")}
-    reg.require(all(source["source"][n] == h for n, h in deps.items())
-                and hashlib.sha256(inspect.getsource(generate).encode()).hexdigest() ==
-                "8930ff55308a5a81073d05e80d78aa7845c08ba25ecd428e870b3ef7355f266a",
-                "Generation or attention witness differs from pilot")
+    # A later generator can still run the full cohort, but must not inherit
+    # old pilot outputs as if they came from this implementation.
+    if (not all(source["source"][n] == h for n, h in deps.items())
+            or hashlib.sha256(inspect.getsource(generate).encode()).hexdigest() !=
+            "8930ff55308a5a81073d05e80d78aa7845c08ba25ecd428e870b3ef7355f266a"):
+        return {}
     names = sorted(reg.filename(i, a) for i in INDICES for a in ARMS)
     hashes = {name: reg.sha(OUT/name) for name in names}
     ledger = "".join(f"{h}  {name}\n" for name, h in hashes.items()).encode()
