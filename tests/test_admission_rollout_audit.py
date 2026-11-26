@@ -128,6 +128,20 @@ def fit_spec():
                 keep_probability=.999999999,fit_requests=24)
 
 
+def test_counterfactual_victim_labels_never_impute_unobserved_writes():
+    move=dict(victim=7, masks=list(range(4,13)), base=list(range(8)), fresh=list(range(4)),old_pool=[13])
+    step=dict(block=0, absolute_positions=list(range(8)), masked_before=9, masked_after=8,
+              hard_strict_edits=0,edited=0)
+    following=dict(block=0,stage='selected',absolute_positions=list(range(4,12)),selected_masked_before=7)
+    assert a.victim_label(move,step,following) is None
+    assert a.victim_label(move,dict(step,beneficiary=dict(rows=[7],ids=[1])),following) is True
+    assert a.victim_label(move,dict(step,beneficiary=dict(rows=[7],ids=[None])),following) is False
+    assert a.victim_label(move,dict(step,masked_after=9)) is False
+    assert a.victim_label(move,dict(step,masked_after=5)) is True
+    with pytest.raises(ValueError):
+        a.victim_label(move,step,dict(following,absolute_positions=list(range(8,16))))
+
+
 def test_complete_cli_inputs_fit_and_sanitized_csv(tmp_path):
     fit = tmp_path/'fit.json'; write(fit,fit_spec())
     model=gate.read_admission_fit(fit)

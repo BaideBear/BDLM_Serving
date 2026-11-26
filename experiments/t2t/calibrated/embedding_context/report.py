@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import math
+from fractions import Fraction
 from pathlib import Path
 from statistics import mean
 
@@ -86,6 +87,34 @@ def gated_arm(folder, mode, keys, source, *, scored=None):
                Q=q, physical_Q=physical, macro_tpf=p.tpf, physical_efficiency=p.efficiency,
                physical_q_per_f=p.q_per_f)
     return arm, p, x
+
+
+def endpoint_envelope(keys, arms):
+    """Ex-post ceiling on four measured whole paths; no cross-step splicing."""
+    modes = ("noedit", "context_once_rank", "admit_low", "admit_coin")
+    records = []
+    for i, key in enumerate(keys):
+        endpoints = [tuple(map(int, arms[m][2][i])) for m in modes]
+        def priority(j):
+            correct, n, f, q = endpoints[j]
+            return correct, Fraction(n, f), -q, -j
+        best = max(range(len(modes)), key=priority)
+        correct,n,f,q = endpoints[best]
+        bits = [x[0] for x in endpoints]
+        records.append(dict(index=key[0], dataset=key[1], path=modes[best],
+                            all_correct=min(bits), any_correct=max(bits), base_correct=bits[0],
+                            correct=correct, N=n, F=f, physical_Q=q))
+    groups = []
+    for d in ("all", *sorted({k[1] for k in keys})):
+        cohort = [r for r in records if d=="all" or r["dataset"]==d]
+        totals = {k:sum(r[k] for r in cohort) for k in ("all_correct","any_correct","base_correct",
+                                                        "N","F","physical_Q")}
+        groups.append(dict(dataset=d,requests=len(cohort), **totals,
+                           rescued=totals["any_correct"]-totals["base_correct"],
+                           correct_varies=totals["any_correct"]-totals["all_correct"],
+                           macro_tpf=mean(r["N"]/r["F"] for r in cohort),
+                           physical_efficiency=totals["N"]/totals["physical_Q"]))
+    return groups, records
 
 
 def gated_report(out, root=ROOT, *, crowded=False, admission=False):
@@ -172,6 +201,10 @@ def gated_report(out, root=ROOT, *, crowded=False, admission=False):
                 **{f"delta_{k}": a[k]-b[k] for k in ("N", "F", "physical_Q")},
                 **paired_uncertainty(x, y, draws)))
     prefix = "admission" if admission else "crowded" if crowded else "gated"
+    if admission:
+        groups, records = endpoint_envelope(keys, arms)
+        table(out / "admission-envelope.csv", groups)
+        table(out / "admission-envelope-requests.csv", records)
     if crowded:
         dd = []
         for other, control in ((rand, base), ("context_gate", "noedit")):

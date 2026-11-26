@@ -1,6 +1,7 @@
 """Audit the two frozen30 first-approved crowded rollouts, without a model or GPU."""
 import argparse
 from collections import Counter
+from itertools import combinations
 from pathlib import Path
 
 from bdlm_serving.evaluation.frozen import MANIFEST, sha
@@ -150,6 +151,56 @@ def baseline_dir(d):
           'incomplete or unqualified baseline')
 
 
+def victim_label(move, step, following=None):
+    """Identify the displaced MASK's write on measured noedit, never on the swapped path.
+
+    When the old observer didn't watch this row, enumerate the <=8 queried
+    rows' compatible transitions. A mixed label is genuinely unidentified by
+    these constraints. All sets here contain block-local row indices.
+    """
+    v = move['victim']
+    masks, picked = set(move['masks']), set(move['base'])
+    eligible = masks | set(move['fresh']) | set(move['old_pool'])
+    block = step['block']
+    check(v in masks & picked and len(picked) <= cg.Q and
+          step['absolute_positions'] == sorted(cg.B*block+i for i in picked), 'wrong victim reference')
+    strict = step['hard_strict_edits']
+    revokes = step['edited'] - strict
+    admits = step['masked_before'] - step['masked_after'] + revokes
+    check(len(masks)==step['masked_before'] and 0<=admits<=len(masks & picked) and
+          0<=strict<=strict+revokes<=len(picked-masks), 'inconsistent reference transition counts')
+    known = {}
+    panel = step.get('beneficiary', {})
+    for i,token in zip(panel.get('rows', []),panel.get('ids', []),strict=True):
+        if i in masks & picked:
+            known[i] = token is not None
+    watch = step.get('intervention', {})
+    if watch.get('victim') == v:
+        check(v not in known or known[v] == watch['victim_accepted'], 'conflicting victim panels')
+        known[v] = watch['victim_accepted']
+    next_q = None
+    if following and following['block'] == block and following['stage'] == 'selected':
+        next_q = {i-cg.B*block for i in following['absolute_positions']}
+    labels = set()
+    for written in combinations(sorted(masks & picked), admits):
+        a = set(written)
+        if any((i in a) != obs for i,obs in known.items()):
+            continue
+        for removed in combinations(sorted(picked-masks), revokes):
+            r = set(removed)
+            m = masks-a | r
+            for edited in combinations(sorted(picked-masks-r), strict):
+                fresh = a | set(edited)
+                if next_q is not None:
+                    q = sorted(fresh) + sorted(m) + sorted(eligible - m - fresh)
+                    if (set(q[:max(cg.Q,len(fresh))]) != next_q or
+                            len(m & next_q) != following['selected_masked_before']):
+                        continue
+                labels.add(v in a)
+    check(labels, 'no feasible baseline victim transition')
+    return labels.pop() if len(labels)==1 else None
+
+
 def audit(runs, baseline, historical, fit_path, out):
     from bdlm_serving.methods.t2t.admission_gate import admission_decision, read_admission_fit
 
@@ -175,6 +226,15 @@ def audit(runs, baseline, historical, fit_path, out):
                 raw = read(arms[p],p)
                 c, anchor, first = audit_arm(raw,s,p,fit,admission_decision)
                 compare_arm(raw,anchor,first,hist,historical_first)
+                label = None
+                if anchor is not None:
+                    base = hist[0]['events']
+                    label = victim_label(raw['events'][anchor-1]['crowded_screen'],
+                                         base[anchor-1], base[anchor] if anchor<len(base) else None)
+                for key, value in (('paid',True),('unpaid',False),('unknown',None)):
+                    match = int(anchor is not None and label is value)
+                    c['victim_'+key] = match
+                    c['direct_hit_victim_'+key] = match * c['reserved_hits']
                 rows.append(dict(index=i,policy=p,first_offer_clock=first,trigger_clock=anchor,**c))
                 totals[p].update(c)
                 raws.append(raw)
