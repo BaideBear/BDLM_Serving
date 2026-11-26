@@ -6,9 +6,15 @@ from random import Random
 
 
 MODES = {"hard_exchange_equal": 1., "hard_exchange_edit4": 4.}
+# Diagnostic arm with the exact hard_exchange_edit4 rate table and edit weight.
+# Selection is unchanged; only a strict non-MASK -> different non-MASK write on
+# an explicitly entering reserved (base-absent) row is suppressed after the
+# model/draw/KV work. MASK admissions, revocations to MASK and all unreserved
+# writes commit normally.
+VETO = {"hard_exchange_edit4_veto": 4.}
 PLACEBOS = {"hard_exchange_random_a": "a", "hard_exchange_random_b": "b"}
 AGE_ARMS = {"hard_exchange_oldhalf_a": "a", "hard_exchange_oldhalf_b": "b"}
-ONLINE_MODES = {**MODES, **dict.fromkeys(PLACEBOS, 4.), **dict.fromkeys(AGE_ARMS, 4.)}
+ONLINE_MODES = {**MODES, **VETO, **dict.fromkeys(PLACEBOS, 4.), **dict.fromkeys(AGE_ARMS, 4.)}
 SCHEMA = "llada-b32-exchange-v1"
 
 

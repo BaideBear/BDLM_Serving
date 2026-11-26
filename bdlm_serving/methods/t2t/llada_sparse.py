@@ -28,8 +28,9 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
-from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS
+from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS, VETO
 _HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + CONTEXT + MODES + _HAZARD + tuple(EXCHANGE)
+_VETO_POLICY = "hard_exchange_edit4_veto"
 
 
 @dataclass
@@ -540,6 +541,19 @@ class LLaDASparseKernel(SerialKernel):
             accept[0, torch.topk(order[0], k=1).indices] = True
         edit = (~masked & ((local[None] + start) >= state.prompt_length)
                 & (proposed != old) & (confidence > state.config["editing_threshold"]))
+        # hard_exchange_edit4_veto: the selected row really ran. Suppress only a
+        # strict non-MASK A -> different non-MASK B write on an explicitly
+        # entering reserved row (base-absent). MASK admissions, revocations to
+        # MASK and every unreserved edit still commit. Log before suppression.
+        vetoed = []
+        if self.policy in VETO:
+            reserved_local = set(hard_reserved)
+            in_reserved = torch.tensor([i in reserved_local for i in picked],
+                                       dtype=torch.bool, device=edit.device)
+            veto = edit & (proposed != state.mask_id) & in_reserved[None]
+            if bool(veto.any()):
+                vetoed = [start + picked[j] for j in veto[0].nonzero(as_tuple=True)[0].tolist()]
+                edit = edit & ~veto
         cur.index_copy_(1, local, torch.where(accept | edit, proposed, old))
 
         after = cur[0].tolist()
@@ -593,10 +607,12 @@ class LLaDASparseKernel(SerialKernel):
         state.force_mask_next = bool(count and not selected_masks)
         state.step_in_block += 1
         edited = int(edit.sum())
+        veto_log = (dict(attempted_strict_veto_positions=vetoed)
+                    if self.policy == _VETO_POLICY else {})
         state.events[-1].update(masked_before=count, selected_masked_before=selected_masks,
                                 accepted=int(accept.sum()), edited=edited,
                                 masked_after=now_resolved.count(False), step_in_block=state.step_in_block,
-                                post_steps=state.post_steps)
+                                post_steps=state.post_steps, **veto_log)
         if not count and not edited:
             state.phase = "commit"
         return "denoise"
