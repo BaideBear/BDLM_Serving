@@ -33,6 +33,48 @@ for budget, quota in ((64,16), (32,8), (128,32), (128,64), (128,96)):
         ARMS[policy] = ((budget,), True, {budget:quota})
         RANKS[policy] = mode
 KEYS = ("index", "task_id", "dataset", "seed")
+EXCHANGE = ("q128_k32_oldest", "q128_k32_oldest_swap4")
+ARMS[EXCHANGE[1]] = ARMS[EXCHANGE[0]]
+
+
+def check_exchange(control, trial, ids_a, ids_b):
+    """Only compare geometry across arms until the first physical intervention."""
+    first = None
+    exposures = 0
+    for i,e in enumerate(trial):
+        dropped = set(e["displaced_mask"])
+        if not dropped:
+            continue
+        added = set(e["prefix_selected"])
+        selected = set(e["selected"])
+        if (e["phase"] != "sparse" or e["offer"] != 128 or i % 2 or
+                not 1 <= len(dropped) <= min(4,len(added)) or
+                dropped & selected or not added <= selected or len(added)>32 or
+                len(e["dirty_before"]) != 1 or e["prefix_end"] is None):
+            raise ValueError("Invalid exchange intervention")
+        base = min(e["visible"])
+        if (not all(base+e["prefix_end"] <= r < base+256 for r in dropped)
+                or not all(base <= r < base+e["prefix_end"] for r in added)
+                or len(selected) - e["mandatory_q"] - len(added) < 3*len(dropped)):
+            raise ValueError("Prefix or preserved unresolved count outside contract")
+        first = i if first is None else first
+        exposures += len(dropped)
+    for i,(a,b) in enumerate(zip(control,trial)):
+        if i == first:
+            if (any(a[k] != b[k] for k in ("q","tick","offer","head","visible","ages_before",
+                                            "dirty_before","mandatory_q","phase","prefix_end"))
+                    or set(a["selected"])-set(b["selected"]) != set(b["displaced_mask"])
+                    or set(b["selected"])-set(a["selected"]) != set(b["prefix_selected"])-set(a["prefix_selected"])
+                    or not set(a["prefix_selected"]) <= set(b["prefix_selected"])):
+                raise ValueError("First exchange was not equal-width and one-for-one")
+            break
+        if a != {k:v for k,v in b.items() if k!="displaced_mask"}:
+            raise ValueError("Trajectory differs before exchange")
+    if first is None and (len(control)!=len(trial) or ids_a!=ids_b):
+        raise ValueError("Changed output without exchanging any rows")
+    if first is not None and first >= len(control):
+        raise ValueError("Exchange state missing from control")
+    return first, exposures
 
 
 def read(path):
@@ -188,9 +230,12 @@ def run(args, before_cuda=None):
             or plan["cap"] != 2048 or transformers.__version__ != native["transformers"]):
         raise ValueError("Nonregistered suite or runtime")
     group = GROUPS[getattr(args, "pilot_group", 0)] if cpu else GROUPS[int(os.environ["UNIFIED_GROUP"])]
+    exchange = cpu and getattr(args, "exchange", False)
+    if exchange:
+        group = EXCHANGE
     price = cpu and getattr(args, "price", False)
     rank = all(arm in RANKS for arm in group)
-    if cpu and group not in (GROUPS[0], GROUPS[1]) and not rank:
+    if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange):
         raise ValueError("Unregistered CPU pilot")
     if cpu:
         torch.set_num_threads(8)
@@ -216,6 +261,7 @@ def run(args, before_cuda=None):
         wave_config=plan, native_config=native, arms={k: ARMS[k] for k in group},
         rng="independent streams seeded by task.seed + canvas ordinal",
         **({"prefix_rank":{p:RANKS[p] for p in group}} if rank else {}),
+        **({"exchange": {"offer":128, "quota":32, "cap":4, "tick":"even", "mode":"oldest"}} if exchange else {}),
         indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
         before_cuda(model)
@@ -229,6 +275,8 @@ def run(args, before_cuda=None):
             for arm in group:
                 series, causal, prefix = ARMS[arm]
                 config = dict(plan, prefix_slots=prefix, prefix_mode=RANKS.get(arm,"random" if prefix else "zero"))
+                if exchange:
+                    config.update(prefix_mode="oldest", exchange_limit=4 if arm == EXCHANGE[1] else 0)
                 ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
@@ -239,6 +287,13 @@ def run(args, before_cuda=None):
                 rows.append(row)
                 if rank:
                     witnesses.append(rank_witness(trace))
+                if exchange:
+                    witnesses.append(trace)
+            if exchange:
+                first, swaps = check_exchange(*witnesses, *[r["output_ids"] for r in rows])
+                for row in rows:
+                    row["first_exchange_tick"] = first
+                    row["total_exchanged_rows"] = swaps if row["policy"] == EXCHANGE[1] else 0
             if rank:
                 first = check_rank_change(*rows, *witnesses)
                 for row in rows:
@@ -356,13 +411,16 @@ if __name__ == "__main__":
         queue(rank=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
-    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"]):
+    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"]):
         from argparse import Namespace
         folder = Path(sys.argv[2])
         fixed = sys.argv[1] == "cpu-pilot-q512"
         rank = sys.argv[1] == "cpu-pilot-rank"
-        run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=BASE_GROUPS if rank else int(fixed), price=fixed or rank,
+        exchange = sys.argv[1] == "cpu-pilot-exchange"
+        run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=BASE_GROUPS if rank else int(fixed),
+                      exchange=exchange, price=fixed or rank or exchange,
                       checkpoint=ROOT.parent.parent / "models/diffusiongemma-cd40195"))
-        score(folder)
+        if not exchange:  # Selection/exposure preflight only; never report a pilot score as GPU evidence.
+            score(folder)
     else:
         protected()

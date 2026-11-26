@@ -39,7 +39,12 @@ class Quote:
         return int(self.post_reencode_q_max != 0)
 
 
-def quote_options(live, *, may_open, steps, cap, prefix_slots, choose):
+def exchange_count(masks, slack, clean, quota, limit, tick):
+    """Swap only paid nonmandatory unresolved seats, at most one in four."""
+    return 0 if tick % 2 else min(limit, masks//4, quota-slack, clean-slack)
+
+
+def quote_options(live, *, may_open, steps, cap, prefix_slots, choose, exchange_limit=0, tick=0):
     """Return {offer: Quote} for one unchanged pre-decision request state.
 
     decoder_* is exact. post_reencode_*_max is a separate branch bound: charge
@@ -95,6 +100,9 @@ def quote_options(live, *, may_open, steps, cap, prefix_slots, choose):
             base = max(h, min(capacity, required))
             optional = min(prefix_slots.get(offer, 0), clean_prefix, max(0, capacity - base))
             width = base + optional
+            if exchange_limit and offer == 128:
+                optional += exchange_count(base-h, optional, clean_prefix, prefix_slots.get(128,0),
+                                           exchange_limit, tick)
             phase = "sparse"
             if not width:
                 phase, reason, width = "verify", "empty_selection", BLOCK

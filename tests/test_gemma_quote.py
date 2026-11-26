@@ -72,6 +72,26 @@ def test_dirty_prefix_is_not_an_optional_seat(engine):
     assert (q.mandatory_q, q.prefix_q, q.decoder_q) == (4, 5, 10)
 
 
+@pytest.mark.parametrize("tick,earliest,dirty,expected", [
+    (2, 36, [0, 37], 4), (3, 36, [0, 37], 0), (2, 1, [0], 0),
+    (2, 160, [], 0), (2, 156, [], 4), (2, 36, list(range(125)), 0),
+])
+def test_exchange_cost_and_identities(engine, tick, earliest, dirty, expected):
+    head = canvas(unresolved=range(earliest,B),dirty=dirty)
+    head.last_projected = [1]*B
+    kw = dict(seed=10,tick=tick)
+    rows, prefix, _ = engine._choose(head,128,32,"oldest",**kw)
+    drops = []
+    new, ext, _ = engine._choose(head,128,32,"oldest",exchange_limit=4,displaced=drops,**kw)
+    assert len(rows) == len(new) and set(rows)-set(new) == set(drops)
+    assert set(new)-set(rows) == set(ext)-set(prefix)
+    assert len(drops) == expected and not set(drops).intersection(dirty)
+    assert set(drops) <= set(range(earliest,B)) and all(r < earliest for r in ext)
+    quote = quote_options([head],cap=2*B,steps=8,may_open=False,prefix_slots={128:32},
+                          choose=engine._choose,exchange_limit=4,tick=tick)[128]
+    assert (quote.decoder_q, quote.prefix_q) == (len(new), len(ext))
+
+
 def test_oldest_uses_projection_time_not_id_confidence_or_dirty_age(engine):
     h=canvas(dirty=[0,17], unresolved=[16,17,18])
     h.last_projected=[9]*B

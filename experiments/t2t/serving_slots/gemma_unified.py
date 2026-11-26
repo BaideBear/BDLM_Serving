@@ -18,6 +18,7 @@ from types import MappingProxyType, SimpleNamespace
 import torch
 
 from .gemma_wave_kv import WaveKV, wave_attention
+from .gemma_quote import exchange_count
 
 _OFFERS = (32, 64, 128, 256, 512)
 
@@ -86,15 +87,22 @@ def _prefix_policy(plan):
     return mode, quotas
 
 
-def _choose(canvas, capacity, quota, mode, *, seed, tick):
+def _choose(canvas, capacity, quota, mode, *, seed, tick, exchange_limit=0, displaced=None):
     """Reserve dirty head rows, fill unresolved rows, then spend true slack."""
     accepted = canvas.sampler.accepted_token_mask[0].tolist()
     picked = set(canvas.dirty)
     unresolved = [i for i, ok in enumerate(accepted) if not ok]
-    picked.update([r for r in unresolved if r not in picked][:max(0, capacity - len(picked))])
+    mask_rows = [r for r in unresolved if r not in picked][:max(0, capacity - len(picked))]
     prefix_end = unresolved[0] if unresolved else len(accepted)
     pool = [r for r in range(prefix_end) if r not in picked]
-    count = min(quota, len(pool), max(0, capacity - len(picked)))
+    count = min(quota, len(pool), max(0, capacity - len(picked) - len(mask_rows)))
+    swaps = exchange_count(len(mask_rows), count, len(pool), quota, exchange_limit, tick) if exchange_limit else 0
+    if swaps:
+        if displaced is not None:
+            displaced.extend(mask_rows[-swaps:])
+        del mask_rows[-swaps:]
+        count += swaps
+    picked.update(mask_rows)
     optional = []
     if count:
         if mode == "random":
@@ -189,6 +197,10 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
     if type(causal) is not bool or type(seed) is not int:
         raise ValueError("Expected Boolean causal and integer seed")
     prefix_mode, prefix_slots = _prefix_policy(plan)
+    exchange_limit = plan.get("exchange_limit", 0)
+    if (type(exchange_limit) is not int or exchange_limit not in (0,4)
+            or exchange_limit and (prefix_mode != "oldest" or prefix_slots != {128:32})):
+        raise ValueError("Mask exchange pilot requires Q128/K32 oldest and limit 4")
     if getattr(model, "training", False):
         raise ValueError("Unified generation requires an eval-mode model")
 
@@ -257,7 +269,8 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
             state = Tick(len(trace), head.ordinal, len(live),
                          tuple(len(s.dirty) for s in live), may_open)
             options = quote_options(live, may_open=may_open, steps=steps, cap=cap,
-                                    prefix_slots=prefix_slots, choose=_choose) if quote_costs else None
+                                    prefix_slots=prefix_slots, choose=_choose, exchange_limit=exchange_limit,
+                                    tick=state.tick) if quote_costs else None
             offer = yield state, options, trace[-1] if trace else None
             if type(offer) is not int or offer not in _OFFERS:
                 raise ValueError(f"Unsupported decoder offer: {offer!r}")
@@ -271,6 +284,7 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
             head_capacity = max(0, offer - len(tail.dirty)) if tail is not None else offer
 
             optional, prefix_end, verify_reason = [], None, None
+            displaced = []
             phase = "verify"
             if head.promoted:
                 verify_reason = "promotion"
@@ -288,6 +302,7 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
             else:
                 head_rows, optional, prefix_end = _choose(
                     head, head_capacity, prefix_slots.get(offer, 0), prefix_mode, seed=seed, tick=state.tick,
+                    **({"exchange_limit":exchange_limit, "displaced":displaced} if exchange_limit and offer == 128 else {}),
                 )
                 if head_rows:
                     phase = "sparse"
@@ -394,6 +409,8 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
                 overflow=max(0, q - offer), prefill=origin if state.tick == 0 else 0,
             )
             trace.append(record)
+            if exchange_limit:
+                record["displaced_mask"] = [origin + head.ordinal*block + r for r in displaced]
             del logits, measured, sc, sc_parts
 
             if done:
