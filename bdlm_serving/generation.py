@@ -6,7 +6,7 @@ import time
 import types
 
 
-def run(args, tasks, plan, before_cuda=None):
+def run(args, tasks, plan, before_cuda=None, *, cohort_done=None):
     import torch
     from bdlm_serving.methods.optimus.boundary import BoundaryModel
     import transformers.utils as utils
@@ -171,7 +171,7 @@ def run(args, tasks, plan, before_cuda=None):
             }
             # Opt-in raw ledgers for native32 only.  The default archived format
             # is unchanged; sparse policies never set capture_traces.
-            if (getattr(args, "capture_traces", False)
+            if cohort_done or (getattr(args, "capture_traces", False)
                     and policy == "native32" and args.model == "llada21"):
                 result["events"] = events
                 result["calls"] = facade.calls
@@ -192,13 +192,18 @@ def run(args, tasks, plan, before_cuda=None):
             print("starting", group, flush=True)
             gc.collect()
             torch.cuda.empty_cache()
-            jobs = [lambda t=t, p=p: invoke(batcher, t, p, 2048, "formal")
-                    for p in group for t in tasks]
-            if args.model == "llada20" and group in (["native32"], ["native32_cached"]):
-                for job in jobs:
-                    job()
-            else:
-                batcher.run(jobs)
+            if cohort_done and (len(group) != 1 or len(tasks) != 90):
+                raise ValueError("A qualification gate requires one policy and exactly 90 requests")
+            for cohort in ((tasks[:30], tasks[30:]) if cohort_done else (tasks,)):
+                jobs = [lambda t=t, p=p: invoke(batcher, t, p, 2048, "formal")
+                        for p in group for t in cohort]
+                if args.model == "llada20" and group in (["native32"], ["native32_cached"]):
+                    for job in jobs:
+                        job()
+                else:
+                    batcher.run(jobs)
+                if cohort_done:
+                    cohort_done(group[0],cohort)
             print("finished", group, flush=True)
     finally:
         if hasattr(batcher, "close"):

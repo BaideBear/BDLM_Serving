@@ -8,7 +8,8 @@ def fixture():
     def selected(tick, offer, fresh, masks):
         rows = sorted(fresh + masks)
         p = dict(fresh_rows=fresh, zero_mask_rows=masks, zero_backfill_rows=[], added_rows=[],
-                 evicted_rows=[], block_start=32, budget=offer, actual_width=len(rows),
+                 evicted_rows=[], block_start=32, budget=offer, quota=0, prefix_end=2,
+                 eligible_prefix_rows=[], actual_width=len(rows),
                  selected_rows=rows, overflow=max(0,len(rows)-offer))
         return dict(stage="selected", phase="denoise", slot_offer=offer, slot_tick=tick,
                     mandatory_fresh=len(fresh), physical_q=len(rows), layer_physical_q=[len(rows)]*2,
@@ -43,3 +44,32 @@ def test_refuse_corrupted_work(mutation):
         e["prefix_plan"]["zero_backfill_rows"].append(3)
     with pytest.raises(ValueError):
         audit(row, (4,2))
+
+
+def test_switch_audit_requires_registered_prefix_dose_and_boundary():
+    row = fixture()
+    event = row["events"][2]
+    p = event["prefix_plan"]
+    event["slot_prefix_mode"] = "hard_prefix_slack_right"
+    p["quota"] = 1
+    assert audit(row, ("4r1",2))["prefix"] == 0
+    with pytest.raises(ValueError):
+        audit(row, (4,2))
+    p["zero_mask_rows"].remove(5)
+    p["added_rows"] = p["eligible_prefix_rows"] = [5]
+    event["selected_masked_before"] -= 1
+    with pytest.raises(ValueError):
+        audit(row, ("4r1",2))
+
+
+def test_native_offer_is_billed_as_offer_not_forced_verification():
+    event = dict(stage="native_offer",slot_offer=256,slot_tick=0,q=256,positions=list(range(256)),
+                 mandatory_fresh=9,fresh_selected=9,available_fresh=9,overflow=0)
+    row = dict(model="gemma",prefill_rows=3,events=[dict(stage="bootstrap",q=256),event],
+               physical_events=[["encoder",3],["decoder",256],["decoder",256]],
+               generation_forwards=2,generation_query_rows=512,generation_physical_padded_rows=512,
+               q_by_phase=dict(bootstrap=256,native_offer=256),output_tokens=60)
+    result = audit(row,("256n",))
+    assert result["offered_rows"] == result["native_rows"] == result["charged_other"] == 256
+    with pytest.raises(ValueError):
+        audit(row,(256,))

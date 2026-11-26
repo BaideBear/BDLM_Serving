@@ -106,4 +106,8 @@ K0 在前三档的质量和 TPF 点估计均超过两种 Optimus，但各档的 
 
 `python -m experiments.t2t.serving_slots.switch_report --run "$RUN" --cases "$FROZEN90" --out "$PRIVATE_SCORES"` 对已完成的两个端点、两个切换相位做六组配对。每题独立核对选位的时钟和方向、真实 Q、必刷溢出，以及必刷/MASK/普通回填/额外前缀四项的加和；非选位轮及重编码单列。`--out` 包含逐题输出链接与评分，请放在集群私有目录，只发布汇总 CSV。
 
+对剂量/驻留时间实验，加 `--reference-switch-run "$GEMMA_K0_32_64_RUN"`，按同一相位作对照。显式整块档使用相同报告器，独立列出 `native_rows`，不把调度器主动选择的整块与强制验证混在一起。后续运行可给 `tools/run_t2t.py` 加 `--time-requests`：每臂先以固定第0题预热一次（该题仍参与正式90题），两侧同步 CUDA，记录 batch-one 单请求后端墙钟时间。计入提示处理、生成、现有 trace 与输出整理；LLaDA 含读取 prompt 参照；不含排队、模型加载、预热、最终校验/写盘和评分。单臂一个重复顺序，不能据此推断稳定的尾延迟或服务容量；私有 `timing` 文件不参与逐题语义资格比较。
+
 `python -m bdlm_serving diffusiongemma-wave --checkpoint "$DG_CHECKPOINT" --samples "$FROZEN90" --output "$NEW_RUN" --suite frozen90 --flow-only --block-size 256 --flowblock-windows 1 2 --reference30-root "$ORIGINAL_WAVE" --native-reference "$NATIVE90"` 复用同一 wave 生成器。每个 W 独立逐字段复现其历史30（含工作、输出、种子）之后才进入新增60。W1 还对全部90逐题校验原生输出及前向；W2 每次 decoder 按实际打包的 512 行计费，即使只有一个块处于活跃状态。这是大窗口基线，不是已实现了可切换的 512 档。
+
+LLaDA 基线扩展共10臂：`python -m experiments.t2t.serving_slots.llada_reference --samples "$FROZEN90" --reference "$HISTORICAL_RUN" --check-only` 检查公开原30成绩、原始工作账、身份和种子。300条归档记录通过此检查。原始 LLaDA 实际 batch 为 1；IBS4、OBS32 各有一次生成失败，均计错且保留已执行的 F/Q。去掉 `--check-only` 并指定 `--checkpoint`、新 `--output` 和可重复的 `--policy` 可在同一生成器逐臂扩展：原30重新生成，对齐原始输出 ID、停止状态、失败记录、逐前向位置及物理 F/Q 后才允许该臂进入新增60。原30校验不等于已取得90题结果。

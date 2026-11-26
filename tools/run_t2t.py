@@ -5,6 +5,7 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path
+from time import perf_counter_ns
 
 from bdlm_serving.evaluation.frozen import load_tasks, sha
 from bdlm_serving.methods.t2t.admission_gate import read_admission_fit
@@ -31,6 +32,8 @@ def parse_args():
     p.add_argument("--seed-offset", type=int, default=0,
                    help="Frozen30 paired seed repeat; requires matching native references")
     p.add_argument("--slot-control", action="append", help="OFFER=qualified frozen90 fixed policy directory; e.g. 32 or 32r8")
+    p.add_argument("--time-requests", action="store_true",
+                   help="Store synchronized warm batch-one backend wall time separately from qualification")
     return p.parse_args()
 
 
@@ -184,13 +187,42 @@ def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admiss
         block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms],
         seed_offset=offset, **extra))
     run = load_backend(args, prepare, context_ranker=ranker, admission_fit=admission_fit)
+    timed = getattr(args, "time_requests", False)
+    if timed:
+        import torch
+        timing = args.output / "timing"
+        timing.mkdir()
+        durable(timing/"scope.json", dict(model=args.model, suite=extra["suite"],
+            samples_sha256=extra["samples_sha256"], batch_size=1, device=torch.cuda.get_device_name(),
+            torch=str(torch.__version__), visible_device=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            warmup="one unmeasured task 0 for each non-qualification arm with the same seed",
+            interval="synchronized backend run: prompt processing, generation, trace and packaging; "
+                     "LLaDA includes reading its frozen prompt reference; excludes disk output, scoring, "
+                     "queueing, initial model load, qualification and warmup"))
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy
         saturated = arm is not None and arm.selection == "hard_noedit" and arm.budget >= block
         effective_arm = (Arm(block, 0, block, "hard_noedit") if saturated else
                          arm.prefix_executable(block) if arm is not None else None)
+        measure = timed and arm is not None
+        if measure:
+            warm = run(tasks[0], effective_arm)
+            signature = (warm["output_ids"],warm["generation_forwards"],warm["generation_query_rows"])
+            del warm
+            times = []
         for task in tasks:
+            if measure:
+                torch.cuda.synchronize()
+                start = perf_counter_ns()
             row = run(task, effective_arm)
+            if measure:
+                torch.cuda.synchronize()
+                elapsed = perf_counter_ns() - start
+                if task is tasks[0] and signature != (row["output_ids"],row["generation_forwards"],row["generation_query_rows"]):
+                    raise ValueError("Timed first request disagrees with warmup")
+                times.append(dict(index=task["index"],task_id=task["task_id"],seed=task["seed"],
+                                  wall_ns=elapsed,N=row["output_tokens"],F=row["generation_forwards"],
+                                  physical_Q=row["generation_physical_padded_rows"]))
             row.update({k: task[k] for k in ("index", "task_id", "dataset", "seed")},
                        model=args.model, policy=policy)
             verify_work(row)
@@ -214,6 +246,8 @@ def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admiss
         if arm is None:
             durable(args.output / "qualified.json", dict(model=args.model, full_width=block, matched=len(tasks)))
         else:
+            if measure:
+                durable(timing/f"{policy}.json",dict(policy=policy,requests=times))
             durable(args.output / f"complete-{policy}.json", dict(policy=policy, requests=len(tasks)))
 
 
