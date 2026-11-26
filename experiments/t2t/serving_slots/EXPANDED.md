@@ -105,6 +105,8 @@ GPU0 固定档新增 Gemma Q64（K16，用已解码但非前缀的旧行换前�
 
 **Gemma 首次真实开块。** 冻结集 index 75、seed 17075、145 行提示：`active_w2` 的第 3 次 decoder forward 首次投影 Q512。保存实际 encoder KV、两块 token、位置、self-conditioning 与 RNG；回放前块 logits 与原调用逐位一致。只改后块首 token 后，保留掩码时前块第 26 层 experts 有差异，但**最终前块 logits 差为 0**；开放前块 Q 读后块 K 时，首差在第 0 层 attention，最终最大 logit 差 **13.3357**，top-1 仍 0/256 改变。只走 clone/写入路径但写回原遮挡值，在原输入和扰动输入下都逐层复现原掩码。此为 n164 CPU BF16 的一个真实状态，不与上面新初始化 canvas 的探针冲突；它说明是否改写了最终 logits 也依赖具体状态。GPU0 的 A/B 结束后单列同题重放，若未触发则记为未触发。[原始数值](controls/mask-gemma-first-dual-case75.json) · [独立探针](gemma_trigger_probe.py)。
 
+同样预先限定 7 个 decoder forward，在原 30 题的 index 0、seed 17000 上[没有触发真实双块](controls/mask-gemma-first-dual-case0.json)。这条保留而不换题；它既不是掩码有效的零差证据，也不能推断整个请求从未开过第二块。
+
 **为什么比较 logits 而不只比较生成文本。** Gemma 真实 `_denoising_step` 既调用 `multinomial`，又为 renoise 生成整块随机数。在固定 logits 的 CPU 对照里，三个种子下，暂停尾块采样都改变了下一轮头块的 proposal 和 canvas；诊断性地消费并丢弃同形状的尾块采样，可逐位复现头块和随机数状态，不需要额外模型 forward。这不是部署建议，更不是对真实生成等价性的证明。见 [`test_gemma_sampler_clock.py`](../../../tests/test_gemma_sampler_clock.py)。
 
 **已有的任务级证据。** LLaDA 2.1 在同一组 30 题上的历史 Optimus OBS 开关对照（固定窗口，非硬限额）。以下各列均为**关→开**；效率从[归档数表](../../optimus-masked-obs/summary.csv)的 `N` 和 `physical_Q` 重算，与本报告口径一致。

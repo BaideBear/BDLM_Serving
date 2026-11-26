@@ -1,0 +1,17 @@
+{
+  "index": 0,
+  "seed": 17000,
+  "device": "cpu",
+  "q": 512,
+  "prompt_rows": 48,
+  "policy": "active_w2",
+  "decoder_step_limit": 7,
+  "attention": "sdpa",
+  "experts": "grouped_mm",
+  "dtype": "torch.bfloat16",
+  "torch": "2.9.0+cu128",
+  "status": "no_trigger",
+  "capture_decoder_forwards": 7,
+  "checkpoint": "../../models/diffusiongemma-cd40195",
+  "threads": 4
+}
