@@ -6,6 +6,28 @@
 
 ## 固定曲线
 
+### Gemma 高档：与 Optimus、FlowBlock 的实测对照
+
+[配对表：原30、新60、全90、质量差区间及实际工作](controls/gemma-mixed-vs-external.csv)。下表是相同90题及种子，从该基线改用「两轮原生256、两轮稀疏128」的救回/丢失。纯 prompt 不计，其余 forward 及物理 Q 全计；TPF 为逐题 `N/F` 的均值，效率为总 `N/Q`。
+
+| 对照 | 正确 | TPF | token efficiency | F | 物理 Q | 换用混合策略救回 / 丢失 |
+|---|---:|---:|---:|---:|---:|---:|
+| 混合 256n,256n,128,128 | 86 | 22.357 | 9.49% | 1685 | 346119 | — |
+| Optimus IBS128，原版 | 79 | 16.418 | 13.39% | 2042 | 228563 | 8 / 1 |
+| Optimus OBS128，原版 | 81 | 16.298 | 9.09% | 2772 | 364699 | 6 / 1 |
+| Optimus IBS256，原版 | 79 | 23.656 | 10.35% | 1563 | 311129 | 7 / 0 |
+| Optimus OBS256，原版 | 80 | 21.908 | 6.86% | 1852 | 474160 | 7 / 1 |
+| FlowBlock W1（原生256） | 85 | 25.510 | 8.77% | 1397 | 357632 | 1 / 0 |
+| FlowBlock W2（双块512） | 84 | 25.390 | 4.38% | 1494 | 742912 | 3 / 1 |
+
+OBS256 是目前较好的对照：混合少用27.0%总Q，TPF 点估略高；IBS256 则比混合少用Q、TPF更高，但少对7题。Flow W1 少1题、少288次 forward，只比混合多用3.2%总Q。单次90题的结果不是普遍胜出，也不表示每个请求都省计算；Q是行数，不能换算为等量GPU时间。
+
+**物理限额对照单列，不替换上述原版结果。** 原版 IBS128/OBS128/IBS256/OBS256 的实测 decoder 峰值为129/129/256/257。混合自身619个低档选位轮有23轮必刷超额，合计1410行，峰值256。其 `bootstrap/verify/reencode` 等不消耗选位 offer 但照常计费。两边都给出实测工作，不把「相同名义档位」描述为「相同每轮物理上限」。
+
+新 Gemma Optimus 对照以 `--suite frozen90 --modes ibs obs --capped-plans 256,256,128,128 256 128 128,128,256,256 --uncapped90 "$D"` 启用；checkpoint、samples、output 参数同原 runner。每次 decoder 的 Q/K/V 投影前限制真实行数，双块 OBS 共用一份限额（范围为 B+最高档）。上轮 admission 未刷完不提前移入已缓存前缀。原生选位没有触发限额时不改它；固定臂未触发的请求校验原版 ID、事件、旧 trace 和 F/Q 全等。Optimus Gemma 本适配器只对选中的未解码位置提交 token；重算 KV 不计新 token。encoder 跨块 256 行照常计入总账，但不占 decoder offer。每次 decoder 消耗一次 offer，无跨题/跨块重置（只在新请求重置）。新臂须完整90题、审计通过后才报告分数。
+
+重建：`python -m experiments.t2t.serving_slots.external_report --data "$D" --out "$PRIVATE_SCORES"`；受限臂齐全后加 `--capped "$CAP_RUN"`。物理审计另核验每次所选位置与真实 decoder 宽度、候选/裁掉行数、admit 与已刷位置关系，不用名义 Q×F 代替实际工作。
+
 [单一 K0 策略的原30、新60、全90](fixed-k0.csv)，可用 `python -m experiments.t2t.serving_slots.fixed_slots` 重建。每个预算均为同一零注入算法，不从已观察的多个前缀选法中挑赢家拼成曲线。`macro_tpf=mean(N/F)`，`pooled_token_efficiency=sum(N)/sum(physical_Q)`，`q_per_f=sum(physical_Q)/sum(F)`，纯 prompt prefill 除外。Gemma 主槽 32/64/128/256，16 保留作低预算诊断；LLaDA 主槽 4/8/16/32，真正 Q64 要两个块。Gemma 512 同理，暂不列有效配置。
 
 同一道题可比较不同完整策略，但 Optimus 含不同的采样/提交策略。按相同名义槽位比较 IBS/OBS；FlowBlock W1/W2 是一/两块的参考，不是每个小 Q 的等成本基线。和外部对照同时列总体与逐请求成本，未经校准不作等成本结论。相邻档的升档效果按固定题、固定种子做配对，报告救回、丢失、TPF 差区间，不要求通过筛题构造单调性。[LLaDA 真双块历史实测](../dual64/README.md)不能与单块 Q64 别名混用。

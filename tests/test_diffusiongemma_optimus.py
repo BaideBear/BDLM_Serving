@@ -9,6 +9,7 @@ import torch
 from bdlm_serving.methods.optimus.upstream import load_controls
 from bdlm_serving.runtime.diffusiongemma_optimus import B, CAP, CHUNKS, Resident, controller
 from bdlm_serving.runtime.diffusiongemma_optimus import check_reproduction, historical_refs
+from bdlm_serving.runtime.optimus_limits import limited_rows, parse_caps, validate_trace
 from bdlm_serving.evaluation.frozen import sha
 from tools.prefix_cohorts import optimus_chunk
 
@@ -42,6 +43,75 @@ class GemmaOptimusTest(unittest.TestCase):
             old = np.zeros(2*B,dtype=np.uint8)
             old[1:1+c] = 1
             self.assertGreater(len(self.select("obs",c,old)),c)
+
+    def test_limit_only_when_binding_and_drain_before_new_admit(self):
+        prior = np.array([1,0,1,1,1,0], dtype=np.uint8)
+        dirty = np.array([0,0,1,1,1,0], dtype=bool)
+        positions = np.arange(6)
+        self.assertIs(limited_rows(positions,prior,dirty,6), positions)
+        self.assertEqual(limited_rows(positions,prior,dirty,2).tolist(), [2,3])
+        self.assertEqual(limited_rows(positions,prior,dirty,4).tolist(), [1,2,3,4])
+        with self.assertRaisesRegex(ValueError,"replay plan"):
+            limited_rows(positions[:3],prior,dirty,4)
+        self.assertEqual(parse_caps("256,256,128,128",CHUNKS),(256,256,128,128))
+        for invalid in ("256n","0","01","512","256,"):
+            with self.assertRaises(ValueError):
+                parse_caps(invalid,CHUNKS)
+
+    def test_capped_traces_across_slide_with_dense_and_scattered_admissions(self):
+        for mode in ("ibs","obs"):
+            for slots in ((128,), (256,), (256,256,128,128),(128,128,256,256)):
+                for seed in range(3):
+                    rng = np.random.default_rng(seed)
+                    trace, events, carry = [], [("encoder",13)], None
+                    resolved = np.zeros(2*B, dtype=np.uint8)
+                    dirty = np.zeros(2*B, dtype=bool)
+                    for start in range(0,2*B,B):
+                        # Use the same controller, cap and delayed-prefix update as generation.
+                        ctl,width = controller(self.controls,mode,max(slots),CAP-2*B+start,carry)
+                        buf=np.empty(width,dtype=np.int64)
+                        for step in range(2*width+4):
+                            part=slice(start,start+width)
+                            prior=resolved[part].copy()
+                            if ctl.cached_prefix_len >= B:
+                                carry=prior[B:].copy()
+                                break
+                            tick=len(trace)
+                            offer=slots[tick%len(slots)]
+                            size,_=ctl.fill_processing_buffers(buf,0,prior,chunk_size_override=offer)
+                            local=limited_rows(buf[:size].copy(),prior,dirty[part],offer)
+                            if mode=="ibs" and slots==(256,):
+                                self.assertEqual(buf[:size].tolist(),local.tolist())
+                            dirty[start+local]=False
+                            before=prior.copy()
+                            before[dirty[part]]=0
+                            masks=local[prior[local]==0]
+                            admit=(masks if seed==0 or len(masks)<2 else
+                                   np.sort(rng.choice(masks,size=(len(masks)+1)//2,replace=False)))
+                            resolved[start+admit]=1
+                            dirty[start+admit]=True
+                            ctl.update_from_mask(before,mark_ready_if_all_left_non_mask=True,
+                                                 dllm_mask_cur=resolved[part])
+                            events.append(("decoder",len(local)))
+                            trace.append(dict(tick=tick,offer=offer,q=len(local),block=start//B,
+                                positions=(start+local).tolist(),admitted=(start+admit).tolist(),
+                                accepted=len(admit),ready=ctl.cached_prefix_len,proposed_q=size,
+                                cross=int((local>=B).sum()),visible_end=start+int(max(local))+1))
+                            if ctl.cached_prefix_len >= B:
+                                carry=before[B:].copy()
+                                break
+                        else:
+                            self.fail("capped requests must progress")
+                        if start==0:
+                            events.append(("encoder",B))
+                    q=sum(n for _,n in events[1:])
+                    row=dict(policy=mode+"_cap_"+"_".join(map(str,slots)),events=events,trace=trace,
+                        generation_forwards=len(events)-1,generation_query_rows=q,generation_physical_padded_rows=q,
+                        max_q=max(n for _,n in events[1:]),max_decoder_q=max(s["q"] for s in trace))
+                    validate_trace(row)
+                    trace[0]["offer"]=0
+                    with self.assertRaisesRegex(ValueError,"cap"):
+                        validate_trace(row)
 
     def test_reproduction_includes_trace_and_stable_source(self):
         with TemporaryDirectory() as root:

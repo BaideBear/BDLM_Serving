@@ -14,6 +14,7 @@ from ..evaluation.original30 import check_reproduction, pin_rows, save_json
 from ..evaluation.frozen import ROOT, load_tasks, sha
 from ..methods.optimus.upstream import COMMIT, load_controls
 from .diffusiongemma import check_snapshot, observe
+from .optimus_limits import limited_rows, parse_caps, validate_trace
 
 CHUNKS = (4, 8, 16, 32, 64, 128, 256)
 B = 256
@@ -90,14 +91,14 @@ def resident_attention(model, bank):
         yield
 
 
-def generate(model, data, controls, unmask, mode, c, qualify=False):
+def generate(model, data, controls, unmask, mode, c, qualify=False, caps=()):
     bank = Resident()
     bank.bypass = False
     with resident_attention(model,bank):
-        return _generate(bank,model,data,controls,unmask,mode,c,qualify)
+        return _generate(bank,model,data,controls,unmask,mode,c,qualify,caps)
 
 
-def _generate(bank, model, data, controls, unmask, mode, c, qualify):
+def _generate(bank, model, data, controls, unmask, mode, c, qualify, caps):
     cfg, kw = model._prepare_generation_config(None, max_new_tokens=CAP)
     prefix, mask = data["input_ids"], data["attention_mask"].bool()
     plen, device = prefix.shape[1], prefix.device
@@ -122,6 +123,7 @@ def _generate(bank, model, data, controls, unmask, mode, c, qualify):
     # Initialize identical random canvases for every arm before policy-specific re-noising.
     ids = torch.cat([sampler.initialize_canvas(1,device) for _ in range(CAP//B)],dim=1)
     resolved = np.zeros(CAP,dtype=np.uint8)
+    dirty = np.zeros(CAP, dtype=bool) if caps else None
     masks = dict.fromkeys(model.config.text_config.layer_types)
     trace, previous = [], None
     vocab = model.model.decoder.embed_tokens.weight.shape[0]
@@ -137,10 +139,15 @@ def _generate(bank, model, data, controls, unmask, mode, c, qualify):
             if ctl.cached_prefix_len >= B:
                 previous = prior[B:].copy()
                 break
-            n, _ = ctl.fill_processing_buffers(buf, 0, prior)
+            tick = len(trace)
+            offer = caps[tick % len(caps)] if caps else c
+            n, _ = ctl.fill_processing_buffers(buf, 0, prior, chunk_size_override=offer)
             if n <= 0:
                 raise RuntimeError("empty Optimus selection")
-            local = buf[:n].copy()
+            candidate = buf[:n].copy()
+            local = (limited_rows(candidate, prior, dirty[start:start+width], offer)
+                     if caps else candidate)
+            n = len(local)
             absolute = start+local
             seen = bank.initialized[absolute].copy()
             bank.select(start, absolute, device)
@@ -168,6 +175,15 @@ def _generate(bank, model, data, controls, unmask, mode, c, qualify):
             sc_bank.index_copy_(0,index % (2*B),logits.to(dtype))
             unresolved = prior[local] == 0
             accepted = 0
+            if caps:
+                dirty[absolute] = False
+                # Unflushed admissions may not advance the frontier or retire.
+                frontier_prior = prior.copy()
+                frontier_prior[dirty[start:start+width]] = 0
+                if dirty.any() and unresolved.any():
+                    raise RuntimeError("A drain forward attempted to decode")
+            else:
+                frontier_prior = prior
             if unresolved.any():
                 sel = torch.as_tensor(local[unresolved],device=device)
                 raw = logits[torch.as_tensor(unresolved,device=device)]
@@ -183,18 +199,26 @@ def _generate(bank, model, data, controls, unmask, mode, c, qualify):
                 noise = torch.randint(sampler.vocab_size,proposal.shape,device=device)
                 ids[0,start+sel] = torch.where(take,proposal,noise)
                 resolved[start:start+width] = now
-            ctl.update_from_mask(prior, mark_ready_if_all_left_non_mask=True,
+                if caps:
+                    dirty[start:start+width] |= (now != prior)
+            ctl.update_from_mask(frontier_prior, mark_ready_if_all_left_non_mask=True,
                                  dllm_mask_cur=resolved[start:start+width])
             trace.append(dict(block=start//B,step=step,q=n,accepted=accepted,ready=ctl.cached_prefix_len,
                               cross=int((local>=B).sum()),visible_end=bank.end))
+            if caps:
+                trace[-1].update(tick=tick, offer=offer, proposed_q=len(candidate),
+                                 positions=absolute.tolist(),
+                                 admitted=(start+np.flatnonzero(now != prior)).tolist() if accepted else [])
+                if n > offer or accepted > n:
+                    raise RuntimeError("Optimus exceeded the physical update envelope")
             if qualify and len(trace)==2:
                 return [], trace
             if ctl.cached_prefix_len >= B:
-                previous = prior[B:].copy() if mode=="obs" else None
+                previous = frontier_prior[B:].copy() if mode=="obs" else None
                 break
         else:
             raise RuntimeError("Optimus progress bound exceeded")
-        if not resolved[start:start+B].all():
+        if not resolved[start:start+B].all() or (caps and dirty[start:start+B].any()):
             raise RuntimeError("retired unfinished canvas")
         head = ids[0,start:start+B].tolist()
         stop = next((i for i,t in enumerate(head) if t in eos),None)
@@ -235,15 +259,42 @@ def run(args, before_cuda=None):
     if suite not in ("frozen30", "frozen90"):
         raise ValueError(f"Unknown suite: {suite}")
     tasks = (frozen90.load_tasks if suite == "frozen90" else load_tasks)(args.samples)
-    policies = [(m,c) for c in args.chunks for m in args.modes]
+    caps = [parse_caps(s, CHUNKS) for s in (getattr(args, "capped_plans", None) or ())]
+    if caps and suite != "frozen90":
+        raise ValueError("Use frozen90 for the separately labelled capped comparison")
+    policies = ([(m,max(plan),plan) for plan in caps for m in args.modes] if caps
+                else [(m,c,()) for c in args.chunks for m in args.modes])
+    def label(m,c,plan):
+        return f"{m}_cap_"+"_".join(map(str, plan)) if plan else f"{m}_{c}"
     if not policies or len(set(policies)) != len(policies):
         raise ValueError("empty or duplicate configurations")
-    settings = dict(native, policies=[f"{m}_{c}" for m,c in policies],
+    settings = dict(native, policies=[label(*p) for p in policies],
                     upstream=COMMIT, hashes=hashes, acceptance="optimus_dynamic_sparse_argmax_0.9",
-                    hard_q_cap=False, torch=str(torch.__version__))
+                    hard_q_cap=bool(caps), torch=str(torch.__version__))
     refs = {}
+    cap_root = getattr(args, "uncapped90", None)
+    cap_refs = {}
     if suite == "frozen90":
-        refs = historical_refs(getattr(args, "reference30_root", None), policies, settings)
+        if caps:
+            settings.update(cap_clock="all_decoder_forwards_request_local", cap_excludes="encoder",
+                            capped_plans=caps, obs_extent="B+max(schedule)", actual_token_edits="M2T only")
+            if cap_root is not None:
+                for folder in ("gemma-optimus-reference90","gemma-optimus-primary90"):
+                    path = Path(cap_root)/folder
+                    base = json.loads((path/"run.json").read_text())
+                    if (base["suite"] != suite or base["hard_q_cap"] or
+                            base["samples_sha256"] != sha(args.samples) or
+                            any(base[k] != settings[k] for k in ("upstream","hashes","acceptance","torch"))):
+                        raise ValueError("Mismatched uncapped reference")
+                    for key in base["policies"]:
+                        if key in cap_refs:
+                            raise ValueError(f"Duplicate uncapped arm: {key}")
+                        cap_refs[key] = path
+                for m,c,plan in policies:
+                    if len(plan) == 1 and not (cap_refs[f"{m}_{c}"]/f"complete-{m}_{c}.json").is_file():
+                        raise ValueError("Incomplete uncapped fixed arm")
+        else:
+            refs = historical_refs(getattr(args, "reference30_root", None), [(m,c) for m,c,_ in policies], settings)
         settings.update(model="gemma", block=B, suite=suite, seed_offset=0,
                         samples_sha256=sha(args.samples))
     check_snapshot(args.checkpoint)
@@ -267,15 +318,15 @@ def run(args, before_cuda=None):
             torch.manual_seed(tasks[0]["seed"])
             generate(model,inputs[0],controls,unmask,m,B,qualify=True)
         print("Smoke passed: native/selected first-step logits bit-identical; sparse Q observed.",flush=True)
-        if refs:
+        if refs or caps:
             save_json(args.output/"qualified-logits.json", dict(modes=list(args.modes), chunk=B,
                       first_step_logits="bit_identical", index=0))
-        for mode,c in policies:
-            policy = f"{mode}_{c}"
+        for mode,c,plan in policies:
+            policy = label(mode,c,plan)
             for t,data in zip(tasks,inputs,strict=True):
                 torch.manual_seed(t["seed"])
                 with observe(model) as events:
-                    seq, trace = generate(model,data,controls,unmask,mode,c)
+                    seq, trace = generate(model,data,controls,unmask,mode,c,caps=plan)
                 if (events[0] != ("encoder",data["input_ids"].shape[1]) or
                     [q for tag,q in events[1:] if tag=="decoder"] != [x["q"] for x in trace] or
                     any(q!=B for tag,q in events[1:] if tag=="encoder") or
@@ -290,6 +341,20 @@ def run(args, before_cuda=None):
                     max_q=max(q for _,q in events[1:]),max_decoder_q=max(x["q"] for x in trace),
                     tpf=n/f,token_efficiency=n/q,eos=seq[-1] in eos,truncated=seq[-1] not in eos)
                 path = args.output/f"{t['index']:02d}-{policy}.json"
+                if plan:
+                    validate_trace(row)
+                    if cap_refs and len(plan) == 1:
+                        bound = any(s["proposed_q"] > s["offer"] for s in trace)
+                        if (mode,c) == ("ibs",B) and bound:
+                            raise RuntimeError("IBS B256 must fit a full-block cap")
+                        if not bound:
+                            ref = json.loads((cap_refs[f"{mode}_{c}"]/f"{t['index']:02d}-{mode}_{c}.json").read_text())
+                            stable = dict(row, policy=f"{mode}_{c}",
+                                          trace=[{k:v for k,v in s.items() if k not in
+                                                  ("tick","offer","proposed_q","positions","admitted")}
+                                                 for s in trace])
+                            if json.loads(json.dumps(stable)) != ref:
+                                raise ValueError(f"Nonbinding capped run differs: {policy}/{t['index']}")
                 if refs and t["index"] < 30:
                     check_reproduction(refs[policy][t["index"]], row)
                 save_json(path, row)
@@ -297,7 +362,7 @@ def run(args, before_cuda=None):
                     save_json(args.output/f"reproduced30-{policy}.json", dict(policy=policy,
                               reference_sha256=[h for _, h in refs[policy]], matched=30))
                 print(policy,t["task_id"],f"N={n} F={f} Q={q}",flush=True)
-            if refs:
+            if refs or caps:
                 save_json(args.output/f"complete-{policy}.json", dict(policy=policy, requests=len(tasks)))
 
 
@@ -309,4 +374,6 @@ if __name__ == "__main__":
     parser.add_argument("--chunks",choices=CHUNKS,type=int,nargs="+",default=CHUNKS)
     parser.add_argument("--suite", choices=("frozen30", "frozen90"), default="frozen30")
     parser.add_argument("--reference30-root", type=Path)
+    parser.add_argument("--capped-plans", nargs="+", help="Labelled decoder caps, e.g. 256,256,128,128")
+    parser.add_argument("--uncapped90", type=Path, help="Require unchanged outputs/work on nonbinding fixed runs")
     run(parser.parse_args())

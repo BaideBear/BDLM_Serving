@@ -378,6 +378,9 @@ def normalize_request(raw, case, role):
         fixed_chunk=64
     elif model == "gemma" and _GEMMA_OPTIMUS.fullmatch(policy):
         fixed_chunk = optimus_chunk(raw, block)
+    elif model == "gemma" and policy.startswith(("ibs_cap_","obs_cap_")):
+        from bdlm_serving.runtime.optimus_limits import validate_trace
+        fixed_chunk = validate_trace(raw, block)
     elif model == "gemma" and policy in ("flow_w1", "flow_w2"):
         check_gemma_wave(raw, block)
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
