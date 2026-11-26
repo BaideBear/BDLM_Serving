@@ -78,6 +78,32 @@ def _state(kernel, *, cfg=CFG, prompt_length=34, gen_length=1, eos_ids=()):
     return kernel.create(torch.full((1, prompt_length), 3), cfg, gen_length, 29, MASK, eos_ids)
 
 
+@pytest.mark.parametrize("q", [6, 32])
+def test_physical_prefix_same_state_swap_gathers_real_nonprompt_rows(q):
+    plans = []
+    for mode, mask_slots in (("hard_prefix_zero", q), ("hard_prefix_frontier_right", q - 2)):
+        model = _Toy(edit=False).eval()
+        # Only retire rows 2 and 3; select one remaining MASK per step.
+        kernel = LLaDASparseKernel(model, q, 0, mask_slots, policy=mode)
+        state = _state(kernel)
+        for _ in range(4):
+            kernel.step(state)
+        e = state.events[-1]
+        p = e["prefix_plan"]
+        assert e["stage"] == "selected" and e["actual_q"] == e["physical_q"] == p["actual_width"]
+        assert e["absolute_positions"] == [32 + i for i in p["selected_rows"]]
+        assert len(p["fresh_rows"]) == 1 and p["fresh_rows"][0] in range(4, 32)
+        assert p["eligible_prefix_rows"] == [2, 3]
+        assert p["first_mask"] == (5 if p["fresh_rows"] == [4] else 4)
+        assert p["first_mask"] in p["selected_rows"]
+        plans.append(p)
+    zero, right = plans
+    assert zero["selected_rows"] == right["zero_rows"] and zero["actual_width"] == right["actual_width"]
+    assert right["added_rows"] == [2, 3] and right["evicted_rows"] == zero["zero_mask_rows"][-2:]
+    if q == 32:
+        assert zero["actual_width"] < q
+
+
 def test_selected_gather_and_final_commit_are_separately_charged():
     model = _Toy().eval()
     kernel = LLaDASparseKernel(model, 5, 1, 2)

@@ -17,6 +17,7 @@ from transformers.cache_utils import DynamicCache
 
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
+from .physical_prefix import PREFIX_MODES, plan_prefix, prefix_quota
 from .seat_audit import MODES, SeatAudit, canvas_digest, digest
 from .committed_usage import CommittedUsage
 from .context_gate import FIXED_CONTEXT
@@ -29,7 +30,7 @@ from bdlm_serving.runtime.serial import RequestState, SerialKernel
 _GATED = ("near_miss", "gate_random")
 _HAZARD = ("hard_hazard_fixed", "hard_hazard_gate")
 from .exchange import AGE_ARMS, ONLINE_MODES as EXCHANGE, PLACEBOS, VETO
-_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + CONTEXT + MODES + _HAZARD + tuple(EXCHANGE)
+_HARD = HARD_POLICIES + GEOMETRY_POLICIES + ("hard_oracle1",) + CONTEXT + MODES + _HAZARD + tuple(EXCHANGE) + PREFIX_MODES
 _VETO_POLICY = "hard_exchange_edit4_veto"
 
 
@@ -199,6 +200,8 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("Invalid B32 budget/quotas")
         if policy == "noedit" and fresh_slots + mask_slots != q_budget:
             raise ValueError("noedit requires zero reserved edit seats")
+        self.prefix_quota = (prefix_quota(32, q_budget, fresh_slots, mask_slots, policy)
+                             if policy in PREFIX_MODES else None)
         if model.training or isinstance(model, ModelFacade):
             raise ValueError("Pass the raw eval LLaDA2.1 model, not a facade")
         self.projections = tuple(layer.attention.query_key_value for layer in model.model.layers)
@@ -290,7 +293,7 @@ class LLaDASparseKernel(SerialKernel):
     def _forward(self, state, q_start, q_end, store, phase, stage=None):
         if state.cache.get_seq_length() != q_start:
             raise RuntimeError("Committed KV / dense Q start mismatch")
-        resident_needed = not store and self.q_budget < 32
+        resident_needed = not store and (self.q_budget < 32 or self.prefix_quota is not None)
         # DynamicCache append rebinds tensors; only the temporary wrapper grows.
         cache = state.cache if store else DynamicCache.from_legacy_cache(state.cache.to_legacy_cache())
         audit = _AuditedDenseCache(cache, q_end - q_start, q_end)
@@ -502,19 +505,25 @@ class LLaDASparseKernel(SerialKernel):
                 state.last_write, state.last_query = [-1] * 32, [-1] * 32
         gate = state.gate_evidence
         hard = self.policy in _HARD
+        prefix_plan = None
         if hard:
             hard_reserved = []
         if gate is not None:
             tags = gate.categories(state, before, start)
             reserved, released = [], 0
-        if not count or first or self.q_budget == 32:
+        if not count or first or (self.q_budget == 32 and self.prefix_quota is None):
             stage = "verify" if not count else "bootstrap" if first else "dense"
             picked = list(range(32))
             logits = self._forward(state, start, end, False, "denoise", stage)
         else:
             stage = "selected"
             editable = range(max(0, state.prompt_length - start), 32)
-            if hard:
+            if self.prefix_quota is not None:
+                prefix_plan = plan_prefix(resolved, editable, state.history.fresh,
+                    self.q_budget, self.prefix_quota, self.policy, seed=state.selection_seed,
+                    block_start=start, clock=state.step_in_block)
+                picked, hard_reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
+            elif hard:
                 picked, hard_reserved = self._hard_pick(state, editable, resolved, before)
             elif gate is not None:
                 picked, reserved, released = self._gate_pick(state, editable, start, tags)
@@ -526,6 +535,8 @@ class LLaDASparseKernel(SerialKernel):
             positions = local + start
             cache = _SelectedCache(state.resident, positions, start, end)
             logits = self._execute(state, positions, end, cache, "denoise", stage, False)
+            if prefix_plan is not None:
+                state.events[-1]["prefix_plan"] = prefix_plan.audit()
         if self.capture_logits:
             self.last_logits = logits.detach().clone()
         proposed, confidence = self._sample(state, logits)

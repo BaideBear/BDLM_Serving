@@ -12,7 +12,8 @@ MASK is a boolean state, never a vocabulary ID.
 Each canvas starts full. A sparse stop is a request for a full native step at
 the next clock, not permission to commit. The last clock is always full. The
 outer generate commits that step's argmax, not sampled IDs or acceptance bits.
-At full budget, native denoising and SDPA run unmodified and no RNG is added.
+The non-prefix full-width bridge runs native denoising and SDPA unmodified.
+Prefix policies can remain sparse even at a canvas-sized nominal budget.
 """
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from types import SimpleNamespace
 import torch
 
 from .planner import History, allocate
+from .physical_prefix import PREFIX_MODES, plan_prefix, prefix_quota
 from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
@@ -204,12 +206,14 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             and fresh_slots + mask_slots <= q_budget):
         raise ValueError("Invalid Gemma canvas budget or quota")
     refresh_only = policy == "hard_trigger_refresh"
-    if policy not in ("targeted", "random", "noedit", "fresh_random", "hard_trigger_refresh", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL, GEMMA_CONDITIONAL) or signal not in (
+    if policy not in ("targeted", "random", "noedit", "fresh_random", "hard_trigger_refresh", *_HARD_POLICIES, *MODES, *GEMMA_FACTORIAL, GEMMA_CONDITIONAL, *PREFIX_MODES) or signal not in (
             "uncertain", "young", "neighbor", "recent_then_uncertain"):
         raise ValueError("Invalid Gemma selection policy or ranking signal")
+    quota = (prefix_quota(width, q_budget, fresh_slots, mask_slots, policy)
+             if policy in PREFIX_MODES else None)
     if model.training:
         raise ValueError("Expected an eval model")
-    dense_only = q_budget == width
+    dense_only = q_budget == width and quota is None
     all_rows = list(range(width))
     native = model._denoising_step
     rng = Random(selection_seed)
@@ -259,9 +263,17 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         else:
             stage = "selected"
         previous_clock = clock
-        hard = policy in _HARD_POLICIES or audit is not None or refresh_only
+        hard = policy in _HARD_POLICIES or audit is not None or refresh_only or quota is not None
         if hard:
             hard_clock += 1
+        prefix_plan = None
+        if stage == "selected" and quota is not None:
+            prefix_plan = plan_prefix(h.resolved, all_rows, h.fresh, q_budget, quota, policy,
+                                      seed=selection_seed, block_start=block, clock=clock)
+            if not prefix_plan.positions:
+                # All rows are accepted and none is fresh. No sparse Q can be
+                # issued; use the charged native verification path instead.
+                stage = "verify"
         selected = stage == "selected"
         prev_fresh = sorted(h.fresh) if hard else []
         mandatory_fresh = len(prev_fresh)
@@ -269,7 +281,11 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         candidate = stale_kv = None
         frozen_rows = []
         edit_slots = q_budget - fresh_slots - mask_slots
-        if selected and hard:
+        if selected and prefix_plan is not None:
+            picked, reserved = list(prefix_plan.positions), list(prefix_plan.added_rows)
+            fresh_selected = mandatory_fresh
+            overflow = max(0, len(picked) - q_budget)
+        elif selected and hard:
             (picked, reserved, mandatory_fresh, fresh_selected,
              overflow, edit_slots) = _hard_pick(
                 h, width, q_budget, fresh_slots, mask_slots,
@@ -405,6 +421,8 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
             admitted=admitted, edited=edited, revoked=revoked, resolved=sum(accepted),
             stop_candidate=proposed_stop, finished=bool(finished.item()), terminal_clock=clock == 1,
         )
+        if prefix_plan is not None:
+            record["prefix_plan" if selected else "prefix_empty_verify_plan"] = prefix_plan.audit()
         if hard:
             record.update(
                 reserved_extra_edit_positions=reserved,

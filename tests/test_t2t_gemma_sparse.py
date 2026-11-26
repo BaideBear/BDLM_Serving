@@ -193,6 +193,46 @@ def tiny():
 PROMPT = torch.tensor([[4, 5]])
 
 
+@pytest.mark.parametrize("width,q", [(6, 4), (6, 6), (256, 256)])
+@pytest.mark.parametrize("fully_accepted", [False, True])
+def test_physical_prefix_underfilled_swap_executes_same_width(tiny, width, q, fully_accepted):
+    tiny.config.canvas_length = width
+    native = tiny._denoising_step
+
+    def controlled_acceptance(**kw):
+        _, draft, sc, done = native(**kw)
+        # Bootstrap admits a strict prefix and a noncontiguous old row, but
+        # the next pass has no writes so those positions become non-fresh.
+        mask = ([True] * width if fully_accepted else
+                [True, True, True, False, True] + [False] * (width - 5))
+        kw["sampler"].accepted_token_mask[:] = torch.tensor([mask], dtype=torch.bool)
+        return kw["current_canvas"].clone(), draft, sc, torch.zeros_like(done)
+
+    tiny._denoising_step = controlled_acceptance
+    for mode, mask_slots in (("hard_prefix_zero", q), ("hard_prefix_frontier_right", q - 2)):
+        tiny.model.decoder.calls.clear()
+        torch.manual_seed(13)
+        with sparse_gemma(tiny, q, 0, mask_slots, policy=mode) as ledger:
+            tiny.generate(input_ids=PROMPT, max_new_tokens=width, max_denoising_steps=4)
+        event = ledger.trace[2]
+        if fully_accepted:
+            assert ledger.work == [("bootstrap", width), ("selected", width),
+                                   ("verify", width), ("verify", width)]
+            assert event["prefix_empty_verify_plan"]["zero_width"] == 0
+            assert "prefix_plan" not in event
+            expected = list(range(width))
+        else:
+            zero = list(range(3, width))
+            assert ledger.work == [("bootstrap", width), ("selected", q),
+                                   ("selected", len(zero)), ("verify", width)]
+            audit = event["prefix_plan"]
+            assert audit["zero_rows"] == zero and audit["underfill"] == q - len(zero)
+            expected = (zero if mode == "hard_prefix_zero" else
+                        [1, 2, 3, *range(5, width - 1)])
+            assert event["positions"] == audit["selected_rows"] == expected
+        assert tiny.model.decoder.calls[2][0][0].tolist() == [2 + i for i in expected]
+
+
 @pytest.mark.parametrize("seed", [1, 13, 149])
 def test_full_budget_parity_output_events_and_rng(tiny, seed):
     tiny.model.decoder.uncertain = True

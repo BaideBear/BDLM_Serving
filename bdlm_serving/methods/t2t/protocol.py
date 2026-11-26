@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from .exchange import ONLINE_MODES as EXCHANGE
 from .context_gate import CONTEXT, CROWDED, FIXED_CONTEXT, GATES
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
+from .physical_prefix import PREFIX_MODES, prefix_quota
 from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES
 
 
@@ -21,6 +22,11 @@ class Arm:
     def policy(self):
         return f"t2t_q{self.budget}_f{self.fresh}_m{self.mask}_{self.selection}"
 
+    def prefix_executable(self, block):
+        if self.selection in PREFIX_MODES and (block, self.budget) == (32, 64):
+            return Arm(block, self.fresh, block - self.fresh - self.edit, self.selection)
+        return self
+
     @classmethod
     def parse(cls, text, block):
         q, f, m, selection = text.split(":")
@@ -28,6 +34,12 @@ class Arm:
         # An explicitly labelled, single-block B32 saturation measurement, not
         # two-block Q64. Do not silently accept oversize legacy configurations.
         saturated = block == 32 and obj == cls(64, 0, 64, "hard_noedit")
+        if selection in PREFIX_MODES:
+            if block not in (32, 256):
+                raise ValueError("Physical prefix policies are supported on B32 and B256 only")
+            effective = obj.prefix_executable(block)
+            prefix_quota(block, effective.budget, effective.fresh, effective.mask, selection)
+            return obj
         if (not 1 <= obj.budget <= block and not saturated) or min(obj.fresh, obj.mask, obj.edit) < 0:
             raise ValueError(f"Invalid Q or quota: {text}")
         modes = ("targeted", "random", "noedit", *HARD_POLICIES) + (("near_miss", "gate_random", "hard_oracle1", *GEOMETRY_POLICIES) if block == 32
