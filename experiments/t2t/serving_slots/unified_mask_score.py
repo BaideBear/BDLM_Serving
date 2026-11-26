@@ -56,6 +56,8 @@ def load_pair(folder, *, tasks=None):
     pilot = suite == "cpu-pilot"
     if meta.get("device") != ("cpu" if pilot else "cuda:0"):
         raise ValueError("Suite/device mismatch")
+    if not pilot and read(Path(folder) / "returned.json") != {"gpu": 0, "restored": True}:
+        raise ValueError("Missing protected GPU return")
     indices = list(PILOT if pilot else range(90))
     if meta.get("indices") != indices:
         raise ValueError(f"{suite} must have indices {indices}; got {meta.get('indices')}")
@@ -109,6 +111,7 @@ def pair_cases(folder, on, off, indices, tasks, scorer=score):
         unified90.paired(a, b)
         rows.append(dict(
             index=index, dataset=tasks[index]["dataset"],
+            on_truncated=a["truncated"], off_truncated=b["truncated"],
             on_correct=bool(scorer(a["output_text"], tasks[index])["correct"]),
             off_correct=bool(scorer(b["output_text"], tasks[index])["correct"]),
             on_N=a["output_tokens"], off_N=b["output_tokens"],
@@ -127,6 +130,8 @@ def aggregate(rows):
                                sum(r["off_correct"] for r in rows))
     return dict(requests=len(rows), exposed=sum(r["exposed"] for r in rows),
                 on_correct=on_correct, off_correct=off_correct,
+                on_truncated=sum(r["on_truncated"] for r in rows),
+                off_truncated=sum(r["off_truncated"] for r in rows),
                 rescued=sum(r["on_correct"] and not r["off_correct"] for r in rows),
                 lost=sum(r["off_correct"] and not r["on_correct"] for r in rows),
                 on_macro_tpf=mean(r["on_tpf"] for r in rows),
@@ -173,6 +178,7 @@ def _row(cohort, scope, agg, ci):
         cohort=cohort, scope=scope, requests=agg["requests"],
         exposed=agg["exposed"], unexposed=agg["requests"] - agg["exposed"],
         on_correct=agg["on_correct"], off_correct=agg["off_correct"],
+        on_truncated=agg["on_truncated"], off_truncated=agg["off_truncated"],
         rescued=agg["rescued"], lost=agg["lost"],
         on_macro_tpf=agg["on_macro_tpf"], off_macro_tpf=agg["off_macro_tpf"],
         macro_tpf_delta=agg["on_macro_tpf"] - agg["off_macro_tpf"],
@@ -205,9 +211,41 @@ def table_rows(rows, pilot):
     return out
 
 
+def offer_work(folder, policy, indices):
+    """Attribute paid work to each decoder offer, including encoder calls it triggered."""
+    series = unified90.ARMS[policy][0]
+    totals = {}
+    for index in indices:
+        row = read(Path(folder) / f"{index:02d}-{policy}.json")
+        f = q = 0
+        for tick, e in enumerate(row["trace"]):
+            b = e["offer"]
+            if (e["tick"] != tick or b != series[tick % len(series)]
+                    or not 0 <= e["parked"] <= e["q"] or type(e["opportunity"]) is not bool):
+                raise ValueError("Wrong trace clock, parked rows or opportunity")
+            reenc = len(e["encoded"])
+            f += 1 + reenc
+            q += e["q"] + 256 * reenc
+            for cohort in ("original30" if index < 30 else "new60", "full90"):
+                t = totals.setdefault((cohort,b), defaultdict(int))
+                t["decoder_f"] += 1
+                t["decoder_q"] += e["q"]
+                t["encoder_f"] += reenc
+                t["encoder_q"] += 256 * reenc
+                t["exposed_ticks"] += e["opportunity"]
+                # Below 512 the tail is never sampled: zero refresh rows
+                # means zero tail projections, even when tail KV is visible.
+                t["exposed_low_cached_only"] += e["opportunity"] and b < 512 and e["parked"] == 0
+                t["exposed_low_with_refresh"] += e["opportunity"] and b < 512 and e["parked"] > 0
+        if (f,q) != (row["generation_forwards"],row["generation_physical_padded_rows"]):
+            raise ValueError("Offer work does not reconstruct the request")
+    return [dict(policy=policy, cohort=c, offer=b, **t) for (c,b),t in sorted(totals.items())]
+
+
 def write(out, meta, rows):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
+    rows = [dict(on_policy=meta["on"], off_policy=meta["off"], **r) for r in rows]
     table(out / "paired.csv", rows)
     (out / "audit.json").write_text(json.dumps(dict(
         group=str(meta["folder"]), suite=meta["suite"], on=meta["on"], off=meta["off"],
@@ -229,6 +267,9 @@ def main(argv=None):
                     on=on, off=off, indices=indices,
                     samples_sha256=meta["samples_sha256"]),
           table_rows(rows, pilot))
+    if not pilot:
+        table(out / "offer-work.csv", offer_work(args.group, off, indices)
+              + offer_work(args.group, on, indices))
     print(f"wrote {out}")
     return 0
 

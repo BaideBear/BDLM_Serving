@@ -1,0 +1,7 @@
+policy,cohort,offer,decoder_f,decoder_q,encoder_f,encoder_q,exposed_ticks,exposed_low_cached_only,exposed_low_with_refresh
+q512_open,full90,512,1288,384546,80,20480,226,0,0
+q512_open,new60,512,842,253092,56,14336,154,0,0
+q512_open,original30,512,446,131454,24,6144,72,0,0
+q512,full90,512,1265,359015,82,20992,144,0,0
+q512,new60,512,843,239207,58,14848,97,0,0
+q512,original30,512,422,119808,24,6144,47,0,0

@@ -17,7 +17,8 @@ def case(index, dataset, on_correct, off_correct, *, on_tpf=2.0, off_tpf=2.0,
     return dict(index=index, dataset=dataset, on_correct=on_correct,
                 off_correct=off_correct, on_N=on_n, off_N=off_n,
                 on_F=on_f, off_F=off_f, on_Q=on_q, off_Q=off_q,
-                on_tpf=on_tpf, off_tpf=off_tpf, exposed=exposed)
+                on_tpf=on_tpf, off_tpf=off_tpf, exposed=exposed,
+                on_truncated=False, off_truncated=False)
 
 
 def _write_run(folder, *, suite="cpu-pilot", indices=None, arms=None,
@@ -33,6 +34,8 @@ def _write_run(folder, *, suite="cpu-pilot", indices=None, arms=None,
         model="diffusiongemma", suite=suite, device="cpu" if suite=="cpu-pilot" else "cuda:0",
         indices=indices, arms=arms,
         samples_sha256=samples_sha)))
+    if suite == "frozen90":
+        (folder / "returned.json").write_text(json.dumps(dict(gpu=0, restored=True)))
     for policy in arms:
         if policy not in skip_complete:
             (folder / f"complete-{policy}.json").write_text(
@@ -55,11 +58,13 @@ def _write_run(folder, *, suite="cpu-pilot", indices=None, arms=None,
 def test_aggregate_exact_rescued_lost_and_efficiency():
     rows = [case(0, "gsm8k", True, False), case(1, "gsm8k", False, True),
             case(2, "math500", True, True), case(3, "humaneval", False, False)]
+    rows[1]["on_truncated"] = True
     agg = ums.aggregate(rows)
     assert (agg["requests"], agg["on_correct"], agg["off_correct"]) == (4, 2, 2)
     assert (agg["rescued"], agg["lost"]) == (1, 1)
     assert agg["on_macro_tpf"] == agg["off_macro_tpf"] == 2.0
     assert agg["on_eff"] == agg["off_eff"] == 10 / 50
+    assert (agg["on_truncated"], agg["off_truncated"]) == (1, 0)
 
 
 def test_pilot3_is_exact_counts_only_without_intervals():
@@ -105,6 +110,23 @@ def test_load_pair_and_pair_cases_use_committed_paired(tmp_path):
     assert all(row["on_correct"] and not row["off_correct"] for row in rows)
     agg = ums.aggregate(rows)
     assert agg["rescued"] == 3 and agg["lost"] == 0
+
+
+def test_low_offer_cached_only_versus_tail_refresh(tmp_path):
+    rec = dict(generation_forwards=5, generation_physical_padded_rows=175,
+               trace=[dict(tick=i, offer=b, q=q, parked=park, encoded=[], opportunity=exp)
+                      for i,(b,q,park,exp) in enumerate([(512,10,0,False),(512,80,0,True),
+                             (128,50,0,True),(32,23,2,True),(64,12,0,False)])])
+    path = tmp_path / "00-replay.json"
+    path.write_text(json.dumps(rec))
+    work = {r["offer"]:r for r in ums.offer_work(tmp_path,"replay",[0]) if r["cohort"]=="full90"}
+    assert work[128]["exposed_low_cached_only"] == work[32]["exposed_low_with_refresh"] == 1
+    assert work[512]["exposed_ticks"] == 1 and work[512]["exposed_low_cached_only"] == 0
+    assert sum(v["decoder_q"] for v in work.values()) == 175
+    rec["trace"][0]["encoded"]=[0]
+    path.write_text(json.dumps(rec))
+    with pytest.raises(ValueError, match="reconstruct"):
+        ums.offer_work(tmp_path,"replay",[0])
 
 
 def test_pair_cases_rejects_different_pre_intervention_input(tmp_path):

@@ -1,4 +1,4 @@
-"""Build one standalone SVG from four required mask controls and two optional fixed-offer CPU pilots.
+"""Build one standalone SVG from validated mask controls, with optional CPU and GPU cohorts.
 
     python mask_evidence_plot.py CONTROLS mask-evidence.svg
     python mask_evidence_plot.py CONTROLS --check
@@ -25,6 +25,8 @@ Q512 = "gemma-unified-q512-mask-pilot3.csv"
 ADMISSION = "llada21-q64-admission-mask-pilot3.json"
 CPU30 = "llada21-all-slots-mask-cpu-original30.json"
 GPU90 = "gemma-fixed512-mask-pair.csv"
+UNIFIED90 = "gemma-unified-replay-mask-gpu90.csv"
+FIXED90 = "gemma-unified-q512-mask-gpu90.csv"
 DATASETS = {0: "gsm8k", 10: "math500", 20: "humaneval"}
 
 
@@ -244,17 +246,21 @@ def cpu30(data):
 
 
 def gpu90(rows):
+    rows = [r for r in rows if r["scope"] == "all"]
+    require(all((r["model"], r["baseline_policy"], r["arm_policy"], int(r["nominal_q"])) ==
+                ("gemma","active_w2_mask_off","active_w2_mask_on",512) and int(r["failed"]) == 0
+                for r in rows), "Wrong GPU fixed pair or incomplete arm")
+    return gpu_pairs(rows)
+
+
+def gpu_pairs(rows):
     pairs = {}
     for r in rows:
-        if r["scope"] != "all":
-            continue
         n = int(r["requests"])
-        require((r["model"], r["baseline_policy"], r["arm_policy"], int(r["nominal_q"])) ==
-                ("gemma","active_w2_mask_off","active_w2_mask_on",512)
-                and r["cohort"] == {30:"original-0-29",60:"added-30-89",90:"all-0-89"}.get(n)
-                and n not in pairs, "Wrong GPU pair, cohort or endpoint")
+        require(r["cohort"] == {30:"original-0-29",60:"added-30-89",90:"all-0-89"}.get(n)
+                and n not in pairs, "Wrong GPU cohort or duplicate endpoint")
         exposure = int(r["requests_exposed"])
-        require(0 <= exposure <= n and int(r["failed"]) == 0, "Invalid GPU exposure or failures")
+        require(0 <= exposure <= n, "Invalid GPU exposure")
         sides = [arm(n, *(r[f"{p}_{k}"] for k in ("correct","N","F","physical_Q","macro_tpf",
                                                    "pooled_token_efficiency"))) for p in ("baseline","arm")]
         gain, loss = int(r["rescued"]), int(r["lost"])
@@ -271,6 +277,26 @@ def gpu90(rows):
     return [pairs[i] for i in (90,30,60)]
 
 
+def unified_gpu(rows, policy):
+    normalized = []
+    for row in rows:
+        require((row["on_policy"], row["off_policy"]) == (policy, policy+"_open"),
+                "Wrong unified mask policy or direction")
+        if row["scope"] != "all":
+            continue
+        n = int(row["requests"])
+        require(row["cohort"] == {30:"original30",60:"new60",90:"full90"}.get(n),
+                "Unexpected unified cohort")
+        norm = dict(scope="all", requests=n, cohort={30:"original-0-29",60:"added-30-89",90:"all-0-89"}[n],
+                    requests_exposed=row["exposed"], rescued=row["rescued"], lost=row["lost"])
+        for target, source in (("baseline","off"),("arm","on")):
+            for k in ("correct","N","F","physical_Q","macro_tpf"):
+                norm[target+"_"+k] = row[source+"_"+k]
+            norm[target+"_pooled_token_efficiency"] = row[source+"_token_efficiency"]
+        normalized.append(norm)
+    return gpu_pairs(normalized)
+
+
 def load(controls):
     def csv_rows(name):
         with (controls / name).open(encoding="utf-8", newline="") as f:
@@ -280,7 +306,9 @@ def load(controls):
     panels = {OBS: historical(csv_rows(OBS)), ACTIVE: active(read_json(ACTIVE)),
               REPLAY: replay(csv_rows(REPLAY)), LLADA: llada(read_json(LLADA))}
     for name, read, parse in ((Q512, csv_rows, lambda r: replay(r, "q512")), (ADMISSION, read_json, admission),
-                              (CPU30, read_json, cpu30), (GPU90, csv_rows, gpu90)):
+                              (CPU30, read_json, cpu30), (GPU90, csv_rows, gpu90),
+                              (UNIFIED90, csv_rows, lambda r: unified_gpu(r, "replay")),
+                              (FIXED90, csv_rows, lambda r: unified_gpu(r, "q512"))):
         try:
             data = read(name)
         except FileNotFoundError:
@@ -295,7 +323,7 @@ def figure(panels):
                       viewBox="0 0 1200 1000", role="img", attrib={"aria-labelledby": "title desc"})
     ET.SubElement(root, "title", id="title").text = "Cross-block mask: paired task evidence"
     ET.SubElement(root, "desc", id="desc").text = (
-        "Mask off to mask on. Historical LLaDA OBS original30 and separate LLaDA and DiffusionGemma CPU pilots.")
+        "Mask off to mask on. Separate panels for GPU task results, original30 controls and CPU pilots.")
     ink, mute, teal, orange = "#192d36", "#49616b", "#007568", "#a54524"
     def node(tag, **attrs):
         return ET.SubElement(root, tag, {k.replace("_", "-"): str(v) for k, v in attrs.items()})
@@ -319,6 +347,10 @@ def figure(panels):
                 "CPU BF16  /  full requests; same three pilot cases are included, not independent  /  10 per dataset"),
         GPU90: ("H   DiffusionGemma  |  Fixed Q512, active-only W2",
                 "n164 GPU  /  90 frozen requests; the original 30 and new 60 partition this cohort  /  same W2 admission"),
+        UNIFIED90: ("I   DiffusionGemma  |  Unified five-tier external replay",
+                    "n164 GPU  /  identical external offer sequence, task seeds and canvas RNG  /  all 90 retained"),
+        FIXED90: ("J   DiffusionGemma  |  Unified fixed Q512",
+                  "n164 GPU  /  same unified executor and frozen requests as panel I  /  fixed offer, not fixed total Q"),
     }
     require({OBS, ACTIVE, REPLAY, LLADA} <= panels.keys() <= headings.keys(), "Missing or unknown panel")
     y = 108
@@ -380,6 +412,10 @@ def figure(panels):
         text(40, y+69, "     ".join(f"{letter}: {name}" for letter, name in
              (("G", CPU30),("H", GPU90)) if name in panels), 12, mute)
     height = y+(86 if CPU30 in panels or GPU90 in panels else 68)
+    if UNIFIED90 in panels or FIXED90 in panels:
+        text(40, y+87, "     ".join(f"{letter}: {name}" for letter, name in
+             (("I", UNIFIED90),("J", FIXED90)) if name in panels), 12, mute)
+        height = y+104
     root.set("height", str(height))
     root.set("viewBox", f"0 0 1200 {height}")
     root.find("rect").set("height", str(height))
