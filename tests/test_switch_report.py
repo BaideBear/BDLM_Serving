@@ -1,0 +1,45 @@
+import copy
+import pytest
+
+from experiments.t2t.serving_slots.switch_report import audit
+
+
+def fixture():
+    def selected(tick, offer, fresh, masks):
+        rows = sorted(fresh + masks)
+        p = dict(fresh_rows=fresh, zero_mask_rows=masks, zero_backfill_rows=[], added_rows=[],
+                 evicted_rows=[], block_start=32, budget=offer, actual_width=len(rows),
+                 selected_rows=rows, overflow=max(0,len(rows)-offer))
+        return dict(stage="selected", phase="denoise", slot_offer=offer, slot_tick=tick,
+                    mandatory_fresh=len(fresh), physical_q=len(rows), layer_physical_q=[len(rows)]*2,
+                    absolute_positions=[32+i for i in rows], selected_masked_before=len(masks), prefix_plan=p)
+    events = [dict(phase="prefill", stage="prefill", physical_q=32),
+              dict(phase="denoise", stage="bootstrap", physical_q=32),
+              selected(0, 4, [2], [3,4,5]), selected(1, 2, [3,4,5], []),
+              dict(phase="commit", stage="commit", physical_q=32)]
+    return dict(model="llada21", events=events, generation_forwards=4, output_tokens=8,
+                generation_physical_padded_rows=71, generation_query_rows=71, q_by_phase=dict(selected=7))
+
+
+def test_work_counts_mandatory_overflow_and_realized_switch():
+    c = audit(fixture(), (4,2))
+    assert (c["down"],c["up"],c["switched_requests"]) == (1,0,1)
+    assert (c["mandatory"],c["masks"],c["overflow_rows"],c["charged_other"]) == (4,3,1,64)
+
+
+@pytest.mark.parametrize("mutation", ["tick","q","mandatory","commit","overlap"])
+def test_refuse_corrupted_work(mutation):
+    row = copy.deepcopy(fixture())
+    e = row["events"][2]
+    if mutation == "tick":
+        e["slot_tick"] = 3
+    elif mutation == "mandatory":
+        e["mandatory_fresh"] += 1
+    elif mutation == "q":
+        e["layer_physical_q"][-1] -= 1
+    elif mutation == "commit":
+        row["events"][-1]["slot_offer"] = 2
+    else:
+        e["prefix_plan"]["zero_backfill_rows"].append(3)
+    with pytest.raises(ValueError):
+        audit(row, (4,2))
