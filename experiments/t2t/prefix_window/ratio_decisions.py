@@ -24,6 +24,7 @@ def decision_table(source):
         "|---:|---|---|---:|---:|---|---|---|",
     ]
     notes = []
+    endpoints = []
     for q in MODELS["gemma"][1]:
         arms = [(q, k, s) for k in ratio_caps(q) for s in ("right", "random")]
         for arm in arms:
@@ -43,6 +44,15 @@ def decision_table(source):
         three = [r for r in good if float(r["efficiency"]) >= e]
         count = lambda arm, field: "/".join(by[(*arm, c)][field] for c in ("original30", "added60", "all90"))
         base = f"| {q} | {count(arms[0], 'zero_correct')} | {t:.3f}；{e:.2%} | {len(good)}/12 | {len(three)}/12 |"
+        end_arm = (q, q-1, "right")
+        end = by[(*end_arm, "all90")]
+        if (end["full_slack"] != "1" or float(end["share_all_generation"]) !=
+                int(end["added"]) / int(end["full_generation_q"])):
+            raise ValueError(f"Invalid full-slack exposure: Q{q}")
+        endpoints.append(f"| {q} | {q-1} | {end['affected_events']}/{end['selected_events']} | "
+                         f"{int(end['added']):,}/{int(end['full_generation_q']):,}（{float(end['share_all_generation']):.2%}） | "
+                         f"{z} → {end['correct']} | {t:.3f} → {float(end['tpf']):.3f} | "
+                         f"{e:.2%} → {float(end['efficiency']):.2%} |")
         if not good:
             table.append(f"{base} 无 | — | — |")
             continue
@@ -59,6 +69,11 @@ def decision_table(source):
               "先选正确数最高，再按效率、TPF 排序。仅作描述，不是独立验证或多重比较调整后的结论。"
               "全生成前缀占比是实际额外前缀行 / 全部生成物理 Q，不是 K/Q，也不是 token efficiency。",
               "", *notes, "",
+              "## 允许填满时，实际能加多少？", "",
+              "固定选前缀右端，避免跨预算挑选最有利的选法。以下是各配置**真实闭环推理**的全 90 题结果，"
+              "不是在零组轨迹上回放的预测。原计划的必刷和 MASK 都不被挤出；K 是单轮上限，不是每轮保证重算的行数。", "",
+              "| 名义 Q | K 上限 | 有注入的稀疏轮次 / 稀疏轮次 | 前缀行次 / 全生成物理 Q | 正确数（零组 → 填满） | 宏平均 TPF | Token efficiency |",
+              "|---:|---:|---:|---:|---:|---:|---:|", *endpoints, "",
               "预算图（每点为实测；虚线仅为固定零组轨迹下的前缀机会）：" + " · ".join(
                   f"[Q{q}](figures/gemma-ratio-q{q}.png)" for q in MODELS["gemma"][1]),
               "", "[全部线上指标](gemma-ratio-online.csv) · [固定轨迹机会](gemma-ratio-opportunity.csv) · "
