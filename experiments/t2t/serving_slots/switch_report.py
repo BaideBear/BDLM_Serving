@@ -135,6 +135,26 @@ def audit(row, pattern):
     return c
 
 
+def first_changed_offer(reference, row):
+    """Compare full observed histories until a physical selection changes policy."""
+    if any(reference[k] != row[k] for k in ("model","index","task_id","dataset","seed","prefill_rows")):
+        raise ValueError("Different requests in offer ablation")
+    for i,(before,after) in enumerate(zip(reference["events"],row["events"])):
+        if before.get("slot_offer")!=after.get("slot_offer"):
+            fields=("block","clock","slot_tick","available_fresh")
+            if (before.get("slot_tick") is None or after.get("slot_tick") is None
+                    or any(before[k]!=after[k] for k in fields)):
+                raise ValueError("Different pre-step state at first changed offer")
+            return i
+        if before!=after:
+            raise ValueError("Divergence before first changed offer")
+    keys = ("events","physical_events","output_ids","status","eos","truncated",
+            "generation_forwards","generation_physical_padded_rows","t2t_edits")
+    if any(reference[k] != row[k] for k in keys):
+        raise ValueError("Unchanged offers did not reproduce observed termination and work")
+    return None
+
+
 def report(run, cases, out, reference_switch_run=None):
     meta = json.loads((run/"run.json").read_text())
     model = meta["model"]
@@ -145,11 +165,12 @@ def report(run, cases, out, reference_switch_run=None):
     mid,high=(128,"256n") if model=="gemma" else (16,"32n")
     native = ((mid,),(high,),(mid,mid,high,high),(high,high,mid,mid))
     sparse_high = ((128,),(256,),(128,128,256,256),(256,256,128,128))
+    thin = ((128,),("256n",),("256n",128,128,128),(128,"256n",128,128))
     dose = ((32,), (64,), ("32r8",), ("32r8","32r8",64,64), (64,64,"32r8","32r8"),
             (32,)*8+(64,)*8, (64,)*8+(32,)*8)
-    options = [base,native] + ([dose,sparse_high] if model == "gemma" else [])
+    options = [base,native] + ([dose,sparse_high,thin] if model == "gemma" else [])
     phases = next((t for t in options if labels_for(t) == meta["policies"]),None)
-    if phases is None or (phases in (dose,sparse_high)) != bool(reference_switch_run):
+    if phases is None or (phases in (dose,sparse_high,thin)) != bool(reference_switch_run):
         raise ValueError("Unregistered slot experiment")
     labels = labels_for(phases)
     sources = [run] * len(labels)
@@ -163,14 +184,20 @@ def report(run, cases, out, reference_switch_run=None):
         sources += [reference_switch_run]*2
         pairs = [(0,2),(7,3),(8,4),(7,5),(8,6),(3,4),(5,6)]
         pairs += [(endpoint,mixed) for endpoint in (0,1) for mixed in (3,4,5,6)]
-    elif phases == sparse_high:
+    elif phases in (sparse_high,thin):
         ref = json.loads((reference_switch_run/"run.json").read_text())
         if (ref["model"],ref["policies"]) != (model,labels_for(native)):
             raise ValueError("Expected qualified 128/native256 reference phases")
-        phases += native[1:]
-        labels += labels_for(native[1:])
-        sources += [reference_switch_run]*3
-        pairs += [(4,1),(5,2),(6,3)]
+        if phases == thin:
+            phases += native[-1:]
+            labels += labels_for(native[-1:])
+            sources += [reference_switch_run]
+            pairs += [(4,0),(4,2),(4,3)]
+        else:
+            phases += native[1:]
+            labels += labels_for(native[1:])
+            sources += [reference_switch_run]*3
+            pairs += [(4,1),(5,2),(6,3)]
     out.mkdir(exist_ok=True, parents=True)
     cache = out / ".inputs"
     dirs, summary, mechanism = [], [], []
@@ -183,6 +210,11 @@ def report(run, cases, out, reference_switch_run=None):
             if (raw["index"], raw["policy"], raw["model"]) != (i, label, model):
                 raise ValueError("Request identity mismatch")
             counts.append(audit(raw, pattern))
+            if pattern in thin[2:]:
+                ref_label=labels_for(native[-1:])[0]
+                ref=json.loads((reference_switch_run/f"{i:02d}-{ref_label}.json").read_text())
+                first=first_changed_offer(ref,raw)
+                counts[-1].update(changed_requests=int(first is not None))
             if model=="gemma":
                 stage_counts.append(gemma_stages(raw))
         for cohort, idx in (("original30", slice(30)), ("added60", slice(30,None)), ("all90", slice(None))):

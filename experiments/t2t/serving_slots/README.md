@@ -59,6 +59,27 @@
 
 **高档消融（计分前约定）。** 对同一控制器固定四轮周期，增加 `256n,128,128,128` 和 `128,256n,128,128`，分别只保留第一个或第二个高档。不能推进或补发被换掉的高档。固定128和固定原生256先逐题复现，再在全部90题比较。目标是查清能否用接近受限 IBS 的实际 Q（289152），同时达到其 TPF（18.898）和质量（80/90）；超过 IBS 总Q的配置如实标注。另报相对未减档的 86/90、TPF 22.357、346119 Q 的取舍。不按头30题结果提前停、不把事后选中的配置称为独立验证。
 
+**单高档消融结果。** H=整块原生256，L=稀疏128，四轮一周期；控制器、必刷和验证规则不变。逐题对照 HHLL，在首次实际换掉 H 之前校验全部已观测事件、块号和时钟；没有触发干预的题要求复现输出、停止和物理工作。
+
+| 策略 | 原30 / 新60 / 全90正确 | 宏TPF | token efficiency | 总F | 总物理Q |
+|---|---|---:|---:|---:|---:|
+| 固定 L | 28 / 56 / 84 | 17.437 | 11.18% | 1943 | 285967 |
+| LHLL（只留第二个 H） | 29 / 55 / 84 | 19.394 | 10.25% | 1801 | 313822 |
+| HLLL（只留第一个 H） | 29 / 56 / 85 | 19.553 | 10.21% | 1762 | 312950 |
+| HHLL | 29 / 57 / 86 | 22.357 | 9.49% | 1685 | 346119 |
+| 受限 IBS，高高低低 | 27 / 53 / 80 | 18.898 | 11.01% | 1882 | 289152 |
+| 受限 IBS，固定256 | 27 / 52 / 79 | 23.656 | 10.35% | 1563 | 311129 |
+
+HLLL 相对 HHLL 少用 33169 Q（9.58%）、多77个F、救0丢1。高档直接结束块的次数从91降到45，验证F从94升到159。LHLL 则少用32297 Q、多116个F、救1丢3。两种单高档之间差距不大，HLLL 相对 LHLL 救2丢1，TPF 优势的95%配对区间跨零。阶段分解是执行轨迹描述，不等于证明某一次验证本身造成质量变化。
+
+HLLL 对混合受限 IBS 多对5题、TPF 高0.656，但总Q仍多8.23%；对实际成本更接近的固定256受限 IBS 仅多1821 Q（0.59%），多答对6题、TPF低4.103。它是可用的中间选择，**未满足低至混合 IBS 总Q且质量、TPF 同胜的目标**。[受限基线及 FlowBlock 对 HLLL](controls/gemma-external-slottrace_256n_128_128_128.csv) · [对 LHLL](controls/gemma-external-slottrace_128_256n_128_128.csv) · [全部分组](gemma-high-thinning.csv) · [各阶段实算](switches/gemma-thinning-phases.csv)。
+
+![Gemma high-slot ablation](gemma-high-thinning.png)
+
+重建：以 `switch_report` 的 `--run` 指向单高档四臂目录，`--reference-switch-run` 指向原始混合目录；`trace_plot.py --work "$SCORES/gemma-slot-work.csv" --pairs "$SCORES" --out gemma-high-thinning` 重画。`external_report --candidate-run "$RUN" --candidate slottrace_256n_128_128_128`（同时指定 `--data`、`--capped`、`--out`）可重算外部配对。
+
+**下一个对照：按剩余 MASK 使用高档。** 在 HHLL 已完成的710个原生高档轮中，轮前剩余 MASK ≤64 的217轮有87轮当场结束物理块；其余493轮只有4轮当场结束。这是在同一90题上形成的假设，不是独立验证。新登记 tail（只在≤64使用H）、early（只在>64使用H）以及 all（H总用），覆盖两种外部相位。被拒的H落到稀疏128；不改L，不跳过上轮的必刷，不引入辅助 forward。六臂全部用相同90题和种子。审计外部offer、实际档位、轮前MASK数、必刷数、初始化/验证/重编码和首次干预；与同相位无门控对照、静态单高档实验和受限基线对比。重放两种原始相位必须先逐题复现，短请求或未触发样本不得丢弃。运行入口：`python -m experiments.t2t.serving_slots.gated --checkpoint "$MODEL" --samples "$SAMPLES" --reference "$NATIVE" --controls "$CONTROL" --output "$NEW_RUN"`。保留同步单请求时钟，不将 TPF 解读为服务时延。
+
 [原始 Optimus 对比同档硬限额的直接配对](controls/gemma-original-vs-capped-fixed.csv)：IBS256 90/90 逐事件复现。OBS256 受限后相对原版救1丢1、正确总数仍是80；F 从1852升至1969，Q从474160升至504064。固定 IBS128 救0丢0；固定 OBS128 救1丢2。所有固定臂均核对原始轨迹的首次超额轮及其以前的逐轮状态，未触发的请求要求输出ID及物理工作一致。候选图还保留原版 Optimus 和 FlowBlock；同档图只比较有对应供档顺序的策略。
 
 ![Same 90 requests: quality, tokens per forward, token efficiency and actual work](gemma-mixed-vs-external.png)

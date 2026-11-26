@@ -87,9 +87,12 @@ def nearest_plan(target, totals):
     return min(totals, key=lambda plan: abs(totals[plan]-target))
 
 
-def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=False):
+def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=False,
+            candidate_run=None, candidate=None):
     if nearest and (matched or not capped or cap_policy):
         raise ValueError("Nearest-Q needs all capped controls and its own matching mode")
+    if bool(candidate_run)!=bool(candidate) or candidate and (matched or nearest or not capped or cap_policy):
+        raise ValueError("A single measured candidate needs its run and all external controls")
     samples = data/"samples.json"
     cases = load_cases(samples)
     digest = sha(samples)
@@ -112,6 +115,39 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
             audit(row,sequence)
             low[i]=[e["q"] for e in row["events"] if e.get("slot_offer")==128]
         return label,own,low
+    if candidate:
+        if candidate.startswith("gate_"):
+            from .gated import PLANS, original, validate_gate
+            from .switch_report import first_changed_offer
+            _,gate_mode,phase=candidate.split("_")
+            meta=read(candidate_run/"run.json")
+            if (phase not in PLANS or gate_mode not in ("all","early","tail") or
+                    candidate not in meta["policies"] or meta["samples_sha256"]!=digest or
+                    meta["model"]!="gemma" or meta["threshold"]!=64 or meta["suite"]!="frozen90" or
+                    tuple(meta["offers"][phase])!=PLANS[phase] or
+                    any(read(candidate_run/f"complete-{p}.json")!=dict(policy=p,requests=90)
+                        for p in dict.fromkeys((candidate,"gate_all_high","gate_all_low")))):
+                raise ValueError("Incomplete or unqualified mask gate")
+            path=link_requests(candidate_run,candidate,cache)
+            refname=original(phase)
+            refdir=snapshot(data/"gemma-slots-native256-128",refname,digest,cache)
+        else:
+            if candidate not in ("slottrace_256n_128_128_128","slottrace_128_256n_128_128"):
+                raise ValueError("Unregistered position ablation")
+            path=snapshot(candidate_run,candidate,digest,cache)
+            pattern=candidate.removeprefix("slottrace_").split("_")
+        own=by_index(path,candidate)
+        low={}
+        for i in own:
+            row=read(path/f"{i:02d}-{candidate}.json")
+            if candidate.startswith("gate_"):
+                validate_gate(row,row["gate_decisions"],phase,gate_mode)
+                if first_changed_offer(read(refdir/f"{i:02d}-{refname}.json"),row)!=row["first_changed_event"]:
+                    raise ValueError("Changed first intervention")
+            else:
+                audit(row,pattern)
+            low[i]=[e["q"] for e in row["events"] if e.get("slot_offer")==128]
+        measured_candidate=candidate,own,low
     dirs = [(data/"gemma-optimus-reference90",["ibs_128","obs_128"]),
             (data/"gemma-optimus-primary90",["ibs_256","obs_256"]),
             (data/"gemma-wave-reference90",["flow_w1","flow_w2"])]
@@ -136,7 +172,7 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
         if meta["samples_sha256"]!=digest or meta["suite"]!="frozen90":
             raise ValueError(f"Wrong suite for {folder}")
         for p in policies:
-            if nearest and folder!=capped and not p.startswith("flow_"):
+            if (nearest or candidate) and folder!=capped and not p.startswith("flow_"):
                 continue
             if p not in meta["policies"] or read(folder/f"complete-{p}.json")!=dict(policy=p,requests=90):
                 raise ValueError(f"Missing or incomplete {p}")
@@ -147,7 +183,7 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
             if nearest:
                 target = sum(r["physical_Q"] for r in rows.values())
                 plan = nearest_plan(target, totals)
-            mixed,own,low=own_for(plan)
+            mixed,own,low=measured_candidate if candidate else own_for(plan)
             is_optimus = p.startswith(("ibs_","obs_"))
             if is_optimus:
                 caps = "_cap_" in p
@@ -201,12 +237,12 @@ def compare(data, out, capped=None, matched=False, cap_policy=None, nearest=Fals
                         row.update(requests_clipped=s["baseline_requests_clipped"],rows_clipped=sum(cuts))
                         fixed_effects.append(row)
                 lines.append(s)
-    stem = ("gemma-nearest-physical-Q" if nearest else
+    stem = ("gemma-external-"+candidate if candidate else "gemma-nearest-physical-Q" if nearest else
             "gemma-matched-offers-vs-external" if matched else "gemma-mixed-vs-external")
     if cap_policy:
         stem += "-only-"+cap_policy
     write(out/(stem+".csv"),lines)
-    if capped and not matched and not cap_policy and not nearest:
+    if capped and not matched and not cap_policy and not nearest and not candidate:
         if len(fixed_effects)!=12:
             raise ValueError("Missing one or more fixed cap controls")
         write(out/"gemma-original-vs-capped-fixed.csv",fixed_effects)
@@ -226,4 +262,6 @@ if __name__=="__main__":
     parser.add_argument("--matched",action="store_true",help="Use identical nominal offer order, not equal physical cost")
     parser.add_argument("--nearest",action="store_true",help="Closest of four own plans by all90 physical Q to each capped Optimus and FlowBlock baseline, not equal limits or per-request work")
     parser.add_argument("--cap-policy",help="Include only this fully completed cap arm; distinctly named output")
+    parser.add_argument("--candidate-run",type=Path,help="Complete position ablation or gated run")
+    parser.add_argument("--candidate",help="One registered position ablation or mask gate policy")
     compare(**vars(parser.parse_args()))
