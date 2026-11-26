@@ -1,0 +1,9 @@
+policy,phase,F,Q
+t2t_q8_f0_m7_hard_admit_low,bootstrap,429,13728
+t2t_q8_f0_m7_hard_admit_low,commit,429,13728
+t2t_q8_f0_m7_hard_admit_low,selected,2276,20925
+t2t_q8_f0_m7_hard_admit_low,verify,585,18720
+t2t_q8_f0_m7_hard_admit_coin,bootstrap,430,13760
+t2t_q8_f0_m7_hard_admit_coin,commit,430,13760
+t2t_q8_f0_m7_hard_admit_coin,selected,2222,20476
+t2t_q8_f0_m7_hard_admit_coin,verify,596,19072
