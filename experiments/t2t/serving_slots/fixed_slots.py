@@ -1,4 +1,5 @@
 """Publish the fixed K0 reference without selecting a best arm at each budget."""
+import argparse
 import csv
 from pathlib import Path
 
@@ -26,9 +27,58 @@ def fixed_rows(source):
                                                             "N","F","physical_Q","q_per_f")})
 
 
-if __name__ == "__main__":
-    rows = list(fixed_rows(HERE.parent/"prefix_window"))
-    with (HERE/"fixed-k0.csv").open("w", newline="") as f:
+def adjacent(data, private, source):
+    from bdlm_serving.evaluation.frozen import sha
+    from experiments.t2t.prefix_window.score_run import snapshot
+    from tools.prefix_cohorts import load_cases, load_request_set, select_window_cases, _window_row
+
+    cases = load_cases(data/"samples.json")
+    digest = sha(data/"samples.json")
+    fixed = {(r["model"], r["slot"], r["cohort"]): r for r in fixed_rows(source)}
+    for model, dirs in (
+        ("llada21", {4:"llada21-4-matched", 8:"llada-q8", 16:"llada21-16-matched", 32:"llada21-32-matched"}),
+        ("gemma", {16:"gemma-grid-k1", 32:"gemma-q32", 64:"gemma-grid-k1",
+                   128:"gemma-grid-k1", 256:"gemma-grid-k1"}),
+    ):
+        prev = None
+        for q, name in dirs.items():
+            label = f"t2t_q{q}_f0_m{q}_hard_prefix_zero"
+            d = snapshot(data/name, label, digest, private/".inputs")
+            rows, m, p, budget = load_request_set(d, cases, "K0", label)
+            if (m,p,budget) != (model,label,q):
+                raise ValueError("Fixed control identity mismatch")
+            current = {r["index"]:r for r in rows}
+            if prev is not None:
+                lo, low_label, old = prev
+                for window in (30,60,90):
+                    w = _window_row(select_window_cases(cases,window), old,current,window,"all",
+                                    model,low_label,label,None)
+                    for side, width in (("baseline",lo),("arm",q)):
+                        ref = fixed[model,width,w["cohort"]]
+                        if any(float(ref[k]) != w[f"{side}_{k}"]
+                               for k in ("correct","macro_tpf","N","F","physical_Q")):
+                            raise ValueError(f"Re-scoring disagrees with fixed control: {model}/{width}")
+                    yield dict(model=model,low=lo,high=q,cohort=w["cohort"],requests=window,
+                               **{k:w[k] for k in ("baseline_correct","arm_correct","rescued","lost",
+                                   "quality_delta","quality_delta_ci_low","quality_delta_ci_high",
+                                   "macro_tpf_delta","macro_tpf_delta_ci_low","macro_tpf_delta_ci_high",
+                                   "baseline_q_per_f","arm_q_per_f","delta_F","delta_Q")})
+            prev = q,label,current
+
+
+def write_rows(path, rows):
+    rows = list(rows)
+    with path.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", type=Path, help="also compute adjacent-slot pairs from private runs")
+    args = parser.parse_args()
+    source = HERE.parent/"prefix_window"
+    write_rows(HERE/"fixed-k0.csv", fixed_rows(source))
+    if args.data:
+        write_rows(HERE/"adjacent-k0.csv", adjacent(args.data,args.data/"fixed-slot-scores",source))

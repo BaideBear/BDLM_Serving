@@ -44,15 +44,18 @@ def compare(data, references, mode, q, out):
     policy = f"{mode}_{q}"
     cases = data / "samples.json"
     digest, cache = sha(cases), out / ".inputs"
-    base = baseline(data / "gemma-optimus-reference90", policy, cases, cache, references)
+    folder = "gemma-optimus-reference90" if q in (32,128) else "gemma-optimus-primary90"
+    base = baseline(data / folder, policy, cases, cache, references)
     with (ROOT / "archive/diffusiongemma-optimus/requests.csv").open() as stream:
         public = {int(r["index"]): r for r in csv.DictReader(stream) if r["policy"] == policy}
     if set(public) != set(range(30)):
         raise ValueError("Incomplete public archive")
     zero = f"t2t_q{q}_f0_m{q}_hard_prefix_zero"
     slack = f"t2t_q{q}_f0_m{q-q//4}_hard_prefix_slack_{'right' if q == 32 else 'random'}"
-    for label, p, run in (("zero", zero, "gemma-q32" if q == 32 else "gemma-grid-k1"),
-                          ("slack", slack, "gemma-prefix-action-lock")):
+    candidates = [("zero", zero, "gemma-q32" if q == 32 else "gemma-grid-k1")]
+    if q in (32,128):
+        candidates.append(("slack", slack, "gemma-prefix-action-lock"))
+    for label, p, run in candidates:
         arm = snapshot(data / run, p, digest, cache)
         path = out / f"gemma-{policy}-{label}.csv"
         summary, paired, _ = score_files(base, arm, cases, path, nominal_q=q,
@@ -76,6 +79,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("data", "references", "out"):
         parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--q", type=int, choices=(32, 128), required=True)
+    parser.add_argument("--q", type=int, choices=(32, 64, 128, 256), required=True)
     parser.add_argument("--mode", choices=("ibs", "obs"), required=True)
     compare(**vars(parser.parse_args()))
