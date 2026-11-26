@@ -36,3 +36,17 @@ From the repository root, `python -m experiments.t2t.prefix_window.donor_audit -
 换普通回填相对换 MASK：多答对 1 题（新增60救回1、丢0），质量差配对 95% 区间为 [−7.14, +9.58] 个百分点；TPF 差为 **+3.504**，配对 95% 区间 **[+2.459, +4.550]**。两条路径自首次分叉后机会与轮次可不同，不能把 6,660 和 20,587 说成同样的全程剂量。前者总计 2,025 个生成 forward、296,358 个物理 Q，后者为 2,790、356,819。结果支持在这档预算下优先保留 MASK；两种等宽策略的 TPF 都未超过零组，尚不能推荐用固定前缀配额替换原有查询。
 
 [数值图](donors/figures/gemma-q128.png) · [直接配对和逐数据集区间](donors/direct/gemma-donor-direct-128.csv) · [实际物理 Q、让位计数](donors/exposure-gemma-donor-128.csv) · [与历史基线的原30配对](historical30.csv)。重画命令：`python -m experiments.t2t.prefix_window.plot --model gemma --q 128 --input-dir experiments/t2t/prefix_window/donors --output-dir experiments/t2t/prefix_window/donors/figures`。
+
+## Q32：选前缀右端，上限 K8
+
+| 策略 | 原30 / 新60 / 全90正确 | 宏平均 TPF | Token efficiency | 全程额外前缀或换出行次 |
+|---|---:|---:|---:|---|
+| 零注入 | 27 / 56 / 83 | 8.463 | 13.73% | 0 |
+| 只补空位 | 29 / 56 / 85 | 8.522 | 13.71% | 额外算 1,640，不换出 |
+| 只换普通已解码回填 | 27 / 56 / 83 | 8.441 | 13.82% | 445 普通 |
+| 配对：换普通已解码回填 | 27 / 56 / 83 | 8.410 | 13.76% | 309 普通 |
+| 配对：换非首个 MASK | 28 / 55 / 83 | 8.326 | 13.64% | 552 MASK |
+
+35/90 题触发配对换位（原30中14题、新60中21题）；两臂直到首次换位的记录相同，首次换位位置与宽度一致，未触发的55题全轨迹一致。相比换 MASK，换普通已解码行救回1题、丢1题，总正确数不变（差的95%区间 −9.33 至 +9.33 个百分点）；TPF 差 +0.084（95%区间 −0.057 至 +0.225）。前者总计 4,065 个生成 forward、239,802 个物理 Q，后者 4,304、246,827。不能将 Q128 下保留 MASK 的明确 TPF 差异外推到所有预算。两档中，按固定上限让已有行腾位的三个策略均未同时超过零组的正确数与 TPF；只补空位的两档各净多2题，来自原30而非新增60。
+
+[数值图（含补空位对照）](donors/figures/gemma-q32.png) · [直接配对及区间](donors/direct/gemma-donor-direct-32.csv) · [机会与实际换位题数](donors/gemma-donor-opportunity-32.csv) · [实际让位计数](donors/exposure-gemma-donor-32.csv)。重画命令同上，将 `--q 128` 改为 `--q 32`。

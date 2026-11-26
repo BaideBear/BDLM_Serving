@@ -1,0 +1,10 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+gemma,t2t_q32_f0_m24_hard_prefix_backfill_right,noop+swap,original30,30,1189,32.33978132884777,91,25,1622,20,2026,1118,96788,25,91,25,354,9512,116,0,116,1163,8,16
+gemma,t2t_q32_f0_m24_hard_prefix_backfill_right,noop+swap,added60,60,2361,32.584074544684455,207,50,3725,38,5104,2214,208768,50,207,50,799,18888,329,0,329,2304,24,38
+gemma,t2t_q32_f0_m24_hard_prefix_backfill_right,noop+swap,all90,90,3550,32.50225352112676,298,75,5347,58,7130,3332,305556,75,298,75,1153,28400,445,0,445,3467,32,54
+gemma,t2t_q32_f0_m24_hard_prefix_paired_backfill_right,noop+swap,original30,30,1219,32.32239540607055,91,25,1634,19,2027,1150,98159,25,91,25,352,9752,80,0,80,1197,5,16
+gemma,t2t_q32_f0_m24_hard_prefix_paired_backfill_right,noop+swap,added60,60,2364,32.57571912013536,205,50,3732,38,5093,2215,208959,50,205,50,793,18912,229,0,229,2313,8,39
+gemma,t2t_q32_f0_m24_hard_prefix_paired_backfill_right,noop+swap,all90,90,3583,32.48953391013117,296,75,5366,57,7120,3365,307118,75,296,75,1145,28664,309,0,309,3510,13,55
+gemma,t2t_q32_f0_m24_hard_prefix_paired_mask_right,noop+swap,original30,30,1423,32.196767392832044,93,25,1789,19,2069,1345,94574,25,93,25,362,11384,133,133,0,1389,3,16
+gemma,t2t_q32_f0_m24_hard_prefix_paired_mask_right,noop+swap,added60,60,2398,32.26146788990825,214,52,3793,35,4420,2247,216639,52,214,52,831,19184,419,419,0,2308,26,39
+gemma,t2t_q32_f0_m24_hard_prefix_paired_mask_right,noop+swap,all90,90,3821,32.23737241559801,307,77,5582,54,6489,3592,311213,77,307,77,1193,30568,552,552,0,3697,29,55
