@@ -3,7 +3,7 @@ from collections import Counter
 import json
 
 from bdlm_serving.evaluation.frozen import ROOT, sha
-from bdlm_serving.methods.t2t.context_gate import CONTEXT
+from bdlm_serving.methods.t2t.context_gate import ADMISSION, CONTEXT
 
 
 def package(tok, ids, work, eos, special, prefill, **extra):
@@ -25,7 +25,7 @@ def package(tok, ids, work, eos, special, prefill, **extra):
                 q_histogram=dict(Counter(str(rows) for _, rows in work)), **extra)
 
 
-def llada_backend(args, prepare, *, context_ranker=None):
+def llada_backend(args, prepare, *, context_ranker=None, admission_fit=None):
     import torch
     import transformers.utils as utils
     if not hasattr(utils, "LossKwargs"):
@@ -81,6 +81,7 @@ def llada_backend(args, prepare, *, context_ranker=None):
         opts = {} if arm is None else dict(fresh_slots=arm.fresh, mask_slots=arm.mask, policy=arm.selection)
         kernel = LLaDASparseKernel(model, 32 if arm is None else arm.budget, hazard_weights=weights,
                                    exchange_rates=rates,
+                                   admission_fit=admission_fit if arm and arm.selection in ADMISSION else None,
                                    context_ranker=context_ranker if arm and arm.selection in CONTEXT else None,
                                    **opts)
         state = kernel.create(*parameters)
@@ -100,9 +101,11 @@ def llada_backend(args, prepare, *, context_ranker=None):
     return run
 
 
-def load_backend(args, prepare, *, context_ranker=None):
+def load_backend(args, prepare, *, context_ranker=None, admission_fit=None):
     if args.model == "llada21":
-        return llada_backend(args, prepare, context_ranker=context_ranker)
+        return llada_backend(args, prepare, context_ranker=context_ranker, admission_fit=admission_fit)
+    if admission_fit is not None:
+        raise ValueError('Admission study is LLaDA B32 only')
     return gemma_backend(args, prepare)
 
 

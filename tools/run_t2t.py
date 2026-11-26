@@ -3,10 +3,12 @@ import argparse
 from contextlib import ExitStack
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 
-from bdlm_serving.evaluation.frozen import load_tasks
-from bdlm_serving.methods.t2t.context_gate import CONTEXT
+from bdlm_serving.evaluation.frozen import load_tasks, sha
+from bdlm_serving.methods.t2t.admission_gate import read_admission_fit
+from bdlm_serving.methods.t2t.context_gate import ADMISSION, CONTEXT
 from bdlm_serving.methods.t2t.protocol import Arm, matrix, verify_bridge, verify_work
 
 
@@ -18,6 +20,7 @@ def parse_args():
     p.add_argument("--arm", action="append", help="Q:fresh:mask:selection; repeatable")
     p.add_argument("--hazard-weights", type=Path, help="One frozen positional ranker shared by all 30 requests")
     p.add_argument("--context-weights", type=Path, help="Private calibration24 input-context coefficients (B32)")
+    p.add_argument("--admission-fit", type=Path, help="Frozen first-approved Q8 fit (fallback: T2T_ADMISSION_FIT)")
     p.add_argument("--exchange-rates", type=Path, help="Frozen old-edit and MASK-admission rates (B32)")
     p.add_argument("--seed-offset", type=int, default=0,
                    help="Paired seed repeat on the same cases; requires matching native references")
@@ -41,36 +44,49 @@ def main(args, prepare=None):
             a.budget >= block and a.selection != "hard_noedit" for a in arms):
         raise ValueError("Require distinct arms; use one hard_noedit saturation control at or above width")
     extra = {}
+    admission_fit = None
+    fit_path = getattr(args, 'admission_fit', None)
+    if any(a.selection in ADMISSION for a in arms):
+        fit_path = fit_path or os.environ.get('T2T_ADMISSION_FIT')
+        if not fit_path:
+            raise ValueError('Admission policies require --admission-fit or T2T_ADMISSION_FIT')
+        path = Path(fit_path)
+        digest = sha(path)
+        admission_fit = read_admission_fit(path)
+        if sha(path) != digest:
+            raise ValueError('Admission fit changed while loading')
+        extra['admission_fit_sha256'] = digest
+    elif fit_path is not None:
+        raise ValueError('--admission-fit requires an admission arm')
     if any(a.selection.startswith("hard_exchange_") for a in arms):
-        from bdlm_serving.evaluation.frozen import sha
         from bdlm_serving.methods.t2t.exchange import read_rates
         read_rates(getattr(args, "exchange_rates", None))
         extra["exchange_rates_sha256"] = sha(args.exchange_rates)
     if any(a.selection.startswith("hard_hazard_") for a in arms):
-        from bdlm_serving.evaluation.frozen import sha
         from bdlm_serving.methods.t2t.hazard import read_weights
         read_weights(getattr(args,"hazard_weights",None))
         extra["hazard_weights_sha256"] = sha(args.hazard_weights)
     with ExitStack() as stack:
         ranker = None
         if any(a.selection in CONTEXT for a in arms):
-            from bdlm_serving.evaluation.frozen import sha
             from bdlm_serving.methods.t2t.embedding_context import (
                 ContextRanker, Projector, input_table, read_context_weights)
             w = read_context_weights(getattr(args, 'context_weights', None))
+            extra['context_weights_sha256'] = sha(args.context_weights)
+            if admission_fit is not None and extra['context_weights_sha256'] != admission_fit['ranker_sha256']:
+                raise ValueError('Admission study requires the frozen gate ranker')
             projector = Projector(stack.enter_context(input_table(args.checkpoint)))
             ranker = ContextRanker(projector.unit, w)
-            extra['context_weights_sha256'] = sha(args.context_weights)
-        _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker)
+        _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admission_fit)
 
 
-def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker):
+def _run_matrix(args, prepare, tasks, arms, extra, block, offset, ranker, admission_fit=None):
     from bdlm_serving.methods.t2t.online import load_backend
     args.output.mkdir(exist_ok=False, parents=True)
     durable(args.output / "run.json", dict(model=args.model, batch_size=1, cap=2048,
         block=block, policies=[a.policy for a in arms], arms=[asdict(a) for a in arms],
         seed_offset=offset, **extra))
-    run = load_backend(args, prepare, context_ranker=ranker)
+    run = load_backend(args, prepare, context_ranker=ranker, admission_fit=admission_fit)
     for arm in [None, *arms]:
         policy = "fullwidth" if arm is None else arm.policy
         for task in tasks:

@@ -1,7 +1,7 @@
 """Request-local instrumentation for a one-seat intervention; not a serving policy."""
 import hashlib
 import json
-from .context_gate import ONCE
+from .context_gate import ADMISSION, ONCE
 
 
 MODES = ("hard_once_base", "hard_once_rank", "hard_once_random")
@@ -9,6 +9,7 @@ GEMMA_CONDITIONAL = "hard_once_mask"
 GEMMA_FACTORIAL = tuple("hard_once_" + k + s for k in "kd" for s in "kd")
 _KEY = dict(zip(MODES, ("base", "targeted", "random")))
 _KEY.update(zip(ONCE, ("base", "targeted", "random")))
+_KEY.update(dict.fromkeys(ADMISSION, "targeted"))
 _KEY[GEMMA_CONDITIONAL] = "conditional_mask"
 
 

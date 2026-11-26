@@ -2,12 +2,14 @@
 import math
 import random
 
+from .admission_gate import MODES as ADMISSION
 from .hazard import features
 
 GATES = ("hard_context_slack", "hard_context_slack_random", "hard_context_gate",
          "hard_context_gate_random")
 ONCE = tuple("hard_context_once_"+arm for arm in ("base", "rank", "random"))
-CONTEXT = ("hard_context_fixed", *GATES, *ONCE)
+CROWDED = (*ONCE, *ADMISSION)
+CONTEXT = ("hard_context_fixed", *GATES, *CROWDED)
 CUTOFF = math.log(.05 / .95)
 
 

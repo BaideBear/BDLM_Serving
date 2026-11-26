@@ -18,7 +18,7 @@ from transformers.cache_utils import DynamicCache
 from bdlm_serving.methods.t2t.planner import History, allocate
 from bdlm_serving.methods.t2t.frontier import GEOMETRY_POLICIES, HARD_POLICIES
 from .seat_audit import MODES, SeatAudit, canvas_digest, digest
-from .context_gate import CONTEXT, GATES, ONCE, crowded_plan, select as select_context_gate
+from .context_gate import ADMISSION, CONTEXT, CROWDED, GATES, crowded_plan, select as select_context_gate
 from bdlm_serving.runtime.batch import BatchCache, ForwardBatcher, ModelFacade
 from bdlm_serving.runtime.rng import REFERENCE_RNG_LOCK
 from bdlm_serving.runtime.serial import RequestState, SerialKernel
@@ -126,6 +126,7 @@ class SparseRequestState(RequestState):
     previous_strict: set = field(default_factory=set)
     placebo_exchange: dict | None = None
     context_move: dict | None = None
+    admission_decision: dict | None = None
 
 
 class _RankControl(History):
@@ -182,7 +183,7 @@ class LLaDASparseKernel(SerialKernel):
 
     def __init__(self, model, q_budget, fresh_slots=0, mask_slots=1,
                  policy="ranked", signal="uncertain", selection_seed=None, hazard_weights=None,
-                 exchange_rates=None, context_ranker=None):
+                 exchange_rates=None, context_ranker=None, admission_fit=None):
         super().__init__(model, "llada21")
         policy = {"targeted": "ranked"}.get(policy, policy)
         if policy not in ("ranked", "random", "undirected", "noedit", *_GATED, *_HARD):
@@ -204,10 +205,13 @@ class LLaDASparseKernel(SerialKernel):
         self.hazard_weights = hazard_weights
         self.exchange_rates = exchange_rates
         self.context_ranker = context_ranker
+        self.admission_fit = admission_fit
+        if (policy in ADMISSION) != (admission_fit is not None):
+            raise ValueError("An admission fit is required only for admission policies")
         if policy in CONTEXT and (context_ranker is None or fresh_slots or
                 (q_budget, q_budget - mask_slots) not in ((4, 1), (8, 1), (16, 2))):
             raise ValueError("Context rollout requires its frozen ranker and registered budgets")
-        if policy in (*GATES, *ONCE) and (q_budget, mask_slots) != (8, 7):
+        if policy in (*GATES, *CROWDED) and (q_budget, mask_slots) != (8, 7):
             raise ValueError("Context gate requires Q8/1")
         if policy in EXCHANGE and not exchange_rates:
             raise ValueError("Missing exchange calibration")
@@ -221,7 +225,7 @@ class LLaDASparseKernel(SerialKernel):
             raise ValueError("Prompt cannot contain the generation mask ID")
         base = super().create(input_ids, config, gen_length, seed, mask_id, eos_ids, cached=True)
         return SparseRequestState(**vars(base),
-                                  seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *ONCE) else None,
+                                  seat_audit=SeatAudit(self.policy) if self.policy in (*MODES, *CROWDED) else None,
                                   selection_seed=seed if self.selection_seed is None else self.selection_seed)
 
     def _execute(self, state, positions, end, cache, phase, stage, store):
@@ -332,7 +336,7 @@ class LLaDASparseKernel(SerialKernel):
 
     def _hard_pick(self, state, editable, resolved, before):
         fresh = state.history.fresh.intersection(editable)
-        once = self.policy in ONCE
+        once = self.policy in CROWDED
         if self.policy in GATES or (once and not state.seat_audit.used):
             clock = len(state.events)+1
             picked, reserved, state.context_move = select_context_gate(
@@ -341,8 +345,15 @@ class LLaDASparseKernel(SerialKernel):
                 lambda old, pos: self.context_ranker.scores(before, fresh, old, pos))
             if once:
                 screen = state.context_move
-                plan = crowded_plan(screen, state.selection_seed, state.block, clock)
-                # Even the base records the common first opportunity; no later scoring.
+                keep = True
+                if self.policy in ADMISSION and screen['reason'] == 'swap_mask':
+                    from .admission_gate import admission_decision
+                    keep, risk = admission_decision(screen, self.admission_fit, self.policy,
+                                                    state.selection_seed, state.block, clock)
+                    if type(keep) is not bool or not 0 <= risk <= 1:
+                        raise ValueError('Invalid admission decision')
+                    state.admission_decision = dict(keep=keep, risk_probability=float(risk))
+                plan = crowded_plan(screen, state.selection_seed, state.block, clock) if keep else None
                 picked, reserved = state.seat_audit.apply_plan(screen["base"], plan)
                 self._begin_seat(state, resolved, fresh)
             return picked, reserved
@@ -523,7 +534,7 @@ class LLaDASparseKernel(SerialKernel):
         changed = {i for i in picked if before[i] != after[i]}
         now_resolved = [t != state.mask_id for t in after]
         if state.seat_audit:
-            if self.policy in (*MODES, *ONCE):
+            if self.policy in (*MODES, *CROWDED):
                 state.seat_audit.observe_masks(state.events[-1], state.block, start - state.prompt_length,
                                                after, now_resolved)
             state.events[-1]["trajectory_sha256"] = canvas_digest(after, now_resolved)
@@ -536,7 +547,9 @@ class LLaDASparseKernel(SerialKernel):
         if hard:
             event = state.events[-1]
             if state.context_move is not None:
-                event["crowded_screen" if self.policy in ONCE else "context_move"], state.context_move = state.context_move, None
+                event["crowded_screen" if self.policy in CROWDED else "context_move"], state.context_move = state.context_move, None
+            if state.admission_decision is not None:
+                event["admission_decision"], state.admission_decision = state.admission_decision, None
             if state.placebo_exchange is not None:
                 event["placebo_exchange"] = state.placebo_exchange
                 state.placebo_exchange = None
