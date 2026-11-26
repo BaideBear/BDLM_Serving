@@ -100,6 +100,20 @@ def test_anchor_with_no_watched_masks_and_collision_replay():
         report.measure(raw)
 
 
+def test_own_final_wait_uses_same_offsets_but_branch_delivery():
+    raw = fixture()
+    raw[1]['output_ids'] = [9, 99, 30]
+    points, pairs = report.measure(raw, own_final=True)
+    rec = {(r['arm'], r['row_kind']): r for r in points}
+    assert rec['rank', 'common_mask']['stable_wait_sum'] == 4
+    assert rec['random', 'mask_victim']['stable_wait_sum'] == 4
+    assert all(r['eligible'] == 1 for r in points + pairs)
+    # Remove one branch's victim offset: drop from every paired denominator.
+    raw[1]['output_ids'].pop()
+    assert all(not r['eligible'] for r in report.measure(raw, own_final=True)[0]
+               if r['row_kind'] == 'mask_victim')
+
+
 @pytest.mark.parametrize("error,match", [
     ("offset", "offsets"), ("rows", "rows/order"), ("late", "Missing or unexpected"),
     ("null", "IDs"), ("off_q", "Off-Q"), ("state", "Same state"),
@@ -342,7 +356,7 @@ def test_crowded_two_shard_cli(tmp_path):
             '--run',str(pair),'--run',str(rand),'--out',str(out)]
     proc = subprocess.run(args,capture_output=True,text=True)
     assert proc.returncode==0, proc.stderr
-    assert len(list(out.glob('*.csv')))==6
+    assert len(list(out.glob('*.csv')))==7
     with (out/f'{report.PREFIX}-secondary-summary.csv').open() as f:
         r = next(r for r in csv.DictReader(f) if (r['arm'],r['stage'],r['dataset'],r['row_kind'])==
                  ('base','before_first_verify','all','common_mask'))

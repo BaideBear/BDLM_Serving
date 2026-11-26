@@ -1,0 +1,13 @@
+policy,phase,F,Q
+t2t_q8_f0_m7_hard_context_once_base,bootstrap,429,13728
+t2t_q8_f0_m7_hard_context_once_base,commit,429,13728
+t2t_q8_f0_m7_hard_context_once_base,selected,2210,20435
+t2t_q8_f0_m7_hard_context_once_base,verify,582,18624
+t2t_q8_f0_m7_hard_context_once_rank,bootstrap,428,13696
+t2t_q8_f0_m7_hard_context_once_rank,commit,428,13696
+t2t_q8_f0_m7_hard_context_once_rank,selected,2277,20936
+t2t_q8_f0_m7_hard_context_once_rank,verify,589,18848
+t2t_q8_f0_m7_hard_context_once_random,bootstrap,426,13632
+t2t_q8_f0_m7_hard_context_once_random,commit,426,13632
+t2t_q8_f0_m7_hard_context_once_random,selected,2245,20648
+t2t_q8_f0_m7_hard_context_once_random,verify,583,18656

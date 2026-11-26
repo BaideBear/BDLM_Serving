@@ -1,0 +1,4 @@
+policy,requests,steps,selected_steps,strict_edits,edited_on_bootstrap,edited_on_selected,edited_on_verify,revocations,selected_fresh_seats,labeled_selected_steps,labeled_fresh_seats,labeled_fresh_edits
+t2t_q8_f0_m7_hard_context_once_base,30,3221,2210,605,0,235,370,0,,,,
+t2t_q8_f0_m7_hard_context_once_rank,30,3294,2277,635,0,242,393,0,,,,
+t2t_q8_f0_m7_hard_context_once_random,30,3254,2245,624,0,241,383,0,,,,

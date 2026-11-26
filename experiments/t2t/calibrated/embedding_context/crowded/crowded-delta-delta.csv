@@ -1,0 +1,3 @@
+policy,base,other,other_base,requests,delta_delta_correct,delta_delta_TPF,delta_delta_correct_lo,delta_delta_correct_hi,delta_delta_TPF_lo,delta_delta_TPF_hi
+t2t_q8_f0_m7_hard_context_once_rank,t2t_q8_f0_m7_hard_context_once_base,t2t_q8_f0_m7_hard_context_once_random,t2t_q8_f0_m7_hard_context_once_base,30,0,-0.05544548783773884,0.0,0.0,-0.11555067778504566,-0.011684401996300098
+t2t_q8_f0_m7_hard_context_once_rank,t2t_q8_f0_m7_hard_context_once_base,t2t_q8_f0_m7_hard_context_gate,t2t_q8_f0_m8_hard_noedit,30,1,0.04485249770200905,0.0,3.0,-0.08128058811859247,0.1825225287660065

@@ -83,16 +83,17 @@ def window(raw, at, rows, offsets, seen):
     return offsets, states
 
 
-def measure(raw, *, inspection=None):
+def measure(raw, *, inspection=None, own_final=False):
     """Return arm and paired counts for one complete base/rank/random triplet."""
     at, plans = inspect([strip_watch(r) for r in raw]) if inspection is None else inspection
     p = plans[0] if plans else {}
     stratum = p.get("stratum", "none")
     require(not plans or stratum in ("slack", "mask"), "Unknown anchor stratum")
     rows = sorted(set(p["base"]) & set(p["masks"])) if plans else []
-    ref = raw[0]["output_ids"]
+    common_length = min(len(r["output_ids"]) for r in raw)
     records, pairs, seen, offsets = [], [], {}, None
     for arm, r in zip(MODES, raw, strict=True):
+        ref = r["output_ids"] if own_final else raw[0]["output_ids"]
         offsets, states = window(r, at, rows, offsets, seen)
         if plans:
             plan = r["events"][at]["intervention"]
@@ -108,7 +109,7 @@ def measure(raw, *, inspection=None):
             c["anchor_admitted"] += states[0][j] is not None
             returned = 0 <= off < len(r["output_ids"])
             c["branch_missing"] += not returned  # All watched offsets, including outside base.
-            if not 0 <= off < len(ref):
+            if not 0 <= off < (common_length if own_final else len(ref)):
                 continue
             c["eligible"] += 1
             c["endpoint_missing"] += not returned
@@ -430,6 +431,7 @@ def crowded(runs, out, history):
     require([s['index'] for s in samples] == list(range(30)) and Counter(s['dataset'] for s in samples) ==
             dict.fromkeys(DATASETS[1:], 10), 'Incomplete frozen30 manifest')
     records, pairs, secondary, audit = [], [], [], []
+    own_records, own_pairs = [], []
     for s in samples:
         def load(d, p):
             r = gate.load(d / f"{s['index']:02d}-{p}.json")
@@ -465,9 +467,14 @@ def crowded(runs, out, history):
             points, contrasts = measure(raw, inspection=(at, plans))
             records.extend(points)
             pairs.extend(contrasts)
+            points, contrasts = measure(raw, inspection=(at, plans), own_final=True)
+            own_records.extend(points)
+            own_pairs.extend(contrasts)
         except (KeyError, TypeError, StopIteration, ValueError) as exc:
             raise ValueError(f"crowded request {s['index']}: {exc}") from exc
     publish(out, PREFIX, records, pairs)
+    table(out / f'{PREFIX}-own-final.csv', [r for r in summarize(own_records, own_pairs)
+          if r['dataset'] == r['stratum'] == 'all'])
     for name, data in [('audit', audit), ('secondary-requests', secondary), ('secondary-summary', secondary_summary(secondary))]:
         table(out / f'{PREFIX}-{name}.csv', data)
 
