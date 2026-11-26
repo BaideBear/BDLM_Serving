@@ -42,21 +42,26 @@ def projectors(model):
         yield calls, positions
 
 
-def measure(model, data, plan, series, seed, causal=True):
+def measure(model, data, plan, series, seed, causal=True, *, price=False):
     from experiments.t2t.serving_slots.gemma_unified import generate
     b = plan["block_size"]
     origin = data["input_ids"].shape[1]
-    offers = []
+    offers, prices = [], []
 
-    def supply(state):
+    def supply(state, options=None):
         if state.tick != len(offers):
             raise ValueError("Budget clock is not once per decoder invocation")
         q = series[state.tick % len(series)]
         offers.append(q)
+        if price:
+            if options is None or tuple(options) != (32, 64, 128, 256, 512):
+                raise ValueError("Missing pre-forward prices")
+            prices.append(options[q])
         return q
 
     with observe(model) as events, projectors(model) as (proj, positions):
-        ids, trace = generate(model, data, plan, next_budget=supply, seed=seed, causal=causal)
+        ids, trace = generate(model, data, plan, next_budget=supply, seed=seed, causal=causal,
+                              quote_costs=price)
     selected = [e["selected"] for e in trace]
     widths = [e["q"] for e in trace]
     if (not trace or offers != [e["offer"] for e in trace] or positions != selected
@@ -80,13 +85,20 @@ def measure(model, data, plan, series, seed, causal=True):
         expected.extend(("encoder", b) for _ in e["encoded"])
     if expected != events:
         raise ValueError("Physical decoder, re-encode or prefill ledger differs")
+    if price:
+        for opt, e in zip(prices, trace, strict=True):
+            if ((opt.decoder_f, opt.decoder_q, opt.mandatory_q, opt.prefix_q, opt.parked_dirty_q,
+                 opt.phase, opt.verify_reason) != (1, e["q"], e["mandatory_q"],
+                 len(e["prefix_selected"]), len(e["refresh_only"]), e["phase"], e["verify_reason"])
+                    or len(e["encoded"])*b > opt.post_reencode_q_max):
+                raise ValueError("Pre-forward quote disagrees with physical call")
     return ids, trace, dict(
         decoder_layers=len(model.model.decoder.layers), projection_modules=len(proj),
         all_projected_widths_match=True, prefill=origin, F=len(events)-1,
         Q=sum(q for _,q in events[1:]), reencodes=sum(tag=="encoder" for tag,_ in events[1:]),
         sampled_tail_steps=sum(any(p >= origin+(e["head"]+1)*b for p in e["sampled"]) for e in trace),
         parked_refresh_rows=sum(len(e["refresh_only"]) for e in trace),
-        offered=offers, actual_decoder_q=widths)
+        offered=offers, actual_decoder_q=widths, **({"quoted_decoder_calls": len(prices)} if price else {}))
 
 
 def main():

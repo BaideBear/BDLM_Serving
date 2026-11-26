@@ -103,7 +103,10 @@ def run(args, before_cuda=None):
     if (sha(args.samples) != caps.SAMPLES_SHA or plan["flowblock_spawn_threshold"] != 0.8
             or plan["cap"] != 2048 or transformers.__version__ != native["transformers"]):
         raise ValueError("Nonregistered suite or runtime")
-    group = GROUPS[0] if cpu else GROUPS[int(os.environ["UNIFIED_GROUP"])]
+    group = GROUPS[getattr(args, "pilot_group", 0)] if cpu else GROUPS[int(os.environ["UNIFIED_GROUP"])]
+    price = cpu and getattr(args, "price", False)
+    if cpu and group not in (GROUPS[0], GROUPS[1]):
+        raise ValueError("Only registered mask pairs may be CPU pilots")
     if cpu:
         torch.set_num_threads(8)
         torch.set_num_interop_threads(1)
@@ -117,6 +120,8 @@ def run(args, before_cuda=None):
         raise ValueError("Wrong canvas")
     source_paths = [HERE, HERE.with_name("gemma_unified.py"), HERE.with_name("gemma_unified_audit.py"),
                     HERE.with_name("gemma_wave_kv.py"), ROOT / "benchmarks/checkpoints/diffusiongemma.json"]
+    if price:
+        source_paths.append(HERE.with_name("gemma_quote.py"))
     args.output.mkdir(mode=0o700, exist_ok=False)
     save_json(args.output / "run.json", dict(
         model=native["model"], revision=native["revision"], torch=str(torch.__version__),
@@ -125,7 +130,7 @@ def run(args, before_cuda=None):
         sources={p.name: sha(p) for p in source_paths}, launcher_sha256=caps.LAUNCHER_SHA,
         wave_config=plan, native_config=native, arms={k: ARMS[k] for k in group},
         rng="independent streams seeded by task.seed + canvas ordinal",
-        indices=[t["index"] for t in tasks]))
+        indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
         before_cuda(model)
         model.to("cuda")
@@ -138,11 +143,13 @@ def run(args, before_cuda=None):
             for arm in group:
                 series, causal, prefix = ARMS[arm]
                 config = dict(plan, prefix_slots=prefix, prefix_mode="random" if prefix else "zero")
-                ids, trace, obs = measure(model, data, config, series, task["seed"], causal)
+                ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
                 if digest != input_digest(data):
                     raise ValueError("Shared input changed")
+                if price:
+                    row["quote_verified_decoder_calls"] = obs["quoted_decoder_calls"]
                 rows.append(row)
             if group[-1].endswith("_open"):
                 paired(*rows)
@@ -246,10 +253,11 @@ if __name__ == "__main__":
         queue()
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
-    elif sys.argv[1:2] == ["cpu-pilot"]:
+    elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"]):
         from argparse import Namespace
         folder = Path(sys.argv[2])
-        run(Namespace(samples=caps.SAMPLES, output=folder,
+        fixed = sys.argv[1] == "cpu-pilot-q512"
+        run(Namespace(samples=caps.SAMPLES, output=folder, pilot_group=int(fixed), price=fixed,
                       checkpoint=ROOT.parent.parent / "models/diffusiongemma-cd40195"))
         score(folder)
     else:

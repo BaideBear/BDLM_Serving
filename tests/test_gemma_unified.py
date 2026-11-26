@@ -503,11 +503,13 @@ def check_run(run_value: Run, *, causal=True):
 def test_public_interface_and_clock(engine):
     signature = inspect.signature(engine.generate)
     assert [p.name for p in signature.parameters.values()] == [
-        "model", "data", "plan", "next_budget", "causal", "seed"]
+        "model", "data", "plan", "next_budget", "causal", "seed", "quote_costs"]
     assert signature.parameters["next_budget"].kind is inspect.Parameter.KEYWORD_ONLY
     assert signature.parameters["next_budget"].default is inspect.Parameter.empty
     assert signature.parameters["causal"].default is True
     assert signature.parameters["seed"].default == 0
+    assert signature.parameters["quote_costs"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert signature.parameters["quote_costs"].default is False
 
     result = run(engine, FakeModel(steps=6), (32, 64, 128, 256, 512), cap=1024)
     check_run(result)

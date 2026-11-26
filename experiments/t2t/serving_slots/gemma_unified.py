@@ -169,7 +169,7 @@ def _sample(model, s, rows, measured, prefix, cache, masks, steps, device):
 
 
 @torch.inference_mode()
-def generate(model, data, plan, *, next_budget, causal=True, seed=0):
+def generate(model, data, plan, *, next_budget, causal=True, seed=0, quote_costs=False):
     """Return generated IDs and a physical decoder/encoder tape.
 
     Trace row lists (``visible``, ``selected``, ``sampled``, ``refresh_only``,
@@ -179,6 +179,8 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0):
     encoder prefix is implicit and causal visibility is query-dependent.
     Dirty, ages and sampler changes (``admitted``, ``strict_edits``, ``revoked``)
     are per resident canvas, in head-to-tail order, with local row indices.
+    Set quote_costs=True to call next_budget(tick, options) before each
+    decoder. Otherwise only next_budget(tick) is called, without building a menu.
     ``encoded`` and ``promoted`` list ordinals. ``phase`` describes the head.
     """
     block, cap = plan["block_size"], plan["cap"]
@@ -187,6 +189,10 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0):
             or type(cap) is not int or cap < block or cap % block
             or plan.get("batch_size", 1) != 1 or not 0 <= threshold <= 1):
         raise ValueError("Expected a 256-token model canvas and a whole-canvas request cap")
+    if type(quote_costs) is not bool:
+        raise ValueError("quote_costs must be Boolean")
+    if quote_costs:
+        from .gemma_quote import quote_options
     if type(causal) is not bool or type(seed) is not int or not callable(next_budget):
         raise ValueError("Expected Boolean causal, integer seed and callable offer source")
     prefix_mode, prefix_slots = _prefix_policy(plan)
@@ -256,7 +262,12 @@ def generate(model, data, plan, *, next_budget, causal=True, seed=0):
             head = live[0]
             state = Tick(len(trace), head.ordinal, len(live),
                          tuple(len(s.dirty) for s in live), may_open)
-            offer = next_budget(state)
+            if quote_costs:
+                options = quote_options(live, may_open=may_open, steps=steps, cap=cap,
+                                        prefix_slots=prefix_slots, choose=_choose)
+                offer = next_budget(state, options)
+            else:
+                offer = next_budget(state)
             if type(offer) is not int or offer not in _OFFERS:
                 raise ValueError(f"Unsupported decoder offer: {offer!r}")
             if offer == 2 * block and may_open:
