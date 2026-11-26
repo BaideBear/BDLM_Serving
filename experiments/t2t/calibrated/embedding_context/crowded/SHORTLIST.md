@@ -14,10 +14,25 @@ LLaDA 2.1，固定 30 题，冻结 5% 门控。只看原规则在原生前态**�
 
 [计数](native-shortlist.csv) · [逐题，含无机会的题](native-shortlist-requests.csv) · [原生回放和门控审计](../gated/NATIVE_Q8E1.md)。
 
+## 用上一步的邻居变化重排，是否能拿到这部分收益？
+
+另外 24 题拟合，仅给原分数增加两项：八格内上一步实际写入引起的输入向量平均变化有多大、该变化和当前旧 token 的向量是否同向。具体见[事先冻结的规则](DELTA_PROTOCOL.md)。未交换的轮次不改门控，换入候选仍限前八名，每次只算一行，不看当前 logits 或 KV。
+
+| 换出类型 | 原命中 | 重排命中 | 新增 / 丢失命中 | 改选次数 | 额外模型 Q |
+|---|---:|---:|---:|---:|---:|
+| MASK | 16 | 14 | 0 / 2 | 9 | 0 |
+| 旧回填 | 8 | 10 | 2 / 0 | 27 | 0 |
+
+**不进入 GPU 测试。** 两组总命中都是 24，合并会掩盖真正关心的区别：最需要判断收益、即挤走 MASK 的轮次，准确选中反而更少。两种排名都换走了 45 个当轮会被原生接纳的 MASK，物理开销不变。这个结果只否定该重排规则，不否定名单中存在更好的候选。[实测表](delta-rank.csv)。
+
 从仓库根目录在 n164 复算（复用已验证的原生路径和 24 题独立拟合参数；CPU，无额外模型 forward）：
 
 ```bash
 CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 OPENBLAS_NUM_THREADS=1 \
   ../venv/bin/python -B -m experiments.t2t.calibrated.embedding_context.native_gates \
   --shortlist-out experiments/t2t/calibrated/embedding_context/crowded
+# Fit on calibration24 and replay frozen30; writes only the sanitized summary
+# to a sibling private results directory by default.
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 OPENBLAS_NUM_THREADS=1 \
+  ../venv/bin/python -B -m experiments.t2t.calibrated.embedding_context.delta_rank
 ```

@@ -1,0 +1,3 @@
+requests,victim,swaps,physical_q_on_swaps,one_seat_queries,list_rows,list_targets,top8_oracle,original_hits,reranked_hits,gained,lost,changed_pick,lost_mask_admissions,lost_old_hits
+30,crowded,120,960,120,943,52,39,16,14,0,2,9,45,0
+30,slack,185,1480,185,1477,37,27,8,10,2,0,27,0,0
