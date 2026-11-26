@@ -3,11 +3,11 @@ import random
 
 import pytest
 
-from bdlm_serving.methods.t2t.physical_prefix import PREFIX_MODES, plan_prefix
+from bdlm_serving.methods.t2t.physical_prefix import MATCHED_MODES, SLACK_MODES, plan_prefix
 from bdlm_serving.methods.t2t.protocol import Arm
 
 
-ZERO, RANDOM, RIGHT = PREFIX_MODES
+ZERO, RANDOM, RIGHT = MATCHED_MODES
 
 
 def plan(accepted, fresh=(), q=5, k=0, mode=ZERO, *, editable=None,
@@ -98,7 +98,7 @@ def test_cli_arm_parsing_accepts_sparse_and_block_sized_capacity(width, q):
 
 
 def test_b32_q64_alias_keeps_k_and_policy():
-    for mode, k in ((ZERO, 0), (RIGHT, 2), (RANDOM, 31)):
+    for mode, k in ((ZERO, 0), (RIGHT, 2), (RANDOM, 31), (SLACK_MODES[0], 2)):
         arm = Arm.parse(f"64:0:{64-k}:{mode}", 32)
         effective = Arm.parse(f"32:0:{32-k}:{mode}", 32)
         assert arm.prefix_executable(32) == effective
@@ -111,3 +111,23 @@ def test_reject_invalid_editable_or_fresh_positions():
     for fresh, editable in (({4}, range(4)), ({0}, range(8)), ({5}, range(6))):
         with pytest.raises(ValueError):
             plan([True, True, True, True, True, False, False], fresh, editable=editable)
+
+
+@pytest.mark.parametrize("mode", SLACK_MODES)
+def test_slack_only_preserves_all_zero_rows_and_charges_every_addition(mode):
+    for state in product(range(3), repeat=5):
+        accepted = [bool(x) for x in state]
+        fresh = {i for i, x in enumerate(state) if x == 2}
+        for q in range(2, 6):
+            zero = plan(accepted, fresh, q=q)
+            for k in {1, q - 1}:
+                p = plan(accepted, fresh, q=q, k=k, mode=mode)
+                slots = max(0, q - len(zero.positions)) if zero.positions else 0
+                n = min(k, len(zero.eligible_prefix_rows), slots)
+                assert p.zero_rows == zero.positions and not p.evicted_rows
+                assert set(p.positions) == set(p.zero_rows) | set(p.added_rows)
+                assert set(p.added_rows) <= set(zero.eligible_prefix_rows)
+                assert len(p.positions) == len(zero.positions) + n
+                assert len(p.added_rows) == n
+                if mode == "hard_prefix_slack_right" and n:
+                    assert p.added_rows == zero.eligible_prefix_rows[-n:]
