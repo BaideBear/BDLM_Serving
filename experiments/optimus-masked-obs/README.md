@@ -4,6 +4,8 @@
 
 每个数值来自同一组 30 题（GSM8K、MATH-500、HumanEval 各 10）。TPF = 逐题 N/F 的均值；token efficiency = ΣN/ΣQ；质量 = 正确数/30。Q 是实际计算的请求行；纯 prompt prefill 单列，不计入 F/Q。失败及触及长度上限的请求均保留。
 
+**与后续物理 Q 口径的区别：** 本页保留历史图表的请求行效率 `N/Q`。后续 Serving 实验使用 `N/physical_Q`；这两个字段在旧表中不总相等。跨实验比较时请读 [summary.csv](summary.csv) 的 `physical_efficiency`。例如 LLaDA 窗口 32 开掩码是 9.56%（物理行）而非 9.63%（请求行）；[四档物理口径对照](../t2t/serving_slots/EXPANDED.md#跨物理块的注意力是否有效)。
+
 [逐题数值](requests.csv) · [全体与各数据集汇总](summary.csv) · [矢量图](figures/comparison.svg) · [配对差值、逐题得失](comparisons.csv)
 
 ![Optimus：OBS 跨块注意力掩码：TPF、token efficiency、质量](figures/comparison.png)
