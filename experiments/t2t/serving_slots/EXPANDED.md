@@ -128,6 +128,28 @@ LLaDA 的[新执行器 GPU4 配对入口](llada_all_slots90.py)同样登记为�
 
 逐轮核查前缀实际使用量：Q32 [右端](controls/llada21-q32-registered-k8-right-exposure.csv)在 3,490/4,509 个选位轮实算 25,045 个额外前缀行，[随机](controls/llada21-q32-registered-k8-random-exposure.csv)为 3,375/4,436 轮、24,154 行。两组各有 80/90 个请求真正注入，均未挤出 MASK 或普通行。右端额外行占其总物理 Q 的 9.50%，随机占 9.27%；整条生成轨迹的总 Q 增量不等于注入的行数。Q8/K4 的[右端](controls/llada21-q8-registered-k4-right-exposure.csv)和[随机](controls/llada21-q8-registered-k4-random-exposure.csv)仅在 1,062/7,032 和 1,097/7,162 个选位轮注入，分别实算 3,079 和 3,148 行。
 
+### 外层调用单请求的方法
+
+[共同接口](request_handle.py)沿用两模型的原执行路径，不产生预算序列。LLaDA 以 `open_llada(kernel, input_ids, config, gen_length, seed, mask_id, eos_ids)` 打开；Gemma 以 `open_gemma(model, data, plan, seed=...)` 打开。依赖分别按两模型的固定环境加载。两者都接受外层逐轮给预算，同一份权重只支持单线程串行交错，不是跨请求并发 forward 或 GPU 吞吐的证明。
+
+```python
+try:
+    while request.status == "ready":
+        prices = request.menu()
+        q = scheduler.choose(prices)  # caller owns load and choice
+        step = request.advance(prices[q])
+        record(step.offer, step.main_q, step.post_q, step.prefill_q, step.paid_f)
+    final_token_ids = request.result()
+finally:
+    request.close()
+```
+
+`main_q` 是本次生成或 decoder forward 的精确投影数，`mandatory_q` 已经包含在内。Gemma 在打开请求时做 `opened_prefill_q` 行预填，LLaDA 可能在首步另做 `prefill_q` 行预填；两者从生成指标中剔除，但不能从硬件开销中抹掉。Gemma 的 `post_q_max` 是本轮提交后 encoder 的上界（0 或256），只按 `step.post_q` 实耗结算；这次 encoder 算进生成 F 和 Q。LLaDA 的 commit/验证也是付费 main forward。`advance` 只接受**当前请求、当前轮次**的报价对象；过期或错请求的报价不消耗模型工作。取消在轮次边界进行，已完成工作不退回；部分写入后失败的请求不能重试。成功结束才能取输出。
+
+[CPU 回归](../../../tests/test_serving_request_handle.py)覆盖两模型报价与模型调用账本、共享 LLaDA 模型的请求交错、旧报价、取消和第二层投影异常后的请求隔离。该层面向单请求功能验证；不能用 CPU 测试换算 GPU 延迟，也不把整块实现的切换数字贴到五档接口上。
+
+**LLaDA 共享真权重的交错核对。** n164 CPU BF16，严格因果掩码，预先取原30中索引0和10，生成上限均38。`gsm8k/167` 纯提示32行、8次生成 forward、297 Q；`test/precalculus/807.json` 纯提示64行、12次生成 forward、340 Q。两请求各自使用包含全部五档的不同外部序列，单独运行及交错运行最终 token 逐个相同，每轮真实位置、20层投影宽度和报价逐项吻合。此为短程功能证据，未计质量。[核对摘要](controls/llada21-handle-interleave-0-10.json) · [复现入口](llada_all_slots_audit.py) `--interleave-with`。
+
 ### 外层给出预算时，实际要付多少 Q？
 
 重读八个旧**固定单块、零前缀**配置的 720 份请求记录。每一份都核对样本身份、阶段和实投影宽度，按原30、新60和全90与已发布的 N/F/Q 总量复算一致。下表是全90；超额量为逐次调用累加 `max(0, 实算Q−名义档)`，不与欠填抵消。Gemma 提交后的 encoder 重编码单列、也计入生成成本；两模型只免纯提示 prefill。

@@ -77,12 +77,71 @@ def measure(kernel, ids, config, length, seed, mask_id, eos, series, *, opened=F
                     for e in gen])
 
 
+@torch.inference_mode()
+def handle_pair(model, cases, cfg, mask_id, eos):
+    from .request_handle import open_llada
+    kernel = AllSlotKernel(model)
+    series = [OFFERS, (4, 64, 8, 16, 32)]
+    args = [(torch.tensor([case["prompt_ids"]]), cfg, 38, case["seed"], mask_id, eos)
+            for case in cases]
+    expected = [measure(kernel, *params, pattern, price=True)
+                for params,pattern in zip(args,series,strict=True)]
+    handles = [open_llada(kernel, *params) for params in args]
+    ticks = [0,0]
+    init = [0,0]
+    observed = []
+    layers = [[] for _ in kernel.projections]
+    with ExitStack() as stack:
+        def observe(_, __, kw):
+            observed.append(kw["position_ids"][0].tolist())
+        stack.callback(model.register_forward_pre_hook(observe, with_kwargs=True).remove)
+        for idx, projection in enumerate(kernel.projections):
+            def count_rows(_, inp, j=idx):
+                layers[j].append(inp[0].shape[-2])
+            stack.callback(projection.register_forward_pre_hook(count_rows).remove)
+        while any(h.status == "ready" for h in handles):
+            for i,h in enumerate(handles):
+                if h.status != "ready":
+                    continue
+                j = ticks[i]
+                exp = expected[i]["steps"][j]
+                before = len(observed)
+                menu = h.menu()
+                if set(menu) != {4,8,16,32,64} or before != len(observed):
+                    raise ValueError("Invalid menu or model work during quote")
+                s = h.advance(menu[series[i][j%len(series[i])]])
+                calls = observed[before:]
+                if (len(calls) != s.total_f or calls[-1] != exp["rows"]
+                    or (s.main_q,s.offer,s.action) != (exp["q"],exp["offer"],exp["action"])
+                    or s.prefill_q != sum(map(len,calls[:-1]))
+                    or any(widths[before:] != list(map(len,calls)) for widths in layers)):
+                    raise ValueError(f"Physical work changed by interleaving: {i}/{j}")
+                init[i] += s.prefill_q
+                ticks[i] += 1
+    out = []
+    for i,h in enumerate(handles):
+        ref = expected[i]
+        if (h.status != "done" or list(h.result()) != ref["output_ids"]
+                or ticks[i] != ref["charged_F"] or init[i] != len(cases[i]["prompt_ids"])//32*32):
+            raise ValueError("Interleaved output, forwards or prefill differs from solo")
+        out.append(dict(task_id=cases[i]["task_id"], seed=cases[i]["seed"],
+                        prompt_rows=len(cases[i]["prompt_ids"]), prefill_Q=init[i],
+                        offers=series[i], paid_F=ticks[i], paid_Q=ref["physical_Q"],
+                        output_tokens_including_special=len(h.result()),
+                        output_ids_sha256=sha256(json.dumps(h.result()).encode()).hexdigest(),
+                        positions_and_outputs_match_solo=True,
+                        maximum_head_or_tail_refresh=max(len(s["parked"]) for s in ref["steps"])))
+    return dict(device="cpu", cap=38, quality_evaluated=False, mode="serial_interleaved",
+                model="llada21", physical_layers=len(layers), requests=out)
+
+
 def main():
     from transformers import AutoModelForCausalLM, AutoTokenizer
     parser = argparse.ArgumentParser(description=__doc__)
     for k in ("checkpoint", "original", "output"):
         parser.add_argument("--"+k, required=True, type=Path)
     parser.add_argument("--quote", action="store_true", help="Check all chosen offers against projections")
+    parser.add_argument("--interleave-with", type=Path, help="Second native prompt for the request-handle check")
     args = parser.parse_args()
     if os.environ.get("CUDA_VISIBLE_DEVICES") != "" or args.output.exists():
         raise ValueError("Fresh CPU-only diagnostic required")
@@ -97,6 +156,14 @@ def main():
     row = json.loads(args.original.read_text())
     params = (torch.tensor([row["prompt_ids"]]), dict(confidence_threshold=.5, editing_threshold=.5,
               max_post_steps=16), 38, row["seed"], tok.convert_tokens_to_ids("<|mask|>"), [tok.eos_token_id])
+    if args.interleave_with:
+        peer = json.loads(args.interleave_with.read_text())
+        if (row["index"], peer["index"]) != (0,10) or row["seed"] == peer["seed"]:
+            raise ValueError("Expected the registered pair, original indices 0 and 10")
+        result = handle_pair(model, [row, peer], params[1], params[4], params[5])
+        save_json(args.output, result)
+        print(json.dumps(result), flush=True)
+        return
     controls = []
     for offer in (32, 64):
         old = measure(TopTransitionKernel(model), *params, (offer,))
