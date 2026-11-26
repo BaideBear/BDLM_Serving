@@ -41,6 +41,8 @@ PILOT_EX = "gemma-q128-k32-exchange-cpu3-v1"
 EX_SPEC = {"offer":128, "quota":32, "cap":4, "tick":"even", "mode":"oldest"}
 SPAWN = ("q512","q512_spawn50")
 ARMS[SPAWN[1]] = ARMS[SPAWN[0]]
+GROUPS += (SPAWN,)
+PILOT_SPAWN = "gemma-q512-spawn50-cpu3-v1"
 
 
 def check_early_spawn(control, trial, ids_a, ids_b):
@@ -117,6 +119,61 @@ def check_exchange(control, trial, ids_a, ids_b):
 
 def read(path):
     return json.loads(path.read_text())
+
+
+def spawn_witness(a,b):
+    first = a["first_earlier_spawn"]
+    if first != b["first_earlier_spawn"] or a["input_sha256"] != b["input_sha256"]:
+        raise ValueError("Unpaired spawn observation")
+    for r in (a,b):
+        t=r["trace"]
+        enc=sum(len(e["encoded"]) for e in t)
+        if (r["quote_verified_decoder_calls"]!=len(t) or not t or r["dual_ticks"]!=sum(e["opportunity"] for e in t)
+                or r["projection_modules"]!=85 or r["decoder_layers"]!=30 or r["status"]!="success"
+                or r["generation_forwards"]!=len(t)+enc or r["encoder_q"]!=256*enc
+                or r["decoder_q"]!=sum(e["q"] for e in t)
+                or r["generation_physical_padded_rows"]!=r["encoder_q"]+r["decoder_q"]
+                or any(e["tick"]!=j or e["offer"]!=512 for j,e in enumerate(t))):
+            raise ValueError("Spawn cost/quote mismatch")
+    if first is None:
+        if (a["output_ids"],a["trace"])!=(b["output_ids"],b["trace"]):
+            raise ValueError("No earlier admission but request changed")
+    else:
+        i=first["tick"]
+        if (not 0<i<min(len(r["trace"]) for r in (a,b))
+                or a["trace"][:i]!=b["trace"][:i] or first["previously_unaccepted"]<=0
+                or not .5<=first["newly_accepted"]/first["previously_unaccepted"]<.8):
+            raise ValueError("Bad first spawn threshold crossing")
+        x,y=a["trace"][i],b["trace"][i]
+        if (x["head"],x["q"],x["opportunity"],y["head"],y["q"],y["opportunity"])!=(
+                first["head"],256,False,first["head"],512,True):
+            raise ValueError("First admission failed to add one actual tail")
+    return first
+
+
+def spawn_pilot(folder):
+    m=read(folder/"run.json")
+    if (sha(folder/"run.json")!="07cd17f32aa97cf979bf28a3f476a120221256c5d73a8b9c0a9254c8dd7fff09"
+            or m["device"]!="cpu" or m["indices"]!=[0,10,20] or not m["quote_costs"]
+            or m["samples_sha256"]!=caps.SAMPLES_SHA or m["arms"]!={p:[[512],True,{}] for p in SPAWN}
+            or m["spawn_thresholds"]!=dict(zip(SPAWN,(.8,.5)))):
+        raise ValueError("Not the frozen spawn preflight")
+    for src in ("gemma_unified.py","gemma_quote.py","gemma_unified_audit.py","gemma_wave_kv.py"):
+        if m["sources"][src]!=sha(HERE.with_name(src)):
+            raise ValueError("Changed request implementation")
+    tasks=load_tasks(caps.SAMPLES)
+    for arm in SPAWN:
+        if read(folder/f"complete-{arm}.json")!={"policy":arm,"requests":3}:
+            raise ValueError("Incomplete spawn preflight")
+    exposures=[]
+    for i in m["indices"]:
+        pair=[read(folder/f"{i:02d}-{arm}.json") for arm in SPAWN]
+        if any(r["policy"]!=p or any(r[k]!=tasks[i][k] for k in KEYS) for r,p in zip(pair,SPAWN)):
+            raise ValueError("Wrong frozen spawn case")
+        exposures.append(spawn_witness(*pair))
+    if not any(exposures):
+        raise ValueError("Earlier admission never changed the CPU pilot")
+    return exposures
 
 
 def exchange_pilot(folder):
@@ -314,7 +371,7 @@ def run(args, before_cuda=None):
     exchange = group == EXCHANGE or cpu and getattr(args, "exchange", False)
     if exchange:
         group = EXCHANGE
-    spawn = cpu and getattr(args,"spawn",False)
+    spawn = group == SPAWN or cpu and getattr(args,"spawn",False)
     if spawn:
         group = SPAWN
     price = exchange or spawn or cpu and getattr(args, "price", False)
@@ -381,6 +438,12 @@ def run(args, before_cuda=None):
                 for row in rows:
                     row["first_earlier_spawn"]=opening
                     row["dual_ticks"]=sum(e["opportunity"] for e in row["trace"])
+                spawn_witness(*rows)
+                if not cpu:
+                    twin=read(output(1)/f"{task['index']:02d}-q512.json")
+                    if any(rows[0][k]!=twin[k] for k in (*KEYS,"input_sha256","output_ids","trace","output_tokens",
+                               "generation_forwards","generation_physical_padded_rows","first_geometry_sha256")):
+                        raise ValueError(f"Q512 spawn control did not reproduce request {task['index']}")
             if exchange:
                 first, swaps = check_exchange(*witnesses, *[r["output_ids"] for r in rows])
                 for row in rows:
@@ -435,8 +498,9 @@ def score(folder):
         cohorts = {"pilot3": rows} if pilot else {"original30": rows[:30], "new60": rows[30:], "full90": rows}
         exchange = meta.get("exchange")==EX_SPEC
         rank = arm in RANKS and not exchange
-        key = "first_exchange_tick" if exchange else "first_rank_change" if rank else "first_opportunity"
-        yes, no = ("swapped","unchanged") if exchange else ("changed_rank","unchanged_rank") if rank else ("exposed","unexposed")
+        spawn = "spawn_thresholds" in meta
+        key = "first_earlier_spawn" if spawn else "first_exchange_tick" if exchange else "first_rank_change" if rank else "first_opportunity"
+        yes, no = ("earlier_spawn","unchanged") if spawn else ("swapped","unchanged") if exchange else ("changed_rank","unchanged_rank") if rank else ("exposed","unexposed")
         for name, subset in cohorts.items():
             for scope in ("all",yes,no):
                 values = [r for r in subset if scope == "all" or
@@ -474,6 +538,10 @@ def protected():
         rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1")
     if GROUPS[i]==EXCHANGE:
         exchange_pilot(caps.DATA/PILOT_EX)
+    if GROUPS[i]==SPAWN:
+        spawn_pilot(caps.DATA/PILOT_SPAWN)
+        if read(output(1)/"returned.json")!={"gpu":0,"restored":True} or read(output(1)/"complete-q512.json")!={"policy":"q512","requests":90}:
+            raise ValueError("Missing independent fixed Q512 replay")
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
@@ -493,9 +561,9 @@ def protected():
     save_json(output(i) / "returned.json", {"gpu": 0, "restored": True})
 
 
-def queue(*, rank=False, exchange=False):
-    indices = (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
-    predecessor = "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
+def queue(*, rank=False, exchange=False, spawn=False):
+    indices = (GROUPS.index(SPAWN),) if spawn else (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
+    predecessor = "prefix90-gemma-q128-exchange" if spawn else "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
     if any(output(i).exists() for i in indices):
         raise ValueError("Refusing to overwrite an existing registered run")
     for session in ([predecessor,"gemma-rank-cpu3-v1"] if rank else [predecessor]):
@@ -509,6 +577,8 @@ def queue(*, rank=False, exchange=False):
         print("rank CPU preflight changed requests:",rank_pilot(caps.DATA/"gemma-unified-q64-rank-cpu3-v1"),flush=True)
     if exchange:
         print("Validated exchange exposures:",exchange_pilot(caps.DATA/PILOT_EX),flush=True)
+    if spawn:
+        print("Validated earlier admission:",spawn_pilot(caps.DATA/PILOT_SPAWN),flush=True)
     for i in indices:
         with output(i).with_suffix(".log").open("x") as log:
             subprocess.run([sys.executable, "-u", str(HERE), "gemma", "0"],
@@ -523,6 +593,8 @@ if __name__ == "__main__":
         queue(rank=True)
     elif sys.argv[1:] == ["queue-exchange"]:
         queue(exchange=True)
+    elif sys.argv[1:] == ["queue-spawn50"]:
+        queue(spawn=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
     elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"], ["cpu-pilot-spawn50"]):

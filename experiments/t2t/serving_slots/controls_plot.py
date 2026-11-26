@@ -121,6 +121,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
     if rank:
         slot=f"Q{dose_q}" if dose_q is not None else source.stem.split("-")[2].upper()
         detail="fixed "+slot+" | slack-only prefix selection vs capped Optimus"
+        if source.stem.endswith("-exchange"):
+            detail="fixed Q128 | oldest prefix: spare seats vs up to four MASK replacements on even ticks"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -163,6 +165,8 @@ def main():
     if list((HERE/"controls").glob("gemma-unified-q*-vs-baselines.csv")):
         mixed_plot(HERE/"controls",HERE/"gemma-unified-fixed.png",unified=True)
     for p in sorted((HERE/"controls").glob("gemma-unified-q*-k*-rank.csv")):
+        mixed_plot(p, HERE/(p.stem+".png"), rank=True)
+    for p in sorted((HERE/"controls").glob("gemma-unified-q*-k*-exchange.csv")):
         mixed_plot(p, HERE/(p.stem+".png"), rank=True)
     if list((HERE/"controls").glob("gemma-unified-q128-k*-rank.csv")):
         mixed_plot(HERE/"controls", HERE/"gemma-unified-q128-prefix-doses.png", rank=True,dose_q=128)

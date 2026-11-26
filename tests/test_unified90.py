@@ -25,6 +25,20 @@ def test_numerator_counts_delivered_tokens_not_edits_or_q():
     assert row["first_opportunity"] is None
 
 
+def test_spawn_readback_rejects_changed_unexposed_output_and_unpaid_projection():
+    from experiments.t2t.serving_slots.unified90 import spawn_witness
+    a=record("q512")
+    a.update(first_earlier_spawn=None,dual_ticks=0,quote_verified_decoder_calls=1)
+    b=deepcopy(a)
+    assert spawn_witness(a,b) is None
+    b["output_ids"]=[8,3]
+    with pytest.raises(ValueError,match="No earlier admission"):
+        spawn_witness(a,b)
+    b["generation_physical_padded_rows"]+=1
+    with pytest.raises(ValueError,match="cost/quote"):
+        spawn_witness(a,b)
+
+
 def test_identical_unexposed_request():
     on, off = record("replay"), record("replay_open")
     paired(on, off)

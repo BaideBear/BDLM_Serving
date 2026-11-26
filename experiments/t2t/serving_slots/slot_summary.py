@@ -33,6 +33,7 @@ ALLOWLIST = (
     *(f"gemma-unified-q{q}-vs-baselines.csv" for q in (32,64,128,256,512)),
     "gemma-unified-q64-k16-rank.csv", "gemma-unified-q32-k8-rank.csv", "gemma-unified-q128-k32-rank.csv",
     "gemma-unified-q128-k64-rank.csv", "gemma-unified-q128-k96-rank.csv",
+    "gemma-unified-q128-k32-exchange.csv",
 )
 
 class SummaryError(ValueError):
@@ -65,6 +66,8 @@ def variant(model, policy):
     if p == "active_w2" and model == "gemma":
         return p, 512, "active_canvases"
     if model=="gemma":
+        if p=="q128_k32_oldest_swap4":
+            return "unified_k32_oldest_swap4",128,"nominal_physical_billed"
         m=re.fullmatch(r"q(32|64|128|256|512)(?:_k(\d+)_(random|oldest)|(_slack_random))?",p)
         if m:
             q=int(m[1])

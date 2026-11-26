@@ -303,7 +303,7 @@ def admission30(rows):
     for r in rows:
         if r["factor"] != "mask" or r["scope"] != "all":
             continue
-        gate = r["baseline_policy"].removesuffix("-open")
+        gate = r["baseline_policy"].rpartition("-")[0]
         require(r["device"]=="cpu" and r["cohort"]=="original-0-29" and r["requests"]=="30"
                 and r["nominal_q"]=="64" and r["baseline_policy"]==gate+"-open"
                 and r["arm_policy"]==gate+"-causal" and gate not in result, "Invalid CPU mask control")
