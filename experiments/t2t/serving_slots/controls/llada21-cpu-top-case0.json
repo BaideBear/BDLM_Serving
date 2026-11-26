@@ -1,0 +1,127 @@
+{
+  "seed": 17000,
+  "gen_length": 38,
+  "prompt_rows": 58,
+  "offers": [
+    32,
+    64,
+    32,
+    32,
+    64
+  ],
+  "correct_task_score": null,
+  "generation": {
+    "F": 8,
+    "physical_Q": 271
+  },
+  "layers_checked": 20,
+  "steps": [
+    {
+      "offer_tick": 0,
+      "top_action": "head_bootstrap",
+      "block": 1,
+      "nominal_q": 32,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 32,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 1,
+      "top_action": "fused_growth",
+      "block": 1,
+      "nominal_q": 64,
+      "physical_q": 64,
+      "overflow": 0,
+      "sampled_q": 64,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 2,
+      "top_action": "head_denoise",
+      "block": 1,
+      "nominal_q": 32,
+      "physical_q": 15,
+      "overflow": 0,
+      "sampled_q": 6,
+      "refresh_only_positions": [
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72
+      ],
+      "edited": 0
+    },
+    {
+      "offer_tick": 3,
+      "top_action": "commit_head",
+      "block": 1,
+      "nominal_q": 32,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 0,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 4,
+      "top_action": "promote_verify",
+      "block": 2,
+      "nominal_q": 64,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 32,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 5,
+      "top_action": "head_denoise",
+      "block": 2,
+      "nominal_q": 32,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 32,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 6,
+      "top_action": "head_denoise",
+      "block": 2,
+      "nominal_q": 64,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 32,
+      "refresh_only_positions": [],
+      "edited": 0
+    },
+    {
+      "offer_tick": 7,
+      "top_action": "commit_head",
+      "block": 2,
+      "nominal_q": 32,
+      "physical_q": 32,
+      "overflow": 0,
+      "sampled_q": 0,
+      "refresh_only_positions": [],
+      "edited": 0
+    }
+  ],
+  "task_id": "gsm8k/167",
+  "device": "cpu",
+  "dtype": "bfloat16",
+  "torch": "2.9.0+cu128",
+  "thresholds": {
+    "confidence_threshold": 0.5,
+    "editing_threshold": 0.5,
+    "max_post_steps": 16
+  }
+}

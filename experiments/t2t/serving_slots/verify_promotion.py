@@ -63,12 +63,37 @@ def measure(model, ids, cfg, q, length, seed, mask, eos):
                             for w in charged])
 
 
+@torch.inference_mode()
+def measure_top(model,ids,cfg,length,seed,mask,eos):
+    from experiments.t2t.serving_slots.llada_top_transition import TopTransitionKernel
+    kernel=TopTransitionKernel(model)
+    state=kernel.create(ids,cfg,length,seed,mask,eos)
+    offers=(32,64,32,32,64)
+    history=[]
+    for tick in range(2048):
+        if state.phase=="done":
+            break
+        q=offers[tick%len(offers)]
+        e=kernel.step(state,q)
+        if e["layer_physical_q"] != [e["physical_q"]]*len(kernel.projections):
+            raise ValueError("Per-layer Q mismatch")
+        history.append({key:e[key] for key in ("offer_tick","top_action","block","nominal_q",
+                        "physical_q","overflow","sampled_q","refresh_only_positions","edited")})
+    if state.phase!="done" or not any(e["top_action"]=="fused_growth" for e in history):
+        raise ValueError("Top-tier route incomplete or did not grow a tail")
+    return dict(seed=seed,gen_length=length,prompt_rows=ids.shape[1],offers=offers,
+                correct_task_score=None,generation=dict(F=len(history),physical_Q=sum(
+                    e["physical_q"] for e in history)),layers_checked=len(kernel.projections),
+                steps=history)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--checkpoint",type=Path,required=True)
     p.add_argument("--original",type=Path,required=True,help="One archived LLaDA OBS/IBS request")
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--q",type=int,choices=(4,8,16,32),default=8)
+    p.add_argument("--top",action="store_true",help="Check the external 32/64 route instead")
     p.add_argument("--length",type=int,default=38)
     p.add_argument("--threads",type=int,default=12)
     args=p.parse_args()
@@ -83,8 +108,9 @@ def main():
     install_llada_rectangular_mask(model,allow_selected_cache=True)
     row=json.loads(args.original.read_text())
     cfg=dict(confidence_threshold=.5,editing_threshold=.5,max_post_steps=16)
-    result=measure(model,torch.tensor([row["prompt_ids"]]),cfg,args.q,args.length,row["seed"],
-                   tok.convert_tokens_to_ids("<|mask|>"),[tok.eos_token_id])
+    ids=torch.tensor([row["prompt_ids"]])
+    common=(args.length,row["seed"],tok.convert_tokens_to_ids("<|mask|>"),[tok.eos_token_id])
+    result=(measure_top(model,ids,cfg,*common) if args.top else measure(model,ids,cfg,args.q,*common))
     result.update(task_id=row["task_id"],device="cpu",dtype="bfloat16",torch=str(torch.__version__),
                   thresholds=cfg)
     args.out.write_text(json.dumps(result,indent=2)+"\n")
