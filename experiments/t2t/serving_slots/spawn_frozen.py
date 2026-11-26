@@ -45,13 +45,17 @@ def spec(i):
                       for arm, (threshold, opened) in ARMS.items()})
 
 
-def audit(row, arm):
+def audit(row, arm, *, opened_control=False):
     """Audit the 64 offer and physical width of every forward; track commits."""
-    threshold, opened = ARMS[arm]
+    if opened_control:
+        reg.require(arm == "progress80-open", "Only the registered Q64 mask control may open edges")
+        opened = True
+    else:
+        _, opened = ARMS[arm]
     reg.require(row["policy"] == arm and row["model"] == "llada21"
                 and row["status"] == "success", "Wrong arm/model/status")
-    reg.require(not opened and row["opened_edges"] == 0,
-                "Causal arm must not open cross-block edges")
+    reg.require((row["opened_edges"] > 0) == (opened and row["opportunities"] > 0)
+                and row["opened_edges"] >= 0, "Causal arm must not open cross-block edges; bad mask witness")
     prompt = len(row["prompt_ids"])
     prefill = prompt // 32 * 32
     events = row["events"]
@@ -101,6 +105,12 @@ def audit(row, arm):
         if event.get("top_action") == "commit_head":
             expected_block += 1
     f = len(gen)
+    if opened:
+        windows = [reg.geometry(e["block"], prompt, e["absolute_positions"], e["visible_kv"])
+                   for e in events]
+        reg.require(row["opened_edges"] == sum(w["opened_edges"] for w in windows if w)
+                    and row["opportunities"] == sum(bool(w) for w in windows),
+                    "Opened edges differ from actual Q/K windows")
     q = sum(event["physical_q"] for event in gen)
     n = row["output_tokens"]
     ids, eos, special = row["output_ids"], row["eos_id"], row["special_ids"]
@@ -275,8 +285,8 @@ def generate(model, tok, task, prompt, arm):
     return row
 
 
-def run(args, prepare):
-    """Only called from the verified launcher worker. No task judging here."""
+def load_gpu(args, prepare):
+    """Load and stage on the device bound by the protected caller."""
     import torch
     import transformers.utils as utils
     from typing import TypedDict
@@ -289,13 +299,6 @@ def run(args, prepare):
     from bdlm_serving.runtime.serial import install_llada_rectangular_mask
     from experiments.t2t.serving_slots.top_transition90 import resolve_reference, validate_prompts
 
-    i = int(os.environ["SPAWN_GROUP"])
-    reg.require(0 <= i < len(GROUPS) and prepare is not None
-                and os.environ["CUDA_VISIBLE_DEVICES"] == reg.UUID
-                and args.output == reg.folder(STUDY, i)
-                and args.samples == reg.DATA / "samples.json"
-                and reg.sha(args.samples) == reg.SAMPLES_SHA,
-                "Not the protected Q64 spawn worker")
     tasks = load_tasks(args.samples)
     tok = AutoTokenizer.from_pretrained(args.checkpoint, trust_remote_code=True,
                                         local_files_only=True)
@@ -317,6 +320,19 @@ def run(args, prepare):
         parameter.data = parameter.data.clone()
     prepare(model)
     model.to("cuda")
+    return model, tok, tasks, reference
+
+
+def run(args, prepare):
+    """Only called from the verified launcher worker. No task judging here."""
+    i = int(os.environ["SPAWN_GROUP"])
+    reg.require(0 <= i < len(GROUPS) and prepare is not None
+                and os.environ["CUDA_VISIBLE_DEVICES"] == reg.UUID
+                and args.output == reg.folder(STUDY, i)
+                and args.samples == reg.DATA / "samples.json"
+                and reg.sha(args.samples) == reg.SAMPLES_SHA,
+                "Not the protected Q64 spawn worker")
+    model, tok, tasks, reference = load_gpu(args, prepare)
     out = args.output
     out.mkdir(exist_ok=False)
     reg.save(out / "run.json", spec(i))

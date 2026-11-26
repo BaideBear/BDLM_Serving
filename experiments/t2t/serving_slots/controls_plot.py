@@ -56,7 +56,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
                 values = tuple(float(row[f"{side}_{m}"]) for m in metrics)
                 if points.setdefault(key, values) != values:
                     raise ValueError(f"Inconsistent {key} result in {source}")
-    title = {"flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2", "active_w2":"Active-only W2"}
+    title = {"flow_w1":"FlowBlock W1", "flow_w2":"FlowBlock W2", "active_w2":"Active-only W2",
+             "replay":"K0 on all offers", "replay_q128_prefix32":"Q128 spare seats: K32"}
     def compact(slots):
         return " / ".join(q+(f" x{len(g)}" if len(g)>1 else "")
                           for q,group in groupby(slots.split("_")) for g in [list(group)])
@@ -99,8 +100,10 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
             raise ValueError("Require the complete matched matrix")
         points={p:points[p] for p in order}
     n = len(points)
+    if source.stem.endswith("-profile-transfer"):
+        points={p:points[p] for p in ("replay","replay_q128_prefix32")}
     fig, axes = plt.subplots(1, 4, figsize=(14, 1.8+n*.47), layout="constrained")
-    colors = ["#116f74" if p.startswith(("slottrace","t2t_q","q")) else
+    colors = ["#116f74" if p.startswith(("slottrace","t2t_q","q","replay_q")) else
               "#6174a3" if p.startswith(("flow","active_w")) else "#bb713c" if "_cap_" in p else "#8c929a"
               for p in points]
     for j, (ax, heading) in enumerate(zip(axes, ("Correct / 90", "Tokens / forward",
@@ -125,6 +128,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
             detail="fixed Q128 | oldest prefix: spare seats vs up to four MASK replacements on even ticks"
     if source.stem.endswith("-spawn50"):
         detail="fixed Q512 | 50% vs 80% tail admission, Q256 and FlowBlock W2"
+    if source.stem.endswith("-profile-transfer"):
+        detail="same five-slot external replay | economy vs Q128 spare-prefix candidate"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -175,6 +180,9 @@ def main():
     spawn=HERE/"controls/gemma-unified-q512-spawn50.csv"
     if spawn.is_file():
         mixed_plot(spawn,HERE/(spawn.stem+".png"))
+    transfer=HERE/"controls/gemma-unified-profile-transfer.csv"
+    if transfer.is_file():
+        mixed_plot(transfer,HERE/(transfer.stem+".png"))
 
 
 if __name__ == "__main__":

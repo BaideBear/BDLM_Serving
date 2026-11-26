@@ -61,6 +61,17 @@ def test_audit_accepts_causal_rows_and_counts_admission():
     assert (progress["opened"], progress["deferred"]) == (0, 1)
 
 
+def test_progress80_mask_control_charges_same_rows_and_verifies_geometry():
+    row = _row(0, "progress80-open")
+    row["opened_edges"] = 32*32
+    assert sf.audit(row, "progress80-open", opened_control=True)["Q"] == 96
+    row["opened_edges"] -= 1
+    with pytest.raises(ValueError, match="actual Q/K"):
+        sf.audit(row, "progress80-open", opened_control=True)
+    with pytest.raises(ValueError, match="registered"):
+        sf.audit(row, "eager-open", opened_control=True)
+
+
 @pytest.mark.parametrize("event_index,key,value,match", [
     (1, "q_budget", 63, "Wrong external offer clock"),
     (1, "physical_q", 32, "Invalid physical width"),

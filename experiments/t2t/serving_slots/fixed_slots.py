@@ -111,16 +111,20 @@ def true64_controls(data):
 
 
 def unified_fixed_row(raw, case, arm, budget):
+    return unified_work_row(raw,case,arm,(budget,))
+
+
+def unified_work_row(raw, case, arm, series):
     from bdlm_serving.evaluation.scoring import score
     if (raw["model"] != "diffusiongemma" or raw["policy"] != arm or raw["status"] != "success"
             or any(raw[k] != case[k] for k in ("index", "dataset", "seed", "task_id"))
             or raw["decoder_layers"] != 30 or raw["projection_modules"] != 85):
         raise ValueError("Wrong unified frozen request or projection coverage")
     t = raw["trace"]
-    if not t or any(e["tick"] != i or e["offer"] != budget or not 0 < e["q"] <= 512 or
+    if not t or not series or any(e["tick"] != i or e["offer"] != series[i%len(series)] or not 0 < e["q"] <= 512 or
             not 0 <= e["mandatory_q"] <= e["q"] or not 0 <= e["prefix"] <= e["q"]-e["mandatory_q"]
-            or e["overflow"] != max(0, e["q"]-budget) for i,e in enumerate(t)):
-        raise ValueError("Invalid fixed-offer trace")
+            or e["overflow"] != max(0, e["q"]-e["offer"]) for i,e in enumerate(t)):
+        raise ValueError("Invalid external-offer trace")
     enc = sum(len(e["encoded"]) for e in t)
     f, q, n = len(t)+enc, sum(e["q"] for e in t)+256*enc, raw["output_tokens"]
     if ((q,f,enc*256,q-enc*256) != (raw["generation_physical_padded_rows"],raw["generation_forwards"],
@@ -131,8 +135,10 @@ def unified_fixed_row(raw, case, arm, budget):
     if any(e["phase"] not in stages for e in t):
         raise ValueError("Unregistered decoder phase")
     sparse = [e for e in t if e["phase"]=="sparse"]
-    if any(e["parked"] or e["opportunity"] for e in sparse):
+    if len(series)==1 and any(e["parked"] or e["opportunity"] for e in sparse):
         raise ValueError("Cannot infer mask-only rows on a multi-block sparse step")
+    if any(not 0<=e["parked"]<=e["mandatory_q"] for e in sparse):
+        raise ValueError("Parked refresh is not part of shared mandatory work")
     sq = sum(e["q"] for e in sparse)
     fresh = sum(e["mandatory_q"] for e in sparse)
     prefix = sum(e["prefix"] for e in sparse)
@@ -438,6 +444,66 @@ def unified_adjacent(data):
         prev=b,rows
 
 
+def profile_transfer(data):
+    from experiments.t2t.serving_slots import unified90 as u
+    from experiments.t2t.serving_slots.mask_pair_report import efficiency_interval
+    from tools.prefix_cohorts import load_cases, select_window_cases, _window_row
+    a,b=u.TRANSFER
+    cases=load_cases(data/"samples.json")
+    path=data/("gemma-unified90-"+"-".join(u.TRANSFER))
+    old=data/"gemma-unified90-replay-replay_open"
+    m=u.read(path/"run.json")
+    oldm=u.read(old/"run.json")
+    if (m["suite"]!="frozen90" or m["device"]!="cuda:0" or m["indices"]!=list(range(90))
+            or m["profiles"]!=["economy","q128_prefix_candidate"] or not m["quote_costs"]
+            or m["arms"]!={a:[list(u.OFFERS),True,{}],b:[list(u.OFFERS),True,{"128":32}]}
+            or u.sha(data/"samples.json")!=m["samples_sha256"] or m["samples_sha256"]!=u.caps.SAMPLES_SHA
+            or any(m[k]!=oldm[k] for k in ("revision","device","model","suite","indices","samples_sha256",
+                "wave_config","native_config","torch","transformers","rng","launcher_sha256"))
+            or any(u.read(p/"returned.json")!={"gpu":0,"restored":True} for p in (path,old))
+            or any(u.read(p/f"complete-{arm}.json")!={"policy":arm,"requests":90}
+                   for p,arm in ((path,a),(path,b),(old,a)))):
+        raise ValueError("Not a completed frozen profile study")
+    left,right,exposed={}, {}, {}
+    for c in cases:
+        i=c["index"]
+        x,y=(u.read(path/f"{i:02d}-{arm}.json") for arm in (a,b))
+        twin=u.read(old/f"{i:02d}-{a}.json")
+        if (any(x[k]!=twin[k] for k in (*u.KEYS,"policy","model","input_sha256","output_ids","output_text","trace",
+                  "first_geometry_sha256","generation_forwards","generation_physical_padded_rows"))
+                or x["input_sha256"]!=y["input_sha256"] or x["effective_prefix_q"]!=0
+                or any(r["quote_verified_decoder_calls"]!=len(r["trace"]) for r in (x,y))):
+            raise ValueError("Missing replay or price confirmation")
+        for r,arm,yielded in ((x,a,left),(y,b,right)):
+            if (any(e["prefix"] and (arm!=b or e["offer"]!=128 or e["phase"]!="sparse" or not 0<e["prefix"]<=32
+                                      or e["q"]>128) for e in r["trace"])
+                    or sum(e["prefix"] for e in r["trace"])!=r["effective_prefix_q"]):
+                raise ValueError("Refresh outside its profile")
+            yielded[i]=unified_work_row(r,c,arm,u.OFFERS)
+        first=next((j for j,e in enumerate(y["trace"]) if e["prefix"]),None)
+        if first != x["first_added_prefix"] or first!=y["first_added_prefix"]:
+            raise ValueError("First added prefix does not match physical tape")
+        if first is None:
+            if x["trace"]!=y["trace"] or x["output_ids"]!=y["output_ids"]:
+                raise ValueError("No profile exposure but different output or cost")
+        else:
+            ex,ey=x["trace"][first],y["trace"][first]
+            if (x["trace"][:first]!=y["trace"][:first] or ex["q"]+ey["prefix"]!=ey["q"]
+                    or any(ex[k]!=ey[k] for k in ("tick","offer","head","phase","mandatory_q","parked"))):
+                raise ValueError("Unmatched first prefix tick")
+        exposed[i]=first is not None
+    for w in (30,60,90):
+        tasks=select_window_cases(cases,w)
+        row=_window_row(tasks,left,right,w,"all","gemma",a,b,None)
+        ids=[c["index"] for c in tasks]
+        lo,hi=efficiency_interval(tasks,left,right)
+        yield dict(row, efficiency_ci_low=lo,efficiency_ci_high=hi,
+                   exposed=sum(exposed[i] for i in ids),
+                   prefix_rows=sum(right[i]["prefix_rows"] for i in ids),
+                   prefix_ticks=sum(right[i]["prefix_ticks"] for i in ids),
+                   relative_physical_q_delta=row["arm_physical_Q"]/row["baseline_physical_Q"]-1)
+
+
 def gemma_capped_controls(data):
     from bdlm_serving.evaluation.frozen import sha
     from experiments.t2t.prefix_window.score_run import snapshot, link_requests
@@ -490,9 +556,15 @@ if __name__ == "__main__":
                         help="Compare adjacent fixed Gemma offers on the identical measured executor")
     parser.add_argument("--exchange",action="store_true",help="Compare the paired Q128/K32 equal-width exchange")
     parser.add_argument("--spawn50",action="store_true",help="Validate and score earlier Q512 tail admission vs Q256/Q512/W2")
+    parser.add_argument("--transfer",action="store_true",help="Audit the Q128 profile on the external five-slot path")
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.transfer:
+        if not args.data:
+            parser.error("--transfer requires --data")
+        write_rows(HERE/"controls/gemma-unified-profile-transfer.csv",profile_transfer(args.data))
+        raise SystemExit(0)
     if args.spawn50:
         if not args.data:
             parser.error("--spawn50 requires --data")
