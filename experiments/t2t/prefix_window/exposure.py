@@ -12,6 +12,9 @@ from __future__ import annotations
 import argparse, csv, hashlib, json, re
 from collections import Counter
 from pathlib import Path
+from random import Random
+
+from bdlm_serving.methods.t2t.physical_prefix import DONOR_MODES
 
 POLICY = re.compile(r"^t2t_q(\d+)_f(\d+)_m(\d+)_(.+)$")
 REQUEST = re.compile(r"^(\d{2})-(.+)\.json$")
@@ -20,7 +23,7 @@ COHORTS = (("original30", range(30)), ("added60", range(30, 90)),
 DATASETS = ("gsm8k", "math500", "humaneval")
 MODES = frozenset(("hard_prefix_zero", "hard_prefix_frontier_right",
                    "hard_prefix_random", "hard_prefix_slack_right",
-                   "hard_prefix_slack_random", "hard_prefix_slack_oldest"))
+                   "hard_prefix_slack_random", "hard_prefix_slack_oldest", *DONOR_MODES))
 FIELDS = ("model", "policy", "kind", "cohort", "requests", "events",
           "mean_q_rows", "positive_slack_events", "positive_slack_requests",
           "slack_rows", "fresh_overflow_events", "fresh_overflow_rows",
@@ -220,6 +223,16 @@ def classify(kind_schema, width, policy, index, event):
                  and all(type(t) is int and t >= 0 for t in stamps), label, "invalid age evidence")
             ranked = sorted(zip(stamps, el), key=lambda pair: (pair[0], -pair[1]))
             need(ads == {i for _, i in ranked[:target]}, label, "oldest order mismatch")
+    elif mode in DONOR_MODES:
+        family, _ = DONOR_MODES[mode]
+        n = min(q, len(el), len(zb))
+        if family != "backfill":
+            n = min(n, max(0, len(zm)-1))
+        donors = zb if family != "paired_mask" else zm[1:]
+        need(kind_schema == "gemma" and len(ad) == n and ev == (donors[-n:] if n else ())
+             and fs <= ss and fm not in evs and aw == zw and ss == (zs - evs) | ads,
+             label, "donor count/class, first MASK or physical width mismatch")
+        shape = "swap" if n else "noop"
     elif not ad and not ev:
         shape = "noop" if q > 0 else "zero"
     else:
@@ -237,6 +250,17 @@ def classify(kind_schema, width, policy, index, event):
                 fresh_overflow=overflow, pool=pool, opp1=min(1, slack, pool),
                 opp4=min(4, slack, pool), added=len(ad), mask=md, ordinary=od,
                 noop=q > 0 and not ad, saturated=q > 0 and len(ad) >= q)
+
+
+def check_donor_recipients(plan, mode, seed):
+    rows = list(plan["eligible_prefix_rows"])
+    n = len(plan["added_rows"])
+    if DONOR_MODES[mode][1] == "random":
+        Random(f"physical-prefix:{seed}:{plan['block_start']}:{plan['clock']}").shuffle(rows)
+        expected = sorted(rows[:n])
+    else:
+        expected = rows[-n:] if n else []
+    need(expected == plan["added_rows"], mode, "prefix recipient order mismatch")
 
 
 def verify_query_history(events, kind, width):
@@ -275,6 +299,9 @@ def audit(run_dir, policy, cases, model, kind_schema, width):
         per = Counter()
         for event in events:
             item = classify(kind_schema, width, policy, index, event)
+            mode = parse_policy(policy)["mode"]
+            if mode in DONOR_MODES:
+                check_donor_recipients(event["prefix_plan"], mode, cases[index]["seed"])
             updates = (("events", 1), ("physical_q", item["physical"]),
                 ("positive_slack_events", item["slack"] > 0),
                 ("slack_rows", item["slack"]),

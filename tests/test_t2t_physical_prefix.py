@@ -10,6 +10,33 @@ from bdlm_serving.methods.t2t.protocol import Arm
 ZERO, RANDOM, RIGHT = MATCHED_MODES
 
 
+@pytest.mark.parametrize("selector", ["right", "random"])
+def test_gemma_paired_donors_same_recipient_and_physical_width(selector):
+    def pp(state, q, k, donor):
+        return plan(state, {0}, q=q, k=k, mode=f"hard_prefix_{donor}_{selector}")
+
+    for state in product((True, False), repeat=7):
+        if not state[0]:
+            continue
+        for q in (3, 5):
+            k = q - 1
+            old, mask, deploy = [pp(state, q, k, d) for d in
+                                 ("paired_backfill", "paired_mask", "backfill")]
+            assert old.added_rows == mask.added_rows
+            assert len(old.positions) == len(mask.positions) == len(deploy.positions) == len(old.zero_rows)
+            assert set(old.evicted_rows) <= set(old.zero_backfill_rows)
+            assert set(deploy.evicted_rows) <= set(old.zero_backfill_rows)
+            assert set(mask.evicted_rows) <= set(old.zero_mask_rows[1:])
+            assert len(old.added_rows) == min(k, len(old.eligible_prefix_rows),
+                                              len(old.zero_backfill_rows), len(old.zero_mask_rows[1:]))
+            assert len(deploy.added_rows) == min(k, len(old.eligible_prefix_rows), len(old.zero_backfill_rows))
+    state = (True, True, True, False, False, True, True)
+    old, mask = [pp(state, 5, 2, d) for d in ("paired_backfill", "paired_mask")]
+    assert len(old.added_rows) == 1 and (old.evicted_rows, mask.evicted_rows) == ((6,), (4,))
+    with pytest.raises(ValueError, match="Gemma"):
+        Arm.parse(f"16:0:12:hard_prefix_paired_mask_{selector}", 32)
+
+
 def plan(accepted, fresh=(), q=5, k=0, mode=ZERO, *, editable=None,
          seed=29, block_start=32, clock=3, last_query=None):
     rows = range(len(accepted)) if editable is None else editable

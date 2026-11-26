@@ -7,6 +7,7 @@ import argparse
 from pathlib import Path
 
 from tools.prefix_cohorts import score_files
+from bdlm_serving.methods.t2t.physical_prefix import DONOR_MODES
 from . import exposure
 from .score_run import snapshot
 
@@ -14,6 +15,8 @@ from .score_run import snapshot
 LABELS = {"hard_prefix_frontier_right": ("", "right"), "hard_prefix_random": ("", "random"),
           "hard_prefix_slack_right": ("slack-", "right"), "hard_prefix_slack_random": ("slack-", "random"),
           "hard_prefix_slack_oldest": ("slack-", "oldest")}
+LABELS.update({p: (donor.replace("_", "-") + "-", selector)
+               for p, (donor, selector) in DONOR_MODES.items()})
 
 
 def collect(run, baseline, cases, out):

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from .exchange import ONLINE_MODES as EXCHANGE
 from .context_gate import CONTEXT, CROWDED, FIXED_CONTEXT, GATES
 from .frontier import GEOMETRY_POLICIES, HARD_POLICIES
-from .physical_prefix import GEMMA_ACTION_LOCK, PREFIX_MODES, prefix_quota
+from .physical_prefix import DONOR_MODES, GEMMA_ACTION_LOCK, PREFIX_MODES, prefix_quota
 from .seat_audit import GEMMA_CONDITIONAL, GEMMA_FACTORIAL, MODES
 
 
@@ -40,6 +40,8 @@ class Arm:
             prefix_quota(block, obj.budget, obj.fresh, obj.mask, GEMMA_ACTION_LOCK[selection])
             return obj
         if selection in PREFIX_MODES:
+            if selection in DONOR_MODES and block != 256:
+                raise ValueError("Donor-class comparisons are registered for Gemma B256 only")
             if block not in (32, 256):
                 raise ValueError("Physical prefix policies are supported on B32 and B256 only")
             effective = obj.prefix_executable(block)

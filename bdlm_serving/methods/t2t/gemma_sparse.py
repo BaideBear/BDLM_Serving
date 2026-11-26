@@ -23,7 +23,7 @@ from types import SimpleNamespace
 import torch
 
 from .planner import History, allocate
-from .physical_prefix import GEMMA_ACTION_LOCK, PREFIX_MODES, plan_prefix, prefix_quota
+from .physical_prefix import DONOR_MODES, GEMMA_ACTION_LOCK, PREFIX_MODES, plan_prefix, prefix_quota
 from ...runtime.diffusiongemma import observe
 from ...runtime.diffusiongemma_optimus import CAP, Resident, resident_attention
 
@@ -447,6 +447,9 @@ def sparse_gemma(model, q_budget, fresh_slots=0, mask_slots=0, policy="targeted"
         )
         if prefix_plan is not None:
             record["prefix_plan" if selected else "prefix_empty_verify_plan"] = prefix_plan.audit()
+        if selected and policy in DONOR_MODES:
+            record["prefix_pre_canvas_sha256"] = canvas_digest(before_ids, previous.resolved)
+            record["prefix_pre_draft_sha256"] = canvas_digest(prior_draft[0].tolist(), previous.resolved)
         if quota is not None and policy in GEMMA_ACTION_LOCK.values():
             record["prefix_canvas_sha256"] = canvas_digest(after_ids, accepted)
             record["prefix_draft_sha256"] = canvas_digest(draft[0].tolist(), accepted)

@@ -44,6 +44,13 @@ def arms(model, q, study):
         ks = [k for k in ratio_caps(q) if k not in (1, 2, 4)]
         specs = []
         modes = ("hard_prefix_slack_right", "hard_prefix_slack_random")
+    elif study == "donor":
+        if model != "gemma" or q not in (32, 128):
+            raise ValueError("Donor pilot uses Gemma Q32/right and Q128/random")
+        ks, specs = [q // 4], []
+        selector = "right" if q == 32 else "random"
+        modes = tuple(f"hard_prefix_{d}_{selector}" for d in
+                      ("backfill", "paired_backfill", "paired_mask"))
     else:
         raise ValueError(f"Unknown study {study}")
     for k in ks:
@@ -58,6 +65,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", choices=MODELS)
     p.add_argument("q", type=int)
-    p.add_argument("study", choices=("matched", "slack", "oldest", "dose", "ratio"))
+    p.add_argument("study", choices=("matched", "slack", "oldest", "dose", "ratio", "donor"))
     args = p.parse_args()
     print(" ".join(arms(args.model, args.q, args.study)))

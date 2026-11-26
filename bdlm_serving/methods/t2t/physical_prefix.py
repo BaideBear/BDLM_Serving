@@ -6,7 +6,10 @@ from random import Random
 
 MATCHED_MODES = ("hard_prefix_zero", "hard_prefix_random", "hard_prefix_frontier_right")
 SLACK_MODES = ("hard_prefix_slack_right", "hard_prefix_slack_random", "hard_prefix_slack_oldest")
-PREFIX_MODES = MATCHED_MODES + SLACK_MODES
+DONOR_MODES = {f"hard_prefix_{donor}_{selector}": (donor, selector)
+               for donor in ("backfill", "paired_backfill", "paired_mask")
+               for selector in ("right", "random")}
+PREFIX_MODES = MATCHED_MODES + SLACK_MODES + tuple(DONOR_MODES)
 GEMMA_ACTION_LOCK = {f"{selector}_action_lock": selector for selector in SLACK_MODES[:2]}
 
 
@@ -87,11 +90,18 @@ def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block
     # group to preserve the zero planner's priority among the remaining rows.
     evictable = backfill[::-1] + masks[:0:-1]
     slack_only = policy in SLACK_MODES
+    donor, selector = DONOR_MODES.get(policy, (None, None))
     # When zero is empty the adapter must take its normal verify/stop path.
     # An optional refresh must not create a new forward just to spend quota.
     capacity = len(evictable)
     if slack_only:
         capacity = max(0, budget - len(zero)) if zero else 0
+    elif donor is not None:
+        # Paired arms admit exactly the same prefix rows on a common state;
+        # only the class of the displaced row can differ.
+        capacity = (len(backfill) if donor == "backfill" else
+                    min(len(backfill), max(0, len(masks) - 1)))
+        evictable = masks[:0:-1] if donor == "paired_mask" else backfill[::-1]
     count = min(quota, len(pool), capacity)
     added = ()
     stamps = None
@@ -105,7 +115,7 @@ def plan_prefix(accepted, editable, fresh, budget, quota, policy, *, seed, block
         if stamps is not None:
             added = tuple(sorted(i for _, i in sorted(zip(stamps, pool),
                           key=lambda pair: (pair[0], -pair[1]))[:count]))
-        elif policy in ("hard_prefix_random", "hard_prefix_slack_random"):
+        elif policy in ("hard_prefix_random", "hard_prefix_slack_random") or selector == "random":
             ranked = list(pool)
             Random(f"physical-prefix:{seed}:{block_start}:{clock}").shuffle(ranked)
             added = tuple(sorted(ranked[:count]))

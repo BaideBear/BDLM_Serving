@@ -543,3 +543,17 @@ def test_action_lock_id_is_separate_and_gemma_only():
     assert Arm.parse(policy, 256).policy.endswith("_action_lock")
     with pytest.raises(ValueError):
         Arm.parse(policy, 32)
+
+
+@pytest.mark.parametrize("donor,evicted", [("backfill", 4), ("paired_backfill", 4), ("paired_mask", 5)])
+def test_donor_swap_reaches_actual_decoder_and_preserves_width(tiny, donor, evicted):
+    tiny.config.canvas_length = 6
+    _controlled(tiny, 6)
+    result = _gemma_run(tiny, 6, 5, 3, f"hard_prefix_{donor}_right")
+    i, e = next((i, e) for i, e in enumerate(result.trace) if e.get("prefix_plan", {}).get("added_rows"))
+    assert e["prefix_plan"]["zero_rows"] == [3, 4, 5]
+    assert e["prefix_plan"]["added_rows"] == [2]
+    assert e["prefix_plan"]["evicted_rows"] == [evicted]
+    assert e["q"] == len(e["positions"]) == result.work[i][1] == 3
+    assert tiny.model.decoder.calls[i][0][0].tolist() == [2+x for x in e["positions"]]
+    assert len(e["prefix_pre_canvas_sha256"]) == len(e["prefix_pre_draft_sha256"]) == 64
