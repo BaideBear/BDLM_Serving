@@ -1,0 +1,16 @@
+q,bucket,events,options,donor_eligible,prior_out_of_pool_options,ambiguous_hit_events,zero_hits,uniform_hits,outside_uniform_hits,lag_lo_hits,lag_hi_hits
+16,identified,0,0,0,0,0,0,0,0,0,0
+16,no_prior_top_match,4,9,0,9,1,0,0.5,0.5,0,1
+16,unranked_competitor,0,0,0,0,0,0,0,0,0,0
+32,identified,0,0,0,0,0,0,0,0,0,0
+32,no_prior_top_match,14,76,2,70,5,1,1.4589285714285714,0.9589285714285715,0,5
+32,unranked_competitor,0,0,0,0,0,0,0,0,0,0
+64,identified,0,0,0,0,0,0,0,0,0,0
+64,no_prior_top_match,48,826,7,814,26,2,3.604256322865676,3.6461417690504097,0,26
+64,unranked_competitor,0,0,0,0,0,0,0,0,0,0
+128,identified,0,0,0,0,0,0,0,0,0,0
+128,no_prior_top_match,108,3416,23,3404,85,12,10.42041933643053,10.607465651682919,0,85
+128,unranked_competitor,0,0,0,0,0,0,0,0,0,0
+256,identified,0,0,0,0,0,0,0,0,0,0
+256,no_prior_top_match,0,0,0,0,0,0,0,0,0,0
+256,unranked_competitor,0,0,0,0,0,0,0,0,0,0
