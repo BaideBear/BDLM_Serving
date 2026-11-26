@@ -47,6 +47,28 @@ def test_identical_unexposed_request():
         paired(on, off)
 
 
+def test_serving_profile_and_dynamic_first_added_prefix():
+    from bdlm_serving.methods.t2t.serving_profiles import gemma_plan
+    from experiments.t2t.serving_slots.unified90 import transfer_witness
+    base={"block_size":256,"prefix_slots":{64:16},"flowblock_spawn_threshold":.5}
+    assert gemma_plan(base)["prefix_slots"]=={} and base["prefix_slots"]=={64:16}
+    candidate=gemma_plan(base,"q128_prefix_candidate")
+    assert candidate["prefix_slots"]=={128:32} and candidate["flowblock_spawn_threshold"]==.8
+    common=dict(offer=128,phase="sparse",head=1,q=2,prefix_end=7,refresh_only=[],ages_before=[2],
+                dirty_before=[[1]],head_capacity=128,tick=1,visible=list(range(266,522)),mandatory_q=1,
+                prefix_selected=[],selected=[267,273],sampled=[267,273])
+    a=dict(common,prefix_quota=0,prefix_mode="zero")
+    b=dict(common,prefix_quota=32,prefix_mode="random")
+    assert transfer_witness([a],[b],[1],[1],10)==(None,0)
+    adj=dict(b,q=3,prefix_selected=[269],selected=[267,269,273],sampled=[267,269,273])
+    assert transfer_witness([a,a],[b,adj],[1],[2],10)==(1,1)
+    with pytest.raises(ValueError,match="displaced"):
+        transfer_witness([a],[dict(adj,selected=[268,269,273])],[1],[1],10)
+    with pytest.raises(ValueError,match="Invalid"):
+        transfer_witness([a],[dict(adj,offer=64)],[1],[1],10)
+    with pytest.raises(ValueError,match="Unexposed"):
+        transfer_witness([a],[b],[1],[2],10)
+
 def test_after_first_visibility_divergence_is_not_filtered():
     on, off = record("replay", exposed=True), record("replay_open", exposed=True)
     assert on["first_opportunity"] == 0

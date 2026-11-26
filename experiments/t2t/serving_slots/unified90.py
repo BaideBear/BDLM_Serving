@@ -43,6 +43,9 @@ SPAWN = ("q512","q512_spawn50")
 ARMS[SPAWN[1]] = ARMS[SPAWN[0]]
 GROUPS += (SPAWN,)
 PILOT_SPAWN = "gemma-q512-spawn50-cpu3-v1"
+TRANSFER = ("replay","replay_q128_prefix32")
+ARMS[TRANSFER[1]] = (OFFERS,True,{128:32})
+GROUPS += (TRANSFER,)
 
 
 def check_early_spawn(control, trial, ids_a, ids_b):
@@ -119,6 +122,43 @@ def check_exchange(control, trial, ids_a, ids_b):
 
 def read(path):
     return json.loads(path.read_text())
+
+
+def transfer_witness(control, trial, ids_a, ids_b, origin):
+    """Check the complete tape through the first physically added prefix Q."""
+    first=None
+    n_rows=0
+    for i,e in enumerate(trial):
+        extra=e["prefix_selected"]
+        if not extra:
+            continue
+        first=i if first is None else first
+        start=origin+256*e["head"]
+        if (e["offer"]!=128 or e["phase"]!="sparse" or e["q"]>128
+                or not 1<=len(set(extra))==len(extra)<=32 or e["prefix_end"] is None
+                or any(not start<=p<start+e["prefix_end"] for p in extra)
+                or not set(extra)<=set(e["sampled"]) or set(extra)&set(e["refresh_only"])):
+            raise ValueError("Invalid dynamic prefix selection")
+        n_rows+=len(extra)
+    stop=len(control) if first is None else first
+    if first is not None and first>=len(control):
+        raise ValueError("Missing matching control tick")
+    def normalized(e):
+        return {k:v for k,v in e.items() if k not in ("prefix_mode","prefix_quota")}
+    if any(normalized(x)!=normalized(y) for x,y in zip(control[:stop],trial[:stop],strict=True)):
+        raise ValueError("Dynamic path diverged before prefix refresh")
+    if first is None:
+        if len(control)!=len(trial) or ids_a!=ids_b:
+            raise ValueError("Unexposed request changed")
+    else:
+        x,y=control[first],trial[first]
+        extra=set(y["prefix_selected"])
+        if (any(x[k]!=y[k] for k in ("offer","tick","head","phase","dirty_before","ages_before","visible",
+                                     "mandatory_q","head_capacity","prefix_end","refresh_only"))
+                or any(set(x[k])&extra or set(y[k])!=set(x[k])|extra for k in ("selected","sampled"))
+                or x["q"]+len(extra)!=y["q"]):
+            raise ValueError("First dynamic refresh displaced an existing row")
+    return first,n_rows
 
 
 def spawn_witness(a,b):
@@ -376,6 +416,8 @@ def run(args, before_cuda=None):
         group = SPAWN
     price = exchange or spawn or cpu and getattr(args, "price", False)
     rank = all(arm in RANKS for arm in group)
+    transfer = group == TRANSFER
+    price = price or transfer
     if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange or spawn):
         raise ValueError("Unregistered CPU pilot")
     if cpu:
@@ -393,6 +435,8 @@ def run(args, before_cuda=None):
                     HERE.with_name("gemma_wave_kv.py"), ROOT / "benchmarks/checkpoints/diffusiongemma.json"]
     if price:
         source_paths.append(HERE.with_name("gemma_quote.py"))
+    if transfer:
+        source_paths.append(ROOT/"bdlm_serving/methods/t2t/serving_profiles.py")
     args.output.mkdir(mode=0o700, exist_ok=False)
     save_json(args.output / "run.json", dict(
         model=native["model"], revision=native["revision"], torch=str(torch.__version__),
@@ -403,6 +447,7 @@ def run(args, before_cuda=None):
         rng="independent streams seeded by task.seed + canvas ordinal",
         **({"prefix_rank":{p:RANKS[p] for p in group}} if rank else {}),
         **({"exchange": EX_SPEC} if exchange else {}),
+        **({"profiles":["economy","q128_prefix_candidate"]} if transfer else {}),
         **({"spawn_thresholds":dict(zip(SPAWN,[0.8,0.5]))} if spawn else {}),
         indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
@@ -421,6 +466,9 @@ def run(args, before_cuda=None):
                     config.update(prefix_mode="oldest", exchange_limit=4 if arm == EXCHANGE[1] else 0)
                 if spawn and arm==SPAWN[1]:
                     config.update(flowblock_spawn_threshold=0.5)
+                if transfer:
+                    from bdlm_serving.methods.t2t.serving_profiles import gemma_plan
+                    config=gemma_plan(plan,"economy" if arm==TRANSFER[0] else "q128_prefix_candidate")
                 ids, trace, obs = measure(model, data, config, series, task["seed"], causal, price=price)
                 row = work_row(task, arm, ids, trace, obs, proc.tokenizer, model.generation_config,
                                plan["cap"], digest)
@@ -431,8 +479,19 @@ def run(args, before_cuda=None):
                 rows.append(row)
                 if rank:
                     witnesses.append(rank_witness(trace))
-                if exchange or spawn:
+                if exchange or spawn or transfer:
                     witnesses.append(trace)
+            if transfer:
+                first,n=transfer_witness(*witnesses,*[r["output_ids"] for r in rows],data["input_ids"].shape[1])
+                if rows[0]["input_sha256"]!=rows[1]["input_sha256"]:
+                    raise ValueError("Unpaired dynamic inputs")
+                twin=read(output(0)/f"{task['index']:02d}-replay.json")
+                if any(twin[k]!=rows[0][k] for k in (*KEYS,"input_sha256","output_ids","trace",
+                        "generation_physical_padded_rows","generation_forwards","first_geometry_sha256")):
+                    raise ValueError("Original no-prefix replay did not reproduce")
+                for row in rows:
+                    row["first_added_prefix"]=first
+                    row["effective_prefix_q"]=n if row["policy"]==TRANSFER[1] else 0
             if spawn:
                 opening=check_early_spawn(*witnesses,*[r["output_ids"] for r in rows])
                 for row in rows:
@@ -499,8 +558,9 @@ def score(folder):
         exchange = meta.get("exchange")==EX_SPEC
         rank = arm in RANKS and not exchange
         spawn = "spawn_thresholds" in meta
-        key = "first_earlier_spawn" if spawn else "first_exchange_tick" if exchange else "first_rank_change" if rank else "first_opportunity"
-        yes, no = ("earlier_spawn","unchanged") if spawn else ("swapped","unchanged") if exchange else ("changed_rank","unchanged_rank") if rank else ("exposed","unexposed")
+        transfer = "profiles" in meta
+        key = "first_added_prefix" if transfer else "first_earlier_spawn" if spawn else "first_exchange_tick" if exchange else "first_rank_change" if rank else "first_opportunity"
+        yes, no = ("added_prefix","unchanged") if transfer else ("earlier_spawn","unchanged") if spawn else ("swapped","unchanged") if exchange else ("changed_rank","unchanged_rank") if rank else ("exposed","unexposed")
         for name, subset in cohorts.items():
             for scope in ("all",yes,no):
                 values = [r for r in subset if scope == "all" or
@@ -542,6 +602,9 @@ def protected():
         spawn_pilot(caps.DATA/PILOT_SPAWN)
         if read(output(1)/"returned.json")!={"gpu":0,"restored":True} or read(output(1)/"complete-q512.json")!={"policy":"q512","requests":90}:
             raise ValueError("Missing independent fixed Q512 replay")
+    if GROUPS[i]==TRANSFER and (read(output(0)/"returned.json")!={"gpu":0,"restored":True}
+            or read(output(0)/"complete-replay.json")!={"policy":"replay","requests":90}):
+        raise ValueError("Missing independent five-slot causal replay")
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
@@ -561,9 +624,9 @@ def protected():
     save_json(output(i) / "returned.json", {"gpu": 0, "restored": True})
 
 
-def queue(*, rank=False, exchange=False, spawn=False):
-    indices = (GROUPS.index(SPAWN),) if spawn else (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
-    predecessor = "prefix90-gemma-q128-exchange" if spawn else "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
+def queue(*, rank=False, exchange=False, spawn=False, transfer=False):
+    indices = (GROUPS.index(TRANSFER),) if transfer else (GROUPS.index(SPAWN),) if spawn else (RANK_END,) if exchange else range(BASE_GROUPS,RANK_END) if rank else range(BASE_GROUPS)
+    predecessor = "prefix90-gemma-q512-spawn50" if transfer else "prefix90-gemma-q128-exchange" if spawn else "prefix90-gemma-rank" if exchange else "prefix90-gemma-unified" if rank else "prefix90-gemma-fixed-caps"
     if any(output(i).exists() for i in indices):
         raise ValueError("Refusing to overwrite an existing registered run")
     for session in ([predecessor,"gemma-rank-cpu3-v1"] if rank else [predecessor]):
@@ -595,6 +658,8 @@ if __name__ == "__main__":
         queue(exchange=True)
     elif sys.argv[1:] == ["queue-spawn50"]:
         queue(spawn=True)
+    elif sys.argv[1:] == ["queue-transfer"]:
+        queue(transfer=True)
     elif sys.argv[1:2] == ["score"]:
         score(Path(sys.argv[2]))
     elif sys.argv[1:2] in (["cpu-pilot"], ["cpu-pilot-q512"], ["cpu-pilot-rank"], ["cpu-pilot-exchange"], ["cpu-pilot-spawn50"]):
