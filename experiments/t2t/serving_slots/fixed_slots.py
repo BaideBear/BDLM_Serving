@@ -195,7 +195,7 @@ def exchange_evidence(control, trial):
     return first is not None
 
 
-def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
+def unified_fixed(data, budgets, *, rank_quota=None, exchange=False, spawn=False):
     from bdlm_serving.evaluation.frozen import sha
     from experiments.t2t.serving_slots import unified90 as u, gemma_fixed_caps as caps
     from experiments.t2t.serving_slots.external_report import cost_gaps
@@ -205,6 +205,8 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
         raise ValueError("Give distinct registered Gemma slots")
     if exchange and (list(budgets)!=[128] or rank_quota!=32):
         raise ValueError("Only Q128/K32 has a registered exchange")
+    if spawn and (list(budgets)!=[512] or rank_quota is not None or exchange):
+        raise ValueError("Earlier tail admission only applies to Q512")
     samples = data/"samples.json"
     if sha(samples) != caps.SAMPLES_SHA:
         raise ValueError("Wrong samples")
@@ -215,6 +217,8 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
         group = base_group if rank_quota is None else (f"q{b}_k{rank_quota}_random",f"q{b}_k{rank_quota}_oldest")
         if exchange:
             group=u.EXCHANGE
+        if spawn:
+            group=u.SPAWN
         if group not in u.GROUPS:
             raise ValueError("Unregistered rank comparison")
         path = data/("gemma-unified90-"+"-".join(group))
@@ -235,6 +239,24 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
         base = {}
         raw_random = {}
         intervention = {}
+        if spawn:
+            if (m.get("spawn_thresholds")!={primary:.8,group[1]:.5} or m.get("quote_costs") is not True
+                    or m["arms"]!={p:[[512],True,{}] for p in group}
+                    or m["wave_config"]["flowblock_spawn_threshold"]!=.8):
+                raise ValueError("Not the registered two-threshold causal pair")
+            references={}
+            for q in (256,512):
+                p=f"q{q}"
+                old=data/("gemma-unified90-"+"-".join(next(g for g in u.GROUPS if p in g)))
+                oldmeta=u.read(old/"run.json")
+                if (any(oldmeta[k]!=m[k] for k in ("revision","model","suite","indices","samples_sha256","wave_config",
+                        "native_config","torch","transformers","rng","launcher_sha256","device"))
+                        or oldmeta["arms"][p]!=[[q],True,{}]
+                        or u.read(old/"returned.json")!={"gpu":0,"restored":True}
+                        or u.read(old/f"complete-{p}.json")!={"policy":p,"requests":90}):
+                    raise ValueError("Missing frozen reference for the spawn study")
+                references[p]={c["index"]:u.read(old/f"{c['index']:02d}-{p}.json") for c in cases}
+                base[p]={c["index"]:unified_fixed_row(references[p][c["index"]],c,p,q) for c in cases}
         if rank_quota is not None:
             refpath=data/("gemma-unified90-"+"-".join(base_group))
             refmeta=u.read(refpath/"run.json")
@@ -284,7 +306,7 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
                 if r["Q"] != r["physical_Q"]:
                     raise ValueError("Physical/raw mismatch in Gemma reference")
                 base[label][i]=r
-        for arm in (a for a in group if not a.endswith("_open")):
+        for arm in (a for a in group if not a.endswith("_open") and not (spawn and a==primary)):
             if m["arms"][arm] != [[b],True,{str(k):v for k,v in u.ARMS[arm][2].items()}]:
                 raise ValueError("Wrong causal mode, prefix quota or fixed slot")
             ours={}
@@ -292,6 +314,16 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
                 i=c["index"]
                 raw=u.read(path/f"{i:02d}-{arm}.json")
                 ours[i]=unified_fixed_row(raw,c,arm,b)
+                if spawn:
+                    control=u.read(path/f"{i:02d}-{primary}.json")
+                    twin=references[primary][i]
+                    if (any(control[k]!=twin[k] for k in (*u.KEYS,"model","policy","input_sha256","output_ids","output_text",
+                                "output_tokens","trace","generation_forwards","generation_physical_padded_rows",
+                                "first_geometry_sha256","decoder_layers","projection_modules","truncated"))
+                            or references["q256"][i]["input_sha256"]!=control["input_sha256"]):
+                        raise ValueError("Original control failed frozen Q512 replay or different Q256 input")
+                    intervention[i]=u.spawn_witness(control,raw) is not None
+                    ours[i].update(dual_ticks=raw["dual_ticks"],base_dual_ticks=control["dual_ticks"])
                 if rank_quota is not None:
                     if (raw["input_sha256"]!=base_raw[i]["input_sha256"] or
                             raw["first_opportunity"] is not None or any(e["prefix"]>rank_quota for e in raw["trace"])):
@@ -324,6 +356,10 @@ def unified_fixed(data, budgets, *, rank_quota=None, exchange=False):
                               "excess_bootstrap","excess_verify","excess_sparse","excess_dense","excess_tail_dirty_drain"):
                         r["ours_"+k] = sum(ours[i][k] for i in ids)
                     r["ours_prefix_requests"] = sum(ours[i]["prefix_ticks"]>0 for i in ids)
+                    if spawn:
+                        r.update(earlier_spawn_requests=sum(intervention[i] for i in ids),
+                                 ours_dual_ticks=sum(ours[i]["dual_ticks"] for i in ids),
+                                 q512_control_dual_ticks=sum(ours[i]["base_dual_ticks"] for i in ids))
                     if rank_quota is not None:
                         r["prefix_quota"]=rank_quota
                         r["exchange_exposed_requests" if exchange else "ranking_changed_requests"]=(sum(intervention[i] for i in ids)
@@ -453,9 +489,15 @@ if __name__ == "__main__":
     parser.add_argument("--unified-adjacent",action="store_true",
                         help="Compare adjacent fixed Gemma offers on the identical measured executor")
     parser.add_argument("--exchange",action="store_true",help="Compare the paired Q128/K32 equal-width exchange")
+    parser.add_argument("--spawn50",action="store_true",help="Validate and score earlier Q512 tail admission vs Q256/Q512/W2")
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.spawn50:
+        if not args.data:
+            parser.error("--spawn50 requires --data")
+        write_rows(HERE/"controls/gemma-unified-q512-spawn50.csv",unified_fixed(args.data,[512],spawn=True))
+        raise SystemExit(0)
     if args.exchange:
         if not args.data:
             parser.error("--exchange requires --data")

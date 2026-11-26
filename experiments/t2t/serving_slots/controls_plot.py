@@ -123,6 +123,8 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
         detail="fixed "+slot+" | slack-only prefix selection vs capped Optimus"
         if source.stem.endswith("-exchange"):
             detail="fixed Q128 | oldest prefix: spare seats vs up to four MASK replacements on even ticks"
+    if source.stem.endswith("-spawn50"):
+        detail="fixed Q512 | 50% vs 80% tail admission, Q256 and FlowBlock W2"
     fig.suptitle("DiffusionGemma | "+detail+" | frozen90")
     fig.savefig(target, dpi=150)
     plt.close(fig)
@@ -170,6 +172,9 @@ def main():
         mixed_plot(p, HERE/(p.stem+".png"), rank=True)
     if list((HERE/"controls").glob("gemma-unified-q128-k*-rank.csv")):
         mixed_plot(HERE/"controls", HERE/"gemma-unified-q128-prefix-doses.png", rank=True,dose_q=128)
+    spawn=HERE/"controls/gemma-unified-q512-spawn50.csv"
+    if spawn.is_file():
+        mixed_plot(spawn,HERE/(spawn.stem+".png"))
 
 
 if __name__ == "__main__":
