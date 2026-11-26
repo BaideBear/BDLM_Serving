@@ -80,6 +80,20 @@ def test_pilot3_is_exact_counts_only_without_intervals():
                and row["ci_method"] == "pilot3 exact counts only" for row in table)
 
 
+def test_nested_dataset_tables_keep_pooled_costs_and_all_requests():
+    names = ("gsm8k", "math500", "humaneval")
+    rows = [case(i, names[i%3], i != 6, True, on_n=1+i, on_q=100+i) for i in range(90)]
+    parts = ums.by_dataset(rows)
+    assert [r["requests"] for r in parts] == [10]*3 + [20]*3 + [30]*3
+    a, b, c = (r for r in parts if r["dataset"] == "gsm8k")
+    assert a["lost"] == c["lost"] == 1 and not b["lost"]
+    assert c["on_eff"] == (a["on_N"]+b["on_N"])/(a["on_Q"]+b["on_Q"])
+    with pytest.raises(ValueError, match="one pair"):
+        ums.by_dataset([rows[0], *rows[:-1]])
+    with pytest.raises(ValueError, match="Unbalanced"):
+        ums.by_dataset([dict(rows[0], dataset="math500"), *rows[1:]])
+
+
 def test_gpu_intervals_are_dataset_stratified():
     rows = []
     for index in range(30):

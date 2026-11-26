@@ -211,6 +211,20 @@ def table_rows(rows, pilot):
     return out
 
 
+def by_dataset(rows):
+    """Descriptive paired effects, keeping the original30 nested in full90."""
+    if sorted(r["index"] for r in rows) != list(range(90)):
+        raise ValueError("Expected one pair per frozen90 request")
+    out = []
+    for cohort, (lo, hi) in COHORTS.items():
+        for dataset in ("gsm8k", "math500", "humaneval"):
+            matched = [r for r in rows if lo <= r["index"] < hi and r["dataset"] == dataset]
+            if len(matched) != (hi-lo)//3:
+                raise ValueError("Unbalanced frozen cohort")
+            out.append(dict(cohort=cohort, dataset=dataset, **aggregate(matched)))
+    return out
+
+
 def offer_work(folder, policy, indices):
     """Attribute paid work to each decoder offer, including encoder calls it triggered."""
     series = unified90.ARMS[policy][0]
@@ -268,6 +282,7 @@ def main(argv=None):
                     samples_sha256=meta["samples_sha256"]),
           table_rows(rows, pilot))
     if not pilot:
+        table(out / "by-dataset.csv", by_dataset(rows))
         table(out / "offer-work.csv", offer_work(args.group, off, indices)
               + offer_work(args.group, on, indices))
     print(f"wrote {out}")
