@@ -1,0 +1,7 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+llada21,t2t_q32_f0_m31_hard_prefix_slack_right,slack,original30,30,2454,20.005297473512634,2024,28,31445,0,0,2010,31061,28,2010,28,7591,2454,2010,0,0,444,2010,2
+llada21,t2t_q32_f0_m31_hard_prefix_slack_right,slack,added60,60,3029,21.084846483988116,2355,53,35388,0,0,2326,34600,52,2326,52,8890,3029,2326,0,0,703,2326,8
+llada21,t2t_q32_f0_m31_hard_prefix_slack_right,slack,all90,90,5483,20.601677913550976,4379,81,66833,0,0,4336,65661,80,4336,80,16481,5483,4336,0,0,1147,4336,10
+llada21,t2t_q32_f0_m31_hard_prefix_slack_random,slack,original30,30,1577,20.589093214965125,1231,28,19212,0,0,1217,18819,28,1217,28,4688,1577,1217,0,0,360,1217,2
+llada21,t2t_q32_f0_m31_hard_prefix_slack_random,slack,added60,60,2968,21.13342318059299,2304,53,34527,0,0,2275,33748,52,2275,52,8617,2968,2275,0,0,693,2275,8
+llada21,t2t_q32_f0_m31_hard_prefix_slack_random,slack,all90,90,4545,20.944554455445545,3535,81,53739,0,0,3492,52567,80,3492,80,13305,4545,3492,0,0,1053,3492,10

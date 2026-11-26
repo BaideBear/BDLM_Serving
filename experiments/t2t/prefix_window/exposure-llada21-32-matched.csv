@@ -1,0 +1,10 @@
+model,policy,kind,cohort,requests,events,mean_q_rows,positive_slack_events,positive_slack_requests,slack_rows,fresh_overflow_events,fresh_overflow_rows,eligible_events,eligible_rows,opp_k1_requests,opp_k1_rows,opp_k4_requests,opp_k4_rows,nominal_k_rows,added_rows,mask_displaced,ordinary_displaced,noop_events,saturated_events,untouched_requests
+llada21,t2t_q32_f0_m32_hard_prefix_zero,zero,original30,30,1545,20.115210355987056,1210,28,18362,0,0,1196,17966,28,1196,28,4606,0,0,0,0,0,0,30
+llada21,t2t_q32_f0_m32_hard_prefix_zero,zero,added60,60,2925,20.006495726495725,2253,53,35081,0,0,2224,34306,52,2224,52,8525,0,0,0,0,0,0,60
+llada21,t2t_q32_f0_m32_hard_prefix_zero,zero,all90,90,4470,20.04407158836689,3463,81,53443,0,0,3420,52272,80,3420,80,13131,0,0,0,0,0,0,90
+llada21,t2t_q32_f0_m31_hard_prefix_frontier_right,noop+swap,original30,30,1431,19.24039133473096,1144,28,18259,0,0,1130,17847,28,1130,28,4417,1431,995,433,562,436,995,2
+llada21,t2t_q32_f0_m31_hard_prefix_frontier_right,noop+swap,added60,60,3289,18.82031012465795,2647,53,43348,0,0,2618,42499,52,2618,52,10140,3289,2310,1209,1101,979,2310,8
+llada21,t2t_q32_f0_m31_hard_prefix_frontier_right,noop+swap,all90,90,4720,18.947669491525424,3791,81,61607,0,0,3748,60346,80,3748,80,14557,4720,3305,1642,1663,1415,3305,10
+llada21,t2t_q32_f0_m31_hard_prefix_random,noop+swap,original30,30,1690,18.711242603550296,1361,28,22458,0,0,1347,22054,28,1347,28,5181,1690,1193,596,597,497,1193,2
+llada21,t2t_q32_f0_m31_hard_prefix_random,noop+swap,added60,60,3022,19.014559894109862,2362,53,39242,0,0,2333,38416,52,2333,52,9055,3022,2061,945,1116,961,2061,8
+llada21,t2t_q32_f0_m31_hard_prefix_random,noop+swap,all90,90,4712,18.905772495755517,3723,81,61700,0,0,3680,60470,80,3680,80,14236,4712,3254,1541,1713,1458,3254,10
