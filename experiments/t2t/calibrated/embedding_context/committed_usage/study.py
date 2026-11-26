@@ -9,13 +9,54 @@ from time import perf_counter_ns
 import numpy as np
 
 from bdlm_serving.evaluation.frozen import MANIFEST, ROOT, sha
-from bdlm_serving.methods.t2t.committed_usage import CommittedUsage
+from bdlm_serving.methods.t2t.committed_usage import CommittedUsage, read_usage_weights
 from bdlm_serving.methods.t2t.embedding_context import CALIBRATION, Projector, context, input_table, read_context_weights
 from tools.edit_opportunity import load, evaluate, fit, shortlist
 from tools.lexical_hazard import BUDGETS, check_split, write_rows
 
 RAW=ROOT.parent/"t2t-native-1125"
 HERE=Path(__file__).resolve().parent
+
+
+def attribution(out, checkpoint):
+    """Post-hoc coefficient ablation. No refit, new forward, or trajectory change."""
+    if out.resolve().is_relative_to(ROOT):
+        raise ValueError("Choose private output")
+    source=out/"weights.json"
+    if sha(source)!="41e96254fa0c3af75cf0a46278f7fefbbd7a72470ba2be4bd3861edfa0adbb11":
+        raise ValueError("Expected original frozen coefficients")
+    w=read_usage_weights(source)
+    base=read_context_weights(RAW/"context-fixed-private/calibration24.json")
+    arms={"context":np.r_[base,np.zeros(6)], "refit_only":np.r_[w[:28],np.zeros(6)], "full":w}
+    ref={(r["metric"],int(r["index"]),r["method"]):r for r in csv.DictReader(
+        (HERE/"requests.csv").read_text().splitlines())}
+    rows=[]
+    with input_table(checkpoint) as table:
+        projector=Projector(table)
+        for t in json.loads(MANIFEST.read_text())["samples"]:
+            path=load(RAW/"llada21"/f"{t['index']:02d}.trace.jsonl.gz",t,context_features=lambda *a:
+                      context(projector.unit,*a),prefix_factory=CommittedUsage)
+            for q,e in BUDGETS:
+                results={k:evaluate(path,v,q,e,"hazard") for k,v in arms.items()}
+                for k, original in (("context","context"),("full","committed_usage")):
+                    r=ref[f"Q{q}/{e}",t["index"],original]
+                    c=results[k]
+                    if any(int(r[name])!=c[field] for name,field in
+                           (("seats","sparse_seats"),("hits","sparse_reserved_hits"),("targets","selected_old"))):
+                        raise ValueError("Failed to reproduce per-request native ranking")
+                if len({r["sparse_slot_oracle"] for r in results.values()})!=1:
+                    raise ValueError("Ablation changed attainable ceiling")
+                rows.append(dict(index=t["index"],dataset=t["dataset"],q=q,edit=e,
+                    seats=c["sparse_seats"],targets=c["selected_old"],oracle=c["sparse_slot_oracle"],
+                    **{k:r["sparse_reserved_hits"] for k,r in results.items()}))
+    write_rows(out/"attribution-requests.csv",rows)
+    summary=[]
+    for q,e in BUDGETS:
+        rr=[r for r in rows if r["q"]==q]
+        s={k:sum(r[k] for r in rr) for k in ("seats","targets","oracle",*arms)}
+        summary.append(dict(q=q,edit=e,**s,coef_refit_gain=s["refit_only"]-s["context"],
+                            history_gain=s["full"]-s["refit_only"]))
+    write_rows(out/"attribution.csv",summary)
 
 
 def run(out, checkpoint):
@@ -93,5 +134,6 @@ if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out",type=Path,default=RAW/"committed-usage-v1")
     p.add_argument("--checkpoint",type=Path,default=Path("/data0/ysy/models/LLaDA2.1-mini"))
+    p.add_argument("--attribution",action="store_true",help="Suppress only usage terms in the existing frozen fit")
     a=p.parse_args()
-    run(a.out,a.checkpoint)
+    (attribution if a.attribution else run)(a.out,a.checkpoint)
