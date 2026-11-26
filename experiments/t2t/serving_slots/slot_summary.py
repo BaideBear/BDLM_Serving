@@ -19,6 +19,7 @@ FIELDS = "model endpoint variant family offer cohort requests correct N F physic
 DEFAULT = Path(__file__).resolve().parent
 # Intentional, not a directory scan.
 ALLOWLIST = (
+    "llada21-q4-original-ibs.csv",
     "llada21-q8-original-ibs.csv", "llada21-q8-original-obs.csv",
     "llada21-q16-original-ibs.csv", "llada21-q16-original-obs.csv",
     "llada21-q32-original-ibs.csv", "llada21-q32-original-obs.csv",
