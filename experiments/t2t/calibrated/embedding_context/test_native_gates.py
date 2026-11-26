@@ -49,6 +49,18 @@ def test_slack_uses_last_old_and_uniform_conditions_on_outside_only():
         assert c['uniform_expected_selected_old_hits'] == 1
 
 
+def test_wider_list_is_not_wider_physical_compute():
+    s = g.Space.build(range(13), {1, 3}, {0, 2, 4, 5, 6, 7, 8, 9})
+    scores = [3, 2, 1]
+    _, _, plans = s.plans(scores)
+    pool = dict(g.shortlist_rows(s, scores, plans['gate5pct'], {11, 12}, {7}))
+    assert [pool['mask', k]['one_seat_oracle'] for k in g.SHORTLIST] == [0, 1, 1, 1, 1]
+    assert [pool['mask', k]['list_targets'] for k in g.SHORTLIST] == [0, 1, 2, 2, 2]
+    assert [pool['mask', k]['list_rows'] for k in g.SHORTLIST] == [1, 2, 3, 3, 3]
+    assert all(v['swaps'] == v['lost_mask_admissions'] == v['any_outside_oracle'] == 1 for v in pool.values())
+    assert not list(g.shortlist_rows(s, scores, s.base, {11, 12}, {7}))
+
+
 @pytest.mark.parametrize('n', [7, 8, 9])
 def test_protected_first_mask_or_no_mask_room(n):
     s = g.Space.build(range(13), range(n), {10, 11})
@@ -112,6 +124,25 @@ def test_native_pre_step_data_only_and_block_boundaries():
         assert c['mandatory_fresh'] == 8 and c['natural_mask_admissions'] == 7
     assert totals['fixed']['ranked_selected_old_hits'] == 1
     assert totals['slack_only']['ranked_selected_old_hits'] == 0
+
+
+def test_observer_receives_completed_prior_transition_only():
+    decisions, labels = [], []
+
+    class Watch:
+        def select(self, space, scores, picked, visible, previous_changes):
+            assert len(decisions) == len(labels)
+            decisions.append(previous_changes)
+
+        def outcome(self, targets, admits):
+            assert len(decisions) == len(labels) + 1
+            labels.append(targets)
+
+    g.replay(iter(trace()), TASK, Spy(), 0, 64, observer=Watch())
+    assert decisions == [((22, 0, 5), (23, 0, 6), (24, 0, 7), (25, 0, 8)),
+                         ((23, 6, 10), (24, 7, 0), (26, 0, 11)),
+                         ((30, 0, 20), (31, 0, 21))]
+    assert labels == [set(), {22}, set()]
 
 
 @pytest.mark.parametrize('error', ['header', 'clock', 'width', 'acceptance', 'continuity', 'prompt', 'vocab'])

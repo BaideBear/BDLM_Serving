@@ -90,7 +90,33 @@ def counts(space, picked, targets, admits):
                 selected_mask_admissions=len(picked & admits))
 
 
-def replay(rows, task, ranker, mask, vocab_size):
+SHORTLIST = (1, 2, 4, 8, 'all')
+
+
+def shortlist_rows(space, scores, picked, targets, admits):
+    """A cheap list, followed by a hindsight choice of at most ONE outside row."""
+    enter, leave = picked - space.base, space.base - picked
+    if not enter:
+        return
+    if len(enter) != 1 or len(leave) != 1:
+        raise ValueError('Expected one matched exchange')
+    order = sorted((i for i in space.old if i not in space.base),
+                   key=lambda i: (-scores[space.old.index(i)], i))
+    if {order[0]} != enter:
+        raise ValueError('Rank-1 is not the frozen physical exchange')
+    outside_hits = len(set(order) & targets)
+    kind = 'mask' if leave.intersection(space.masks) else 'old'
+    for k in SHORTLIST:
+        pool = order if k == 'all' else order[:k]
+        hits = len(set(pool) & targets)
+        yield (kind, k), dict(swaps=1, list_rows=len(pool), outside_rows=len(order),
+                              outside_targets=outside_hits, list_targets=hits,
+                              one_seat_oracle=int(hits > 0),
+                              any_outside_oracle=int(outside_hits > 0),
+                              lost_mask_admissions=len(leave & admits), lost_old_hits=len(leave & targets))
+
+
+def replay(rows, task, ranker, mask, vocab_size, shortlist=None, observer=None):
     meta, prompt = next(rows), next(rows)
     if (meta['schema'] != 1 or any(meta[k] != task[k] for k in IDENTITY) or
             prompt['mask_id'] != mask or not 0 <= mask < vocab_size or prompt['prompt_length'] < 0):
@@ -106,6 +132,7 @@ def replay(rows, task, ranker, mask, vocab_size):
                 raise ValueError('Invalid native block sequence')
             valid = range(max(0, plen-block), WIDTH)
             fresh, strict, writes, clock = set(), set(), [-1]*WIDTH, 0
+            previous_changes = ()
         elif before != prior:
             raise ValueError('Native before/after discontinuity')
         clock += 1
@@ -120,6 +147,8 @@ def replay(rows, task, ranker, mask, vocab_size):
             pos = [features(i, space.masks, fresh, strict, writes, clock) for i in space.old]
             scores = ranker.scores(visible, fresh, space.old, pos) if space.old else ()
             top, allowed, plans = space.plans(scores)
+            if observer is not None:
+                observer.select(space, scores, plans['gate5pct'], visible, previous_changes)
 
         after = row['after']
         if (len(after) != WIDTH or any(type(x) is not int or not 0 <= x < vocab_size for x in before+after)
@@ -131,6 +160,11 @@ def replay(rows, task, ranker, mask, vocab_size):
         admits, edits = written & masks, written - masks
         if selected:
             targets = edits - fresh  # Exclude mandatory repeats, unchanged and revoked IDs.
+            if observer is not None:
+                observer.outcome(targets, admits)
+            if shortlist is not None:
+                for key, values in shortlist_rows(space, scores, plans['gate5pct'], targets, admits):
+                    shortlist[key].update(values)
             for mode, picked in plans.items():
                 totals[mode].update(counts(space, picked, targets, admits))
                 totals[mode].update(top_in_base_noop=int(top in space.base),
@@ -138,6 +172,8 @@ def replay(rows, task, ranker, mask, vocab_size):
                                     fixed_rankable_states=int(allowed), fixed_rankable_top_hits=int(allowed and top in targets))
         for i in changed:
             writes[i] = clock
+        if observer is not None:
+            previous_changes = tuple((i, before[i], after[i]) for i in sorted(changed))
         fresh, strict, prior, last = written, edits, after, block
     if last is None:
         raise ValueError('Missing native denoising steps')
@@ -176,7 +212,7 @@ def public_row(mode, total, fields, **key):
                 **{k: float(total[k]) if isinstance(total[k], Fraction) else total[k] for k in fields})
 
 
-def run(native, source_run, weights, checkpoint):
+def run(native, source_run, weights, checkpoint, shortlist_out=None):
     tasks = json.loads(MANIFEST.read_text())['samples']
     check_split(json.loads(CALIBRATION.read_text())['samples'], tasks)
     w = qualify(native, source_run, weights)
@@ -185,12 +221,29 @@ def run(native, source_run, weights, checkpoint):
                      if r['policy'] == 'zero_reserve' and int(r['q']) == Q]
     summary = {mode: Counter() for mode in MODES}
     requests = []
+    fields_short = ('swaps', 'list_rows', 'outside_rows', 'outside_targets', 'list_targets',
+                    'one_seat_oracle', 'any_outside_oracle', 'lost_mask_admissions', 'lost_old_hits')
+    def strata():
+        return {(kind, k): Counter() for kind in ('mask', 'old') for k in SHORTLIST}
+    short_total, short_requests = strata(), []
     with input_table(checkpoint) as table:
         projector = Projector(table)
         ranker = ContextRanker(projector.unit, w)
         for task, ref in zip(tasks, archived_base, strict=True):
+            pools = None if shortlist_out is None else strata()
             with gzip.open(native / f"{task['index']:02d}.trace.jsonl.gz", 'rt') as f:
-                totals = replay(map(json.loads, f), task, ranker, mask, projector.size)
+                totals = replay(map(json.loads, f), task, ranker, mask, projector.size, pools)
+            if pools is not None:
+                gate = totals['gate5pct']
+                sums = sum((pools[kind, 1] for kind in ('mask', 'old')), Counter())
+                if any(sums[f] != gate[h] for f, h in [('swaps', 'physical_swaps'),
+                        ('one_seat_oracle', 'ranked_old_hits_added'), ('lost_old_hits', 'old_hits_lost'),
+                        ('lost_mask_admissions', 'lost_mask_admissions')]):
+                    raise ValueError('Shortlist and actual gate accounting disagree')
+                for (kind, k), stats in pools.items():
+                    short_total[kind, k].update(stats)
+                    short_requests.append(dict(request_index=task['index'], dataset=task['dataset'],
+                        victim=kind, list_k=k, **{f: stats[f] for f in fields_short}))
             if (any(str(task[k]) != ref[k] for k in IDENTITY) or
                     any(totals['fixed'][k] != int(ref[k]) for k in ('states', 'physical_q', 'mandatory_fresh',
                         'old_targets', 'base_old_hits', 'natural_mask_admissions', 'base_mask_admissions'))):
@@ -206,6 +259,12 @@ def run(native, source_run, weights, checkpoint):
         ref, seen = comparison[name], summary['fixed']
         if any(seen[k] != int(ref[c]) for k, c in [(seats, 'seats'), (hits, 'context_hits'), ('old_targets', 'targets')]):
             raise ValueError(f'Archived {name} ranking space mismatch')
+    if shortlist_out is not None:
+        shortlist_out.mkdir(parents=True, exist_ok=True)
+        write_rows(shortlist_out / 'native-shortlist-requests.csv', short_requests)
+        write_rows(shortlist_out / 'native-shortlist.csv', [dict(requests=len(tasks), victim=kind,
+            list_k=k, **{f: v[f] for f in fields_short}) for (kind, k), v in short_total.items()])
+        return
     out = STUDY / 'gated'
     out.mkdir(exist_ok=True)
     fields = tuple(summary['fixed'])
@@ -220,4 +279,5 @@ if __name__ == '__main__':
     p.add_argument('--source-run', type=Path, default=RAW / 'context-fixed-q4q8-v1')
     p.add_argument('--weights', type=Path, default=RAW / 'context-fixed-private/calibration24.json')
     p.add_argument('--checkpoint', type=Path, default=Path('/data0/ysy/models/LLaDA2.1-mini'))
+    p.add_argument('--shortlist-out', type=Path, help='Only output the same-gate shortlist oracle diagnostic')
     run(**vars(p.parse_args()))
