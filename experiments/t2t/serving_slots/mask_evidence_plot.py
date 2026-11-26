@@ -1,4 +1,4 @@
-"""Build one standalone SVG from four required mask controls plus an optional fixed-Q512 CPU pilot.
+"""Build one standalone SVG from four required mask controls and two optional fixed-offer CPU pilots.
 
     python mask_evidence_plot.py CONTROLS mask-evidence.svg
     python mask_evidence_plot.py CONTROLS --check
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import json
 from math import ceil, isclose, isfinite
 from pathlib import Path
+import re
 import sys
 from typing import Optional
 from xml.etree import ElementTree as ET
@@ -21,6 +22,7 @@ ACTIVE = "gemma-mask-cpu-pilot3.json"
 REPLAY = "gemma-unified-mask-pilot3.csv"
 LLADA = "llada21-all-slots-mask-pilot3.json"
 Q512 = "gemma-unified-q512-mask-pilot3.csv"
+ADMISSION = "llada21-q64-admission-mask-pilot3.json"
 DATASETS = {0: "gsm8k", 10: "math500", 20: "humaneval"}
 
 
@@ -189,18 +191,44 @@ def replay(rows, on_arm="replay"):
     return result
 
 
+def admission(data):
+    indices = data["indices"]
+    require(data["suite"] == "cpu-pilot3" and indices == [0, 10, 20]
+            and all(type(i) is int for i in indices), "Unexpected Q64 admission cohort")
+    require(re.fullmatch(r"[0-9a-fA-F]{64}", data["manifest_sha256"]), "Invalid Q64 manifest digest")
+    policies, masks = ("eager", "progress80"), ("open", "causal")
+    results = data["results"]
+    require(set(results) == {f"{p}-{m}" for p in policies for m in masks}, "Expected four Q64 admission arms")
+    rows = []
+    for policy in policies:
+        sides = [results[f"{policy}-{mask}"] for mask in masks]
+        arms = []
+        for r in sides:
+            require(all(type(r[k]) is int and r[k] >= 0 for k in
+                        ("requests", "correct", "N", "F", "Q", "opened", "deferred", "exposed"))
+                    and r["requests"] == len(indices), f"Invalid {policy} pilot counts")
+            require(all(type(r[k]) in (int, float) for k in ("macro_tpf", "token_efficiency")),
+                    f"Invalid {policy} pilot rates")
+            arms.append(arm(*(r[k] for k in ("requests", "correct", "N", "F", "Q", "macro_tpf", "token_efficiency"))))
+        rows.append(Pair(policy, f"Exposed: {sides[0]['exposed']} \u2192 {sides[1]['exposed']}", *arms))
+    return rows
+
+
 def load(controls):
     def csv_rows(name):
         with (controls / name).open(encoding="utf-8", newline="") as f:
             return list(csv.DictReader(f))
     def read_json(name):
         return json.loads((controls / name).read_text(encoding="utf-8"))
-    panels = [historical(csv_rows(OBS)), active(read_json(ACTIVE)), replay(csv_rows(REPLAY)), llada(read_json(LLADA))]
-    try:
-        fixed = csv_rows(Q512)
-    except FileNotFoundError:
-        return panels
-    return panels + [replay(fixed, "q512")]
+    panels = {OBS: historical(csv_rows(OBS)), ACTIVE: active(read_json(ACTIVE)),
+              REPLAY: replay(csv_rows(REPLAY)), LLADA: llada(read_json(LLADA))}
+    for name, read, parse in ((Q512, csv_rows, lambda r: replay(r, "q512")), (ADMISSION, read_json, admission)):
+        try:
+            data = read(name)
+        except FileNotFoundError:
+            continue
+        panels[name] = parse(data)
+    return panels
 
 
 def figure(panels):
@@ -222,21 +250,25 @@ def figure(panels):
     node("rect", width=1200, height=1000, fill="white")
     text(36, 43, "Cross-block mask: paired task evidence", 29, weight=700)
     text(36, 72, "Every pair reads mask OFF \u2192 ON. ON blocks earlier queries from reading later blocks; compare only within each panel.", 16)
-    headings = [
-        ("A   LLaDA 2.1-mini  |  Original Optimus OBS", "Historical GPU runs  /  original30: 10 per dataset  /  fixed windows, not hard caps; no trigger split"),
-        ("B   DiffusionGemma  |  active_w2", "CPU pilot3  /  first original30 case per dataset  /  full requests; first intervention is numbered from 1"),
-        ("C   DiffusionGemma  |  Unified external replay", "CPU pilot3  /  separate executor  /  replay_open (OFF) \u2192 replay (ON); subsets partition All three"),
-        ("D   LLaDA 2.1-mini  |  Five-tier external replay", "CPU pilot3  /  offers 4, 8, 16, 32, 64  /  replay_open (OFF) \u2192 replay (ON); exposure subsets partition the same three cases"),
-        ("E   DiffusionGemma  |  Unified fixed Q512", "CPU pilot3  /  fixed offer, not equal work  /  q512_open (OFF) \u2192 q512 (ON); subsets partition All three"),
-    ]
-    require(len(panels) in (4, 5), "Expected four required panels plus optional fixed Q512")
+    headings = {
+        OBS: ("A   LLaDA 2.1-mini  |  Original Optimus OBS", "Historical GPU runs  /  original30: 10 per dataset  /  fixed windows, not hard caps; no trigger split"),
+        ACTIVE: ("B   DiffusionGemma  |  active_w2", "CPU pilot3  /  first original30 case per dataset  /  full requests; first intervention is numbered from 1"),
+        REPLAY: ("C   DiffusionGemma  |  Unified external replay", "CPU pilot3  /  separate executor  /  replay_open (OFF) \u2192 replay (ON); subsets partition All three"),
+        LLADA: ("D   LLaDA 2.1-mini  |  Five-tier external replay", "CPU pilot3  /  offers 4, 8, 16, 32, 64  /  replay_open (OFF) \u2192 replay (ON); exposure subsets partition the same three cases"),
+        Q512: ("E   DiffusionGemma  |  Unified fixed Q512", "CPU pilot3  /  fixed offer, not equal work  /  q512_open (OFF) \u2192 q512 (ON); subsets partition All three"),
+        ADMISSION: ("F   LLaDA 2.1-mini  |  Fixed Q64 admission \u00d7 mask", "CPU pilot3  /  cases 0, 10, 20  /  open (OFF) \u2192 causal (ON) within each policy; fixed offer, not equal work"),
+    }
+    require({OBS, ACTIVE, REPLAY, LLADA} <= panels.keys() <= headings.keys(), "Missing or unknown panel")
     y = 108
-    for idx, (rows, (title, sub)) in enumerate(zip(panels, headings)):
-        obs = idx == 0
+    for name, (title, sub) in headings.items():
+        if name not in panels:
+            continue
+        rows, obs = panels[name], name == OBS
         node("rect", x=28, y=y-16, width=1144, height=54, fill="#eff4f5")
         text(40, y+4, title, 20, weight=700)
         text(40, y+26, sub, 14, mute)
-        columns = [(40, "Window / paired outcomes" if obs else "Request / scope"), (325, "Correct"),
+        row_heading = "Window / paired outcomes" if obs else "Admission policy" if name == ADMISSION else "Request / scope"
+        columns = [(40, row_heading), (325, "Correct"),
                    (465, "Macro TPF"), (656, "Physical efficiency"),
                    (877, "Accuracy change (pp)  |  paired 95% CI" if obs else "TPF change  |  ON minus OFF")]
         for x, label in columns:
@@ -280,7 +312,8 @@ def figure(panels):
         y += 108+42*len(rows)
     text(40, y+10, "TPF = mean request N/F. Efficiency = total output tokens / total physical Q. No cross-panel average or official frozen90 GPU score.", 14)
     text(40, y+33, f"A: {OBS}     B: {ACTIVE}     C: {REPLAY}", 12, mute)
-    text(40, y+51, f"D: {LLADA}" + (f"     E: {Q512}" if len(panels) == 5 else ""), 12, mute)
+    text(40, y+51, "     ".join(f"{letter}: {name}" for letter, name in
+         (("D", LLADA), ("E", Q512), ("F", ADMISSION)) if name in panels), 12, mute)
     height = y+68
     root.set("height", str(height))
     root.set("viewBox", f"0 0 1200 {height}")
@@ -302,7 +335,8 @@ def main():
         if a.check:
             ET.fromstring(svg)
             print(f"OK: {len(panels)} panels, including LLaDA five-tier CPU pilot3. "
-                  f"Gemma fixed-Q512 pilot: {'present' if len(panels) == 5 else 'absent'}.", file=sys.stderr)
+                  f"Gemma fixed-Q512: {'present' if Q512 in panels else 'absent'}; "
+                  f"LLaDA Q64 admission: {'present' if ADMISSION in panels else 'absent'}.", file=sys.stderr)
         elif a.output:
             a.output.write_text(svg + "\n", encoding="utf-8")
         else:

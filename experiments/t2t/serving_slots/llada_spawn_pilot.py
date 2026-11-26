@@ -90,6 +90,17 @@ def compare(on, off):
     reg.require(all(on[k] == off[k] for k in keys), "Unmatched condition before first exposure")
     reg.require(on["opened_edges"] == 0 and bool(off["opened_edges"]) == (on["first"] is not None),
                 "Exposure does not match intervention")
+    def first_event(r):
+        for i, e in enumerate(r["events"]):
+            geom = reg.geometry(e["block"], len(r["prompt_ids"]), e["absolute_positions"], e["visible_kv"])
+            if geom is not None:
+                return i, geom, e["absolute_positions"]
+        return None
+    a, b = first_event(on), first_event(off)
+    reg.require(a == b and (a is not None) == (on["first"] is not None),
+                "First actual Q/K geometry differs")
+    if a is not None:
+        reg.require(on["events"][:a[0]] == off["events"][:a[0]], "Unequal pre-intervention events")
     if on["first"] is None:
         reg.require(all(on[k] == off[k] for k in ("events","output_ids")), "Unexposed pair changed")
 
@@ -160,4 +171,30 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if sys.argv[1:] == ["verify"]:
+        sealed = reg.read(OUT/"complete.json")
+        reg.require(sealed["indices"] == list(INDICES) and sealed["manifest_sha256"] == reg.sha(OUT/"run.json"),
+                    "Unsealed pilot")
+        for i in INDICES:
+            for gate in ("eager", "progress80"):
+                compare(*(reg.read(OUT/reg.filename(i, gate+"-"+m)) for m in ("causal", "open")))
+        for arm in ARMS:
+            rows = [reg.read(OUT/reg.filename(i,arm)) for i in INDICES]
+            totals = sealed["results"][arm]
+            gen = [[e for e in r["events"] if e["phase"] != "prefill"] for r in rows]
+            qs = [sum(e["physical_q"] for e in events) for events in gen]
+            ns = [r["output_tokens"] for r in rows]
+            reg.require(all(r["policy"] == arm and r["index"] == i and
+                            r["generation_forwards"] == len(events) and
+                            r["generation_physical_padded_rows"] == q
+                            for r,i,events,q in zip(rows, INDICES, gen, qs, strict=True)), "Invalid rows")
+            reg.require((sum(ns), sum(map(len,gen)), sum(qs), sum(r["correct"] for r in rows),
+                         mean(n/len(events) for n,events in zip(ns,gen,strict=True)), sum(ns)/sum(qs))
+                        == tuple(totals[k] for k in ("N","F","Q","correct","macro_tpf","token_efficiency")),
+                        "Aggregate does not match physical ledger")
+        print("Verified six mask pairs: frozen indices, pre-intervention events, physical Q and scores")
+    elif not sys.argv[1:]:
+        main()
+    else:
+        raise SystemExit("Expected no arguments or verify")
