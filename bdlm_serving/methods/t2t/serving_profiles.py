@@ -154,10 +154,12 @@ def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_token
     offers = (4, 8, 16, 32, 64)
     opts = {}
     if profile is not None:
-        if profile != "quarter_fullwrite" or (coverage, top_gate) != ("sparse", "half"):
+        if profile not in ("quarter_fullwrite","quarter_edit_warm") or (coverage, top_gate) != ("sparse", "half"):
             raise ValueError("Unknown LLaDA profile or conflicting explicit settings")
         coverage, top_gate = "head", "quarter"
-        opts = dict(close_policy="full_write", borrow_at_half=True)
+        editable = profile=="quarter_edit_warm"
+        opts = dict(close_policy="edit_once" if editable else "full_write", borrow_at_half=True,
+                    warm_head_sample=editable)
     raw = LLaDABudgetRequest(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids,
                              max_new_tokens=max_new_tokens, law=Law(), confidence_threshold=.9,
                              editing_threshold=.5, switchable=True, top_gate=top_gate,

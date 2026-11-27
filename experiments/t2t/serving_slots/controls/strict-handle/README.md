@@ -42,6 +42,17 @@ Compared with the snapshot, commit `2bd32cf` only omits two optional
 diagnostic fields from sparse records; the planner, sampler and KV writes
 are unchanged. This evidence does not qualify later experimental samplers.
 
+On A800, [`quarter_edit_warm`](llada-quarter-edit-warm.json) independently
+replayed 15/15 fixed LLaDA cases on 0/10/20, including output IDs, absolute
+rows and F/Q. The three fixed Q32 cases took 32 terminal edit opportunities
+and made five real writes. At fixed Q64, the warm-head exception admitted
+78 additional *sampling opportunities* (not necessarily output writes).
+`switch25` exercised all 25 ordered pairs, 136 downshifts with dirty rows
+and 69 parked rows repaid on downshifts. The four terminal edit opportunities
+in the mixed cycle made zero actual writes; do not infer from this that
+the cycle measured a new terminal edit immediately followed by a downshift.
+The raw 21 runs are on A800 at `/gs/results/qualify-llada-editwarm-api-1128`.
+
 On the GPU host, run `python -m experiments.t2t.serving_slots.strict_handle_qualify
 --model gemma` or `--model llada` in the corresponding pinned environment,
 with the checkpoint, frozen samples, controls and output directories. Reproduce

@@ -4,6 +4,17 @@
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.
 
+`open_strict_llada(..., profile="quarter_edit_warm")` uses the same live KV
+bank and absolute dirty ledger at all five offers. Relative to `quarter_fullwrite`
+only two conditions change. At B, a fully resident, mask-free head with all
+outstanding writes in that head can sample its already-paid logits once before
+retirement. Any resulting edit or revocation becomes debt. At 2B, when the
+only cold positions are in the successor and all mandatory rows fit, sample
+the already-projected warm head MASKs in the same call. The thresholds and the
+quarter-MASK opening gate do not change. See the [switching evidence](../experiments/t2t/serving_slots/controls/strict-handle/llada-quarter-edit-warm.json)
+and the [measured fixed-budget comparisons](request-budget-decisions.md).
+This is an opt-in implementation, not a claim of dominance at low offers.
+
 `open_strict_llada(..., profile="quarter_fullwrite")` accepts every registered
 B32 offer on one persistent request. Q4/Q8 keep the head-only planner; Q16
 may lend real slack to contiguous successor rows without sampling them; Q32

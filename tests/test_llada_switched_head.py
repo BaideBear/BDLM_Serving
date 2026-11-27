@@ -264,6 +264,24 @@ def test_half_block_borrow_after_switch_has_a_single_eligible_offer(q):
     assert bool(tail)==(q==16) and tail.isdisjoint(sampled)
 
 
+def test_switched_terminal_edit_charges_new_writes_before_smaller_offer():
+    r=planner(origin=32,end=100,switchable=True,coverage="head",resident=range(32,64),
+              resolved=range(32,64),dirty=range(32,64),accept=True)
+    r.close_policy, r.close_attempted = "edit_once", None
+    # The fake projector sees all 32 old inputs; their proposals really differ.
+    r.x[:,32:64]=3
+    prior=r.sample_clock
+    close=r.step(32)
+    assert close["phase"]=="close_edit_once" and close["q"]==32
+    assert close["dirty_after"]==close["sampled"]==list(range(32,64))
+    drain=r.step(4)
+    assert drain["q"]==4 and not drain["sampled"] and r.sample_clock==prior+1
+    assert drain["dirty_after"]==list(range(36,64))
+    final=r.step(32)
+    assert final["phase"]!="close_edit_once" and not final["sampled"]
+    assert not final["dirty_after"] and final["retired_blocks"]==[1]
+
+
 def test_switched_head_default_coverage_is_sparse_and_unchanged():
     """The new combination is opt-in; old switch defaults keep their old plan."""
     sig = inspect.signature(LLaDABudgetRequest.__init__)

@@ -3,6 +3,15 @@
 范围：外部给 `step(C)`，不预测下轮预算，不做跨请求调度。不要求第一次拿到整块档。
 `C` 是单次 decoder 的物理行上限，不是填充目标。Gemma 必要的 encoder 单独报行数并计入 F。
 
+**如何判断这一轮预算足不足。** 先看本轮必须处理的写入和上下文版本，而不是只看 `C/B`。
+Q8 时如果有六个已改 token，只有两行能自由分配；Q64 时如果没有可合法打开的后块，
+剩下三十多行也不构成新的采样机会。可以少算、延后或合并同输入同上下文的计算；
+不能把没算的行当有效、把本轮采样前的 KV 当作新 token 的 KV，或以草稿替代终检结果。
+当前 LLaDA 小档的“冷 MASK 优先吃完所有空位”是待证假设，不是缓存正确性条件。
+在 Q8 单独验证用一行重试更早的、已驻留但仍未解的 MASK：置换最右一行冷 MASK，
+保留至少一行冷启动，保持前缀剂量、必刷、采样行数和物理宽度在首次交换时相同。
+同题同卡配对，不把三题技术验证当作质量结论。
+
 | 本轮状态 | 优先算 | 可以不算 |
 |---|---|---|
 | 刚降档，未刷写入 ≥ C | 从整个请求的待刷集合中取 C 行，包括已暂停的后块；保留余债 | 普通前缀复看、新开块、在未满足条件的写回上推进采样 |
@@ -123,6 +132,9 @@ encoder、成对翻转、失败和真实峰值。TPF 不等同于墙钟加速。
 
 目前 Q16 在该候选内部支持只读借位；Q8 是质量与 TPF 的取舍，不是普遍获益。
 二者都没有达到同档 IBS，新策略要同 IBS 比，不能只与较弱的内部对照比。
+这个差额不只是 IBS 名义窗口与物理 Q 不同造成的。[严格限实算 Q8 的 IBS](../experiments/t2t/serving_slots/controls/llada21-q8-ibs-original-vs-capped.csv)
+全90是 72/90、2.364、29.36%；[严格限 Q16 的 IBS](../experiments/t2t/serving_slots/controls/llada21-q16-ibs-original-vs-capped.csv)
+是 72/90、3.375、20.54%。这些是同题外部对照，不是更换选行规则的同卡单因素实验。
 源：n164 `/data1/project_data/gx-erqw-20261123/runtime/layout-1128-v1/cross/results/summary.csv`，
 SHA-256 `7b9005527078340fb8126384260cbe176d6399b21bdf67dc4795048a6589f84b`，
 `c8-noborrow / c8-borrow`、`c16-noborrow / c16-borrow`；[IBS 全90账本](../experiments/t2t/serving_slots/controls/block-history90-matrix.csv)。

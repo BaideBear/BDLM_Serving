@@ -134,7 +134,7 @@ class LLaDABudgetRequest:
         self.borrow_at_half = borrow_at_half
         if close_policy not in ("unchanged","full_write","edit_once") or (close_policy!="unchanged" and not (
                 (cross=="head" and not borrow and not switchable and ablation is None)
-                or (switchable and close_policy=="full_write" and ablation is None))):
+                or (switchable and ablation is None))):
             raise ValueError("Unsupported terminal policy for this request")
         self.close_policy, self.close_attempted = close_policy, None
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1

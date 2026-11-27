@@ -338,9 +338,10 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
-    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite"), default="legacy")
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm"), default="legacy")
     a = ap.parse_args(argv)
-    candidate = a.profile == "quarter_fullwrite"
+    candidate = a.profile != "legacy"
+    editable = a.profile == "quarter_edit_warm"
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tok, model = load_gpu(a, lambda:None)
@@ -398,12 +399,22 @@ def llada_main(argv=None):
                               and e["dirty_before"]==sorted(debt) and set(sorted(debt)[:q])<=rows,
                               "wrong projection or debt")
                         if candidate:
-                            closed = e["phase"]=="close_full_write"
+                            closed = e["phase"] in ("close_full_write","close_edit_once")
                             check(closed==bool(close_due), "missed or premature full-head close")
                             if closed:
-                                check(rows==head_rows and not e["sampled"] and not e["written_absolute"],
-                                      "terminal write must pay every valid head row without sampling")
-                                checks["full_write_F"]+=1
+                                check(rows==head_rows and (e["phase"]=="close_edit_once")==editable and
+                                      (set(e["sampled"])==rows if editable else not e["sampled"] and not e["written_absolute"]),
+                                      "wrong terminal row selection or sampling")
+                                checks["edit_once_F" if editable else "full_write_F"]+=1
+                                if editable:
+                                    checks["terminal_writes"]+=len(e["written_absolute"])
+                            warm=set(e.get("warm_head_rows",()))
+                            if warm:
+                                check(editable and q==64 and e["cold"] and set(e["cold"]).isdisjoint(head_rows)
+                                      and debt<=rows and warm<=head_rows&set(e["mask"])
+                                      and warm.isdisjoint(debt) and set(e["sampled"])==set(e["cold"])|warm,
+                                      "warm sample did not come from this tick's paid head MASKs")
+                                checks["warm_sample_rows"]+=len(warm)
                             if e["borrowed_rows"]:
                                 check(q==16 and e["borrowed_rows"]==len(e["tail_read_only"])
                                       and not debt.intersection(e["tail_read_only"]),
@@ -439,7 +450,8 @@ def llada_main(argv=None):
                     if candidate:
                         fixed=evaluate_fixed(model,tok,t,ref["prompt_ids"],q,Law(),
                               cross=("quarter" if q==64 else "head", q==16),coverage="head" if q==64 else "sparse",
-                              close_policy="full_write" if q==32 else "unchanged")
+                              close_policy=("edit_once" if editable else "full_write") if q==32 else "unchanged",
+                              warm_head_sample=editable and q==64)
                     else:
                         fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
                                           borrow=False,coverage="head" if q==64 else "sparse")

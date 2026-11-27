@@ -79,6 +79,25 @@ def test_quarter_profile_requires_action_exposure_at_the_correct_offer(cohort):
         summarize(path,"llada",manifest)
 
 
+@pytest.mark.parametrize("omitted", ["terminal_writes", "warm_sample_rows"])
+def test_edit_warm_profile_requires_observed_edits_and_warm_sampling(cohort, omitted):
+    path, manifest=cohort
+    for p in path.glob("*.json"):
+        r=json.loads(p.read_text())
+        r["policy_checks"]={"fixed16":{"borrow_Q":2},
+                            "fixed32":{"edit_once_F":2,"terminal_writes":1},
+                            "fixed64":{"quarter_open_F":1,"warm_sample_rows":2}}.get(r["suite"],{})
+        r.update(profile="quarter_edit_warm",downshifts_with_debt=int(r["suite"]=="switch25"))
+        p.write_text(json.dumps(r))
+    assert summarize(path,"llada",manifest)["profile"]=="quarter_edit_warm"
+    for p in path.glob("fixed*.json"):
+        r=json.loads(p.read_text())
+        r["policy_checks"].pop(omitted,None)
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError,match="wrong fixed action exposure"):
+        summarize(path,"llada",manifest)
+
+
 def test_verified_draft_compares_through_eos_and_requires_complete_canvas():
     from experiments.t2t.serving_slots.gemma_draft_shadow import compare_block
     full=[10]*256
