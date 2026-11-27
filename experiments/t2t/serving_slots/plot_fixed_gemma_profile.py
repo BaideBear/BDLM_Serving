@@ -17,18 +17,20 @@ def read(path):
 
 
 def collect():
-    studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity")}
+    studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity","density")}
     baselines = read(ROOT/"block-history90-matrix.csv")
     rows = []
     for cohort, external, n in COHORTS:
         for c in TIERS:
             file = "profile-close" if c in (128,512) else "close"
-            arms = [(file,"fixed90_fused")]
+            arms = [(file,"fixed90_fused",None)]
             if c==256:
-                arms.append(("capacity","full-head variant"))
-            for study, label in arms:
+                arms.extend([("capacity","full-head variant",None),
+                             ("density","dense at high MASK","C256-density-high"),
+                             ("density","dense at low MASK","C256-density-low")])
+            for study, label, arm in arms:
                 matches = [r for r in studies[study] if r["cohort"]==cohort and
-                           int(r["budget"])==c and r["side"]=="trial"]
+                           int(r["budget"])==c and r["side"]=="trial" and (arm is None or r["arm"]==arm)]
                 if not matches and study=="capacity":
                     continue
                 r, = matches
@@ -65,8 +67,9 @@ def plot(path, rows):
     cohort, = {r["cohort"] for r in rows}
     n, = {r["n"] for r in rows}
     palette={"fixed90_fused":"#087469","Optimus IBS":"#6343a0","Native / Flow W1":"#596779",
-             "Flow W2":"#a65216","full-head variant":"#b02c53"}
-    fig, axes = plt.subplots(1,3,figsize=(15,5.7))
+             "Flow W2":"#a65216","full-head variant":"#b02c53",
+             "dense at high MASK":"#1964ae","dense at low MASK":"#78620d"}
+    fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
                 ("macro_TPF","Tokens per forward",1),("token_efficiency","Token efficiency (%)",100))):
@@ -84,13 +87,14 @@ def plot(path, rows):
                 h,=ax.plot([3.75,4.17],y*2,"--",color=color,lw=2)
                 ax.scatter(x,y,marker="s",facecolors="none",edgecolors=color,s=40)
             else:
-                h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D"}[name],
-                           ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=6)
+                h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
+                                       "dense at high MASK":"+","dense at low MASK":"x"}[name],
+                           ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
         ax.spines[["top","right"]].set_visible(False)
         ax.grid(axis="y",alpha=.22)
-    fig.subplots_adjust(left=.05,right=.985,wspace=.21,top=.81,bottom=.43)
+    fig.subplots_adjust(left=.05,right=.985,wspace=.21,top=.81,bottom=.44)
     fig.suptitle(f"DiffusionGemma  |  {cohort}  |  fixed offer for the entire request",fontsize=16,x=.05,ha="left")
     for j, ax in enumerate(axes):
         entries = []
@@ -103,7 +107,7 @@ def plot(path, rows):
                 return "-" if z is None else str(z) if j==0 else f"{(100 if j==2 else 1)*z:.2f}"
             entries.append((name,[val(c) for c in TIERS]))
         table=ax.table(cellText=[[name,*v] for name,v in entries],colLabels=["Q",*TIERS],
-                       colWidths=[.35,.13,.13,.13,.13,.13],cellLoc="center",bbox=[0,-.94,1,.63])
+                       colWidths=[.35,.13,.13,.13,.13,.13],cellLoc="center",bbox=[0,-1.02,1,.74])
         table.auto_set_font_size(False)
         table.set_fontsize(7.6)
         for (i,k), cell in table.get_celld().items():
@@ -112,7 +116,7 @@ def plot(path, rows):
             elif k==0: cell.get_text().set_color(palette[entries[i-1][0]])
     fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.94),
                ncol=len(handles),frameon=False,fontsize=8)
-    fig.text(.05,.02,"Dashed: external controls. The native reference runs at Q256 only. IBS 512 saturates at one block; a dash in the table means unavailable.",fontsize=9)
+    fig.text(.05,.02,"High/low MASK: dense head when unresolved count is at least/below 128. Native runs at Q256; IBS 512 saturates at one block. Missing values are not zero.",fontsize=9)
     fig.savefig(path,dpi=160,facecolor="white")
     plt.close(fig)
 

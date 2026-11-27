@@ -1,17 +1,27 @@
 """Read-only receipt audit; no model, prompt, completions or device access."""
+import argparse
 from collections import Counter, defaultdict
 import csv
 import json
 from pathlib import Path
 import random
 import statistics
-import sys
 
-dense = '--dense-stop' in sys.argv
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--dense-stop', action='store_true')
+parser.add_argument('--complete', action='store_true')
+parser.add_argument('--pairs-csv', action='store_true')
+parser.add_argument('--cohort', choices=('original30','new60','frozen90'), default='frozen90')
+args=parser.parse_args()
+if args.pairs_csv and (not args.complete or args.cohort!='frozen90'):
+    parser.error('The per-request archive requires the full completed study')
+dense = args.dense_stop
 run = 'dense-stop-1128' if dense else 'fullstop-1128'
 root = Path('/gs/results')/run
 qual = {0,10,20}
 target = {256:set(range(90))} if dense else {128:qual,256:set(range(90)),512:set(range(90))}
+scope = {'original30':range(30),'new60':range(30,90),'frozen90':range(90)}[args.cohort]
+target = {k:v.intersection(scope) for k,v in target.items() if v.intersection(scope)}
 rows = {}
 codes = {'partial':'P','drain':'D','verify':'V','absent':'A','rebuild':'R'}
 source = None
@@ -20,6 +30,8 @@ manifest = json.loads((Path('/gs/runtime')/run/'repo/benchmarks/frozen90/manifes
 for path in root.glob('C*.json'):
     r = json.loads(path.read_text())
     c,i,on = r['budget'],r['index'],r['fullstop']
+    if i not in scope:
+        continue
     gate = 'half' if c==512 else 'off'
     assert path.name == (f'C256-dense-stop{int(on)}-{i:02d}.json' if dense
                          else f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}.json')
@@ -97,6 +109,8 @@ for c,indices in target.items():
         pair_rows.append(p)
     n=len(pairs)
     out=dict(tier=c,matched=n,expected=len(indices),sealed=[sum((c,i,h) in rows for i in indices) for h in (0,1)])
+    if dense or args.cohort!='frozen90':
+        out['cohort']=args.cohort
     if n:
         replay_n, replay_different = 0, []
         for a,_ in pairs:
@@ -140,9 +154,9 @@ for c,indices in target.items():
                    score_flip=[[a['index'],a['correct'],b['correct']] for a,b in pairs
                                if 'correct' in a and 'correct' in b and a['correct']!=b['correct']])
     print(json.dumps(out),flush=True)
-if '--complete' in sys.argv:
+if args.complete:
     assert len(rows)==2*sum(map(len,target.values())) and all(type(r.get('correct')) is bool for r in rows.values()), 'incomplete'
-    if '--pairs-csv' in sys.argv:
+    if args.pairs_csv:
         target_file=Path(__file__).with_name('dense-pairs.csv' if dense else 'pairs.csv')
         with target_file.with_suffix('.pending').open('w',newline='') as stream:
             w=csv.DictWriter(stream,fieldnames=pair_rows[0],lineterminator="\n")

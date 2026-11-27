@@ -268,7 +268,11 @@ def test_gemma_published_fixed_offers_and_denominators():
     data=collect()
     for cohort,_,n in COHORTS:
         part=[r for r in data if r["cohort"]==cohort]
-        assert len(part)==13 and all(r["n"]==n for r in part)
+        assert len(part)==15 and all(r["n"]==n for r in part)
+        points=[r for r in part if r["method"].startswith("dense at ")]
+        assert len(points)==2 and all(r["budget"]==r["peak_decoder_Q"]==256 for r in points)
+        if n==90:
+            assert {r["method"]:r["correct"] for r in points}=={"dense at high MASK":83,"dense at low MASK":84}
         assert {r["budget"] for r in part if r["method"]=="Optimus IBS"}==set(TIERS)
         assert next(r for r in part if r["method"]=="Flow W2")["token_efficiency"] is None
         for r in part:
