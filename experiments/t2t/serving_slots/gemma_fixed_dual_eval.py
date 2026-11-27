@@ -55,11 +55,13 @@ def fullstop_receipt(trace, origin, enabled):
 
 @torch.inference_mode()
 def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation=None,
-            policy=None):
+            policy=None, full_head_at_b=False):
     # None preserves the pre-ablation fixture / archived Q512 registration.
     if type(q) is not int or q not in TIERS or (ablation is None and q != 512) or (
             ablation is not None and ablation not in ABLATIONS):
         raise ValueError('Invalid Gemma audit configuration')
+    if type(full_head_at_b) is not bool or (full_head_at_b and (q != B or ablation != '00')):
+        raise ValueError('Full-head audit requires the physical one-block offer')
     prompt = data['input_ids'][0].tolist()
     origin = len(prompt)
     trace, heads, top = [], [], []
@@ -74,6 +76,8 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
         if policy and ablation is None:
             raise ValueError('Opening policy requires the ablation executor')
         req = cls(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law, **opts)
+        if full_head_at_b:
+            req.full_head_at_b = True
         while req.status == 'ready':
             require(len(trace) < (max_new_tokens // B) * (2*48*(B//min(q,B)+2)+2*B//min(q,B)+4),
                     'No bounded decoder progress')
@@ -115,6 +119,11 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                         (e['head_mask_before']==0 or e['parts'][0]['age_before']==48) and
                         e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
                         'Ineligible or reordered terminal writeback fusion')
+            if full_head_at_b and route not in ('drain', 'verify', 'verify_paid'):
+                base = origin+B*len(sealed)
+                full_rows = list(range(base, base+B))
+                require(route=='dense_single' and e['positions']==e['sampled_absolute']==full_rows
+                        and e['opened'] is None and len(e['parts'])==1, 'Not a full head at B')
             if q == 2*B:
                 require(not build and route != 'sparse', 'Top tier took a low-tier policy')
                 if route in ('dense_joint','dense_single','dense_head_debt'):

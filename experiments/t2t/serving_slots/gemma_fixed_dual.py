@@ -252,6 +252,7 @@ class AblationRequest(FixedFamilyRequest):
     """00/10/11 with a common top-tier route. Only encoder epochs replace the bank."""
 
     top_gate = 'eager'
+    full_head_at_b = False
     head_first = False
     late_den = 4
     receipt_tail_ids = False
@@ -370,11 +371,14 @@ class AblationRequest(FixedFamilyRequest):
             opened = self.tail.ordinal
 
         denoising = head.sampler.phase == 'sample' and head.can_sample
-        if q == 2*B and denoising:
+        # The single-block endpoint may consume a complete head only if ALL
+        # outstanding writes fit, including a parked successor after a downshift.
+        single_full = self.full_head_at_b and q == B and not any(p >= tail_base for p in debt)
+        if denoising and (q == 2*B or single_full):
             open_gate = (self.top_gate == 'eager' or
                          (self.top_gate != 'off' and head_initialized == B and
                           head_masks <= B//(2 if self.top_gate == 'half' else 4)))
-            allowed = room_for_tail and self._no_accepted_eos(head) and (self.tail is not None or open_gate)
+            allowed = q == 2*B and room_for_tail and self._no_accepted_eos(head) and (self.tail is not None or open_gate)
             if self.tail is None and allowed:
                 spawn()
             # Dense even when the debt fills the offer: the same forward encodes

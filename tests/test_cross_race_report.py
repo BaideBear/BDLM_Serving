@@ -215,6 +215,24 @@ def test_profile_close_has_distinct_pairs_and_fixed_dose_gate():
             report.normalize(row | {"prefix":(0,8)})
 
 
+def test_capacity_study_checks_physical_cap_and_comparator(tmp_path):
+    from experiments.t2t.serving_slots.cross_race import capacity_cases, replay_capacity
+    assert len(set(capacity_cases()))==180
+    r = cross(0) | dict(**PROVENANCE,budget=256,schema="capacity-head-v1",fuse=True,
+                        full_head_at_b=True,fused_F=0,fused_dirty_Q=0,joint_F=0)
+    ref = dict(r, schema="paid-close-v1",budget=512)
+    p = tmp_path/"control.json"
+    p.write_text(json.dumps(ref))
+    r["replay"] = replay_capacity(r,p)
+    assert r["replay"]["reference_budget"]==512
+    assert report.normalize(r).arm.name=="C256-capacity1"
+    p.write_text(json.dumps(dict(ref,max_decoder_Q=257)))
+    with pytest.raises(ValueError,match="Unmatched prior"):
+        replay_capacity(r,p)
+    with pytest.raises(ValueError,match="parity"):
+        report.normalize(dict(r,full_head_at_b=False))
+
+
 def test_factor_publication_only_complete_cohorts_includes_negative_parity():
     from experiments.t2t.serving_slots.factor_tables import tables
     origins = [cross(i) | PROVENANCE | dict(budget=256,schema="paid-close-v1",fuse=False,

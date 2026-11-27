@@ -72,6 +72,30 @@ profile fusion is forbidden while the successor is resident. Use the same
 gather command with `profile-close`; qualify transfer from its own evidence,
 never by adding the observed gains to a different fixed profile.
 
+On the original 30, Q128 with the 1/4 share was 30/30 on both sides, macro
+TPF 12.034 to 12.212 (12 F, 141 decoder Q saved). Q512 with the half gate
+was 28/30 on both sides, 20.749 to 22.718 (29 F, 260 decoder Q saved).
+All final IDs and encoder work matched on both pairs. These are not 90-case
+estimates and do not establish real-time speed.
+
+## Spending a full block at the actual one-block offer
+
+`capacity/` compares two runs that **both receive Q256**, with the same
+1/8 law, no successor, first-verify fusion, and frozen inputs. In the trial,
+while denoising, cover and sample the entire head when the head plus all
+mandatory writes fit. This is an actual projection planner change. In a
+live request with parked tail debt, Q256 is insufficient for full coverage;
+the change does not displace that debt. The gate at Q512 is unaffected.
+The control retains sparse selection at Q256. Both use the same strict
+local sampler, not a call to native generation.
+
+Additionally replay the historical Q256 sparse and historical nominal Q512
+head-only receipts, requiring each reference's **maximum decoder width <=
+256**. Compare actual output IDs, F, decoder and encoder Q, routing and
+scorer; report parity mismatches, never relabel old runs as fresh Q256. Only
+the same-budget arms estimate the effect. Recompute with `gather_gemma_factors.sh
+capacity`.
+
 ## Prefix location and sampling on refresh: original 30
 
 Each entry is correct out of 30, then macro TPF. All use 1/8 and the same

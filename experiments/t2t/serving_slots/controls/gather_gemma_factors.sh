@@ -2,11 +2,12 @@
 # Run the audited reader on the cluster. Only aggregates cross the network.
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-kind=${1:?expected rank, close or profile-close}
+kind=${1:?expected rank, close, profile-close or capacity}
 case "$kind" in
     rank) name=prefix-rank-1128 ;;
     close) name=paid-close-1128 ;;
     profile-close) name=profile-close-1128 ;;
+    capacity) name=capacity-head-1128 ;;
     *) exit 2 ;;
 esac
 opts=(-o BatchMode=yes -o ConnectTimeout=8)

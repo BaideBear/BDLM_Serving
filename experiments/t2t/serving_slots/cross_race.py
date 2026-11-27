@@ -66,6 +66,28 @@ def profile_close_cases(c):
                    (1,4) if c==128 else (1,8),'right',False,fuse)
 
 
+def capacity_cases():
+    for j, i in enumerate([j+k for j in range(10) for k in (0,10,20)] + list(range(30,90))):
+        for dense in ((False,True) if j%2==0 else (True,False)):
+            yield i,256,'off',False,4,(1,8),'right',False,dense
+
+
+def replay_capacity(row, path):
+    from hashlib import sha256
+    blob = path.read_bytes()
+    ref = json.loads(blob)
+    expected = 512 if row['full_head_at_b'] else 256
+    if (ref['schema'] != 'paid-close-v1' or ref['budget'] != expected or ref['fuse'] is not True
+            or ref['gate'] != 'off' or ref['slack'] or ref['prefix'] != [1,8] or ref['max_decoder_Q']>256
+            or any(row[k]!=ref[k] for k in ('samples_sha256','index','task_id','dataset','seed',
+                                            'input_sha256','scorer_sha256'))):
+        raise ValueError('Unmatched prior fixed control')
+    keys = ('output_ids','N','F','decoder_F','decoder_Q','encoder_F','encoder_Q',
+            'max_decoder_Q','route_F','route_Q','correct','truncated','fused_F','fused_dirty_Q')
+    return dict(reference_budget=expected, source_sha256=sha256(blob).hexdigest(),
+                different=[k for k in keys if k not in row or k not in ref or row[k]!=ref[k]])
+
+
 def receipt(r, special):
     ids = r['output_ids']
     last, ever, costs = {}, set(), Counter()
@@ -123,7 +145,8 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
-    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close'), default='cross')
+    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close','capacity'), default='cross')
+    ap.add_argument('--capacity-controls', type=Path)
     ap.add_argument('--profile-close-budget', type=int, choices=(128,512))
     ap.add_argument('--fuse-first-verify', action='store_true')
     ap.add_argument('--fullstop-lane', type=int, choices=(0,1), help='disjoint same-device pairs')
@@ -131,6 +154,8 @@ def main():
     ap.add_argument('--fullstop-arm', choices=('off','on'), help='off is shadow-observed')
     ap.add_argument('--fullstop-qualify', action='store_true', help='one frozen item per dataset')
     a = ap.parse_args()
+    if (a.suite=='capacity') != (a.capacity_controls is not None):
+        ap.error('Select the registered paid-close controls for the capacity experiment')
     if (a.suite=='profile-close') != (a.profile_close_budget is not None):
         ap.error('Select one profile-close budget for the same-device pair')
     if a.fuse_first_verify and a.suite != 'close':
@@ -171,6 +196,8 @@ def main():
                               qualify=a.fullstop_qualify)
     elif a.suite=='profile-close':
         work = profile_close_cases(a.profile_close_budget)
+    elif a.suite=='capacity':
+        work = capacity_cases()
     else:
         work = ((*case,None) for case in cases(a.suite))
     for i,c,gate,slack,den,dose,rank,reuse,on in work:
@@ -181,8 +208,11 @@ def main():
             key = f'C{c}-rank{rank}-reuse{int(reuse)}-{i:02d}'
         if a.suite == 'close':
             key = f'C{c}-fuse{int(a.fuse_first_verify)}-{i:02d}'
-        fuse = a.fuse_first_verify
-        if a.suite=='profile-close':
+        fuse, dense_at_b = a.fuse_first_verify, False
+        if a.suite=='capacity':
+            dense_at_b, fuse, on = on, True, None
+            key = f'C{c}-capacity{int(dense_at_b)}-{i:02d}'
+        elif a.suite=='profile-close':
             fuse, on = on, None
             key = f'C{c}-profile-fuse{int(fuse)}-{i:02d}'
         elif on is not None:
@@ -202,6 +232,7 @@ def main():
             d = proc.apply_chat_template([{'role':'user','content':t['prompt']}], tokenize=True,
                     add_generation_prompt=True, return_dict=True, return_tensors='pt').to(model.device)
             r = audited(model,d,seed=t['seed'],q=c,ablation='10' if slack else '00',law=Law(*dose),
+                full_head_at_b=dense_at_b,
                 policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
                             prefix_order=rank,reuse_paid_masks=reuse,
                             fuse_first_verify=fuse, fullstop=on))
@@ -224,8 +255,9 @@ def main():
                            resample_paid_F=r['route_F'].get('resample_paid',0))
                 if rank == 'right':
                     assert row['prefix_exposure']['differing_prefix_seats'] == 0
-            if a.suite in ('close','profile-close'):
-                row.update(schema='paid-close-v1' if a.suite=='close' else 'profile-paid-close-v1', fuse=fuse,
+            if a.suite in ('close','profile-close','capacity'):
+                schema = {'close':'paid-close-v1','profile-close':'profile-paid-close-v1','capacity':'capacity-head-v1'}
+                row.update(schema=schema[a.suite], fuse=fuse,
                            source_sha256=sources, scorer_sha256=scorer_sha,
                            transformers=str(transformers.__version__),
                            fused_F=r['route_F'].get('verify_paid',0),
@@ -241,6 +273,10 @@ def main():
                 row['correct'] = bool(score(text,t)['correct'])
             except (FileNotFoundError, RuntimeError) as err:
                 row['score_pending'] = str(err)
+            if a.suite=='capacity':
+                row['full_head_at_b'] = dense_at_b
+                refq = 512 if dense_at_b else 256
+                row['replay'] = replay_capacity(row, a.capacity_controls/f'C{refq}-fuse1-{i:02}.json')
             write(out,row)
             print('DONE', key, row.get('correct'), n, r['F'], flush=True)
 
