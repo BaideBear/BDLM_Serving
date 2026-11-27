@@ -1,0 +1,30 @@
+{
+  "checkpoint": "/gs/models/diffusiongemma-cd40195",
+  "gpu": "GPU-8c80a093-8254-7eb4-db21-6a1bbe2d5d83",
+  "history": "/gs/results",
+  "layers": 30,
+  "pairs": 270,
+  "projection_modules": 85,
+  "qualification": [
+    0,
+    10,
+    20
+  ],
+  "root": "/gs/results/cold-pacing-1128",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "scorer_sha256": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+  "source": {
+    "gemma_cold_pacing": "fd3cb57237c4621a33e53303ca72cd645030e8bbad78134bd70d09ea148e1729",
+    "gemma_cold_pacing_audit": "1b49ccad40933c41158d894718829ed83566212dafa204277f70f1ec5d5d65a9",
+    "gemma_cold_pacing_eval": "5225d6d54f3ed5e3b43a31a7c082c6b6c055b2ed70e48c27d488358433959186",
+    "gemma_fixed_dual": "d8347f27e569693f744061fd5209ae86004e6b7f8062b2d6c7edeac4bd3e4f83",
+    "gemma_fixed_dual_eval": "099a4b77c76e8de26f0044b452f6313e22cab207815224168e043d34f018c2f4",
+    "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+    "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+    "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+    "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+    "gemma_wave_kv": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+  },
+  "torch": "2.6.0+cu124",
+  "transformers": "5.12.0"
+}

@@ -24,6 +24,7 @@ def planner(*, origin=32, end=131, cross="half", switchable=False, top_gate="hal
     r.switchable, r.top_gate, r.lower_borrow = switchable, top_gate, False
     r.coverage = "head"
     r.warm_head_sample = warm_head_sample
+    r.audit_admission = False
     r._cross_evidence = r._switch_evidence = None
     r.pending_build, r.next_side = None, 0
     r.origin, r.head, r.end = origin, origin // B * B, end

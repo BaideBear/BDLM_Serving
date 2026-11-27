@@ -28,6 +28,7 @@ def planner(*, origin=32, end=131, switchable=False, top_gate="quarter", cross=N
     r.cross, r.borrow = cross, False
     r.switchable, r.top_gate, r.lower_borrow = switchable, top_gate, lower_borrow
     r.coverage = coverage
+    r.audit_admission = False
     r._cross_evidence = r._switch_evidence = None
     r.pending_build, r.next_side = None, 0
     r.origin, r.head, r.end = origin, origin // B * B, end
