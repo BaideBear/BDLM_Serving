@@ -76,11 +76,29 @@ class LLaDABudgetRequest:
     No sample on a pure drain. Right edge is ranked within each block, head
     first. Retirement needs complete physical residency and zero token debt;
     stale peers/deeper-layer KV are not claimed to be dense-equivalent.
+
+    ``cross`` is a second, independent switch used by the C64/C16/C8 race.
+    At ``q == 2B`` it registers when the next physical block may enter the
+    eligible window: ``off`` never, ``eager`` as soon as the offer exists,
+    ``half``/``quarter`` only after the head block is resident and its
+    remaining MASK share is <= 1/2 or <= 1/4. At ``q < 2B`` the only legal
+    mode is ``head``: the head plan is byte-identical to the legacy family,
+    while ``borrow`` spends residual seats on a read-only contiguous tail
+    build. Borrowed rows are projected and cached but never sampled, so the
+    tail cannot advance the answer before it becomes the head block.
+
+    ``switchable`` is a third, independent registration for one request whose
+    offer changes between calls. ``top_gate`` is used only at ``q == 2B`` and
+    ``lower_borrow`` only below it; both defaults are inert (``quarter`` /
+    ``False``). A downshift never closes or drops KV: the tail is parked in the
+    bank, dirty debt stays global, and an upshift reuses every resident row.
+    Pure drains refresh debt only and never advance ``sample_clock``.
     """
     @torch.inference_mode()
     def __init__(self, model, input_ids, *, mask_id, eos_ids=(), seed=0,
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
-                 tail_rule="eager", ablation=None):
+                 tail_rule="eager", ablation=None, cross=None, borrow=False,
+                 switchable=False, top_gate="quarter", lower_borrow=False):
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
@@ -88,11 +106,22 @@ class LLaDABudgetRequest:
                 or tail_rule not in ("eager","defer_tail","fill_head")
                 or ablation not in (None, "00", "10", "11")
                 or (ablation is not None and tail_rule != "eager")
+                or cross not in (None, "off", "eager", "half", "quarter", "head")
+                or type(borrow) is not bool
+                or (cross is not None and (ablation is not None or tail_rule != "eager"))
+                or type(switchable) is not bool
+                or top_gate not in ("off", "eager", "half", "quarter")
+                or type(lower_borrow) is not bool
+                or (switchable and (cross is not None or ablation is not None or tail_rule != "eager"))
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
         self.tail_rule = tail_rule
         self.ablation = ablation  # None preserves the original registered family/pilots.
+        self.cross, self.borrow = cross, borrow
+        self.switchable, self.top_gate, self.lower_borrow = switchable, top_gate, lower_borrow
+        self._cross_evidence = None
+        self._switch_evidence = None
         self.pending_build = None
         self.next_side = 0
         vocab = model.get_input_embeddings().weight.shape[0]
@@ -195,6 +224,102 @@ class LLaDABudgetRequest:
         sampled = () if plan.drain_only else sampled
         return plan, sampled, "sample" if sampled else "drain", q
 
+    def _tail_open(self, split, head_ids, head_masks, gate=None):
+        """Whether the next physical block may enter this offer's eligible window."""
+        gate = self.cross if gate is None else gate
+        if gate in (None, "off", "head"):
+            return False
+        if self.bank.last_end > split:
+            return True  # An opening survives revocations, never an EOS in its predecessor.
+        if gate == "eager":
+            return True
+        if self.bank.last_end < split:
+            return False  # Need a resident, hole-free head block before a gated opening.
+        remaining, width = len(head_masks), len(head_ids)
+        if gate == "half":
+            return 2 * remaining <= width
+        if gate == "quarter":
+            return 4 * remaining <= width
+        raise RuntimeError("Unknown registered cross mode")
+
+    def _cross_plan(self, q):
+        """One physical call for the registered cross-block race; never over-offer."""
+        split = self.head + B
+        lo = max(self.head, self.origin)
+        dirty = self.dirty
+        self._cross_evidence = None
+        if self.stopping:
+            plan = choose(q, B, dirty, (), (), law=self.law)
+            return plan, (), "drain", q
+        head_ids = self.x[0, lo:min(split, self.end)].tolist()
+        has_next = split < self.end and self.eos_ids.isdisjoint(head_ids)
+        head_masks = {lo + i for i, t in enumerate(head_ids) if t == self.mask_id}
+
+        if q == 2 * B:
+            opened = has_next and self._tail_open(split, head_ids, head_masks)
+            masks, prefix, eligible = self._inputs(2 * B if opened else B)
+            cold = masks - self.bank.initialized
+            plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
+            sampled = () if plan.drain_only else (plan.cold or tuple(r for r in plan.rows if r in eligible))
+            if len(plan.rows) > q:
+                raise RuntimeError("Cross plan exceeds the physical offer")
+            self._cross_evidence = dict(head_masks=len(head_masks), opened=opened, borrowed=0)
+            return plan, sampled, ("sample" if sampled else "drain"), q
+
+        masks, prefix, eligible = self._inputs(B)  # Same head plan in both borrow arms.
+        cold = masks - self.bank.initialized
+        plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
+        sampled = () if plan.drain_only else (plan.cold or tuple(r for r in plan.rows if r in eligible))
+        rows, borrowed = plan.rows, ()
+        if self.borrow and has_next and len(rows) < q and not any(r >= split for r in dirty):
+            start, limit = self.bank.last_end, min(split + B, self.end)
+            if start >= split and start < limit:
+                borrowed = tuple(range(start, min(start + (q - len(rows)), limit)))
+                rows = tuple(sorted(set(rows) | set(borrowed)))
+        self._cross_evidence = dict(head_masks=len(head_masks), opened=False, borrowed=len(borrowed))
+        return replace(plan, rows=rows), sampled, ("sample" if sampled else "drain"), q
+
+    def _switch_plan(self, q):
+        """One physical call for a request whose offer changes; KV is never dropped."""
+        split = self.head + B
+        lo = max(self.head, self.origin)
+        dirty = self.dirty
+        self._switch_evidence = None
+        before_end = self.bank.last_end
+        if self.stopping:
+            plan = choose(q, B, dirty, (), (), law=self.law)
+            return plan, (), "drain", q
+        head_ids = self.x[0, lo:min(split, self.end)].tolist()
+        has_next = split < self.end and self.eos_ids.isdisjoint(head_ids)
+        head_masks = {lo + i for i, t in enumerate(head_ids) if t == self.mask_id}
+        evidence = dict(head_masks=len(head_masks), tail_resident=max(0, before_end - split))
+
+        if q == 2 * B:
+            opened = has_next and self._tail_open(split, head_ids, head_masks, gate=self.top_gate)
+            masks, prefix, eligible = self._inputs(2 * B if opened else B)
+            cold = masks - self.bank.initialized
+            plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
+            sampled = () if plan.drain_only else (plan.cold or tuple(r for r in plan.rows if r in eligible))
+            evidence.update(opened=opened, borrowed=0,
+                            parked=sum(1 for r in plan.rows if split <= r < before_end))
+            self._switch_evidence = evidence
+            return plan, sampled, ("sample" if sampled else "drain"), q
+
+        masks, prefix, eligible = self._inputs(B)
+        cold = masks - self.bank.initialized
+        plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
+        sampled = () if plan.drain_only else (plan.cold or tuple(r for r in plan.rows if r in eligible))
+        rows, borrowed = plan.rows, ()
+        if self.lower_borrow and has_next and len(rows) < q and not any(r >= split for r in dirty):
+            start, limit = self.bank.last_end, min(split + B, self.end)
+            if start >= split and start < limit:
+                borrowed = tuple(range(start, min(start + (q - len(rows)), limit)))
+                rows = tuple(sorted(set(rows) | set(borrowed)))
+        evidence.update(opened=False, borrowed=len(borrowed),
+                        parked=sum(1 for r in rows if split <= r < before_end))
+        self._switch_evidence = evidence
+        return replace(plan, rows=rows), sampled, ("sample" if sampled else "drain"), q
+
     def _retire(self):
         retired = []
         while not self.stopping and self.head < self.end:
@@ -217,6 +342,13 @@ class LLaDABudgetRequest:
     def step(self, q):
         if self.status != 'ready' or type(q) is not int or not 4 <= q <= 2*B:
             raise ValueError("Expected a ready request and integer Q in [4,64]")
+        if getattr(self, "switchable", False):
+            pass  # Any offer in [4, 2B] is the current tier of this request.
+        elif getattr(self, "cross", None) is not None:
+            if (q == 2*B) != (self.cross in ("off", "eager", "half", "quarter")):
+                raise ValueError("Cross mode is not defined at this offer")
+            if getattr(self, "borrow", False) and q == 2*B:
+                raise ValueError("Borrow is a residual-seat option below one block")
         try:
             return self._step(q)
         except BaseException:
@@ -227,7 +359,11 @@ class LLaDABudgetRequest:
         if self._stall >= 8*B+2:
             raise RuntimeError("No head retirement within 258 paid calls; not a valid completion")
         before = self.dirty.copy()
-        if self.ablation is None:
+        if getattr(self, "switchable", False):
+            plan, sampled, phase, cap = self._switch_plan(q)
+        elif getattr(self, "cross", None) is not None:
+            plan, sampled, phase, cap = self._cross_plan(q)
+        elif self.ablation is None:
             masks, prefix, eligible = self._inputs(q)
             cold = masks-self.bank.initialized
             plan = choose(q,B,before,masks,prefix,cold=cold,law=self.law)
@@ -255,6 +391,28 @@ class LLaDABudgetRequest:
                         plan=replace(plan,rows=rows,mask=tuple(sorted((*plan.mask,*extra))))
                         intervention=dict(rule=self.tail_rule,added=list(extra))
         e, logits = self._project(rows, cap, phase or ('sample' if sampled else 'drain'))
+        if getattr(self, "switchable", False):
+            evidence = self._switch_evidence or {}
+            self._switch_evidence = None
+            e.update(switch=True, top_gate=self.top_gate, lower_borrow=self.lower_borrow,
+                     head_q=sum(1 for r in rows if r < split),
+                     tail_q=sum(1 for r in rows if r >= split),
+                     tail_read_only=[r for r in rows if r >= split and r not in sampled],
+                     head_mask_at_plan=evidence.get("head_masks"),
+                     tail_opened=bool(evidence.get("opened")),
+                     borrowed_rows=evidence.get("borrowed", 0),
+                     parked_tail=evidence.get("parked", 0),
+                     tail_resident=evidence.get("tail_resident", 0))
+        elif getattr(self, "cross", None) is not None:
+            evidence = self._cross_evidence or {}
+            self._cross_evidence = None
+            e.update(cross_open=self.cross, borrow=self.borrow,
+                     head_q=sum(1 for r in rows if r < split),
+                     tail_q=sum(1 for r in rows if r >= split),
+                     tail_read_only=[r for r in rows if r >= split and r not in sampled],
+                     head_mask_at_plan=evidence.get("head_masks"),
+                     tail_opened=bool(evidence.get("opened")),
+                     borrowed_rows=evidence.get("borrowed", 0))
         admitted, edited, revoked = [], [], []
         if sampled:
             idx = self.x.new_tensor(sampled)
