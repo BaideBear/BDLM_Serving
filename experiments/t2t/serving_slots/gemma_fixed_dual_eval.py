@@ -132,6 +132,9 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                 base = origin+B*len(sealed)
                 prior_stop = (dense_stop and t>0 and trace[t-1]['ordinal']==e['ordinal']
                               and trace[t-1]['fullstop']['latched'])
+                if q == 2*B and policy and policy.get('single512_stop') is True:
+                    from .gemma_single512_stop import paid_after_single_stop
+                    prior_stop = paid_after_single_stop(trace, t, origin)
                 require(req.fuse_first_verify and not partial and bool(debt) and debt.issubset(pos[t]) and
                         pos[t] == list(range(base,base+min(B,q))) and len(e['parts'])==1 and
                         e['parts'][0]['phase']=='verify' and not e['sampled_absolute'] and

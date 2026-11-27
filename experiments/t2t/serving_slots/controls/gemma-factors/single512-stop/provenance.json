@@ -1,0 +1,52 @@
+{
+  "checkpoint": "/gs/models/diffusiongemma-cd40195",
+  "gpu": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+  "history": "/gs/results/joint-verify-1128",
+  "layers": 30,
+  "payload": "complete physical/row/epoch ledgers remain on A800",
+  "projections": 85,
+  "qualification": {
+    "actionable": 1,
+    "indices": [
+      0,
+      10,
+      20
+    ],
+    "passed": true,
+    "positives": 2,
+    "source": {
+      "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+      "gemma_fixed_dual_eval": "c4d82d770aa4285bb3fa3ea2f3fe126a9e3978f02d969dcf870fe4abde77b58d",
+      "gemma_fullstop": "33a985ab92afffedce20a3d831f26c75fa23440fa0aba04cdce9afebbbaba6ab",
+      "gemma_joint_verify": "681175461e56d37e4a396f5b5237de52c32101f5ce2b1a6876be7ce2ea37a965",
+      "gemma_joint_verify_eval": "b403c43943cdc22f589af7eeff91b93765bf96de5606ded4c12da5fdff307891",
+      "gemma_single512_eval": "10c61d664996cdddfb6ed107e5288f2c0559c0628e9f9041770a9bbe9f981691",
+      "gemma_single512_stop": "60313392d48219e4a08a02ad366bb806d070b5ed868997012e57a3fbfa9bf521",
+      "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+      "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_wave_kv": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+    },
+    "windows": 22
+  },
+  "root": "/gs/results/single512-stop-1128",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "scorer_sha256": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+  "source": {
+    "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+    "gemma_fixed_dual_eval": "c4d82d770aa4285bb3fa3ea2f3fe126a9e3978f02d969dcf870fe4abde77b58d",
+    "gemma_fullstop": "33a985ab92afffedce20a3d831f26c75fa23440fa0aba04cdce9afebbbaba6ab",
+    "gemma_joint_verify": "681175461e56d37e4a396f5b5237de52c32101f5ce2b1a6876be7ce2ea37a965",
+    "gemma_joint_verify_eval": "b403c43943cdc22f589af7eeff91b93765bf96de5606ded4c12da5fdff307891",
+    "gemma_single512_eval": "10c61d664996cdddfb6ed107e5288f2c0559c0628e9f9041770a9bbe9f981691",
+    "gemma_single512_stop": "60313392d48219e4a08a02ad366bb806d070b5ed868997012e57a3fbfa9bf521",
+    "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+    "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+    "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+    "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+    "gemma_wave_kv": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+  },
+  "torch": "2.6.0+cu124",
+  "transformers": "5.12.0"
+}

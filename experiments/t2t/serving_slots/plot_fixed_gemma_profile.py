@@ -23,6 +23,8 @@ def collect():
     stops = {r['cohort']:r for r in map(json.loads,(FACTORS/"fullstop"/"dense-summary.jsonl").read_text().splitlines())}
     joint_cohorts={r["cohort"]:r for r in read(FACTORS/"joint-verify"/"cohorts.csv")}
     joint_pairs=read(FACTORS/"joint-verify"/"pairs.csv")
+    single_cohorts={r["cohort"]:r for r in read(FACTORS/"single512-stop"/"cohorts.csv")}
+    single_pairs=read(FACTORS/"single512-stop"/"pairs.csv")
     rows = []
     for cohort, external, n in COHORTS:
         for c in TIERS:
@@ -84,6 +86,22 @@ def collect():
             avg_decoder_Q=decoder/int(joint["on_decoder_F"]),peak_decoder_Q=max(int(r["on_max_decoder_Q"]) for r in pairs),
             F=int(joint["on_F"]),N=int(joint["on_N"]),history_Q=decoder,
             physical_Q=decoder+int(joint["on_encoder_Q"]),source="gemma-factors/joint-verify/cohorts.csv"))
+        current=single_cohorts[cohort]
+        ps=[r for r in single_pairs if int(r["index"]) in idx]
+        if (len(ps)!=n or {int(r["index"]) for r in ps}!=idx or int(current["matched"])!=n
+                or any(r["history_exact"]!="1" or not 0<int(r["on_max_decoder_Q"])<=512 for r in ps)
+                or any(int(current["off_"+k])!=int(joint["on_"+k])
+                       for k in ("N","F","decoder_F","decoder_Q","encoder_F","encoder_Q","correct"))
+                or any(int(current["on_"+k])!=sum(int(r["on_"+k]) for r in ps)
+                       for k in ("N","F","decoder_F","decoder_Q","encoder_F","encoder_Q"))
+                or int(current["on_correct"])!=sum(r["on_correct"]=="True" for r in ps)):
+            raise ValueError("Fixed Q512 single-resident result is not matched to the qualified control")
+        dq=int(current["on_decoder_Q"])
+        rows.append(dict(cohort=cohort,method="single-resident stop",budget=512,n=n,correct=int(current["on_correct"]),
+            macro_TPF=float(current["on_macro_TPF"]),token_efficiency=int(current["on_N"])/dq,
+            avg_decoder_Q=dq/int(current["on_decoder_F"]),peak_decoder_Q=max(int(r["on_max_decoder_Q"]) for r in ps),
+            F=int(current["on_F"]),N=int(current["on_N"]),history_Q=dq,physical_Q=dq+int(current["on_encoder_Q"]),
+            source="gemma-factors/single512-stop/cohorts.csv"))
         for method, setting, c, label in [
             *(("ibs",q,q,"Optimus IBS") for q in TIERS), ("native",256,256,"Native / Flow W1"),
             ("flow",2,512,"Flow W2"),
@@ -100,10 +118,12 @@ def collect():
     return rows
 
 
-def public_profile(rows):
+def public_profile(rows, fixed_candidate=False):
     """Whole-request endpoints of one runtime profile, not maxima per metric."""
     arm={32:"fixed90_fused",64:"fixed90_fused",128:"fixed90_fused",256:"dense + native stop",512:"joint verify"}
-    return [dict(r,method="Request") if arm[r["budget"]]==r["method"] else r for r in rows
+    if fixed_candidate:
+        arm[512]="single-resident stop"
+    return [dict(r,method="Fixed candidate" if fixed_candidate else "Request") if arm[r["budget"]]==r["method"] else r for r in rows
             if arm[r["budget"]]==r["method"] or r["method"] in ("Native / Flow W1","Optimus IBS","Flow W2")]
 
 
@@ -116,7 +136,8 @@ def plot(path, rows, compact=False):
     palette={"fixed90_fused":"#087469","Optimus IBS":"#6343a0","Native / Flow W1":"#596779",
              "Flow W2":"#a65216","full-head variant":"#b02c53",
              "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24",
-             "sample on rebuild":"#1670a0","joint verify":"#ac3860","Request":"#087469"}
+             "sample on rebuild":"#1670a0","joint verify":"#ac3860","single-resident stop":"#9b4025",
+             "Request":"#087469","Fixed candidate":"#087469"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -137,7 +158,8 @@ def plot(path, rows, compact=False):
             else:
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
                                        "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*",
-                                       "sample on rebuild":"P","joint verify":"X","Request":"o"}[name],
+                                       "sample on rebuild":"P","joint verify":"X","single-resident stop":"*",
+                                       "Request":"o","Fixed candidate":"o"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
@@ -167,6 +189,8 @@ def plot(path, rows, compact=False):
                ncol=min(6,len(handles)),frameon=False,fontsize=8)
     note=("Request: strict fixed decoder offer, sparse through 128, dense stop at 256, two-block joint verification at 512."
           if compact else "High/low MASK: dense head when unresolved count is at least/below 128.")
+    if "Fixed candidate" in handles:
+        note="Fixed offers only: Q512 also enables guarded native stopping on a single resident head. Not a mixed-budget ranking."
     fig.text(.05,.02,note+" Native runs at Q256; IBS 512 saturates. Missing values are not zero.",fontsize=9)
     fig.savefig(path,dpi=160,facecolor="white")
     plt.close(fig)
@@ -178,7 +202,9 @@ if __name__=="__main__":
     data=collect()
     write_csv(dst/"metrics.csv",data)
     write_csv(dst/"request-vs-baselines.csv",public_profile(data))
+    write_csv(dst/"fixed-candidate-vs-baselines.csv",public_profile(data,fixed_candidate=True))
     for cohort,_,_ in COHORTS:
         cohort_rows=[r for r in data if r["cohort"]==cohort]
         plot(dst/f"{cohort}.png",cohort_rows)
         plot(dst/f"request-{cohort}.png",public_profile(cohort_rows),compact=True)
+        plot(dst/f"fixed-candidate-{cohort}.png",public_profile(cohort_rows,fixed_candidate=True),compact=True)
