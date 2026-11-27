@@ -96,7 +96,10 @@ class LLaDABudgetRequest:
     same seat law choose positions in the opened second block from the residual
     budget. It is only legal for the four fixed two-block gates; ``off`` therefore
     projects the full head block alone. Below ``2B`` the arm stays sparse and
-    byte-identical to the legacy family.
+    byte-identical to the legacy family. ``switchable`` may select the same
+    ``coverage="head"`` registration with ``top_gate`` standing in for ``cross``;
+    at ``q == 2B`` it is plan-equivalent to the fixed arm, while lower offers
+    stay on the sparse head plan.
 
     ``switchable`` is a third, independent registration for one request whose
     offer changes between calls. ``top_gate`` is used only at ``q == 2B`` and
@@ -126,8 +129,9 @@ class LLaDABudgetRequest:
                 or type(lower_borrow) is not bool
                 or (switchable and (cross is not None or ablation is not None or tail_rule != "eager"))
                 or coverage not in ("sparse", "head")
-                or (coverage == "head" and (ablation is not None or cross not in
-                                            ("off", "eager", "half", "quarter")))
+                or (coverage == "head" and (ablation is not None or
+                                            (not switchable and cross not in
+                                             ("off", "eager", "half", "quarter"))))
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
@@ -330,6 +334,8 @@ class LLaDABudgetRequest:
             else:
                 tail_rows = tail_dirty[:rem]
         rows = tuple(sorted(set(head_rows) | set(tail_rows)))
+        if len(rows) > q:
+            raise RuntimeError("Head-full plan exceeds the physical offer")
         row_set = set(rows)
         cold_sel = tuple(sorted(p for p in rows if p in cold))
         dirty_sel = tuple(sorted(p for p in rows if p in dirty))
@@ -352,6 +358,7 @@ class LLaDABudgetRequest:
         lo = max(self.head, self.origin)
         dirty = self.dirty
         self._switch_evidence = None
+        self._cross_evidence = None
         before_end = self.bank.last_end
         if self.stopping:
             plan = choose(q, B, dirty, (), (), law=self.law)
@@ -363,6 +370,15 @@ class LLaDABudgetRequest:
 
         if q == 2 * B:
             opened = has_next and self._tail_open(split, head_ids, head_masks, gate=self.top_gate)
+            if getattr(self, "coverage", "sparse") == "head":
+                # Same FlowBlock endpoint as the fixed arm; only the evidence
+                # carrier differs, so a constant-C64 switch request is plan-equivalent.
+                plan, sampled, phase, cap = self._head_full_plan(lo, split, q, opened, head_masks)
+                evidence.update(self._cross_evidence or {})
+                self._cross_evidence = None
+                evidence.update(parked=sum(1 for r in plan.rows if split <= r < before_end))
+                self._switch_evidence = evidence
+                return plan, sampled, phase, cap
             masks, prefix, eligible = self._inputs(2 * B if opened else B)
             cold = masks - self.bank.initialized
             plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
@@ -470,6 +486,9 @@ class LLaDABudgetRequest:
                      borrowed_rows=evidence.get("borrowed", 0),
                      parked_tail=evidence.get("parked", 0),
                      tail_resident=evidence.get("tail_resident", 0))
+            if getattr(self, "coverage", "sparse") == "head":
+                # Keep the legacy sparse switch record schema untouched.
+                e.update(coverage="head", head_full=bool(evidence.get("head_full", False)))
         elif getattr(self, "cross", None) is not None:
             evidence = self._cross_evidence or {}
             self._cross_evidence = None
