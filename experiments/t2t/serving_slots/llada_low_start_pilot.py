@@ -44,9 +44,15 @@ def compare_gate(row, ref):
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--confident-only",action="store_true",help="Use the sealed eager arm as paired control")
-    gate=ap.parse_args().confident_only
-    arms=("confident",) if gate else ARMS
+    mode=ap.add_mutually_exclusive_group()
+    mode.add_argument("--confident-only",action="store_true",help="Use the sealed eager arm as paired control")
+    mode.add_argument("--added60-pair",action="store_true",help="Run the original 1/8 family and the gate on indices 30:90")
+    args=ap.parse_args()
+    gate, expanded=args.confident_only,args.added60_pair
+    arms=("eager","confident") if expanded else ("confident",) if gate else ARMS
+    # Interleave the three datasets; the initial 0/10/20 never enter this cohort.
+    indices=tuple(30+20*d+t for t in range(20) for d in range(3)) if expanded else INDICES
+    law=ev.Law(int(expanded),8)
     import torch
     import transformers, transformers.utils as u
     if not hasattr(u, "LossKwargs"):
@@ -68,7 +74,8 @@ def main():
     tasks = load_tasks(samples)
     ref = ev.resolve_reference(SimpleNamespace(samples=samples))
     original_root=ev.reg.DATA/"llada21-low-start-cpu3-v1"
-    root = ev.reg.DATA/"llada21-low-start-gate-cpu3-v1" if gate else original_root
+    root = (ev.reg.DATA/"llada21-low-start-gate-added60-v1" if expanded else
+            ev.reg.DATA/"llada21-low-start-gate-cpu3-v1" if gate else original_root)
     predecessor=None
     if gate:
         predecessor=read(original_root/"complete.json")
@@ -82,31 +89,37 @@ def main():
         "experiments/t2t/serving_slots/llada_low_start_pilot.py",
         "experiments/t2t/serving_slots/llada_fixed_family_eval.py",
         "experiments/t2t/serving_slots/fixed_cold_exposure.py")}
-    save(root/"run.json",dict(indices=INDICES, arms=arms, budgets=[4,8], sources=sources,
+    save(root/"run.json",dict(indices=indices, arms=arms, budgets=[4,8], sources=sources,
          samples=sha(samples), scoring=ev.SCORER_SHA, device="cpu",cores=[40,41,42,43],
+         **({"law":[1,8],"control":"unmodified fixed family","exclude_pilot":True} if expanded else {}),
          **({"eager_seal":sha(original_root/"complete.json")} if gate else {}),
          checkpoint=str(ev.CKPT),m2t=.9,t2t=.5,cap=ev.reg.CAP))
     print("Validating checkpoints and prompts", flush=True)
     ev.verify_checkpoint(ev.CKPT)
     opts = dict(local_files_only=True, trust_remote_code=True)
     tok = AutoTokenizer.from_pretrained(ev.CKPT, **opts)
-    ev.validate_prompts(tok, [tasks[i] for i in INDICES], ref)
+    ev.validate_prompts(tok, [tasks[i] for i in indices], ref)
     model = AutoModelForCausalLM.from_pretrained(ev.CKPT, **opts, dtype=torch.bfloat16,
                          attn_implementation="sdpa",device_map={"":"cpu"}).eval()
     install_llada_rectangular_mask(model,allow_selected_cache=True)
     receipts = {}
-    for i in INDICES:
+    for i in indices:
         prompt = read(ref/ev.reg.filename(i,"native32"))["prompt_ids"]
         for q in (4,8):
-            original = read(ev.OUT/"cpu/law-1-8"/f"{i:02}-q{q}.json")
-            require(original["row_visits"]["prefix"] == 0, "K0 comparison requires zero original exposure")
+            original = None if expanded else read(ev.OUT/"cpu/law-1-8"/f"{i:02}-q{q}.json")
+            if not expanded:
+                require(original["row_visits"]["prefix"] == 0, "K0 comparison requires zero original exposure")
             for arm in arms:
                 require(all(sha(ev.REPO/p)==h for p,h in sources.items()), "Pilot code changed")
                 print(f"Running {i:02} q={q} {arm}", flush=True)
                 # The frozen evaluator imports its constructor inside fixed(). Substitute only in
                 # this private, single-threaded driver, never in the serving worker or on disk.
-                with patch.object(base,"LLaDABudgetRequest",partial(LowStartRequest,arm=arm)):
-                    row = ev.fixed(model,tok,tasks[i],prompt,q,ev.Law(0,8))
+                if expanded and arm=="eager":
+                    row=ev.fixed(model,tok,tasks[i],prompt,q,law)
+                    original=row
+                else:
+                    with patch.object(base,"LLaDABudgetRequest",partial(LowStartRequest,arm=arm)):
+                        row = ev.fixed(model,tok,tasks[i],prompt,q,law)
                 exp = exposure(row)
                 require(original["input_sha256"] == row["input_sha256"] and
                         (arm != "resident" or (row["phase_F"].get("build",0)>0 and
@@ -118,6 +131,11 @@ def main():
                     path=original_root/f"{i:02}-q{q}-eager.json"
                     require(predecessor["files"][path.name]==sha(path),"Changed eager control")
                     row["treatment"]=compare_gate(row,read(path))
+                if expanded and arm=="confident":
+                    require(row["law"]==original["law"]==[1,8] and
+                            all(row[k]==original[k] for k in ("input_sha256","index","task_id","dataset","seed","q")),
+                            "Mismatched expanded control")
+                    row["treatment"]=compare_gate(row,original)
                 dst = root/f"{i:02}-q{q}-{arm}.json"
                 save(dst,row)
                 receipts[dst.name]=sha(dst)

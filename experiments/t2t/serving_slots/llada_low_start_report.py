@@ -97,6 +97,43 @@ def work(case=None):
     return records
 
 
+def fixed_mask_rank():
+    """Hold IBS's actual seat count and token state fixed; compare clean MASK order only."""
+    from .ibs_prefix_pair import audit
+    strict=DATA/"llada21-strict-q8-m2t-prefix-cpu3-v1"
+    require(read(strict/"complete.json")["run_sha256"]==sha(strict/"run.json"),"Unsealed control")
+    output=[]
+    for i in INDICES:
+        x=read(strict/f"{i:02}-strict_ibs_q8_m90_prefix0.json")
+        audit(x,0)
+        origin=len(x["prompt_ids"])
+        decoded=set(range(origin))
+        sums=Counter()
+        for e in x["events"]:
+            if e["phase"]=="prefill":
+                continue
+            rows=e["absolute_positions"]
+            start=32*e["block"]
+            dirty=set(e["dirty_before"])
+            actual=[p for p in rows if p not in decoded and p not in dirty]
+            require([p not in decoded for p in rows]==e["selected_masked"],"Wrong pre-forward token state")
+            pool=[p for p in range(start,start+32) if p not in dirty and p not in decoded]
+            shadow=pool[:len(actual)]
+            if actual:
+                sums["mask_calls"]+=1
+                sums["same_rank_calls"]+=actual==shadow
+                sums["different_rows"]+=len(set(actual)-set(shadow))
+                sums["selected_clean_masks"]+=len(actual)
+            w=set(e["written_absolute"])
+            edits=set(e["edited_positions"])
+            require((w|edits)<=set(rows),"Write outside IBS rows")
+            decoded.update(w)
+            decoded.difference_update(edits-w)  # a sampled edit back to MASK
+        output.append(dict(index=i,q=8,mask_calls=sums["mask_calls"],same_rank_calls=sums["same_rank_calls"],
+                           different_rows=sums["different_rows"],selected_clean_masks=sums["selected_clean_masks"]))
+    return output
+
+
 def table(case=None):
     root = DATA/"llada21-low-start-cpu3-v1"
     register = root/"run.json"
@@ -175,15 +212,71 @@ def gate_table():
     return result
 
 
+def expanded_table():
+    from . import llada_fixed_family_eval as ev
+    from .llada_low_start_pilot import compare_gate
+    from bdlm_serving.evaluation.frozen90 import load_tasks
+    root=DATA/"llada21-low-start-gate-added60-v1"
+    reg,seal=read(root/"run.json"),read(root/"complete.json")
+    tasks=load_tasks(DATA/"samples.json")
+    indices=[30+20*d+t for t in range(20) for d in range(3)]
+    require(reg["indices"]==indices and reg["budgets"]==[4,8] and
+            reg["arms"]==["eager","confident"] and reg["law"]==[1,8] and
+            reg["device"]=="cpu" and reg["scoring"]==ev.SCORER_SHA and
+            reg["samples"]==sha(DATA/"samples.json")==ev.reg.SAMPLES_SHA and
+            seal["registration"]==sha(root/"run.json") and len(seal["files"])==240,
+            "Unsealed or unregistered expanded cohort")
+    out=[]
+    for q in reg["budgets"]:
+        groups={}
+        for i in indices:
+            pair=[]
+            for arm in reg["arms"]:
+                p=root/f"{i:02}-q{q}-{arm}.json"
+                require(seal["files"].get(p.name)==sha(p),"Changed output")
+                x=read(p)
+                require(x["registration_sha256"]==seal["registration"] and x["q"]==q and x["law"]==[1,8]
+                        and x["arm"]==arm and all(x[k]==tasks[i][k] for k in ev.reg.KEYS)
+                        and x["correct"] is bool(x["score"]["correct"]) and len(x["trace"])==x["F"]
+                        and sum(e["q"] for e in x["trace"])==x["Q"] and all(e["offer"]==q and
+                        0<e["q"]==len(set(e["rows"]))<=q and e["layer_physical_q"]==[e["q"]]*20 for e in x["trace"]),
+                        "Invalid sample, score or physical bill")
+                pair.append(x)
+            a,b=pair
+            require(a["input_sha256"]==b["input_sha256"] and b["treatment"]==compare_gate(b,a),
+                    "Unpaired or incorrect treatment")
+            for group in ("added60",a["dataset"]):
+                # Never retain the large traces across requests.
+                groups.setdefault(group,[]).append(tuple(tuple(x[k] for k in ("correct","N","F","Q","failure"))
+                                                            for x in pair))
+        for group,g in groups.items():
+            require(len(g)==(60 if group=="added60" else 20),"Unbalanced dataset")
+            outrow=dict(q=q,cohort=group,requests=len(g),
+                        rescued=sum(not a[0] and b[0] for a,b in g),lost=sum(a[0] and not b[0] for a,b in g))
+            for j,arm in enumerate(reg["arms"]):
+                side=[p[j] for p in g]
+                n,f,paid=(sum(x[k] for x in side) for k in (1,2,3))
+                outrow.update({arm+"_"+k:v for k,v in dict(correct=sum(x[0] for x in side),N=n,F=f,paid_Q=paid,
+                    macro_TPF=fmean(x[1]/x[2] for x in side),efficiency=n/paid,
+                    failures=sum(bool(x[4]) for x in side)).items()})
+            out.append(outrow)
+    return out
+
+
 if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--case",type=int,choices=INDICES)
     ap.add_argument("--work",action="store_true",help="Attribute Q8 work including same-CPU strict Optimus IBS")
     ap.add_argument("--gate",action="store_true",help="Audit the six sealed confidence-gated requests")
+    ap.add_argument("--added60",action="store_true",help="Only report the completed 240-request added60 experiment")
+    ap.add_argument("--frontier",action="store_true",help="Check clean MASK rank on the same strict IBS states")
     args=ap.parse_args()
-    if args.gate and (args.work or args.case is not None):
-        ap.error("--gate reports a separate complete paired cohort")
-    rows=gate_table() if args.gate else (work if args.work else table)(args.case)
+    if args.frontier and (args.added60 or args.gate or args.work or args.case is not None):
+        ap.error("--frontier is a separate same-state diagnostic")
+    if (args.gate or args.added60) and (args.work or args.case is not None or args.gate and args.added60):
+        ap.error("Select one complete paired cohort")
+    rows=(fixed_mask_rank() if args.frontier else expanded_table() if args.added60 else gate_table()
+          if args.gate else (work if args.work else table)(args.case))
     out=csv.DictWriter(sys.stdout,fieldnames=rows[0],lineterminator="\n")
     out.writeheader()
     out.writerows(rows)

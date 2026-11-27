@@ -77,6 +77,10 @@ CPU 真权重，固定 index 0、10、20，每次请求重新开始。单元格�
 
 [三臂汇总](../experiments/t2t/serving_slots/controls/llada21-low-start-cpu3.csv) · [置信门控逐题明细](../experiments/t2t/serving_slots/controls/llada21-low-start-gate-cpu3.csv) · [Q8 与严格 IBS 的工作分解](../experiments/t2t/serving_slots/controls/llada21-low-start-work-cpu3.csv)。Q8 resident 的 462 次调用中 111 次只建 KV；它在已投影、仍为 MASK、且不欠账的位置又计算了 1,595 行次，IBS 为 480 行次。两者实际执行轨迹不同，仅凭计数不能断定是前沿顺序导致差距。复核入口为 `llada_low_start_report` 的默认模式、`--gate` 和 `--work`。
 
+进一步把严格 IBS 每一轮的 token 状态、dirty 和清洁 MASK 席数固定，拿实际选中的清洁 MASK 与本块最左侧同数目的清洁 MASK 对照。三个样本合计 244/244 个含清洁 MASK 的 forward 完全相同（84、111、49 轮；共 1,309 行次）。[逐题复核](../experiments/t2t/serving_slots/controls/llada21-q8-ibs-clean-mask-rank-cpu3.csv) 可用 `--frontier` 重算。这个观察仅排除了 **IBS 轨迹上、相同角色配额下** 的 MASK 排序差异，不等于两个执行器分配了相同数量的 MASK、看到了相同的 KV 或产生相同的 logits。
+
+**新增 60 题配对协议**：固定 Q4、Q8，各预算同一题比较未修改的 `1/8` 统一候选与仅拦截部分冷块低置信强写的候选，二者保留相同的暖块前缀配额。依次穿插 30/50/70、31/51/71 等三类数据，各 20 题，共 240 个独立生成请求。原三题不参与；这些题不是盲测。`llada_low_start_pilot --added60-pair` 生成，`llada_low_start_report --added60` 仅在全数完成、注册文件及逐题 hash、逐层 Q、首个干预位置、输入、评分器全部通过检查后输出配对结果，按数据集报告救回/丢失、正确数、宏 TPF 和实算效率。若总体正确数回落、TPF 下降或变化只集中在个别题，不将门控升级为默认；同设备、同 Q 的外部基线仍须另行验证。
+
 ### Gemma 五档三题检查
 
 [五档同题实测与 F/Q 分解](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu3-five-tiers.csv)。固定 Q32/64/128/256/512 的 CPU 三题均为 3/3，宏 TPF 依次为 **4.909、8.908、14.393、19.555、25.540**；效率为 **13.83%、13.16%、11.89%、10.20%、7.19%**。五档实际 decoder 峰值各自等于预算。Q512 相比 Q256 总 forward 从 54 降到 39，实算总行数却从 9,445 升到 12,815。该组说明真实双块换来了较少的轮数，未证明正确率提升，也未证明打过 GPU 基线。

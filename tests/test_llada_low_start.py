@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from bdlm_serving.methods.t2t.llada_low_start import LowStartRequest
+from bdlm_serving.methods.t2t.budget_family import Law
 from test_llada_budget_request import Measured, drive
 
 
@@ -78,3 +79,20 @@ def test_gate_veto_is_paid_without_creating_debt_or_reusing_old_proposals():
     assert last_cold["rows"]==[62,63] and last_cold["admitted"]==[62]
     assert "deferred_fallback" not in last_cold and last_cold["visible_kv"]==64
     assert 58 in followup["sampled"] and followup["dirty_before"]==[62]
+
+
+def test_gate_preserves_registered_warm_allocation():
+    class Weak(Measured):
+        def _sample_with_temperature_topk_topp(self, logits, **kw):
+            self.sampler_inputs.append(logits.clone())
+            return torch.full(logits.shape[:-1],2,dtype=torch.long),torch.full(logits.shape[:-1],.1)
+    model=Weak()
+    policy=Law(1,8)
+    req=LowStartRequest(model,torch.ones((1,32),dtype=torch.long),mask_id=0,
+                        max_new_tokens=32,arm="confident",law=policy)
+    assert req.law==policy
+    drive(req,model,[8])
+    assert any(e.get("deferred_fallback") for e in req.records)
+    assert all(not e["prefix"] for e in req.records if e["cold"])
+    for e in req.records:
+        assert len(e["prefix"])<=(8-len(e["dirty"]))*policy.num//policy.den

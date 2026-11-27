@@ -7,9 +7,11 @@ from bdlm_serving.methods.t2t.llada_budget_request import B, LLaDABudgetRequest
 
 class LowStartRequest(LLaDABudgetRequest):
     def __init__(self, *args, arm, law=Law(0, 8), **kwargs):
-        if arm not in ("eager", "resident", "credit", "confident") or law != Law(0, 8):
+        if (arm not in ("eager", "resident", "credit", "confident")
+                or law not in (Law(0, 8), Law(1, 8))
+                or (arm in ("resident","credit") and law != Law(0,8))):
             raise ValueError(arm)
-        super().__init__(*args, law=Law(0, 8), **kwargs)
+        super().__init__(*args, law=law, **kwargs)
         self.arm, self.building, self.credit, self.credit_head = arm, False, 0, None
 
     def _step(self, q):
