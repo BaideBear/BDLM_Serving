@@ -29,8 +29,8 @@ def collect():
                 or not math.isclose(float(eff), int(n) / int(q), rel_tol=1e-8)):
             raise ValueError(f"Invalid or duplicate row: {identity}, {source}")
         rows[identity] = dict(model=model, method=method, setting=tier, cohort=part,
-            requests=requests, correct=correct, macro_tpf=tpf, token_efficiency=eff,
-            N=n, F=f, physical_Q=q, source=source)
+            requests=requests, correct=correct, macro_tpf=tpf, token_efficiency="",
+            N=n, F=f, prefix_kv_Q="", physical_Q=q, physical_token_efficiency=eff, source=source)
 
     common = ("requests", "correct", "macro_tpf", "token_efficiency", "N", "F", "physical_Q")
     for name in ("block-history90-audited.csv", "block-history90-gemma-ibs512-h800.csv"):
@@ -56,13 +56,32 @@ def collect():
         name = f"block-history90-{label}.csv"
         for r in read(name):
             add(model, "block_history", r["C"], r, common, name)
+    # Only these series have audited counts of rows selected for prefix KV.
+    pending = {k for k in rows if k[1] in ("native", "ibs", "block_history")}
+    for r in read("block-history90-prefix-kv.csv"):
+        k = r["model"], r["method"], int(r["setting"]), r["cohort"]
+        if k not in pending:
+            raise ValueError(f"Duplicate or unexpected prefix count: {k}")
+        pending.remove(k)
+        old = rows[k]
+        q = int(r["prefix_kv_Q"])
+        if (any(int(old[col]) != int(r[col]) for col in ("requests", "N", "F", "physical_Q"))
+                or not 0 < q <= int(old["physical_Q"])
+                or not math.isclose(float(r["prefix_kv_token_efficiency"]), int(old["N"]) / q)):
+            raise ValueError(f"Prefix counts disagree with published records: {k}")
+        old.update(prefix_kv_Q=q, token_efficiency=int(old["N"]) / q)
+    if pending:
+        raise ValueError(f"Missing prefix counts: {sorted(pending)}")
     for model, b in (("llada21", 32), ("gemma", 256)):
         for method, tiers in {"native": [b], "b3": [b], "flow": [1, 2, 3, 4],
                               "ibs": [b//8, b//4, b//2, b, 2*b],
                               "block_history": [b//8, b//4, b//2, b, 2*b]}.items():
             for c in tiers:
                 slices = [rows[model, method, c, part] for part in SIZE]
-                for k in ("requests", "correct", "N", "F", "physical_Q"):
+                counts = ["requests", "correct", "N", "F", "physical_Q"]
+                if slices[2]["prefix_kv_Q"] != "":
+                    counts.append("prefix_kv_Q")
+                for k in counts:
                     if int(slices[0][k]) + int(slices[1][k]) != int(slices[2][k]):
                         raise ValueError(f"Nonadditive cohorts: {model}/{method}/{c}/{k}")
                 yield from slices

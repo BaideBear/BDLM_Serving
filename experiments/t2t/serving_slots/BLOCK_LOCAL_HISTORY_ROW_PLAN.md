@@ -2,6 +2,8 @@
 
 状态：当前块全算、选行读历史。本文区分补齐的 90 题基线、已评分的新方法和通过验证的范围；不重启上一轮跨块消融。
 
+**2026-11-28 图表口径更正：** [两模型固定预算图表及对照数值](BLOCK_HISTORY_FIGURES.md) 中的 token efficiency 统一为实际解码输出 token 数除以选中计算前缀 KV 的 Q 行数，采用同组总量之比。下文标作「物理效率」的历史表保留原定义，仅用于对比物理开销；正确题数和 TPF 没有更改。
+
 算子的数值与性能验证另见 [FA2 对照](BLOCK_HISTORY_FA2.md)。算子延迟不作为整模 TPF 或质量成绩。
 
 ## 每轮执行
@@ -19,14 +21,14 @@
 
 1. 全读端点核对每层 attention、整模 logits、采样/编辑/结束轨迹；允许按实际 dtype 预先规定的数值容差，映射到答案和运行步数的分歧须说明。测试冷缓存、空历史、尾块、EOS 和 Gemma encoder 版本失效。
 2. 实算形状与缓存审计：decoder Q 始终计所有投影行，历史 Q 只计实际与历史做注意力的行；记录合法注意力边数、初建/重读、过期复用、等待时长，区分只读本地的行贡献的解码和 T2T，检查 IBS 的实际 decoder Q 和超 nominal 次数。分开记 decoder/encoder、prompt prefill 与收尾，不重复计同一次 forward。
-3. 各档报告正确题数、宏 `mean(N_i/F_i)`、总 token efficiency `ΣN/ΣQ_physical`；额外列每轮块内 Q、历史 Q P50/P95/max、Gemma encoder Q、同设备同 batch 的 ms/token 及前缀长度分层。输出 token 一次计数；T2T 不计新输出。注意力少算的边不是 token，不得加进 token efficiency 分子或换作分母。
+3. 各档报告正确题数、宏 `mean(N_i/F_i)`、token efficiency `ΣN/ΣQ_selected_prefix_KV`；另列物理效率 `ΣN/ΣQ_physical`、每轮块内 Q、历史 Q P50/P95/max、Gemma encoder Q、同设备同 batch 的 ms/token 及前缀长度分层。输出 token 一次计数；T2T 不计新输出。注意力少算的边不是 token，不得加进 token efficiency 分子或换作分母。
 4. 与原版 IBS 的判断为同名义槽位比较，不是同成本比较。逐题报告救/丢和配对区间。质量和 TPF 同时不降且至少一项提高才算该档达标；另独立判断时延及实际成本。全读等价、无偷算和不使用无效缓存是正式评测的前置条件。先 original30，再补冻结的其余60；不以30代报90。
 
 ## 已归档的原版 IBS，完整90题
 
 2026-11-27 已按冻结记录核对 15 个配置（1,350 个请求）。其中 14 个复用归档：两个模型的 Native、FlowBlock W1/W2 及下表前四档不设硬上限的原版 IBS。另独立实测并评分了 Gemma IBS C512。[核查表](controls/block-history90-audited.csv)保留原30、新60、全90，每行包括正确数、实际 N/F/Q、失败及截断数。`tools/audit_history_controls.py` 核对题号、种子和归档，重算逐题工作量并与评分表对账；C512 的评分通过原始记录 SHA256 与评分账本逐题关联。
 
-| LLaDA 2.1 档 | 正确/90 | 宏 TPF | 效率 | DiffusionGemma 档 | 正确/90 | 宏 TPF | 效率 |
+| LLaDA 2.1 档 | 正确/90 | 宏 TPF | 物理效率 | DiffusionGemma 档 | 正确/90 | 宏 TPF | 物理效率 |
 |---:|---:|---:|---:|---:|---:|---:|---:|
 | 4 | 59 | 1.477 | 36.44% | 32 | 78 | 6.743 | 14.95% |
 | 8 | 69 | 2.341 | 28.22% | 64 | 80 | 11.116 | 15.92% |
