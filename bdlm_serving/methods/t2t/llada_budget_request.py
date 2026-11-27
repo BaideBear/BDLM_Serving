@@ -87,6 +87,17 @@ class LLaDABudgetRequest:
     build. Borrowed rows are projected and cached but never sampled, so the
     tail cannot advance the answer before it becomes the head block.
 
+    ``coverage`` is a second independent axis on the fixed C64 race, evaluated
+    strictly against ``sparse`` (the original measured family). ``sparse`` keeps
+    the original ``choose`` plan: roughly ``1/8`` of leftover seats to clean
+    block-internal prefix, and the head block is not guaranteed to be fully
+    projected. ``head`` forces every valid row of the current head block into
+    the physical Q set at ``q == 2B`` (the FlowBlock endpoint), then lets the
+    same seat law choose positions in the opened second block from the residual
+    budget. It is only legal for the four fixed two-block gates; ``off`` therefore
+    projects the full head block alone. Below ``2B`` the arm stays sparse and
+    byte-identical to the legacy family.
+
     ``switchable`` is a third, independent registration for one request whose
     offer changes between calls. ``top_gate`` is used only at ``q == 2B`` and
     ``lower_borrow`` only below it; both defaults are inert (``quarter`` /
@@ -98,7 +109,8 @@ class LLaDABudgetRequest:
     def __init__(self, model, input_ids, *, mask_id, eos_ids=(), seed=0,
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
-                 switchable=False, top_gate="quarter", lower_borrow=False):
+                 switchable=False, top_gate="quarter", lower_borrow=False,
+                 coverage="sparse"):
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
@@ -113,12 +125,16 @@ class LLaDABudgetRequest:
                 or top_gate not in ("off", "eager", "half", "quarter")
                 or type(lower_borrow) is not bool
                 or (switchable and (cross is not None or ablation is not None or tail_rule != "eager"))
+                or coverage not in ("sparse", "head")
+                or (coverage == "head" and (ablation is not None or cross not in
+                                            ("off", "eager", "half", "quarter")))
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
         self.tail_rule = tail_rule
         self.ablation = ablation  # None preserves the original registered family/pilots.
         self.cross, self.borrow = cross, borrow
+        self.coverage = coverage
         self.switchable, self.top_gate, self.lower_borrow = switchable, top_gate, lower_borrow
         self._cross_evidence = None
         self._switch_evidence = None
@@ -257,6 +273,8 @@ class LLaDABudgetRequest:
 
         if q == 2 * B:
             opened = has_next and self._tail_open(split, head_ids, head_masks)
+            if self.coverage == "head":
+                return self._head_full_plan(lo, split, q, opened, head_masks)
             masks, prefix, eligible = self._inputs(2 * B if opened else B)
             cold = masks - self.bank.initialized
             plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
@@ -266,6 +284,8 @@ class LLaDABudgetRequest:
             self._cross_evidence = dict(head_masks=len(head_masks), opened=opened, borrowed=0)
             return plan, sampled, ("sample" if sampled else "drain"), q
 
+        if self.coverage == "head":
+            raise RuntimeError("Full head coverage is only registered at the two-block offer")
         masks, prefix, eligible = self._inputs(B)  # Same head plan in both borrow arms.
         cold = masks - self.bank.initialized
         plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
@@ -278,6 +298,53 @@ class LLaDABudgetRequest:
                 rows = tuple(sorted(set(rows) | set(borrowed)))
         self._cross_evidence = dict(head_masks=len(head_masks), opened=False, borrowed=len(borrowed))
         return replace(plan, rows=rows), sampled, ("sample" if sampled else "drain"), q
+
+    def _head_full_plan(self, lo, split, q, opened, head_masks):
+        """FlowBlock endpoint: project every valid head row, then select the tail.
+
+        The head block is fixed and fully resident in this call. Residual seats
+        (``q`` minus the head width) go through the same ``choose`` seat law over
+        the opened second block. Mandatory dirty rows in an already resident tail
+        are always refreshed, even when the tail is no longer eligible to sample
+        (for example an EOS in the head); they stay read-only there.
+        """
+        dirty = self.dirty
+        head_rows = tuple(range(lo, min(split, self.end)))
+        rem = q - len(head_rows)
+        if rem < 0:
+            raise RuntimeError("Head block alone exceeds the physical offer")
+        masks, prefix, eligible = self._inputs(2 * B if opened else B)
+        cold = masks - self.bank.initialized
+        tlo, thi = split, min(split + B, self.end)
+        tail_dirty = tuple(sorted(p for p in dirty if tlo <= p < thi))
+        tail_rows, tail_cold = (), ()
+        if tlo < thi and rem:
+            tail_set = set(range(tlo, thi))
+            if opened:
+                tail_plan = choose(min(rem, thi - tlo), thi - tlo, tail_dirty,
+                                   tuple(p for p in masks if p in tail_set),
+                                   tuple(p for p in prefix if p in tail_set),
+                                   cold=tuple(p for p in cold if p in tail_set), law=self.law)
+                tail_rows = tail_plan.rows
+                tail_cold = tuple(p for p in tail_rows if p in cold)
+            else:
+                tail_rows = tail_dirty[:rem]
+        rows = tuple(sorted(set(head_rows) | set(tail_rows)))
+        row_set = set(rows)
+        cold_sel = tuple(sorted(p for p in rows if p in cold))
+        dirty_sel = tuple(sorted(p for p in rows if p in dirty))
+        mask_sel = tuple(sorted(p for p in rows if p in masks and p not in cold and p not in dirty))
+        prefix_sel = tuple(sorted(p for p in rows if p in set(prefix) and p not in dirty))
+        drain = len(dirty) >= q
+        sampled = () if drain else (cold_sel or tuple(p for p in rows if p in eligible))
+        if not sampled:
+            drain = True
+        plan = Plan(rows, dirty_sel, cold_sel, mask_sel, prefix_sel, drain)
+        self._cross_evidence = dict(head_masks=len(head_masks), opened=opened, borrowed=0,
+                                    head_full=set(head_rows) <= row_set,
+                                    head_rows=len(head_rows), tail_rows=len(tail_rows),
+                                    tail_cold=len(tail_cold))
+        return plan, sampled, ("sample" if sampled else "drain"), q
 
     def _switch_plan(self, q):
         """One physical call for a request whose offer changes; KV is never dropped."""
@@ -406,13 +473,14 @@ class LLaDABudgetRequest:
         elif getattr(self, "cross", None) is not None:
             evidence = self._cross_evidence or {}
             self._cross_evidence = None
-            e.update(cross_open=self.cross, borrow=self.borrow,
+            e.update(cross_open=self.cross, borrow=self.borrow, coverage=self.coverage,
                      head_q=sum(1 for r in rows if r < split),
                      tail_q=sum(1 for r in rows if r >= split),
                      tail_read_only=[r for r in rows if r >= split and r not in sampled],
                      head_mask_at_plan=evidence.get("head_masks"),
                      tail_opened=bool(evidence.get("opened")),
-                     borrowed_rows=evidence.get("borrowed", 0))
+                     borrowed_rows=evidence.get("borrowed", 0),
+                     head_full=bool(evidence.get("head_full", False)))
         admitted, edited, revoked = [], [], []
         if sampled:
             idx = self.x.new_tensor(sampled)

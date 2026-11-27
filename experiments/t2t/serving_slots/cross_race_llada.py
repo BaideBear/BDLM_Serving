@@ -27,19 +27,25 @@ from bdlm_serving.methods.t2t.budget_family import Law
 from .llada_fixed_family_eval import CAP, KEYS, evaluate_fixed
 
 ARMS = (
-    ("c64-off", 64, "off", False),
-    ("c64-eager", 64, "eager", False),
-    ("c64-half", 64, "half", False),
-    ("c64-quarter", 64, "quarter", False),
-    ("c16-noborrow", 16, "head", False),
-    ("c16-borrow", 16, "head", True),
-    ("c8-noborrow", 8, "head", False),
-    ("c8-borrow", 8, "head", True),
+    ("c64-off", 64, "off", False, "sparse"),
+    ("c64-eager", 64, "eager", False, "sparse"),
+    ("c64-half", 64, "half", False, "sparse"),
+    ("c64-quarter", 64, "quarter", False, "sparse"),
+    ("c64-full-off", 64, "off", False, "head"),
+    ("c64-full-eager", 64, "eager", False, "head"),
+    ("c64-full-half", 64, "half", False, "head"),
+    ("c64-full-quarter", 64, "quarter", False, "head"),
+    ("c16-noborrow", 16, "head", False, "sparse"),
+    ("c16-borrow", 16, "head", True, "sparse"),
+    ("c8-noborrow", 8, "head", False, "sparse"),
+    ("c8-borrow", 8, "head", True, "sparse"),
 )
 ORDER = (0, 10, 20, *(i for i in range(90) if i not in (0, 10, 20)))
-COLUMNS = ("arm", "index", "dataset", "task_id", "seed", "q", "cross_open", "borrow",
+COLUMNS = ("arm", "index", "dataset", "task_id", "seed", "q", "cross_open", "borrow", "coverage",
+           "device_uuid", "worker_pid",
            "correct", "N", "F", "Q", "TPF", "efficiency", "head_Q", "tail_Q",
-           "tail_read_only_Q", "open_F", "borrow_F", "max_decoder_Q", "failure")
+           "tail_read_only_Q", "open_F", "borrow_F", "head_full_F", "full64_F",
+           "max_decoder_Q", "failure")
 
 
 def sha(path):
@@ -53,6 +59,21 @@ def save(path, obj):
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
+
+
+def save_once(path, obj):
+    """Publish a canonical worker manifest without clobbering a peer's copy."""
+    tmp = path.with_suffix(f".{os.getpid()}.once.tmp")
+    with tmp.open("x") as f:
+        json.dump(obj, f, ensure_ascii=False, allow_nan=False)
+        f.flush()
+        os.fsync(f.fileno())
+    try:
+        os.link(tmp, path)  # atomic create-if-absent
+    except FileExistsError:
+        pass
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def read(path):
@@ -92,9 +113,11 @@ def summary(out):
     rows = [read(p) for p in sorted((out / "rows").glob("*.json"))]
     by_arm = {}
     for r in rows:
-        a = by_arm.setdefault(r["arm"], dict(arm=r["arm"], requests=0, correct=0, N=0, F=0, Q=0,
+        a = by_arm.setdefault(r["arm"], dict(arm=r["arm"], coverage=r.get("coverage"), requests=0,
+                                             correct=0, N=0, F=0, Q=0,
                                              head_Q=0, tail_Q=0, tail_read_only_Q=0,
-                                             open_F=0, borrow_F=0, failures=0, tpf=0.0))
+                                             open_F=0, borrow_F=0, head_full_F=0, full64_F=0,
+                                             failures=0, tpf=0.0))
         a["requests"] += 1
         a["correct"] += int(bool(r["correct"]))
         a["N"] += r["N"]
@@ -105,6 +128,8 @@ def summary(out):
         a["tail_read_only_Q"] += r["tail_read_only_Q"]
         a["open_F"] += r["open_F"]
         a["borrow_F"] += r["borrow_F"]
+        a["head_full_F"] += r.get("head_full_F", 0)
+        a["full64_F"] += r.get("full64_F", 0)
         a["failures"] += int(bool(r["failure"]))
         a["tpf"] += r["TPF"]
     for a in by_arm.values():
@@ -116,7 +141,7 @@ def summary(out):
 def write_summary(out):
     data = summary(out)
     save(out / "summary.json", data)
-    tmp = out / "summary.csv.tmp"
+    tmp = out / f"summary.csv.{os.getpid()}.tmp"
     with tmp.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNS, extrasaction="ignore")
         w.writeheader()
@@ -158,20 +183,28 @@ def main():
 
     a.output.mkdir(parents=True, exist_ok=True)
     (a.output / "rows").mkdir(exist_ok=True)
+    (a.output / "workers").mkdir(exist_ok=True)
     a.control.mkdir(parents=True, exist_ok=True)
     (a.control / "ready").touch(exist_ok=False)
+    device_uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    worker = a.output / "workers" / f"worker-{os.getpid()}.json"
     while not (a.control / "go").exists():
         if time.time() >= a.deadline - 120:
-            save(a.output / "stopped.json", dict(reason="no go", at=time.time()))
+            save(worker.with_name(f"stopped-{os.getpid()}.json"),
+                 dict(reason="no go", at=time.time()))
             return
         time.sleep(0.5)
+    save(worker, dict(pid=os.getpid(), device_uuid=device_uuid,
+                      gpu=torch.cuda.get_device_name(), host=socket.gethostname(),
+                      indices=indices, deadline=a.deadline, started=time.time()))
     tok, model = load_gpu(a, lambda: None)
-    save(a.output / "run.json", dict(
-        protocol="llada-cross-race-v1", arms=[dict(arm=x[0], q=x[1], cross_open=x[2], borrow=x[3])
-                                               for x in ARMS],
-        indices=indices, checkpoint=str(a.checkpoint), checkpoint_files=len(list(a.checkpoint.glob("*.safetensors"))),
+    # Canonical protocol manifest only; per-worker indices/device live in workers/.
+    save_once(a.output / "run.json", dict(
+        protocol="llada-cross-race-v2", arms=[dict(arm=x[0], q=x[1], cross_open=x[2], borrow=x[3],
+                                                   coverage=x[4]) for x in ARMS],
+        checkpoint=str(a.checkpoint), checkpoint_files=len(list(a.checkpoint.glob("*.safetensors"))),
         samples_sha256=sha(a.samples), reference=str(a.reference), deadline=a.deadline,
-        gpu=torch.cuda.get_device_name(), host=socket.gethostname(),
+        gpu_model=torch.cuda.get_device_name(), host=socket.gethostname(),
         torch=str(torch.__version__), transformers=transformers.__version__,
         sources={p.name: sha(p) for p in (Path(__file__),)},
         length_cap=CAP, law=[1, 8], batch=1, retirement="all_resident_no_masks_no_token_debt",
@@ -181,11 +214,13 @@ def main():
     total = 0
     for i in indices:
         if time.time() >= deadline:
-            save(a.output / "stopped.json", dict(reason="deadline", at=time.time(), completed=total))
+            save(worker.with_name(f"stopped-{os.getpid()}.json"),
+                 dict(reason="deadline", at=time.time(), completed=total, indices=indices))
             return
-        for arm, q, mode, borrow in rotate(i):
+        for arm, q, mode, borrow, cover in rotate(i):
             if time.time() >= deadline:
-                save(a.output / "stopped.json", dict(reason="deadline", at=time.time(), completed=total))
+                save(worker.with_name(f"stopped-{os.getpid()}.json"),
+                     dict(reason="deadline", at=time.time(), completed=total, indices=indices))
                 return
             dst = a.output / "rows" / f"{arm}-{i:02d}.json"
             if dst.exists():
@@ -198,21 +233,26 @@ def main():
                 if dst.exists():
                     continue
                 start = time.monotonic()
-                row = evaluate_fixed(model, tok, tasks[i], prompts[i], q, law, cross=(mode, borrow))
-                row.update(arm=arm, q=q, cross_open=mode, borrow=borrow,
+                row = evaluate_fixed(model, tok, tasks[i], prompts[i], q, law,
+                                     cross=(mode, borrow), coverage=cover)
+                row.update(arm=arm, q=q, cross_open=mode, borrow=borrow, coverage=cover,
                            wall_ms=int(1000 * (time.monotonic() - start)),
                            samples_sha256=sha(a.samples), host=socket.gethostname(),
-                           gpu=torch.cuda.get_device_name())
-                if any(row.get(k) is None for k in ("head_Q", "tail_Q")):
+                           gpu=torch.cuda.get_device_name(), device_uuid=device_uuid,
+                           worker_pid=os.getpid())
+                if any(row.get(k) is None for k in ("head_Q", "tail_Q", "head_full_F")):
                     raise RuntimeError("Cross ledger missing")
                 save(dst, row)
                 total += 1
                 print(f"SEAL {arm:12s} {i:02d} correct={row['correct']} N/F/Q={row['N']}/"
                       f"{row['F']}/{row['Q']} head={row['head_Q']} tail={row['tail_Q']} "
-                      f"openF={row['open_F']} borrowF={row['borrow_F']} ms={row['wall_ms']}", flush=True)
+                      f"cover={row['coverage']} headFullF={row['head_full_F']} "
+                      f"openF={row['open_F']} borrowF={row['borrow_F']} ms={row['wall_ms']}",
+                      flush=True)
         write_summary(a.output)
     write_summary(a.output)
-    save(a.output / "complete.json", dict(rows=total, at=time.time(), run=sha(a.output / "run.json")))
+    save(worker.with_name(f"complete-{os.getpid()}.json"),
+         dict(rows=total, at=time.time(), run=sha(a.output / "run.json"), indices=indices))
 
 
 if __name__ == "__main__":

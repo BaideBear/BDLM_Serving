@@ -14,16 +14,17 @@ LEVELS = ("tick", "q", "rows", "sampled", "dirty_before", "dirty", "dirty_after"
           "revoked", "retired_blocks", "drain_only", "phase", "sample_clock")
 
 
-def make(q, cross, borrow=False, prompt=32, cap=69, mode="high"):
+def make(q, cross, borrow=False, prompt=32, cap=69, mode="high", coverage="sparse"):
     torch.manual_seed(20)
     model = Measured(mode)
     req = LLaDABudgetRequest(model, torch.ones((1, prompt), dtype=torch.long),
-                             mask_id=0, max_new_tokens=cap, cross=cross, borrow=borrow)
+                             mask_id=0, max_new_tokens=cap, cross=cross, borrow=borrow,
+                             coverage=coverage)
     return req, model
 
 
-def run(q, cross, borrow=False):
-    req, model = make(q, cross, borrow)
+def run(q, cross, borrow=False, coverage="sparse"):
+    req, model = make(q, cross, borrow, coverage=coverage)
     drive(req, model, [q])
     return req
 
@@ -56,12 +57,12 @@ def test_c64_eager_opens_on_the_first_offer():
     assert set(first["tail_read_only"]) == {r for r in first["rows"] if r >= 64} - set(first["sampled"])
 
 
-def _stall_two_steps(mode, keep, borrow=False):
+def _stall_two_steps(mode, keep, borrow=False, coverage="sparse"):
     """Build a resident head block, then leave exactly `keep` MASKs in it."""
     torch.manual_seed(20)
     model = Measured("stall")
     req = LLaDABudgetRequest(model, torch.ones((1, 32), dtype=torch.long), mask_id=0,
-                             max_new_tokens=69, cross=mode, borrow=borrow)
+                             max_new_tokens=69, cross=mode, borrow=borrow, coverage=coverage)
     if mode in ("off", "eager", "half", "quarter"):
         first = req.step(64)
     else:
@@ -301,3 +302,92 @@ def test_switchable_and_fixed_cross_are_mutually_exclusive():
     with pytest.raises(ValueError):
         LLaDABudgetRequest(Measured(), torch.ones((1, 32), dtype=torch.long), mask_id=0,
                            switchable=True, top_gate="sideways")
+
+
+# ---------------------------------------------------------------------------
+# C64 full-head coverage: the second axis, paired strictly against sparse.
+# ---------------------------------------------------------------------------
+
+FULL64 = ("off", "eager", "half", "quarter")
+
+
+def head_rows(req):
+    return list(range(max(req.head, req.origin), min(req.head + 32, req.end)))
+
+
+@pytest.mark.parametrize("mode", FULL64)
+def test_full_c64_always_covers_the_entire_head_block(mode):
+    req = run(64, mode, coverage="head")
+    assert req.records
+    for e in req.records:
+        head = min(e["rows"])
+        expected = list(range(head, min(head + 32, req.end)))
+        assert [r for r in e["rows"] if r < head + 32] == expected
+        assert e["coverage"] == "head" and e["head_full"] is True
+        assert e["head_q"] == len(expected) and e["tail_q"] == e["q"] - len(expected)
+
+
+def test_full_off_projects_the_full_head_block_and_never_the_tail():
+    req = run(64, "off", coverage="head")
+    for e in req.records:
+        head = min(e["rows"])
+        assert e["rows"] == list(range(head, min(head + 32, req.end)))
+        assert e["tail_q"] == 0 and e["tail_read_only"] == []
+    assert req.tokens and 0 not in req.tokens
+
+
+def test_full_eager_opens_the_second_block_on_the_first_offer():
+    req = run(64, "eager", coverage="head")
+    first = req.records[0]
+    assert first["rows"] == list(range(32, 96))
+    assert first["head_q"] == 32 and first["tail_q"] == 32 and first["tail_opened"]
+
+
+@pytest.mark.parametrize("mode,keep,opens", [("half", 20, False), ("half", 12, True),
+                                             ("quarter", 12, False), ("quarter", 6, True)])
+def test_full_gate_still_waits_for_the_registered_head_mask_share(mode, keep, opens):
+    req, _ = _stall_two_steps(mode, keep, coverage="head")
+    e = req.step(64)
+    assert e["head_mask_at_plan"] == keep
+    assert [r for r in e["rows"] if r < 64] == list(range(32, 64))
+    assert (e["tail_q"] > 0) is opens
+    if opens:
+        assert e["rows"] == list(range(32, 96))
+
+
+def test_full_coverage_differs_from_sparse_only_on_head_completeness():
+    """Same request state, same gate: full covers the head, sparse may not."""
+    sparse, _ = _stall_two_steps("eager", 12, coverage="sparse")
+    full, _ = _stall_two_steps("eager", 12, coverage="head")
+    a, b = sparse.step(64), full.step(64)
+    assert a["rows"] != b["rows"]
+    assert [r for r in b["rows"] if r < 64] == list(range(32, 64))
+    assert [r for r in a["rows"] if r < 64] != list(range(32, 64))
+    assert b["q"] == 64 and set(a["rows"]) <= set(b["rows"])
+    assert set(a["sampled"]) <= set(a["rows"]) and set(b["sampled"]) <= set(b["rows"])
+
+
+def test_full_coverage_is_rejected_below_two_blocks():
+    with pytest.raises(ValueError):
+        LLaDABudgetRequest(Measured(), torch.ones((1, 32), dtype=torch.long), mask_id=0,
+                           cross="head", coverage="head")
+    with pytest.raises(ValueError):
+        LLaDABudgetRequest(Measured(), torch.ones((1, 32), dtype=torch.long), mask_id=0,
+                           coverage="head")
+    req, _ = make(64, "eager", coverage="head")
+    with pytest.raises(ValueError):
+        req.step(16)
+
+
+@pytest.mark.parametrize("mode", FULL64)
+def test_full_c64_handles_a_prompt_that_starts_mid_block(mode):
+    """The full head is the valid suffix [origin, split), not the aligned block."""
+    torch.manual_seed(20)
+    model = Measured()
+    req = LLaDABudgetRequest(model, torch.ones((1, 58), dtype=torch.long), mask_id=0,
+                             max_new_tokens=69, cross=mode, coverage="head")
+    drive(req, model, [64])
+    assert req.records[0]["rows"][:6] == list(range(58, 64))
+    assert [r for r in req.records[0]["rows"] if r < 64] == list(range(58, 64))
+    for e in req.records:
+        assert min(e["rows"]) >= 58

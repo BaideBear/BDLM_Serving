@@ -35,24 +35,31 @@ def fixed(model, tok, task, prompt, q, law, *, ablation="00"):
     return _fixed(model, tok, task, prompt, q, law, ablation=ablation)
 
 
-def fixed_cross(model, tok, task, prompt, q, law, *, mode, borrow):
+def fixed_cross(model, tok, task, prompt, q, law, *, mode, borrow, coverage="sparse"):
     """Registered cross-block race arm; same executor, no new sampling semantics."""
     if (q == 64) != (mode in CROSS) or (q < 64 and mode not in HEAD) or q not in TIERS:
         raise ValueError("Expected a registered cross mode at this fixed offer")
     if type(borrow) is not bool or (borrow and q == 64):
         raise ValueError("Borrow is a residual-seat option strictly below one block")
-    return _fixed(model, tok, task, prompt, q, law, cross=(mode, borrow))
+    return _fixed(model, tok, task, prompt, q, law, cross=(mode, borrow), coverage=coverage)
 
 
-def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager", cross=None):
+def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager", cross=None,
+           coverage="sparse"):
     import torch
     from bdlm_serving.methods.t2t.llada_budget_request import LLaDABudgetRequest
 
+    if coverage not in ("sparse", "head"):
+        raise ValueError("Expected registered sparse or head coverage")
     if cross is not None:
         mode, borrow = cross
         if ((q == 64) != (mode in CROSS) or (q < 64 and mode not in HEAD) or q not in TIERS
                 or type(borrow) is not bool or (borrow and q == 64)):
             raise ValueError("Invalid registered cross arm")
+    if coverage == "head" and (cross is None or q != 64 or mode not in CROSS):
+        raise ValueError("Full head coverage is only registered for fixed C64 gates")
+    if coverage != "sparse" and cross is None:
+        raise ValueError("Coverage is a cross-race axis only")
     mask, eos = tok.convert_tokens_to_ids("<|mask|>"), tok.eos_token_id
     x = torch.tensor([prompt],device=model.device)
     attention, sampled, head_width, retired_ids = [], [], [], []
@@ -74,11 +81,13 @@ def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager"
         req = LLaDABudgetRequest(model,x,mask_id=mask,eos_ids=[eos],max_new_tokens=CAP,
                                 seed=task["seed"],law=law,confidence_threshold=.9,editing_threshold=.5,
                                 tail_rule=tail_rule, ablation=ablation,
-                                **(dict(cross=mode, borrow=borrow) if cross is not None else {}))
+                                **(dict(cross=mode, borrow=borrow, coverage=coverage)
+                                   if cross is not None else {}))
         require(attention == [list(range(origin))] and head_width == [origin],"Wrong pure prompt prefill")
         debt = set()
         while req.status == "ready":
             lo = req.head
+            was_stopping = req.stopping
             try:
                 e = req.step(q)
             except RuntimeError as exc:
@@ -108,6 +117,17 @@ def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager"
                         and e["tail_read_only"] == [r for r in tail if r not in e["sampled"]]
                         and (not borrow or not any(r >= split for r in e["sampled"])),
                         "Cross-block ledger or read-only tail violated")
+                if coverage == "head" and not was_stopping:
+                    # lo is the aligned block start; a prompt can start mid-block.
+                    expected_head = list(range(max(lo, origin), min(split, req.end)))
+                    require([r for r in e["rows"] if r < split] == expected_head
+                            and e["coverage"] == "head" and e["head_full"] is True
+                            and e["head_q"] == len(expected_head) and len(expected_head) <= w,
+                            f"Head block not fully covered: lo={lo} split={split} "
+                            f"expected={expected_head} rows={e['rows']} q={e['q']} "
+                            f"head_q={e.get('head_q')} tail_q={e.get('tail_q')} "
+                            f"full={e.get('head_full')} cover={e.get('coverage')} "
+                            f"dirty_before={e.get('dirty_before')} phase={e.get('phase')}")
                 if q == 64:
                     if mode == "off":
                         require(not tail, "Off arm projected a tail row")
@@ -156,12 +176,15 @@ def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager"
                 **({"ablation":ablation, "build_F":phases["build_sample"],
                     "build_Q":sum(e["q"] for e in sampled if e["phase"]=="build_sample"),
                     "over_offer_F":sum(w>q for w in widths)} if ablation is not None else {}),
-                **({"cross_open":mode, "borrow":borrow,
+                **({"cross_open":mode, "borrow":borrow, "coverage":coverage,
                     "head_Q":sum(e["head_q"] for e in sampled),
                     "tail_Q":sum(e["tail_q"] for e in sampled),
                     "tail_read_only_Q":sum(len(e["tail_read_only"]) for e in sampled),
                     "open_F":sum(e["tail_q"]>0 for e in sampled),
-                    "borrow_F":sum(bool(e["tail_read_only"]) for e in sampled)} if cross is not None else {}),
+                    "borrow_F":sum(bool(e["tail_read_only"]) for e in sampled),
+                    "head_full_F":sum(bool(e["head_full"]) for e in sampled),
+                    "full64_F":sum(e["q"] == 64 for e in sampled)}
+                   if cross is not None else {}),
                 input_sha256=sha256(json.dumps(prompt,separators=(",",":")).encode()).hexdigest(),
                 output_ids=ids, score=score, correct=bool(score["correct"]), failure=failure,
                 N=n,F=f,Q=paid,TPF=n/f,efficiency=n/paid,max_decoder_Q=max(widths),
