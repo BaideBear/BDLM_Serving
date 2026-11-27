@@ -27,7 +27,7 @@ class Rows:
         self.valid.clear()
         self.last_read.clear()
 
-    def select(self, budget, accepted, has_history, force_full=False):
+    def select(self, budget, accepted, has_history, force_full=False, cold_share=0):
         all_rows = set(range(self.width))
         if not has_history:
             return ()
@@ -43,9 +43,11 @@ class Rows:
         # Older never-serviced writes win over new writes; tie-break by row.
         # choose orders mandatory IDs numerically, so give it the oldest seats
         # as the mandatory subset when demand exceeds the fixed budget.
-        due = sorted(self.dirty, key=lambda i: (self.debt_since[i], i))[:budget]
+        cold = all_rows - self.valid - set(self.dirty)
+        reserve = min(len(cold), (budget * cold_share + 99) // 100)
+        due = sorted(self.dirty, key=lambda i: (self.debt_since[i], i))[:budget-reserve]
         return choose(budget, self.width, due, unresolved, prefix,
-                      cold=all_rows - self.valid - set(self.dirty)).rows
+                      cold=cold).rows
 
     def refresh(self, selected, tick):
         waits = [tick - self.debt_since[i] for i in selected if i in self.dirty]
@@ -135,7 +137,7 @@ def attention_backend(budget, width, saturating_sdpa=False):
 
 
 @contextmanager
-def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
+def history_gemma(model, budget, *, audit=False, saturating_sdpa=False, layout="split", cold_share=0):
     """Instrument one exclusive, unpadded native generate call.
 
     budget=None is the native SDPA reference. Audit mode adds same-input SDPA
@@ -149,6 +151,11 @@ def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
         raise ValueError("Expected an eval model and a fixed Gemma history budget")
     backend = attention_backend(budget, width, saturating_sdpa)
     split = backend == "triton_block_history"
+    if layout not in ("split", "rect", "halo") or cold_share not in (0, 25, 50, 100):
+        raise ValueError("Unknown research arm")
+    rectangular = split and layout != "split"
+    if rectangular:
+        backend = "sdpa_" + layout
     attn_layers = [layer.self_attn for layer in model.model.decoder.layers]
     native_step, sdpa = model._denoising_step, impl["sdpa"]
     alias = "bdlm_gemma_block_history"
@@ -198,6 +205,30 @@ def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
             if scope["probe"]:
                 scope["attention_probe"][i] = _numerics(out[0], out[0])
             return out
+        if rectangular:
+            if mask is not None or scope["probe"]:
+                raise ValueError("Rectangular research path expects the unpadded native mask")
+            # Resident per-layer attention output. Off-Q rows do not attend;
+            # their projections/FFN still run and are not advertised as sparse.
+            old = states.get(i)
+            if old is None:
+                old = q.new_zeros((1, b, heads, q.shape[-1]))
+            def attend(positions, kk, vv):
+                if not positions:
+                    return
+                if positions not in scope["plans"]:
+                    scope["plans"][positions] = torch.tensor(positions, device=q.device)
+                ix = scope["plans"][positions]
+                update = sdpa(module, q.index_select(2, ix), kk, vv, None, **kw)[0]
+                old.index_copy_(1, ix, update)
+            attend(selected, k, v)
+            extra = scope["halo"]
+            attend(extra, k[:, :, h:], v[:, :, h:])
+            total = len(selected) + len(extra)
+            scope["layers"][i] = (selected, total * b * heads, len(selected) * h * heads,
+                                  tuple(j for j, n in enumerate(hc) if n))
+            states[i] = old
+            return old, None
         if selected not in scope["plans"]:
             scope["plans"][selected] = SlotPlan.make([selected], b, q.device)
         if i not in states:
@@ -240,7 +271,7 @@ def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
         if any(mask is not None for mask in kw["mask_mapping"].values()):
             raise ValueError("Padded/explicitly masked generate is not qualified")
         forced = budget is not None and budget < width and (closing or clock == 1)
-        selected = rows.select(width if budget is None else budget, resolved, prefix > 0, forced)
+        selected = rows.select(width if budget is None else budget, resolved, prefix > 0, forced, cold_share)
         tick = len(ledger.trace)
         eligible = sorted((rows.valid | set(selected)) if prefix else range(width))
         cold_before = width - len(rows.valid) if prefix else 0
@@ -251,6 +282,9 @@ def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
         scope = dict(selected=selected, cache=cache, block=prefix, layers={}, plans={}, shadow=False,
                      probe=audit and budget is not None and (first or clock == 1),
                      attention_probe={})
+        remaining = set(range(width)) - set(selected)
+        halo = tuple(sorted(remaining, key=lambda j: (resolved[j], j))[:len(selected)]) if layout == "halo" else ()
+        scope["halo"] = halo
         forward = kw["decoder_forward"]
 
         def measured(**args):
@@ -326,6 +360,9 @@ def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
                       drain_only=bool(selected) and len(waits) == len(selected),
                       close_excess=max(0, len(selected) - (budget or width)),
                       stop_candidate=stop, closed=closed)
+        if rectangular or cold_share:
+            record.update(layout=layout, cold_share=cold_share,
+                          local_attention_q=len(selected)+len(halo) if rectangular else width)
         if audit:
             record.update(selected=selected, canvas=canvas_digest(after_ids, accepted),
                           draft=canvas_digest(draft[0].tolist(), accepted),

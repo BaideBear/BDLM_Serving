@@ -14,7 +14,8 @@ from .gemma_fixed_dual import ABLATIONS, TIERS, AblationRequest, FixedFamilyRequ
 
 
 @torch.inference_mode()
-def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation=None):
+def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation=None,
+            policy=None):
     # None preserves the pre-ablation fixture / archived Q512 registration.
     if type(q) is not int or q not in TIERS or (ablation is None and q != 512) or (
             ablation is not None and ablation not in ABLATIONS):
@@ -29,7 +30,9 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
         stack.enter_context(model.lm_head.register_forward_pre_hook(lambda _, a: heads.append(a[0].shape[1])))
         stack.enter_context(model.register_forward_hook(lambda _, a, out: top.append(out.logits[0].argmax(-1).tolist())))
         cls = FixedFamilyRequest if ablation is None else AblationRequest
-        opts = {} if ablation is None else {'ablation': ablation}
+        opts = {} if ablation is None else {'ablation': ablation, **(policy or {})}
+        if policy and ablation is None:
+            raise ValueError('Opening policy requires the ablation executor')
         req = cls(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law, **opts)
         while req.status == 'ready':
             require(len(trace) < (max_new_tokens // B) * (2*48*(B//min(q,B)+2)+2*B//min(q,B)+4),
@@ -71,7 +74,7 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                 base = origin+B*len(sealed)
                 require(e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
                         'Late opening before full head KV in this encoder epoch')
-                require(e['opened']==len(sealed)+1 and e['head_mask_before']<=B//4 and
+                require(e['opened']==len(sealed)+1 and e['head_mask_before']<=B//req.late_den and
                         ablation in ('10','11') and build==(ablation=='11'), 'Wrong low-tier opening')
             if build:
                 require(not debt and len(e['parts'])==1 and e['q']==B and

@@ -190,6 +190,9 @@ class FixedFamilyRequest(FamilyRequest):
                     part.update(admitted=list(changes.admitted),edited=list(changes.edited),
                                 revoked=list(changes.revoked),
                                 input_changed=[i for i,v in zip(idx,changed,strict=True) if v])
+                    if c is not head and getattr(self, 'receipt_tail_ids', False):
+                        touched = sorted(set(changes.admitted) | set(changes.edited))
+                        part['tail_updates'] = list(zip(touched, s.ids[0,touched].tolist()))
                 else:
                     rows.finish(rp)
             if s.age != rows.age:
@@ -215,9 +218,21 @@ class FixedFamilyRequest(FamilyRequest):
 class AblationRequest(FixedFamilyRequest):
     """00/10/11 with a common top-tier route. Only encoder epochs replace the bank."""
 
-    def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law()):
+    top_gate = 'eager'
+    head_first = False
+    late_den = 4
+    receipt_tail_ids = False
+
+    def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
+                 top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
+        if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
+            raise ValueError('Unknown opening gate')
+        if head_first and ablation != '10':
+            raise ValueError('Slack-only selection requires a cross-block arm without dense build')
+        self.top_gate, self.head_first = top_gate, head_first
+        self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
         self.ablation = ablation
         self.next_side = 0
         super().__init__(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law)
@@ -291,7 +306,10 @@ class AblationRequest(FixedFamilyRequest):
 
         denoising = head.sampler.phase == 'sample' and head.can_sample
         if q == 2*B and denoising:
-            allowed = room_for_tail and self._no_accepted_eos(head)
+            open_gate = (self.top_gate == 'eager' or
+                         (self.top_gate != 'off' and head_initialized == B and
+                          head_masks <= B//(2 if self.top_gate == 'half' else 4)))
+            allowed = room_for_tail and self._no_accepted_eos(head) and (self.tail is not None or open_gate)
             if self.tail is None and allowed:
                 spawn()
             # Dense even when the debt fills the offer: the same forward encodes
@@ -309,7 +327,30 @@ class AblationRequest(FixedFamilyRequest):
             return run('verify', range(base+self.cursor, base+min(B,self.cursor+q)))
 
         late_open = (self.ablation != '00' and self.tail is None and room_for_tail
-                     and head_initialized == B and head_masks <= B//4 and self._no_accepted_eos(head))
+                     and head_initialized == B and head_masks <= B//self.late_den and self._no_accepted_eos(head))
+        if self.head_first:
+            # Schedule global debt plus the unchanged head plan, then lend only unused seats.
+            # A parked tail never loses its debt; a drain does not advance a sampler clock.
+            unresolved = FULL-head.rows.accepted
+            prefix = [base+i for i in reversed(range(min(unresolved, default=B)))
+                      if i in head.rows.initialized and base+i not in debt]
+            plan = choose(q, B, debt, {base+i for i in unresolved}, prefix, law=self.law,
+                          cold={base+i for i in FULL-head.rows.initialized}-debt)
+            pos = plan.rows
+            sample = () if plan.drain_only else tuple(p for p in (plan.cold or pos) if p < tail_base)
+            room = q-len(pos)
+            if room and not plan.drain_only and (late_open or self.tail is not None and self._no_accepted_eos(head)):
+                if self.tail is None:
+                    spawn()
+                t = self.tail
+                if t.can_sample:
+                    clean = {i for i in FULL-t.rows.accepted if tail_base+i not in debt}
+                    extra = tuple(tail_base+i for i in sorted(clean, key=lambda i:(i in t.rows.initialized,i))[:room])
+                    cold = tuple(p for p in extra if p-tail_base not in t.rows.initialized)
+                    pos = tuple(sorted((*pos,*extra)))
+                    sample = (*sample,*extra)
+                    return run('sparse' if sample else 'drain', pos, sample, plan.prefix, (*plan.cold,*cold))
+            return run('sparse' if sample else 'drain', pos, sample, plan.prefix, plan.cold)
         if late_open:
             if debt and (self.ablation == '11' or len(debt) >= q):
                 return run('drain', sorted(debt)[:q])

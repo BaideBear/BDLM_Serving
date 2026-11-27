@@ -59,7 +59,7 @@ def quantiles(values):
             for name, p in (("p50", .50), ("p95", .95), ("max", 1))}
 
 
-def request(model, processor, task, budget, cap, *, audit=False, dispatch=False):
+def request(model, processor, task, budget, cap, *, audit=False, dispatch=False, layout="split", cold_share=0):
     import torch
     from bdlm_serving.methods.t2t.history_gemma import attention_backend, history_gemma
     from bdlm_serving.runtime.diffusiongemma import account
@@ -71,7 +71,8 @@ def request(model, processor, task, budget, cap, *, audit=False, dispatch=False)
     torch.cuda.synchronize(model.device)
     start = time.perf_counter()
     with per_example_rng(task["seed"], model.device), history_gemma(
-            model, budget, audit=audit, saturating_sdpa=dispatch) as ledger:
+            model, budget, audit=audit, saturating_sdpa=dispatch,
+            layout=layout, cold_share=cold_share) as ledger:
         out = model.generate(**data, max_new_tokens=cap)
     torch.cuda.synchronize(model.device)
     elapsed = (time.perf_counter() - start) * 1000
@@ -88,7 +89,7 @@ def request(model, processor, task, budget, cap, *, audit=False, dispatch=False)
     row = {k: task[k] for k in ("index", "dataset", "task_id", "seed")}
     row.update(counts, status="success", model="diffusiongemma",
                policy=f"history{budget}" if budget is not None else "native256", nominal_history_q=budget,
-               attention_backend=attention_backend(budget, WIDTH, dispatch),
+               attention_backend=trace[0]["attention_backend"],
                events=ledger.events, trace=trace, probes=ledger.probes, output_ids=ids,
                output_text=tok.decode(ids, skip_special_tokens=True), cap=cap,
                valid_output_rows_in_last_canvas=len(ids) - trace[-1]["block"],

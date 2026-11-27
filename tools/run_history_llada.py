@@ -116,7 +116,7 @@ def audit_checkpoint(path):
             raise ValueError(f"checkpoint sha mismatch: {target}")
 
 
-def load_model(args):
+def load_model(args, before_cuda=None):
     torch.set_num_threads(1)
     try:
         torch.set_num_interop_threads(1)
@@ -141,6 +141,8 @@ def load_model(args):
             parameter.data = parameter.data.clone()
         runpy.run_path(str(prepare), run_name="bdlm_prepare")["prepare"](model)
     else:
+        if before_cuda is not None:
+            before_cuda()
         model.to("cuda")
     if model.device.type != "cuda":
         raise RuntimeError("refusing CPU inference; model must be on CUDA")

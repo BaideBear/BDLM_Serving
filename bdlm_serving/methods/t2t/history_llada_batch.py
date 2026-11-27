@@ -310,7 +310,7 @@ def _prefix_candidates(request, masks, established, dirty, cold):
                  and i in established and i not in dirty and i not in cold)
 
 
-def select_rows(request, budget, *, full_endpoint=False, law=Law()):
+def select_rows(request, budget, *, full_endpoint=False, law=Law(), cold_share=0):
     """Return the in-block rows that actually re-read history this forward.
 
     ``budget`` is the external fixed C.  A full endpoint (C >= B, or the
@@ -336,7 +336,10 @@ def select_rows(request, budget, *, full_endpoint=False, law=Law()):
         if budget == 0:
             selected = []
         else:
-            plan = choose(budget, BLOCK, dirty, masks, prefix, law=law, cold=cold)
+            reserve = min(len(cold), (budget * cold_share + 99) // 100)
+            due = (set(sorted(dirty, key=lambda j: (request.dirty_since.get(j, 0), j))[:budget-reserve])
+                   if cold_share else dirty)
+            plan = choose(budget, BLOCK, due, masks, prefix, law=law, cold=cold)
             selected = sorted(plan.rows)
     if (selected != sorted(set(selected)) or any(type(i) is not int or not 0 <= i < BLOCK
                                                  for i in selected)):
@@ -411,7 +414,7 @@ class BatchedHistoryRunner:
     """Drive fixed-C selective history over one batch group at a time."""
 
     def __init__(self, model, adapter, requests, *, budget, batch_size,
-                 bucket="exact", full_endpoint=False, max_rounds=20000):
+                 bucket="exact", full_endpoint=False, max_rounds=20000, cold_share=0, law=Law()):
         if batch_size < 1:
             raise ValueError("batch_size must be >= 1")
         if bucket not in ("exact", "pooled"):
@@ -422,6 +425,7 @@ class BatchedHistoryRunner:
         self.adapter = adapter
         self.requests = list(requests)
         self.budget = budget
+        self.cold_share, self.law = cold_share, law
         self.batch_size = batch_size
         self.bucket = bucket
         self.full_endpoint = full_endpoint
@@ -643,7 +647,8 @@ class BatchedHistoryRunner:
         selected, usable, selections = [], [], []
         for request in group:
             selection = select_rows(request, self.budget,
-                                    full_endpoint=self.full_endpoint)
+                                    full_endpoint=self.full_endpoint, cold_share=self.cold_share,
+                                    law=self.law)
             selections.append(selection)
             selected.append(selection.selected)
             cold_after = set(request.cold) - set(selection.selected)

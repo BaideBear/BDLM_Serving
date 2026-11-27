@@ -101,3 +101,48 @@ def test_low_open_barriers_and_encoder_epoch():
     r.ordinal, r.rebuild = 1, True
     e = r._advance(64)
     assert e['route']=='rebuild' and e['positions']==tuple(range(269,333)) and not e['sample']
+
+
+@pytest.mark.parametrize('old', (32,64,128,256,512))
+@pytest.mark.parametrize('new', (32,64,128,256,512))
+def test_race_switch_preserves_bank_and_pays_pending_rows(old, new):
+    r = request('10')
+    r.head_first = True
+    r.rows.initialized, r.rows.accepted = FULL, frozenset(range(B-7))
+    r._advance(old)
+    bank, tail = r.bank, r.tail
+    assert tail is not None
+    r.rows.dirty = frozenset(range(5))
+    tail.rows.dirty = frozenset(range(80))
+    e = r._advance(new)
+    assert bank is r.bank and tail is r.tail
+    due = sorted([r.origin+i for i in r.rows.dirty]+[r.origin+B+i for i in tail.rows.dirty])
+    assert set(due[:new]) <= set(e['positions']) and len(e['positions']) <= new
+    if new <= len(due):
+        assert not e['sample']
+
+
+@pytest.mark.parametrize('gate, opens', (('off',False),('eager',True),('half',True),('quarter',False)))
+def test_top_gate_changes_only_successor(gate, opens):
+    r = request('00')
+    r.top_gate = gate
+    r.rows.initialized, r.rows.accepted = FULL, frozenset(range(B//2))
+    e = r._advance(2*B)
+    count = 2*B if opens else B
+    assert list(e['positions']) == e['sample'] == list(range(r.origin, r.origin+count))
+    assert (e['opened'] is not None) == opens
+
+
+@pytest.mark.parametrize('remaining', (64,16,3))
+def test_slack_lends_only_after_full_head_plan(remaining):
+    control, cross = request('00'), request('10')
+    cross.head_first = True
+    for r in (control, cross):
+        r.rows.initialized, r.rows.accepted = FULL, frozenset(range(B-remaining))
+        r.rows.dirty = frozenset([1,2,3])
+    a, b = control._advance(32), cross._advance(32)
+    split = control.origin+B
+    for key in ('positions','sample','prefix'):
+        assert list(a[key]) == [p for p in b[key] if p < split]
+    assert len(b['positions']) == 32
+    assert (b['opened'] is not None) == (len(a['positions']) < 32)
