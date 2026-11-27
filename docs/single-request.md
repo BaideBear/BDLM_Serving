@@ -1,5 +1,15 @@
 # Single-request execution at a given Q budget
 
+[Fixed-budget comparison with capped IBS, nominal IBS, native, and Flow W1/W2](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md).
+This table covers both current opt-in public handles, with original30, new60, and frozen90 measured separately.
+
+`open_strict_gemma(..., profile="dense_stop_joint_verified_eos")` is the verified-EOS
+variant of the single-resident-stop handle below. A fully paid, ordered single-canvas
+verification can stop at a measured EOS after all earlier positions have been verified
+with the same inputs and encoder epoch. An EOS in an ordinary sample does not qualify.
+Changing the next offer changes the size of the next verification chunk; it cannot
+skip a chunk. [GPU switch and fixed-offer replay](../experiments/t2t/serving_slots/controls/strict-handle/gemma-verified-eos.json).
+
 [How to spend a small, full-block or two-block offer](request-budget-decisions.md):
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.

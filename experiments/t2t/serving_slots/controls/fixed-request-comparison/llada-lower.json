@@ -1,0 +1,101 @@
+{
+  "profile": "quarter_edit_warm",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "tiers": {
+    "16": {
+      "arm": "c16-borrow",
+      "cohorts": {
+        "frozen90": {
+          "F": 18418,
+          "N": 45465,
+          "Q": 257396,
+          "correct": 62,
+          "failures": 0,
+          "macro_TPF": 2.886971312771468,
+          "n": 90,
+          "peak": 16,
+          "receipts_sha256": "04c828e9bbb63f7575b5551e17f012a7364646732fa4f413d664e38386e120f5"
+        },
+        "new60": {
+          "F": 12179,
+          "N": 30393,
+          "Q": 170336,
+          "correct": 42,
+          "failures": 0,
+          "macro_TPF": 2.9459560855949287,
+          "n": 60,
+          "peak": 16,
+          "receipts_sha256": "f4ef5c78096dde37606b83688c6b602c1dcf9d227db4886bcb9c6bcca547b4b2"
+        },
+        "original30": {
+          "F": 6239,
+          "N": 15072,
+          "Q": 87060,
+          "correct": 20,
+          "failures": 0,
+          "macro_TPF": 2.7690017671245455,
+          "n": 30,
+          "peak": 16,
+          "receipts_sha256": "365bfaa6dedd8314c339c706071a56f981701faa85b97699fa7b98bc447cf15f"
+        }
+      },
+      "source": "/data1/project_data/gx-erqw-20261123/runtime/layout-1128-v1/cross/results"
+    },
+    "4": {
+      "arm": "old",
+      "cohorts": {
+        "original30": {
+          "F": 21931,
+          "N": 22423,
+          "Q": 82468,
+          "correct": 8,
+          "failures": 0,
+          "macro_TPF": 1.1956803381618237,
+          "n": 30,
+          "peak": 4,
+          "receipts_sha256": "4d163428c961cb6c5f4587a3858fe38ab34b6ffa4db48ac2f2cd4109c8c9fd51"
+        }
+      },
+      "source": "/data1/project_data/gx-erqw-20261123/runtime/llada-frontier-q4-1128/results"
+    },
+    "8": {
+      "arm": "c8-noborrow",
+      "cohorts": {
+        "frozen90": {
+          "F": 51296,
+          "N": 58209,
+          "Q": 358776,
+          "correct": 29,
+          "failures": 0,
+          "macro_TPF": 1.6765373694760866,
+          "n": 90,
+          "peak": 8,
+          "receipts_sha256": "f7dd9012efda7c6ee52f3733badc507e06e6715e432a96c5bbcf71cf48de7ab9"
+        },
+        "new60": {
+          "F": 30550,
+          "N": 35424,
+          "Q": 213685,
+          "correct": 20,
+          "failures": 0,
+          "macro_TPF": 1.7505720132511262,
+          "n": 60,
+          "peak": 8,
+          "receipts_sha256": "a16f549c8699bfc001a0865974f96e0aed87f443d10770c544c3ae01e3f745ed"
+        },
+        "original30": {
+          "F": 20746,
+          "N": 22785,
+          "Q": 145091,
+          "correct": 9,
+          "failures": 0,
+          "macro_TPF": 1.5284680819260072,
+          "n": 30,
+          "peak": 8,
+          "receipts_sha256": "c49318d6e4d6a8ca4687384d73409494670191b60e24350e8de5889e94496b50"
+        }
+      },
+      "source": "/data1/project_data/gx-erqw-20261123/runtime/layout-1128-v1/cross/results"
+    }
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "cohorts": {
+    "full90": {
+      "debt_audit": {
+        "control": {
+          "edited": 206,
+          "recorded_writes": 44361,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        },
+        "refresh": {
+          "edited": 263,
+          "recorded_writes": 42818,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        }
+      },
+      "offered_seats": {
+        "control": {
+          "F": 19692,
+          "all_seats_dirty_F": 1835,
+          "at_cap_F": 16544,
+          "dirty_Q": 44361,
+          "free_decoded_Q": 16561,
+          "free_mask_Q": 82829,
+          "idle": 12212,
+          "prefix_Q": 0,
+          "prompt_Q": 1573
+        },
+        "refresh": {
+          "F": 18753,
+          "all_seats_dirty_F": 1783,
+          "at_cap_F": 16643,
+          "dirty_Q": 42818,
+          "free_decoded_Q": 15893,
+          "free_mask_Q": 78055,
+          "idle": 6248,
+          "prefix_Q": 5437,
+          "prompt_Q": 1573
+        }
+      },
+      "score": {
+        "cohort": "full90",
+        "control": {
+          "F": 19692,
+          "N": 42667,
+          "Q": 145324,
+          "correct": 72,
+          "injected_prefix_Q": 0,
+          "macro_TPF": 2.364478500486853,
+          "micro_efficiency": 0.2935991302193719,
+          "quality": 0.8,
+          "trigger_requests": 0,
+          "trigger_rounds": 0
+        },
+        "delta": {
+          "F": -939,
+          "N": -1511,
+          "Q": -1548,
+          "correct": 1,
+          "injected_prefix_Q": 5437,
+          "macro_TPF": 0.02213127955922367,
+          "micro_efficiency": -0.007348295587722653,
+          "quality": 0.011111111111111072,
+          "trigger_requests": 89,
+          "trigger_rounds": 2938
+        },
+        "lost": 4,
+        "paired_ci95": {
+          "F": [
+            -3471.05,
+            1417.300000000001
+          ],
+          "Q": [
+            -20132.55,
+            16183.25
+          ],
+          "macro_TPF": [
+            -0.0451487893606701,
+            0.08872838364180058
+          ],
+          "micro_efficiency": [
+            -0.02058304978232042,
+            0.00637731789530631
+          ],
+          "quality": [
+            -0.05555555555555555,
+            0.07777777777777778
+          ]
+        },
+        "paired_quality_score_ci95": [
+          -0.061439151346035926,
+          0.08475529688524501
+        ],
+        "quality_fallback_strata": 0,
+        "requests": 90,
+        "rescued": 5,
+        "scope": "all",
+        "trial": {
+          "F": 18753,
+          "N": 41156,
+          "Q": 143776,
+          "correct": 73,
+          "injected_prefix_Q": 5437,
+          "macro_TPF": 2.3866097800460766,
+          "micro_efficiency": 0.28625083463164924,
+          "quality": 0.8111111111111111,
+          "trigger_requests": 89,
+          "trigger_rounds": 2938
+        }
+      }
+    },
+    "new60": {
+      "debt_audit": {
+        "control": {
+          "edited": 137,
+          "recorded_writes": 29876,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        },
+        "refresh": {
+          "edited": 140,
+          "recorded_writes": 28375,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        }
+      },
+      "offered_seats": {
+        "control": {
+          "F": 13040,
+          "all_seats_dirty_F": 1281,
+          "at_cap_F": 10978,
+          "dirty_Q": 29876,
+          "free_decoded_Q": 10838,
+          "free_mask_Q": 54504,
+          "idle": 8025,
+          "prefix_Q": 0,
+          "prompt_Q": 1077
+        },
+        "refresh": {
+          "F": 12339,
+          "all_seats_dirty_F": 1214,
+          "at_cap_F": 10967,
+          "dirty_Q": 28375,
+          "free_decoded_Q": 10563,
+          "free_mask_Q": 51109,
+          "idle": 4078,
+          "prefix_Q": 3510,
+          "prompt_Q": 1077
+        }
+      },
+      "score": {
+        "cohort": "new60",
+        "control": {
+          "F": 13040,
+          "N": 28760,
+          "Q": 96295,
+          "correct": 47,
+          "injected_prefix_Q": 0,
+          "macro_TPF": 2.414177680835274,
+          "micro_efficiency": 0.2986655589594475,
+          "quality": 0.7833333333333333,
+          "trigger_requests": 0,
+          "trigger_rounds": 0
+        },
+        "delta": {
+          "F": -701,
+          "N": -1482,
+          "Q": -1661,
+          "correct": -1,
+          "injected_prefix_Q": 3510,
+          "macro_TPF": 0.007147996849709237,
+          "micro_efficiency": -0.010418205999623342,
+          "quality": -0.016666666666666607,
+          "trigger_requests": 59,
+          "trigger_rounds": 1885
+        },
+        "lost": 4,
+        "paired_ci95": {
+          "F": [
+            -2223.35,
+            526.0250000000001
+          ],
+          "Q": [
+            -12758.475,
+            7519.700000000003
+          ],
+          "macro_TPF": [
+            -0.07986857847994343,
+            0.09737448397360354
+          ],
+          "micro_efficiency": [
+            -0.024447480069219207,
+            0.0036397551523798866
+          ],
+          "quality": [
+            -0.1,
+            0.06666666666666667
+          ]
+        },
+        "paired_quality_score_ci95": [
+          -0.11066234176119197,
+          0.0769709437883062
+        ],
+        "quality_fallback_strata": 0,
+        "requests": 60,
+        "rescued": 3,
+        "scope": "all",
+        "trial": {
+          "F": 12339,
+          "N": 27278,
+          "Q": 94634,
+          "correct": 46,
+          "injected_prefix_Q": 3510,
+          "macro_TPF": 2.421325677684983,
+          "micro_efficiency": 0.2882473529598242,
+          "quality": 0.7666666666666667,
+          "trigger_requests": 59,
+          "trigger_rounds": 1885
+        }
+      }
+    },
+    "original30": {
+      "debt_audit": {
+        "control": {
+          "edited": 69,
+          "recorded_writes": 14485,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        },
+        "refresh": {
+          "edited": 123,
+          "recorded_writes": 14443,
+          "revoked": 0,
+          "revoked_not_paid_next": 0
+        }
+      },
+      "offered_seats": {
+        "control": {
+          "F": 6652,
+          "all_seats_dirty_F": 554,
+          "at_cap_F": 5566,
+          "dirty_Q": 14485,
+          "free_decoded_Q": 5723,
+          "free_mask_Q": 28325,
+          "idle": 4187,
+          "prefix_Q": 0,
+          "prompt_Q": 496
+        },
+        "refresh": {
+          "F": 6414,
+          "all_seats_dirty_F": 569,
+          "at_cap_F": 5676,
+          "dirty_Q": 14443,
+          "free_decoded_Q": 5330,
+          "free_mask_Q": 26946,
+          "idle": 2170,
+          "prefix_Q": 1927,
+          "prompt_Q": 496
+        }
+      },
+      "score": {
+        "cohort": "original30",
+        "control": {
+          "F": 6652,
+          "N": 13907,
+          "Q": 49029,
+          "correct": 25,
+          "injected_prefix_Q": 0,
+          "macro_TPF": 2.26508013979001,
+          "micro_efficiency": 0.28364845295641355,
+          "quality": 0.8333333333333334,
+          "trigger_requests": 0,
+          "trigger_rounds": 0
+        },
+        "delta": {
+          "F": -238,
+          "N": -29,
+          "Q": 113,
+          "correct": 2,
+          "injected_prefix_Q": 1927,
+          "macro_TPF": 0.05209784497825343,
+          "micro_efficiency": -0.0012423644781261456,
+          "quality": 0.06666666666666665,
+          "trigger_requests": 30,
+          "trigger_rounds": 1053
+        },
+        "lost": 0,
+        "paired_ci95": {
+          "F": [
+            -2062.125,
+            1627.300000000001
+          ],
+          "Q": [
+            -13240.15,
+            14154.225
+          ],
+          "macro_TPF": [
+            -0.043259829181592074,
+            0.15861639871116945
+          ],
+          "micro_efficiency": [
+            -0.025661128908063803,
+            0.026093371068576062
+          ],
+          "quality": [
+            0.0,
+            0.16666666666666666
+          ]
+        },
+        "paired_quality_score_ci95": [
+          -0.10811900531661517,
+          0.24549506776989127
+        ],
+        "quality_fallback_strata": 1,
+        "requests": 30,
+        "rescued": 2,
+        "scope": "all",
+        "trial": {
+          "F": 6414,
+          "N": 13878,
+          "Q": 49142,
+          "correct": 27,
+          "injected_prefix_Q": 1927,
+          "macro_TPF": 2.3171779847682634,
+          "micro_efficiency": 0.2824060884782874,
+          "quality": 0.9,
+          "trigger_requests": 30,
+          "trigger_rounds": 1053
+        }
+      }
+    }
+  },
+  "pairs_sha256": "7dcf81db145e361e847f2ee8ce9af62d22cade2365e53fef492204683cc7053b",
+  "raw_root": "/data1/project_data/gx-erqw-20261123/runtime/t2t-native-1125/prefix90/llada21-q8-ibs-prefix-gpu90-v1",
+  "run_sha256": "aac42b672105e015ea16e246ba0da9e66f4b3886b8fe62eda2957f6ab19334c0",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}

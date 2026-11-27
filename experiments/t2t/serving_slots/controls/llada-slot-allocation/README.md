@@ -1,5 +1,37 @@
 # Low-offer LLaDA row selection
 
+## Strong control: use only leftover IBS8 seats for clean prefix
+
+[Sealed n164 fixed90 replay audit](c8-ibs-spare-confirmed.json). Strict IBS8
+keeps precisely its original sampler seats. Only unused seats, at most two,
+may additionally reproject the rightmost eligible positions of the decoded
+prefix inside the current block. Their logits do not participate in edits.
+
+| Fixed Q8 | Original30 | New60 | Frozen90 | Macro TPF | Token efficiency | F | Selected Q |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Strict IBS8 | 25 | 47 | 72 | 2.3645 | 29.36% | 19,692 | 145,324 |
+| Same + spare prefix | 27 | 46 | 73 | 2.3866 | 28.63% | 18,753 | 143,776 |
+
+5 rescues, 4 losses. Paired quality score interval (95%): -6.14 to +8.48
+percentage points; macro TPF delta interval: -0.0451 to +0.0887. Do not
+promote solely on the aggregate: original30 and new60 have opposite quality
+deltas. 5,437 supplemental positions were actually computed on 2,938 rounds
+across 89 requests. The change in total Q includes subsequent trajectory
+changes; supplementation did **not** reduce the immediate matched row count.
+
+The control physically projected 44,361 mandatory rows, 82,829 discretionary
+MASK rows, 16,561 discretionary decoded generation rows, and 1,573 rows from
+partial prompt blocks; 12,212 offered seats remained unused. In 1,835 of
+19,692 forwards, all eight seats were mandatory. Among 206/263 recorded edits
+(control/trial) no edit revoked a token to MASK. That is an observation, not a
+permission to drop such debt on other inputs: the historical IBS capped writer
+only registers edits whose new token is not MASK. This isolated experiment is
+not a qualification for importing it wholesale as a switchable request.
+
+`tools/audit_ibs_spare.py RUN_ROOT MANIFEST` on the receipt host checks
+source and return seals, per-request IDs and per-forward debt, bills and
+cohort totals. No new model inference is required.
+
 ## What differs from strict IBS?
 
 [Measured selection audit](geometry.json). Replay the pinned hard-capped IBS
