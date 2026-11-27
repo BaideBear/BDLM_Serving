@@ -12,6 +12,7 @@ opening or parking a tail does not consume the head's random draws.
 from collections.abc import Mapping
 from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass, field
+from hashlib import sha256
 from random import Random
 from types import MappingProxyType, SimpleNamespace
 
@@ -196,6 +197,11 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
         from .gemma_quote import quote_options
     if type(causal) is not bool or type(seed) is not int:
         raise ValueError("Expected Boolean causal and integer seed")
+    unmask = plan.get("unmask_offer")
+    witness = plan.get("audit_offer_masks", False)
+    if type(witness) is not bool or (unmask is not None and
+            (not causal or not witness or type(unmask) is not int or unmask not in _OFFERS[:-1])):
+        raise ValueError("Offer-specific ablations require an audited causal base and a lower offer")
     prefix_mode, prefix_slots = _prefix_policy(plan)
     exchange_limit = plan.get("exchange_limit", 0)
     if (type(exchange_limit) is not int or exchange_limit not in (0,4)
@@ -232,6 +238,7 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
     eos = cfg.eos_token_id
     eos = set() if eos is None else {eos} if isinstance(eos, int) else set(eos)
     bank = WaveKV(block)
+    seen_cross_offer = set()
     trace, live, output = [], [], []
 
     def encode(length):
@@ -340,7 +347,7 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
             with ExitStack() as stack:
                 if cooperative:
                     stack.enter_context(wave_attention(model, bank))
-                bank.begin(selected, origin, device, causal=causal)
+                bank.begin(selected, origin, device, causal=causal and offer != unmask)
                 sc = None
                 if any(sc_valid):
                     ref = next(x for x in sc_parts if x is not None)
@@ -356,12 +363,43 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
                             lambda _, args: (args[0], args[1].masked_fill(~valid, 0))
                         )
                         stack.callback(handle.remove)
+                if witness:
+                    input_state = None
+                    pos = torch.tensor(selected, device=device)
+                    keys = torch.tensor(bank.live, device=device)
+                    future = ((pos[:, None]-origin)//block < (keys[None, :]-origin)//block)
+                    if offer not in seen_cross_offer and len(live) == 2 and future.any().item():
+                        digest = sha256()
+                        for tensor in [prefix, *ids_parts, *[s.rng for s in live],
+                                       *[s.ids for s in live], *[s.draft for s in live]]:
+                            raw = tensor.detach().contiguous().cpu().numpy().tobytes()
+                            digest.update(len(raw).to_bytes(8, "big"))
+                            digest.update(raw)
+                        input_state = digest.hexdigest()
+                        seen_cross_offer.add(offer)
+                    want = ~future if causal and offer != unmask else torch.ones_like(future)
+                    # Check the effective mask at an actual decoder attention call, after
+                    # native prefix composition, not just the flag passed to begin().
+                    original_extend = bank.extend
+                    checked = []
+                    def checked_extend(layer, q, k, v, mask=None):
+                        out = original_extend(layer, q, k, v, mask)
+                        if layer == 0:
+                            live_mask = out[2][..., -len(bank.live):]
+                            if not torch.equal(live_mask, want.expand_as(live_mask)):
+                                raise RuntimeError("Effective attention differs from registered intervention")
+                            checked.append(True)
+                        return out
+                    bank.extend = checked_extend
+                    stack.callback(delattr, bank, "extend")
                 logits = model(
                     decoder_input_ids=torch.cat(ids_parts, dim=1),
                     decoder_position_ids=torch.tensor([selected], device=device, dtype=torch.int32),
                     self_conditioning_logits=sc, decoder_attention_mask=masks,
                     past_key_values=cache,
                 ).logits
+                if witness and checked != [True]:
+                    raise RuntimeError("Effective decoder mask was not observed")
             if logits.ndim != 3 or logits.shape[:2] != (1, q):
                 raise RuntimeError("Decoder/LM head did not physically project selected Q")
             if hasattr(bank, "visited") and len(bank.visited) != layer_count:
@@ -409,6 +447,12 @@ def _loop(model, data, plan, *, causal, seed, quote_costs, cooperative):
                 overflow=max(0, q - offer), prefill=origin if state.tick == 0 else 0,
             )
             trace.append(record)
+            if witness:
+                if visible != bank.live:
+                    raise RuntimeError("Visible tape does not match physical KV bank")
+                record["future_edges"] = int(future.sum().item())
+                record["open_edges"] = record["future_edges"] if offer == unmask or not causal else 0
+                record["first_offer_state"] = input_state
             if exchange_limit:
                 record["displaced_mask"] = [origin + head.ordinal*block + r for r in displaced]
             del logits, measured, sc, sc_parts

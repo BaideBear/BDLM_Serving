@@ -261,6 +261,11 @@ def llada_reference_chunk(raw, block):
             or sum(work)!=raw["generation_query_rows"] or sum(work)!=raw["generation_physical_padded_rows"]
             or max(work)!=raw["max_q"] or Counter(map(str,work))!=raw["q_histogram"]):
         raise ValueError("Incomplete LLaDA work ledger")
+    check_llada_failure(raw,block,opt)
+    return nominal
+
+
+def check_llada_failure(raw,block,opt):
     failure=raw["request_failure"]
     if raw["status"]!="success":
         if (not opt or raw["status"]!="generation_failed" or not isinstance(failure,dict)
@@ -273,7 +278,6 @@ def llada_reference_chunk(raw, block):
             raise ValueError("Unrecognized or inconsistent LLaDA generation failure")
     elif failure is not None:
         raise ValueError("Unexpected failure record on successful generation")
-    return nominal
 
 
 def optimus_chunk(raw, block):
@@ -372,8 +376,23 @@ def normalize_request(raw, case, role):
     max_q = raw.get("max_q", block)
     fixed_chunk = None
     ll_ref = model=="llada21" and (_LL_OPT.fullmatch(policy) or policy in ("flow_w1","flow_w2"))
+    capped = model=="llada21" and re.fullmatch(r"optcap_(ibs|obs)_(4|8|16|32)",policy)
     if ll_ref:
         fixed_chunk = llada_reference_chunk(raw, block)
+    elif capped:
+        from experiments.t2t.serving_slots.llada_capped import audit
+        fixed_chunk=int(capped[2])
+        if (raw["phase"]!="formal" or raw["generation_cap"]!=2048 or
+                (raw["status"]=="success" or "physical_caps" in raw["extra"]) and
+                raw["extra"].get("physical_caps")!=[fixed_chunk] or
+                raw["extra"]["mode"]!=capped[1] or raw["extra"]["window_switches"]!=0):
+            raise ValueError("Different fixed capped LLaDA configuration")
+        audit(raw,(fixed_chunk,))
+        measured=[e["q_tokens"] for e in raw["events"] if e.get("physical_forwards",1)
+                  and e["phase"]!="prefill"]
+        if not measured or raw["max_q"]!=max(measured) or Counter(map(str,measured))!=raw["q_histogram"]:
+            raise ValueError("Wrong capped physical maximum")
+        check_llada_failure(raw,block,True)
     elif model=="llada21" and policy=="dual64_noedit":
         from tools.run_dual_t2t import audit_dual64
         audit_dual64(raw)
@@ -398,7 +417,7 @@ def normalize_request(raw, case, role):
     elif isinstance(max_q, bool) or not isinstance(max_q, int) or max_q != block:
         raise ValueError(f"{role} request {index}: max_q {max_q!r} does not match {model} B{block}")
     failed = _request_failed(raw, index)
-    if failed and not ll_ref:
+    if failed and not (ll_ref or capped):
         raise ValueError(f"{role} request {index}: failed status {raw.get('status')!r}")
     n = _int_field(raw, ("output_tokens", "N"), "output_tokens", index)
     f = _int_field(raw, ("generation_forwards", "F"), "generation_forwards", index)

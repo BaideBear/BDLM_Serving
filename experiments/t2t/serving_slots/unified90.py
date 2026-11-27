@@ -51,6 +51,56 @@ DWELL = ("dwell","dwell_q128_prefix32")
 for arm,quota in zip(DWELL, ({}, {128:32}), strict=True):
     ARMS[arm] = (PAIRED_OFFERS, True, quota)
 GROUPS += (DWELL,)
+MASK_OFFERS = SLOTS[:-1]
+DYNAMIC_MASK = ("replay",) + tuple(f"replay_unmask{q}" for q in MASK_OFFERS)
+FIXED_MASK = tuple((f"q{q}",f"q{q}_unmask{q}") for q in MASK_OFFERS)
+SWITCH_MASK = tuple((f"alternate{q}",f"alternate{q}_unmask{q}") for q in MASK_OFFERS)
+for (base, _), q in zip(SWITCH_MASK,MASK_OFFERS,strict=True):
+    ARMS[base] = ((512,q),True,{})
+MASK_GROUPS = (DYNAMIC_MASK,*FIXED_MASK,*SWITCH_MASK)
+UNMASK = {f"{base}_unmask{q}":q for q in MASK_OFFERS for base in ("replay",f"q{q}")}
+UNMASK.update({g[1]:q for g,q in zip(SWITCH_MASK,MASK_OFFERS,strict=True)})
+for group in MASK_GROUPS:
+    GROUPS += (group,)
+    for arm in group[1:]:
+        ARMS[arm] = ARMS[group[0]]
+
+
+def offer_witness(trace, target, unmask, origin):
+    """Use physical decoder edges, not merely two outstanding canvas objects."""
+    from hashlib import sha256
+    def digest(x):
+        return sha256(json.dumps(x,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+    first, hits, edges = None, 0, 0
+    for i,e in enumerate(trace):
+        boundary = origin + 256 * (e["head"]+1)
+        count = sum(p<boundary for p in e["selected"])*sum(k>=boundary for k in e["visible"])
+        if e["future_edges"]!=count or e["open_edges"]!=(count if e["offer"]==unmask else 0):
+            raise ValueError("Observed mask does not match intervention or geometry")
+        if e["offer"]==target and count:
+            if first is None:
+                first=i
+            hits+=1
+            edges+=count
+    geom = None
+    if first is not None:
+        e = trace[first]
+        if not e["first_offer_state"]:
+            raise ValueError("Missing first offer state digest")
+        geom = {k:e[k] for k in ("tick","head","offer","visible","selected","sampled",
+                                  "dirty_before","ages_before","first_offer_state")}
+    return dict(first_tick=first, pretrace_sha256=digest(trace[:first]), geometry_sha256=digest(geom),
+                rounds=hits, edge_pairs=edges)
+
+
+def compare_offer(c,t,target):
+    wc,wt = [r["offer_mask_witness"][str(target)] for r in (c,t)]
+    if any(c[k]!=t[k] for k in (*KEYS,"input_sha256","prefill_q")) or any(
+            wc[k]!=wt[k] for k in ("first_tick","pretrace_sha256","geometry_sha256")):
+        raise ValueError("Request diverged before its first treated offer")
+    if wc["first_tick"] is None and any(c[k]!=t[k] for k in
+            ("output_ids","trace","generation_forwards","generation_physical_padded_rows")):
+        raise ValueError("Unexposed pair changed")
 
 
 def common_offers(a,b):
@@ -436,7 +486,8 @@ def run(args, before_cuda=None):
     price = exchange or spawn or cpu and getattr(args, "price", False)
     rank = all(arm in RANKS for arm in group)
     transfer = group in (TRANSFER,DWELL)
-    price = price or transfer
+    masks = group in MASK_GROUPS
+    price = price or transfer or masks
     if cpu and group not in (GROUPS[0], GROUPS[1]) and not (rank or exchange or spawn):
         raise ValueError("Unregistered CPU pilot")
     if cpu:
@@ -468,6 +519,7 @@ def run(args, before_cuda=None):
         **({"exchange": EX_SPEC} if exchange else {}),
         **({"profiles":["economy","q128_prefix_candidate"]} if transfer else {}),
         **({"spawn_thresholds":dict(zip(SPAWN,[0.8,0.5]))} if spawn else {}),
+        **({"unmask_only_on_offer":{arm:UNMASK.get(arm) for arm in group}} if masks else {}),
         indices=[t["index"] for t in tasks], **({"quote_costs": True} if price else {})))
     if not cpu:
         before_cuda(model)
@@ -481,6 +533,8 @@ def run(args, before_cuda=None):
             for arm in group:
                 series, causal, prefix = ARMS[arm]
                 config = dict(plan, prefix_slots=prefix, prefix_mode=RANKS.get(arm,"random" if prefix else "zero"))
+                if masks:
+                    config.update(audit_offer_masks=True, unmask_offer=UNMASK.get(arm))
                 if exchange:
                     config.update(prefix_mode="oldest", exchange_limit=4 if arm == EXCHANGE[1] else 0)
                 if spawn and arm==SPAWN[1]:
@@ -493,6 +547,18 @@ def run(args, before_cuda=None):
                                plan["cap"], digest)
                 if digest != input_digest(data):
                     raise ValueError("Shared input changed")
+                if masks:
+                    targets = MASK_OFFERS if arm=="replay" else (UNMASK.get(arm) or UNMASK[group[1]],)
+                    row["offer_mask_witness"]={str(q):offer_witness(trace,q,UNMASK.get(arm),obs["prefill"])
+                                               for q in targets}
+                    if arm==group[0] and group not in SWITCH_MASK:
+                        old = next(i for i,g in enumerate(GROUPS[:BASE_GROUPS]) if arm in g)
+                        twin=read(output(old)/f"{task['index']:02d}-{arm}.json")
+                        if any(row[k]!=twin[k] for k in (*KEYS,"input_sha256","output_ids","trace",
+                                    "generation_forwards","generation_physical_padded_rows")):
+                            raise ValueError("Causal control no longer reproduces historical GPU run")
+                    elif arm!=group[0]:
+                        compare_offer(rows[0],row,UNMASK[arm])
                 if price:
                     row["quote_verified_decoder_calls"] = obs["quoted_decoder_calls"]
                 rows.append(row)
@@ -635,6 +701,10 @@ def protected():
         if (r["gpu"]!=0 or r["uuid"]!=prev.GPU or r["restored"] is not True or r["pid"]<=0
                 or r["full90"]!=prev.sealed(90) or r["original30"]!=prev.sealed(30)):
             raise ValueError("No completed LLaDA mask experiment or GPU0 not returned")
+    if GROUPS[i]==DYNAMIC_MASK:
+        receipt=read(caps.DATA/"llada21-commit-pair-gpu3-v1"/"returned.json")
+        if receipt["restored"] is not True or receipt["gpu"]!=0 or receipt["uuid"]!="GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb":
+            raise ValueError("Predecessor did not restore GPU0")
     call = b"run_wave(args, before_cuda=prepare)"
     src = caps.LAUNCHER.read_bytes()
     if sha(caps.LAUNCHER) != caps.LAUNCHER_SHA or src.count(call) != 1:
@@ -680,7 +750,14 @@ def queue(*, rank=False, exchange=False, spawn=False, transfer=False, dwell=Fals
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["queue"]:
+    if sys.argv[1:] in (["mask-replay"],["mask-fixed"],["mask-alternate"]):
+        for g in {"mask-replay":(DYNAMIC_MASK,),"mask-fixed":FIXED_MASK,"mask-alternate":SWITCH_MASK}[sys.argv[1]]:
+            i=GROUPS.index(g)
+            with output(i).with_suffix(".log").open("x") as log:
+                subprocess.run([sys.executable,"-u",str(HERE),"gemma","0"],env=dict(os.environ,
+                               UNIFIED_GROUP=str(i)),stdout=log,stderr=subprocess.STDOUT,check=True)
+            score(output(i))
+    elif sys.argv[1:] == ["queue"]:
         queue()
     elif sys.argv[1:] == ["queue-prefix-rank"]:
         queue(rank=True)

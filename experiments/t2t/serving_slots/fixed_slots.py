@@ -110,6 +110,37 @@ def true64_controls(data):
                        baseline_nominal_q=n,arm_nominal_q=64)
 
 
+def llada_capped_controls(data,budget):
+    from experiments.t2t.serving_slots.gemma_fixed_caps import read,SAMPLES_SHA
+    from bdlm_serving.evaluation.frozen import sha
+    from tools.prefix_cohorts import load_cases,normalize_request,select_window_cases,_window_row
+    cases=load_cases(data/"samples.json")
+    if sha(data/"samples.json")!=SAMPLES_SHA:
+        raise ValueError("Not the frozen suite")
+    source = data/("llada21-optimus-hardcap-"+{4:"low",8:"endpoints",16:"endpoints",32:"anchor"}[budget])
+    if read(data/"llada21-optimus-hardcap-anchor"/"replay-qualified.json")!=dict(
+            model="llada21",control="optimus_ibs_c32",samples=SAMPLES_SHA,matched=90):
+        raise ValueError("Missing anchor reproduction")
+    def get(folder,p):
+        if read(folder/"run.json")["samples_sha256"]!=SAMPLES_SHA or read(folder/f"complete-{p}.json")!=dict(policy=p,requests=90):
+            raise ValueError("Unsealed baseline")
+        table={}
+        for c in cases:
+            i=c["index"]
+            r=read(folder/f"{i:02d}-{p}.json")
+            if r["policy"]!=p:
+                raise ValueError("Wrong baseline file")
+            table[i]=normalize_request(r,c,"fixed-cap baseline")
+        return table
+    for mode in ("ibs","obs"):
+        arm=f"optcap_{mode}_{budget}"
+        trial=get(source,arm)
+        base=f"optimus_{mode}_c{budget}"
+        orig=get(data/f"llada21-reference90-q{budget}",base)
+        for w in (30,60,90):
+            yield _window_row(select_window_cases(cases,w),orig,trial,w,"all","llada21",base,arm,budget)
+
+
 def unified_fixed_row(raw, case, arm, budget):
     return unified_work_row(raw,case,arm,(budget,))
 
@@ -577,6 +608,7 @@ if __name__ == "__main__":
     parser.add_argument("--data", type=Path, help="also compute adjacent-slot pairs from private runs")
     parser.add_argument("--true64",type=Path,help="Publish cross-budget comparisons for the completed true two-block run")
     parser.add_argument("--gemma-fixed-caps",type=Path,help="Compare Q32/Q64 K0 with decoder-capped IBS/OBS")
+    parser.add_argument("--llada-fixed-cap",type=int,choices=(4,8,16,32),help="Original vs physically capped IBS/OBS at one offer")
     parser.add_argument("--unified-slots",type=int,nargs="+",
                         help="Rebuild per-slot tables from completed GPU90 arms; use with --data")
     parser.add_argument("--unified-adjacent",action="store_true",
@@ -588,6 +620,12 @@ if __name__ == "__main__":
     parser.add_argument("--rank-groups",nargs="+",metavar="Q:K",
                         help="Compare ranked prefixes against each other, K0 and capped baselines")
     args = parser.parse_args()
+    if args.llada_fixed_cap:
+        if not args.data:
+            parser.error("--llada-fixed-cap requires --data")
+        write_rows(HERE/f"controls/llada21-original-vs-capped-q{args.llada_fixed_cap}.csv",
+                   llada_capped_controls(args.data,args.llada_fixed_cap))
+        raise SystemExit(0)
     if args.transfer or args.dwell:
         if not args.data:
             parser.error("--transfer requires --data")

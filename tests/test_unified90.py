@@ -5,6 +5,35 @@ import pytest
 from experiments.t2t.serving_slots.unified90 import ARMS, paired, work_row
 
 
+def test_offer_selective_mask_compares_first_target_not_first_resident():
+    from experiments.t2t.serving_slots.unified90 import offer_witness,compare_offer
+    def step(i,q,front,opened=0):
+        return dict(tick=i,offer=q,head=0,selected=[10],visible=[10,266] if front else [10],
+                    sampled=[10],dirty_before=[[]],ages_before=[1],future_edges=int(front),
+                    open_edges=opened,first_offer_state="sig" if front else None)
+    tr=[step(0,512,True),step(1,32,False),step(2,32,True)]
+    other=deepcopy(tr)
+    other[2]["open_edges"]=1
+    w=offer_witness(tr,32,None,10)
+    assert w==offer_witness(other,32,32,10) and w["first_tick"]==2 and w["edge_pairs"]==1
+    row=dict(index=0,task_id="z",seed=1,dataset="d",input_sha256="sig",prefill_q=10,
+             output_ids=[1,2],trace=[],generation_forwards=3,generation_physical_padded_rows=3,
+             offer_mask_witness={"32":w})
+    compare_offer(row,deepcopy(row),32)
+    other[0]["open_edges"]=1
+    with pytest.raises(ValueError,match="Observed mask"):
+        offer_witness(other,32,32,10)
+    same=deepcopy(row)
+    same["offer_mask_witness"]["32"]["geometry_sha256"]="bad"
+    with pytest.raises(ValueError,match="before"):
+        compare_offer(row,same,32)
+    row["offer_mask_witness"]["32"]=offer_witness([step(0,32,False)],32,None,10)
+    same=deepcopy(row)
+    same["output_ids"]=[19,20]
+    with pytest.raises(ValueError,match="Unexposed"):
+        compare_offer(row,same,32)
+
+
 def test_dwell_profile_only_moves_two_external_offers():
     from collections import Counter
     from experiments.t2t.serving_slots.unified90 import GROUPS,TRANSFER,DWELL,OFFERS,PAIRED_OFFERS
