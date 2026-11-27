@@ -46,3 +46,35 @@ def test_credit_is_real_warm_projection(q):
     drive(r,m,[q])
     assert any(e["prefix"] for e in r.records)
     assert all(len(e["prefix"])<=1 and (not e["prefix"] or e["mask"]) for e in r.records)
+
+
+@pytest.mark.parametrize("q",(4,8))
+def test_gate_keeps_high_confidence_and_first_fully_visible_call(q):
+    def run(arm):
+        torch.manual_seed(51)
+        m=Measured()
+        r=make(m,arm,prompt=35,cap=31)
+        drive(r,m,[q])
+        return r
+    a,b=run("eager"),run("confident")
+    assert a.tokens==b.tokens
+    assert a.records==[{k:v for k,v in e.items() if k not in ("cold_max_conf","deferred_fallback")}
+                       for e in b.records]
+    assert any(e.get("cold_max_conf",0)>.9 for e in b.records)
+    assert all("deferred_fallback" not in e for e in b.records if e["visible_kv"]>=min(32*(e["block"]+1),66))
+
+
+def test_gate_veto_is_paid_without_creating_debt_or_reusing_old_proposals():
+    class Weak(Measured):
+        def _sample_with_temperature_topk_topp(self, logits, **kw):
+            self.sampler_inputs.append(logits.clone())
+            return torch.full(logits.shape[:-1],2,dtype=torch.long), torch.full(logits.shape[:-1],.1)
+    m=Weak()
+    r=make(m,"confident",prompt=58,cap=6)
+    drive(r,m,[4])
+    first,last_cold,followup=r.records[:3]
+    assert first["rows"]==first["sampled"]==[58,59,60,61] and first["deferred_fallback"]==[58]
+    assert first["written_absolute"]==first["dirty_after"]==[]
+    assert last_cold["rows"]==[62,63] and last_cold["admitted"]==[62]
+    assert "deferred_fallback" not in last_cold and last_cold["visible_kv"]==64
+    assert 58 in followup["sampled"] and followup["dirty_before"]==[62]

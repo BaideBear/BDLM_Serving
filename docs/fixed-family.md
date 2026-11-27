@@ -60,3 +60,23 @@ GPU 同档配对入口：`python -Bm experiments.t2t.serving_slots.fixed_family_
 `python -Bm experiments.t2t.serving_slots.llada_low_start_pilot` 用独立的 CPU 40–43 号核、BF16 跑真权重；复用正式评测器逐层核对实际 Q、掩码、写欠账与退休条件。`python -Bm experiments.t2t.serving_slots.llada_low_start_report --case 0` 仅列同题同档三组均已封存的结果；不加 `--case` 须 18 份原件及最终封存哈希齐全才出三题汇总。首个 Q4 `resident` 请求答对，N/F/Q 为 294/286/1103；历史同题 Q4 候选答错，249/234/872。该例中质量恢复，但付费投影更多，不能据此推广到其余题目或升级主算法。
 
 [同题 Q4/Q8 三臂明细](../experiments/t2t/serving_slots/controls/llada21-low-start-cpu-case0.csv)：Q4 累计前缀 60 行次，无前缀 T2T，仍错；Q8 累计 59 行次，发生 3 次前缀 T2T，答对。这不是这 3 次编辑导致答对的证据，因为 MASK 选位也改变了。Q8 建齐再采样也答对：计入 40 次建块后共 155 次 forward，TPF 1.916；立即采样 288 次，TPF 1.069。两个档位的 `eager` 都已逐轮复现历史候选。Q8 时这题首块仅剩 6 行，首次 forward 就可见完整首块，因此 `resident` 的干预来自**后续物理块**。这六行只描述一题，不给出总体胜率。作为外部参照，同一题同一 CPU 的严格 Optimus IBS Q8（M2T 0.9、K0）答对，TPF 2.504、效率 34.35%；两个新 Q8 实验组都未超过它。
+
+### 三题完整配对：哪一种冷启动值得扩大？
+
+CPU 真权重，固定 index 0、10、20，每次请求重新开始。单元格为 **正确数 / 宏 TPF / token efficiency**。这些是机制实验，并非 90 题正式对照。
+
+| 方法 | 固定 Q4 | 固定 Q8 |
+|---|---|---|
+| 立即采样（eager） | 0/3・1.217・29.25% | 0/3・1.419・19.65% |
+| 先建齐整块（resident） | 2/3・1.075・27.49% | 3/3・1.850・24.48% |
+| 跨轮积累可编辑前缀名额（credit） | 0/3・1.089・27.12% | 2/3・1.557・21.85% |
+| 块未齐时禁低置信强写（confident） | 3/3・1.289・31.66% | 3/3・2.171・28.11% |
+| 硬限 Optimus IBS（同 CPU，0.9，K0） | 此处未配对 | 3/3・2.533・33.32% |
+
+`confident` 只改变一件事：本块首次投影尚未覆盖至块末时，仍接受当轮真实 MASK 上过阈值的提议，但不因“无人过线”而强写一个位置。最后一片和暖块沿用原规则。不查未投影行，不用未来信息。新增六个请求均已检查首次被拦下的写入与 eager 的实际写入一致，之前逐轮相同，所有 forward 照常计费。三题中 Q8 index 10 从 1.643 **降到** 1.557；不能声称每题都更快。
+
+[三臂汇总](../experiments/t2t/serving_slots/controls/llada21-low-start-cpu3.csv) · [置信门控逐题明细](../experiments/t2t/serving_slots/controls/llada21-low-start-gate-cpu3.csv) · [Q8 与严格 IBS 的工作分解](../experiments/t2t/serving_slots/controls/llada21-low-start-work-cpu3.csv)。Q8 resident 的 462 次调用中 111 次只建 KV；它在已投影、仍为 MASK、且不欠账的位置又计算了 1,595 行次，IBS 为 480 行次。两者实际执行轨迹不同，仅凭计数不能断定是前沿顺序导致差距。复核入口为 `llada_low_start_report` 的默认模式、`--gate` 和 `--work`。
+
+### Gemma 五档三题检查
+
+[五档同题实测与 F/Q 分解](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu3-five-tiers.csv)。固定 Q32/64/128/256/512 的 CPU 三题均为 3/3，宏 TPF 依次为 **4.909、8.908、14.393、19.555、25.540**；效率为 **13.83%、13.16%、11.89%、10.20%、7.19%**。五档实际 decoder 峰值各自等于预算。Q512 相比 Q256 总 forward 从 54 降到 39，实算总行数却从 9,445 升到 12,815。该组说明真实双块换来了较少的轮数，未证明正确率提升，也未证明打过 GPU 基线。

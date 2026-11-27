@@ -1,4 +1,5 @@
 """Independent CPU-only diagnostic, fixed Q4/Q8, frozen indices 0/10/20."""
+import argparse
 from functools import partial
 import os
 from pathlib import Path
@@ -15,7 +16,37 @@ INDICES = (0, 10, 20)
 ARMS = ("resident", "credit", "eager")
 
 
+def compare_gate(row, ref):
+    """Both physical trajectories must be identical up to the first vetoed forced write."""
+    found=None
+    for n,(new,old) in enumerate(zip(row["trace"],ref["trace"])):
+        comparable={k:v for k,v in new.items() if k not in ("deferred_fallback","cold_max_conf")}
+        if new.get("deferred_fallback"):
+            require(old["admitted"]==new["deferred_fallback"] and not new["written_absolute"] and
+                    all(new[k]==old[k] for k in ("rows","sampled","dirty_before","visible_kv")),
+                    "First veto was not the original forced admission")
+            found=n
+            break
+        require(comparable==old,"Different trace before first veto")
+    if found is None:
+        require(row["output_ids"]==ref["output_ids"] and row["F"]==ref["F"] and row["Q"]==ref["Q"],
+                "No treatment, but a different output or bill")
+    for e in row["trace"]:
+        if "deferred_fallback" in e:
+            require(e["visible_kv"] < min(row["prefill_Q"]+ev.reg.CAP,(1+e["block"])*32)
+                    and e["sampled"]==e["cold"] and not e["prefix"] and
+                    (not e["deferred_fallback"] or (e["cold_max_conf"]<=.9 and not e["admitted"])),
+                    "Selective fallback applied outside an incomplete cold block")
+    return dict(first_veto=found,partial_calls=sum("deferred_fallback" in e for e in row["trace"]),
+                vetoed_calls=sum(bool(e.get("deferred_fallback")) for e in row["trace"]),
+                confident_early_writes=sum(len(e["admitted"]) for e in row["trace"] if "deferred_fallback" in e))
+
+
 def main():
+    ap=argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--confident-only",action="store_true",help="Use the sealed eager arm as paired control")
+    gate=ap.parse_args().confident_only
+    arms=("confident",) if gate else ARMS
     import torch
     import transformers, transformers.utils as u
     if not hasattr(u, "LossKwargs"):
@@ -36,7 +67,13 @@ def main():
     require(sha(samples) == ev.reg.SAMPLES_SHA, "Frozen suite changed")
     tasks = load_tasks(samples)
     ref = ev.resolve_reference(SimpleNamespace(samples=samples))
-    root = ev.reg.DATA/"llada21-low-start-cpu3-v1"
+    original_root=ev.reg.DATA/"llada21-low-start-cpu3-v1"
+    root = ev.reg.DATA/"llada21-low-start-gate-cpu3-v1" if gate else original_root
+    predecessor=None
+    if gate:
+        predecessor=read(original_root/"complete.json")
+        require(predecessor["registration"]==sha(original_root/"run.json") and len(predecessor["files"])==18,
+                "Original cohort is not sealed")
     root.mkdir(exist_ok=False)
     sources = {p:sha(ev.REPO/p) for p in (
         "bdlm_serving/methods/t2t/llada_budget_request.py","bdlm_serving/methods/t2t/llada_low_start.py",
@@ -45,8 +82,9 @@ def main():
         "experiments/t2t/serving_slots/llada_low_start_pilot.py",
         "experiments/t2t/serving_slots/llada_fixed_family_eval.py",
         "experiments/t2t/serving_slots/fixed_cold_exposure.py")}
-    save(root/"run.json",dict(indices=INDICES, arms=ARMS, budgets=[4,8], sources=sources,
+    save(root/"run.json",dict(indices=INDICES, arms=arms, budgets=[4,8], sources=sources,
          samples=sha(samples), scoring=ev.SCORER_SHA, device="cpu",cores=[40,41,42,43],
+         **({"eager_seal":sha(original_root/"complete.json")} if gate else {}),
          checkpoint=str(ev.CKPT),m2t=.9,t2t=.5,cap=ev.reg.CAP))
     print("Validating checkpoints and prompts", flush=True)
     ev.verify_checkpoint(ev.CKPT)
@@ -62,7 +100,7 @@ def main():
         for q in (4,8):
             original = read(ev.OUT/"cpu/law-1-8"/f"{i:02}-q{q}.json")
             require(original["row_visits"]["prefix"] == 0, "K0 comparison requires zero original exposure")
-            for arm in ARMS:
+            for arm in arms:
                 require(all(sha(ev.REPO/p)==h for p,h in sources.items()), "Pilot code changed")
                 print(f"Running {i:02} q={q} {arm}", flush=True)
                 # The frozen evaluator imports its constructor inside fixed(). Substitute only in
@@ -76,6 +114,10 @@ def main():
                         (arm != "eager" or all(row[k]==original[k] for k in
                              ("output_ids","score","F","Q","trace"))), "Intervention/control audit failed")
                 row.update(arm=arm, exposure=exp, registration_sha256=sha(root/"run.json"))
+                if gate:
+                    path=original_root/f"{i:02}-q{q}-eager.json"
+                    require(predecessor["files"][path.name]==sha(path),"Changed eager control")
+                    row["treatment"]=compare_gate(row,read(path))
                 dst = root/f"{i:02}-q{q}-{arm}.json"
                 save(dst,row)
                 receipts[dst.name]=sha(dst)
