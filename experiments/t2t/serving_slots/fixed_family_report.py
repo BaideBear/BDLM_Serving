@@ -55,7 +55,8 @@ def report(root, model, device, num=1):
                 inputs.setdefault(i,r["input_sha256"])==r["input_sha256"],"Wrong item, seed, law or input")
         widths=[e["q"] for e in r["trace"]]
         enc=sum(bool(e.get("encoded")) for e in r["trace"])
-        require(widths and all(e["offer"]==q and 0<len(set(e["rows"]))==e["q"]<=q
+        coords = "positions" if model=="gemma" and q==512 else "rows"
+        require(widths and all(e["offer"]==q and 0<len(set(e[coords]))==e["q"]<=q
                               for e in r["trace"]) and len(widths)+enc==r["F"] and
                 sum(widths)==r["decoder_Q"] and enc*256==r["encoder_Q"] and
                 sum(widths)+enc*256==r["Q"] and max(widths)==r["max_decoder_Q"] and

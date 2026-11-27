@@ -6,7 +6,7 @@
 
 公共选位由 `bdlm_serving.methods.t2t.budget_family.choose` 实现。先为发生写入或接受状态变化的欠账分配实际投影；欠账用完预算时只刷新，不能跳过欠账继续采样。冷启动优先填首次投影的行。进入已初始化的块后，在本轮余量 `r` 中，额外前缀上限为 `floor(min(r, B)/8)`，限定本物理块已连续解码、已初始化且不欠账的位置，优先靠近第一个未解码位置，始终为可推进的未解码位置保留至少一行。其它余量用于未解码位置；不为花满预算而添加一次 forward。`1/8` 是冻结候选，不是测得最优值。`0/8` 是移除额外前缀的消融，不允许逐档拼接两个候选。
 
-模型适配器保留各自的采样、T2T、位置编码和提交语义。Gemma 的 `FamilyRequest` 单块实现已接入 Q32/64/128/256；Q512 不支持时应拒绝，而不是把 Q256 重命名。收尾是单独计费的全块验证，物理上分片，任何一次 decoder forward 都不能超档。不能用后续 encoder 的宽度伪称 decoder 超档，也不能把后续 encoder 的生成成本扣掉。LLaDA 的 Q64 与 Gemma 的 Q512 都必须验证前块看不到后块、后块能读前块，且切实有多块计算，然后才能称为双块测试。
+模型适配器保留各自的采样、T2T、位置编码和提交语义。Gemma 的单块实现接入 Q32/64/128/256。Q512 通过 `FixedFamilyRequest` 启用两个 B256 画布，在一次 `choose()` 和一次物理 forward 中共享预算；小档调用原单块实现。收尾是单独计费的全块验证，小预算物理上分片，任何一次 decoder forward 都不能超档。后续 encoder 全额计入生成 F/Q，但不计入 decoder 宽度。LLaDA Q64 和 Gemma Q512 均有真实 attention 的双向扰动测试，检验后块能读前块、前块看不到后块。
 
 ## 固定档验收
 
@@ -22,6 +22,8 @@
 ## 复现
 
 在 n164 对应 checkout 的 Gemma 环境下运行 `python -Bm experiments.t2t.serving_slots.fixed_family_eval --device cpu --tiers 128 256 64 32`，需隐藏 GPU 并限制四个 CPU 核。它将同一组 90 题对四个档位分别完整生成；实际原件留在集群 `prefix90/gemma-fixed-family-v1`。正式上卡须走受保护交接，不直接运行占卡命令。未收齐 90 条不可写入正式结果表。
+
+双块补充入口为 `python -Bm experiments.t2t.serving_slots.gemma_fixed_dual_eval`，在相同的 Gemma 环境、CPU 32–35，运行同样的 90 题，独立登记 Q512。第一次前块可采样且生成上限允许时打开下一块；晋升保留后块的采样状态，重新投影它的 KV。前块 EOS 时即使后块被丢弃，已发生的投影仍然计费。逐题核验 85 个投影模块、实际联合调用、物理峰值 512、终检输出与 encoder 账本。四档单块 CPU 任务源码不因增加双块档而改变。
 
 LLaDA 对应入口为 `python -Bm experiments.t2t.serving_slots.llada_fixed_family_eval --tiers 32 64 16 8 4`（LLaDA 环境、隐藏 GPU、CPU 36–39）。五档共用固定 M2T/T2T 阈值 0.9/0.5 和 `1/8` 选位公式。因此 Q4 的可选前缀名额按向下取整为零，强制刷新不受这项取整影响。保留原生绝对 B32 分界。单次纯 prompt prefill 包含最后不足一块的 prompt，之后不再计算其位置；与先仅 prefill 整块、在生成时再计算余下 prompt 的基线相比，这是明确的缓存策略差异。
 
