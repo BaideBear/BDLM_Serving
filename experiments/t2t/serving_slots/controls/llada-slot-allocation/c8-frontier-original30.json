@@ -1,0 +1,81 @@
+{
+  "cohorts": {
+    "original30": {
+      "arms": {
+        "exchange": {
+          "F": 12663,
+          "N": 17731,
+          "Q": 86431,
+          "TE": 0.20514630167416784,
+          "actions": 2083,
+          "correct": 14,
+          "failed": 0,
+          "macro_TPF": 1.8650722315059218,
+          "swapped_admits": 1817
+        },
+        "old": {
+          "F": 16220,
+          "N": 18468,
+          "Q": 113469,
+          "TE": 0.162758110144621,
+          "actions": 0,
+          "correct": 11,
+          "failed": 0,
+          "macro_TPF": 1.6346012323238144,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 30,
+          "losses": 3,
+          "rescues": 6
+        }
+      },
+      "exposed": 30,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "planner": "04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9",
+    "protocol": "llada-frontier-one-seat-v1",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "a97134ebfdfd8c81a8153ae980c0cd5844f9bc57830bb2fe4d6ec41fec1448a8"
+}

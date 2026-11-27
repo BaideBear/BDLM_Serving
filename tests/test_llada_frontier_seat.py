@@ -3,6 +3,7 @@ from dataclasses import replace
 from bdlm_serving.methods.t2t.budget_family import Plan
 from experiments.t2t.serving_slots.llada_frontier_seat import exchange, interior_exchange
 from experiments.t2t.serving_slots.llada_selection_geometry import policy
+from experiments.t2t.serving_slots.llada_window_geometry import window
 
 
 def test_exchange_preserves_width_dirty_sampler_arity_and_contiguous_build():
@@ -34,3 +35,27 @@ def test_ibs_candidate_keeps_settled_suffix_rows_then_clips_for_debt():
     masked={2,4,5,6}
     assert policy(2,8,masked,{7},4)==((2,3,4,7),(2,3,4,7))
     assert policy(2,8,masked,{7},2)==((2,3,7),(2,7))
+
+
+def test_window_preserves_pinned_rows_and_width_but_retries_nearby_mask():
+    p=Plan((2,5,10,11),(5,),(10,11),(),(2,),False)
+    new,sampled,delta=window(p,(10,11),{4,7,8,9,10,11},set(range(10)),12)
+    assert new==Plan((2,4,5,6),(5,),(),(4,),(2,),False)
+    assert sampled==new.rows and delta["interior"]==(6,)
+
+
+def test_window_does_not_advance_a_drain_or_change_an_identical_cold_plan():
+    p=Plan((2,3),(2,3),(),(),(),True)
+    assert window(p,(),{7,8},set(range(7)),9)==(p,(),None)
+    p=Plan((4,5),(),(4,5),(),(),False)
+    assert window(p,p.cold,set(range(4,9)),set(range(4)),9)==(p,p.cold,None)
+
+
+def test_window_keeps_contiguous_new_keys_if_cold_and_warm_mix():
+    p=Plan((4,9,10,11),(4,),(9,10,11),(),(),False)
+    mask=set(range(5,12))
+    new,sampled,_=window(p,p.cold,mask,set(range(9)),12)
+    assert new.rows==(4,5,6,7) and sampled==new.rows
+    p=Plan((4,8,9,10),(4,),(8,9,10),(),(),False)
+    new,sampled,_=window(p,p.cold,{7,8,9,10},set(range(8)),11)
+    assert new.rows==(4,7,8,9) and new.cold==sampled==(8,9)

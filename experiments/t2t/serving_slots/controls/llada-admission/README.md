@@ -64,3 +64,23 @@ At 0.9 vs 0.5, the new60 scored 37 vs 26; all90 **55 vs 42** (8 rescues,
 346,033, macro TPF 2.723 vs 3.181, pooled TE 13.45% vs 14.92%. Zero failures
 in both arms. Unlike the original30 subcohort, the full cohort used fewer total
 forwards under 0.5. The loss of quality is not a result of missing samples.
+
+## Full cohort: Q32 and scoped Q64
+
+The Q32 comparison uses the sparse head-only control, not the later editable
+full-head close. The Q64 comparison uses full-head quarter gating in both
+arms; the warm-only arm lowers M2T only once the current head is fully
+initialized. It is not the separate `quarter_edit_warm` public profile.
+Each comparison includes the same 90 questions; all four arms had zero failures.
+
+| Fixed offer / M2T rule | Original30 | Added60 | Frozen90 | Macro TPF | Pooled TE | F | N | Decoder Q |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| [Q32](c32.json), 0.9 | 23 | 49 | 72 | 4.513 | 16.62% | 13,870 | 44,068 | 265,204 |
+| Q32, 0.5 globally | 16 | 35 | 51 | 5.968 | 19.15% | 13,081 | 47,923 | 250,312 |
+| [Q64](c64-warm.json), 0.9 | 24 | 46 | 70 | 6.279 | 9.14% | 10,020 | 41,634 | 455,344 |
+| Q64, 0.5 on the initialized head | 24 | 42 | 66 | 7.505 | 11.43% | 7,446 | 39,992 | 349,850 |
+
+Q32: 2 rescues and 23 losses. Q64 warm-only: 7 rescues and 11 losses.
+The latter lost fewer answers than the earlier global Q64 trial (59/90),
+but still falls short of its own control; the tie on original30 did not hold
+on added60. Do not adopt either threshold relaxation as a quality-preserving rule.

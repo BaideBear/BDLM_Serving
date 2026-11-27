@@ -46,6 +46,9 @@ def interior_exchange(plan,sampled,candidates):
 def classes(factor="frontier"):
     from .llada_hfull_single_factor import request_classes
     _,control,_=request_classes()
+    if factor=="window":
+        from .llada_window_geometry import window_class
+        return control,window_class(control)
     class Exchange(control):
         def _cross_plan(self,q):
             plan,sampled,phase,cap=super()._cross_plan(q)
@@ -110,7 +113,14 @@ def first_difference(a,b):
 
 
 def compact(r):
-    return dict(**{k:r[k] for k in ("N","F","Q","failure","correct","row_visits","max_decoder_Q")},
+    extras={}
+    if any("window_geometry" in e for e in r["trace"]):
+        interventions=[e for e in r["trace"] if "window_geometry" in e]
+        extras=dict(window_calls=len(interventions),
+                    window_interior=sum(len(e["window_geometry"]["interior"]) for e in interventions),
+                    window_edits=sum(len(set(e["window_geometry"]["interior"]) & set(e["edited"]+e["revoked"]))
+                                     for e in interventions))
+    return dict(**extras,**{k:r[k] for k in ("N","F","Q","failure","correct","row_visits","max_decoder_Q")},
                 output_digest=sha256(json.dumps(r["output_ids"]).encode()).hexdigest(),
                 actions=sum("frontier_swap" in e for e in r["trace"]),
                 swapped_admits=sum(e["frontier_swap"][1] in e["admitted"]
@@ -159,7 +169,7 @@ def first_interior(old,new,*,compare_sampling):
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(4,8)
+    opts=(8,16) if a.factor=="window" else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES
@@ -170,10 +180,25 @@ def run(a):
     order=[i for i in ORDER if i<a.limit]
     a.out.mkdir(parents=True,exist_ok=False)
     (a.out/"rows").mkdir()
-    protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1"}[a.factor]
-    save(a.out/"run.json",dict(protocol=protocol,order=order,q=a.offer,
-                               device=device,checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
-                               planner=sha256(Path(__file__).read_bytes()).hexdigest()))
+    protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1",
+              "window":"llada-fixed-width-window-v1"}[a.factor]
+    registration=dict(protocol=protocol,order=order,q=a.offer,device=device,
+                      checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
+                      planner=sha256(Path(__file__).read_bytes()).hexdigest())
+    prior={}
+    if a.factor=="window":
+        registration["geometry_sha256"]=sha256(Path(__file__).with_name("llada_window_geometry.py").read_bytes()).hexdigest()
+    if a.extend_from:
+        require(a.factor=="frontier" and a.offer==8 and a.limit==90,"unsupported extension")
+        old_reg=json.loads((a.extend_from/"run.json").read_bytes())
+        require(old_reg["planner"]=="04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9"
+                and old_reg["order"]==order[:30] and all(old_reg[k]==registration[k] for k in
+                     ("protocol","q","device","checkpoint","samples","scorer")),"not the registered A0 original30")
+        prior={i:json.loads((a.extend_from/"rows"/f"{i:02}.json").read_bytes()) for i in range(30)}
+        require(all(all(r[k]==tasks[i][k] for k in KEYS) for i,r in prior.items()),"wrong inherited identity")
+        registration.update(inherited=str(a.extend_from),inherited_planner=old_reg["planner"],
+                            inherited_replay=list(ANCHORS))
+    save(a.out/"run.json",registration)
     def ready():
         if a.handoff is not None:
             (a.handoff/"ready").touch(exist_ok=False)
@@ -185,6 +210,9 @@ def run(a):
     counts=Counter()
     for j,i in enumerate(order):
         require(time.time()<a.deadline-60,"deadline")
+        if i in prior and i not in ANCHORS:
+            save(a.out/"rows"/f"{i:02d}.json",prior[i])
+            continue
         ref=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
         require(i==ref["index"] and ref["generation_cap"]==CAP and ref["prompt_ids"],"wrong prompt")
         arms=[evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.offer,Law(),
@@ -194,6 +222,10 @@ def run(a):
         if a.factor=="frontier":
             first=first_difference(old,new)
             extra=dict(exchange=compact(new))
+        elif a.factor=="window":
+            from .llada_window_geometry import first_geometry
+            first=first_geometry(old,new)
+            extra=dict(window=compact(new))
         else:
             first=first_interior(old,new,compare_sampling=False)
             edit=first_interior(new,arms[2],compare_sampling=True)
@@ -204,6 +236,11 @@ def run(a):
                     and all(e["q"]<=a.offer and e["layer_physical_q"]==[e["q"]]*20
                             for e in r["trace"]),"invalid physical bill")
         row=dict(**{k:old[k] for k in KEYS},input=old["input_sha256"],first=first,old=compact(old),**extra)
+        if i in prior:
+            refrow=prior[i]
+            require(row["input"]==refrow["input"] and row["first"]==refrow["first"] and
+                    all(all(row[arm][k]==v for k,v in refrow[arm].items()) for arm in ("old","exchange")),
+                    "original control/treatment anchor replay differs, do not extend")
         save(a.out/"rows"/f"{i:02d}.json",row)
         counts["exposed"]+=bool(first)
         print(i, bool(first),[(v["F"],v["correct"]) for v in arms],flush=True)
@@ -216,9 +253,10 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
     for k in ("reference","samples","checkpoint","out"):
         ap.add_argument("--"+k,type=Path,required=True)
-    ap.add_argument("--offer",choices=(4,8),type=int,required=True)
+    ap.add_argument("--offer",choices=(4,8,16),type=int,required=True)
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
-    ap.add_argument("--factor",choices=("frontier","interior"),default="frontier")
+    ap.add_argument("--factor",choices=("frontier","interior","window"),default="frontier")
+    ap.add_argument("--extend-from",type=Path)
     ap.add_argument("--handoff",type=Path)
     ap.add_argument("--deadline",type=int,required=True)
     run(ap.parse_args())

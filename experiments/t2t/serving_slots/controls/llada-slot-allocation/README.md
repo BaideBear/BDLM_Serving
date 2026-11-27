@@ -50,3 +50,37 @@ No serving scheduler, full-logit oracle or budget override is used.
 
 Only complete paired cohorts can establish an outcome. Do not infer that the
 interior intervention wins from the high frequency of a shadow planner's choices.
+
+### Original30: one cold seat for a waiting MASK
+
+| Fixed Q8 (original 30) | Correct | Macro TPF | Pooled TE | Total F | Output N | Selected Q |
+|---|---:|---:|---:|---:|---:|---:|
+| A0 head-only control | 11 | 1.635 | 16.28% | 16,220 | 18,468 | 113,469 |
+| Same A0, one seat exchanged | 14 | 1.865 | 20.51% | 12,663 | 17,731 | 86,431 |
+| Historical strictly capped IBS8 | 25 | 2.265 | 28.36% | 6,652 | 13,907 | 49,029 |
+
+All 30 pairs were exposed, and all 30 output sequences changed (6 rescues,
+3 losses, zero failures). The waiting MASK was admitted on 1,817/2,083 exchanges;
+this does not imply a causal admission probability on other trajectories.
+The fully measured [paired report](c8-frontier-original30.json) improves over
+its own control, not over [strict IBS8](../llada21-q8-ibs-original-vs-capped.csv).
+Extend unchanged to added60 on the same physical A0, with exact replays of
+both arms on 0/10/20 before accepting the inherited original30.
+
+### Fixed-width active-window experiment
+
+Separate fixed Q8 and Q16 studies on the original30. Reuse the head-only
+executor and keep its per-state real projection width, global dirty rows,
+ordered clean-prefix quota, confidence thresholds and cache-visibility rule.
+At ordinary sampling ticks, rank remaining seats within the span starting
+at the first MASK: retain eligible decoded interior positions and the earliest
+unresolved candidates, clipped in physical order to the remaining slots.
+A mixed cold call samples only cold positions; a warm call may edit its paid
+rows under the existing rule. As a result of different row selection, a
+forward may turn from cold to warm or move its rightmost newly initialized
+position. Those are effects of the policy, not identical attention inputs.
+This is not an exact IBS reproduction: the protected prefix and width, full
+resident history, prompt prefill and block retirement are still ours.
+First intervention must match input state, width, phase, dirty and prefix,
+with physical width checked on every layer on **every** step. Run via
+`tools/run_llada_small_geometry_a800.sh window DEADLINE 8` or `16`.

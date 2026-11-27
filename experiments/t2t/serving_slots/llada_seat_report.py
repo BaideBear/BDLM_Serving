@@ -8,10 +8,12 @@ from statistics import mean
 
 def report(root,manifest):
     meta=json.loads((root/"run.json").read_bytes())
-    arms={"llada-frontier-one-seat-v1":("old","exchange"),"llada-interior-one-seat-v1":("old","read","edit")}[meta["protocol"]]
+    arms={"llada-frontier-one-seat-v1":("old","exchange"),"llada-interior-one-seat-v1":("old","read","edit"),
+          "llada-fixed-width-window-v1":("old","window")}[meta["protocol"]]
     q,order=meta["q"],meta["order"]
     n=len(order)
-    if (n not in (30,90) or order[:3]!=[0,10,20] or sorted(order)!=list(range(n)) or q not in (4,8)
+    if (n not in (30,90) or order[:3]!=[0,10,20] or sorted(order)!=list(range(n))
+            or q not in ((8,16) if "window" in arms else (4,8))
             or meta["samples"]!=manifest["samples_sha256"] or not meta["device"].startswith("GPU-")):
         raise ValueError("Unregistered study")
     files=sorted((root/"rows").glob("*.json"))
@@ -44,8 +46,11 @@ def report(root,manifest):
         e=out[name]=dict(pairs=len(part),exposed=sum(bool(r["first"]) for r in part),arms={},changes={})
         for k in arms:
             a=[r[k] for r in part]
-            s={col:sum(v[col] for v in a) for col in ("N","F","Q","correct","actions","swapped_admits",
-                                                       "interior_swaps","interior_writes")}
+            counts=(("actions","swapped_admits") if "exchange" in arms else
+                    () if "window" in arms else ("interior_swaps","interior_writes"))
+            s={col:sum(v[col] for v in a) for col in ("N","F","Q","correct",*counts)}
+            if "window" in arms:
+                s.update({col:sum(v.get(col,0) for v in a) for col in ("window_calls","window_interior","window_edits")})
             s.update(failed=sum(bool(v["failure"]) for v in a),
                      macro_TPF=mean(v["N"]/v["F"] for v in a),TE=s["N"]/s["Q"])
             e["arms"][k]=s
