@@ -24,7 +24,7 @@ SCORER_SHA = "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
 OUT = reg.DATA/"llada21-fixed-family-v1"
 
 
-def fixed(model, tok, task, prompt, q, law):
+def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
     import torch
     from bdlm_serving.methods.t2t.llada_budget_request import LLaDABudgetRequest
 
@@ -47,7 +47,8 @@ def fixed(model, tok, task, prompt, q, law):
         ctx.enter_context(model.model.layers[0].attention.register_forward_pre_hook(at_layer,with_kwargs=True))
         ctx.enter_context(model.lm_head.register_forward_pre_hook(lambda _,args: head_width.append(args[0].shape[1])))
         req = LLaDABudgetRequest(model,x,mask_id=mask,eos_ids=[eos],max_new_tokens=reg.CAP,
-                                seed=task["seed"],law=law,confidence_threshold=.9,editing_threshold=.5)
+                                seed=task["seed"],law=law,confidence_threshold=.9,editing_threshold=.5,
+                                tail_rule=tail_rule)
         reg.require(attention == [list(range(origin))] and head_width == [origin],"Wrong pure prompt prefill")
         debt = set()
         while req.status == "ready":
@@ -113,9 +114,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--tiers",type=int,choices=TIERS,nargs="+",default=(32,64,16,8,4))
     ap.add_argument("--num",type=int,choices=(0,1),default=1)
+    ap.add_argument("--tail-pilot",action="store_true",help="Three fixed Q64 arms on frozen 0/10/20, CPU cores 44-47")
     a = ap.parse_args()
+    if a.tail_pilot and (tuple(a.tiers)!=(64,) or a.num!=1):
+        ap.error("--tail-pilot requires --tiers 64 and the 1/8 law")
+    cores=range(44,48) if a.tail_pilot else range(36,40)
     reg.require(len(a.tiers)==len(set(a.tiers)) and os.environ.get("CUDA_VISIBLE_DEVICES")==""
-                and os.sched_getaffinity(0)==set(range(36,40)), "Use the registered four-core CPU lane")
+                and os.sched_getaffinity(0)==set(cores), "Use the registered four-core CPU lane")
     import torch, transformers, transformers.utils as u
     if not hasattr(u,"LossKwargs"):
         from typing import TypedDict
@@ -132,14 +137,19 @@ def main():
     tasks = load_tasks(samples)
     ref = resolve_reference(SimpleNamespace(samples=samples))
     law = Law(a.num,8)
-    root = OUT/"cpu"/f"law-{a.num}-8"
+    ordinary=OUT/"cpu"/f"law-{a.num}-8"
+    root=reg.DATA/"llada21-family-tail-cpu3-v1" if a.tail_pilot else ordinary
+    indices=(0,10,20) if a.tail_pilot else ORDER
+    rules=("eager","defer_tail","fill_head") if a.tail_pilot else ("eager",)
+    reg.require(reg.sha(samples)==reg.SAMPLES_SHA,"Unexpected frozen inputs")
     root.mkdir(parents=True,exist_ok=False)
     paths = [HERE, *(REPO/p for p in ("bdlm_serving/methods/t2t/budget_family.py",
         "bdlm_serving/methods/t2t/llada_budget_request.py","bdlm_serving/methods/t2t/llada_sparse.py",
         "bdlm_serving/methods/optimus/upstream.py","bdlm_serving/runtime/serial.py"))]
     hashes = {p.name:reg.sha(p) for p in paths}
     meta = root/"run.json"
-    reg.save(meta,dict(tiers=a.tiers,indices=ORDER,samples=reg.sha(samples),scoring=SCORER_SHA,
+    reg.save(meta,dict(tiers=a.tiers,indices=indices,samples=reg.sha(samples),scoring=SCORER_SHA,
+        **({"tail_rules":rules,"cores":list(cores),"eager_reference":reg.sha(ordinary/"run.json")} if a.tail_pilot else {}),
         files=hashes,law=[law.num,law.den],checkpoint=str(CKPT),device="cpu",
         torch=torch.__version__,transformers=transformers.__version__,length_cap=reg.CAP,
         m2t=.9,t2t=.5,retirement="all_resident_no_masks_no_token_debt",case_failure_score=0))
@@ -152,18 +162,55 @@ def main():
                     attn_implementation="sdpa",device_map={"":"cpu"}).eval()
     install_llada_rectangular_mask(model,allow_selected_cache=True)
     receipts = {}
-    for i in ORDER:
+    for i in indices:
         prompt=reg.read(ref/reg.filename(i,"native32"))["prompt_ids"]
         for q in a.tiers:
-            dst=root/f"{i:02}-q{q}.json"
-            reg.require(not dst.exists() and all(reg.sha(p)==hashes[p.name] for p in paths),"Source/row changed")
-            print(f"Running fixed Q{q} index={i}",flush=True)
-            row=fixed(model,tok,tasks[i],prompt,q,law)
-            row["registration_sha256"]=reg.sha(meta)
-            reg.save(dst,row)
-            receipts[dst.name]=reg.sha(dst)
-            print(f"Sealed {i:02} Q{q}: correct={row['correct']}, N/F={row['N']}/{row['F']}, paid={row['Q']}",flush=True)
+            for rule in rules:
+                suffix=f"-{rule}" if a.tail_pilot else ""
+                dst=root/f"{i:02}-q{q}{suffix}.json"
+                reg.require(not dst.exists() and all(reg.sha(p)==hashes[p.name] for p in paths),"Source/row changed")
+                print(f"Running fixed Q{q} index={i} {rule}",flush=True)
+                row=fixed(model,tok,tasks[i],prompt,q,law,tail_rule=rule)
+                if a.tail_pilot:
+                    refrow=reg.read(ordinary/f"{i:02}-q{q}.json")
+                    reg.require(all(row[k]==refrow[k] for k in (*reg.KEYS,"q","law","input_sha256")) and
+                                refrow["registration_sha256"]==reg.sha(ordinary/"run.json"),"Unpaired fixed request")
+                    row["tail_rule"]=rule
+                    if rule=="eager":
+                        reg.require(all(row[k]==refrow[k] for k in ("trace","output_ids","score","N","F","Q")),
+                                    "Rerun differs from original CPU control")
+                    else:
+                        row["first_intervention"]=compare_tail(row,refrow)
+                row["registration_sha256"]=reg.sha(meta)
+                reg.save(dst,row)
+                receipts[dst.name]=reg.sha(dst)
+                print(f"Sealed {i:02} Q{q} {rule}: correct={row['correct']}, N/F={row['N']}/{row['F']}, paid={row['Q']}",flush=True)
     reg.save(root/"complete.json",dict(run=reg.sha(meta),files=receipts))
+
+
+def compare_tail(case,ref):
+    rule=case["tail_rule"]
+    for i,(e,old) in enumerate(zip(case["trace"],ref["trace"])):
+        info=e.get("tail_intervention")
+        if info is None:
+            reg.require(e==old,"Trajectories diverged before treatment")
+            continue
+        reg.require(info["rule"]==rule and all(e[k]==old[k] for k in ("offer","block","dirty_before","dirty","cold","visible_kv")),
+                    "Different input at first treatment")
+        split=(1+e["block"])*32
+        if rule=="defer_tail":
+            withheld=set(info["withheld"])
+            reg.require(withheld and withheld=={p for p in old["cold"] if p>=split} and
+                        e["rows"]==old["rows"] and set(e["sampled"])==set(old["sampled"])-withheld,
+                        "Changed projection or wrong tail suppression")
+        else:
+            extra=set(info["added"])
+            reg.require(rule=="fill_head" and extra and max(extra)<split and not extra.intersection(old["rows"])
+                        and set(e["rows"])==set(old["rows"])|extra
+                        and set(e["sampled"])==set(old["sampled"])|extra,"Changed original seats")
+        return i
+    reg.require(all(case[k]==ref[k] for k in ("trace","output_ids","score","F","Q")),"Unexplained no-op")
+    return None
 
 
 if __name__=="__main__":

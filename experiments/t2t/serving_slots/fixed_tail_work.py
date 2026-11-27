@@ -4,7 +4,7 @@ from collections import Counter
 import csv
 import sys
 
-from .llada_all_slots90 import DATA, read, require, sha
+from .llada_all_slots90 import DATA, SAMPLES_SHA, read, require, sha
 from .fixed_family_report import COHORTS, report
 
 
@@ -70,7 +70,16 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device",choices=("cpu","cuda"),required=True)
     parser.add_argument("--cohort",choices=("smoke3",*COHORTS),default="smoke3")
+    parser.add_argument("--pilot",action="store_true",help="Compare the sealed Q64 tail-policy intervention")
     args=parser.parse_args()
+    if args.pilot:
+        if args.device!="cpu" or args.cohort!="smoke3":
+            parser.error("Tail-policy pilot is registered on CPU for the three prespecified cases")
+        records=pilot()
+        w=csv.DictWriter(sys.stdout,fieldnames=records[0],lineterminator="\n")
+        w.writeheader()
+        w.writerows(records)
+        return
     idx=(0,10,20) if args.cohort=="smoke3" else sorted(COHORTS[args.cohort])
     snapshot=report(DATA,"llada21",args.device)
     verified=(snapshot["protocol_smoke3"] if args.cohort=="smoke3" else snapshot["cohorts"][args.cohort])
@@ -92,6 +101,45 @@ def main():
     w=csv.DictWriter(sys.stdout,fieldnames=records[0],lineterminator="\n")
     w.writeheader()
     w.writerows(records)
+
+
+def pilot():
+    from .llada_fixed_family_eval import compare_tail,SCORER_SHA
+    root=DATA/"llada21-family-tail-cpu3-v1"
+    base=DATA/"llada21-fixed-family-v1"/"cpu"/"law-1-8"
+    reg,seal=read(root/"run.json"),read(root/"complete.json")
+    rules=("eager","defer_tail","fill_head")
+    require(reg["samples"]==sha(DATA/"samples.json")==SAMPLES_SHA and reg["device"]=="cpu" and
+            reg["scoring"]==SCORER_SHA and reg["tiers"]==[64] and reg["indices"]==[0,10,20]
+            and tuple(reg["tail_rules"])==rules and reg["law"]==[1,8] and reg["eager_reference"]==sha(base/"run.json")
+            and seal["run"]==sha(root/"run.json") and len(seal["files"])==9,"Incomplete or mixed pilot")
+    out=[]
+    for i in reg["indices"]:
+        ref=read(base/f"{i:02}-q64.json")
+        for rule in rules:
+            p=root/f"{i:02}-q64-{rule}.json"
+            require(sha(p)==seal["files"][p.name],"Changed sealed request")
+            x=read(p)
+            require(x["registration_sha256"]==seal["run"] and x["tail_rule"]==rule and
+                    ref["registration_sha256"]==reg["eager_reference"] and
+                    x["index"]==i and x["q"]==64 and
+                    all(x[k]==ref[k] for k in ("index","task_id","seed","dataset","q","law","input_sha256")),
+                    "Different request or treatment")
+            effects=[e for e in x["trace"] if "tail_intervention" in e]
+            first=x.get("first_intervention")
+            if rule=="eager":
+                require(not effects and all(x[k]==ref[k] for k in ("trace","output_ids","score","F","Q")),
+                        "Not the archived eager control")
+            else:
+                require(compare_tail(x,ref)==first,"Intervention witness differs")
+            oldwrite=(len(set(ref["trace"][first]["written_absolute"])&
+                          set(effects[0]["tail_intervention"].get("withheld",[]))) if first is not None else 0)
+            out.append(dict(index=i,rule=rule,correct=int(x["correct"]),N=x["N"],F=x["F"],paid_Q=x["Q"],
+                       TPF=x["N"]/x["F"],efficiency=x["N"]/x["Q"],first_intervention=first,
+                       triggered_F=len(effects),withheld_tail_Q=sum(len(e["tail_intervention"].get("withheld",[])) for e in effects),
+                       extra_head_Q=sum(len(e["tail_intervention"].get("added",[])) for e in effects),
+                       first_control_writes_withheld=oldwrite,**ledger(x)))
+    return out
 
 
 if __name__=="__main__":

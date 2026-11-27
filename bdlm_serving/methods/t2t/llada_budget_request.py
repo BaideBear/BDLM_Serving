@@ -5,6 +5,7 @@ on the raw eval model. Construction pays one separately logged pure-prompt
 prefill. Generation never rounds the output cap up or calls a dense verifier,
 commit, promotion, or uncharged bootstrap. Not native dense KV/convergence.
 """
+from dataclasses import replace
 from types import SimpleNamespace
 
 import torch
@@ -51,14 +52,17 @@ class LLaDABudgetRequest:
     """
     @torch.inference_mode()
     def __init__(self, model, input_ids, *, mask_id, eos_ids=(), seed=0,
-                 max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5):
+                 max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
+                 tail_rule="eager"):
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
                 or type(mask_id) is not int or not isinstance(law, Law)
+                or tail_rule not in ("eager","defer_tail","fill_head")
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
+        self.tail_rule = tail_rule
         vocab = model.get_input_embeddings().weight.shape[0]
         self.mask_id, self.eos_ids = mask_id, frozenset(eos_ids)
         if (not 0 <= mask_id < vocab or mask_id in self.eos_ids
@@ -144,6 +148,21 @@ class LLaDABudgetRequest:
                 or (len(before) >= q and (len(plan.dirty) != q or not plan.drain_only))):
             raise RuntimeError("Empty plan, skipped required refresh or sampled through a full debt offer")
         sampled = () if plan.drain_only else plan.cold or tuple(r for r in rows if r in eligible)
+        split=self.head+B
+        intervention=None
+        if self.tail_rule!="eager" and q>B and any(p>=split for p in plan.cold):
+            head_masks={p for p in masks if p<split}
+            if head_masks and head_masks<=self.bank.initialized:
+                if self.tail_rule=="defer_tail":
+                    sampled=tuple(p for p in sampled if p<split)
+                    intervention=dict(rule=self.tail_rule,withheld=list(p for p in plan.cold if p>=split))
+                else:
+                    extra=tuple(sorted(head_masks-set(rows)))[:q-len(rows)]
+                    if extra:
+                        rows=tuple(sorted((*rows,*extra)))
+                        sampled=tuple(sorted((*sampled,*extra)))
+                        plan=replace(plan,rows=rows,mask=tuple(sorted((*plan.mask,*extra))))
+                        intervention=dict(rule=self.tail_rule,added=list(extra))
         e, logits = self._project(rows, q, 'sample' if sampled else 'drain')
         admitted, edited, revoked = [], [], []
         if sampled:
@@ -178,5 +197,7 @@ class LLaDABudgetRequest:
                  sampled=list(sampled), drain_only=not sampled, admitted=admitted, edited=edited,
                  revoked=revoked, written_absolute=sorted(written), dirty_after=sorted(self.dirty),
                  sample_clock=self.sample_clock, retired_blocks=retired)
+        if intervention is not None:
+            e["tail_intervention"]=intervention
         self.records.append(e)
         return e
