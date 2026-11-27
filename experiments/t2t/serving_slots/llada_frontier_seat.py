@@ -46,6 +46,9 @@ def interior_exchange(plan,sampled,candidates):
 def classes(factor="frontier"):
     from .llada_hfull_single_factor import request_classes
     _,control,_=request_classes()
+    if factor=="successor":
+        from .llada_successor_seats import variants
+        return variants(control)
     if factor=="window":
         from .llada_window_geometry import window_class
         return control,window_class(control)
@@ -114,6 +117,11 @@ def first_difference(a,b):
 
 def compact(r):
     extras={}
+    tail=[e for e in r["trace"] if "supplemental_tail" in e]
+    if tail:
+        extras=dict(supp_calls=len(tail),supp_Q=sum(len(e["supplemental_tail"]) for e in tail),
+                    supp_T2T=sum(len(set(e["supplemental_tail"]) & set(e["edited"])) for e in tail),
+                    supp_revoke=sum(len(set(e["supplemental_tail"]) & set(e["revoked"])) for e in tail))
     if any("window_geometry" in e for e in r["trace"]):
         interventions=[e for e in r["trace"] if "window_geometry" in e]
         extras=dict(window_calls=len(interventions),
@@ -169,7 +177,7 @@ def first_interior(old,new,*,compare_sampling):
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(8,16) if a.factor=="window" else (4,8)
+    opts=(64,) if a.factor=="successor" else (8,16) if a.factor=="window" else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES
@@ -181,13 +189,15 @@ def run(a):
     a.out.mkdir(parents=True,exist_ok=False)
     (a.out/"rows").mkdir()
     protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1",
-              "window":"llada-fixed-width-window-v1"}[a.factor]
+              "window":"llada-fixed-width-window-v1","successor":"llada-warm-successor-q64-v1"}[a.factor]
     registration=dict(protocol=protocol,order=order,q=a.offer,device=device,
                       checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
                       planner=sha256(Path(__file__).read_bytes()).hexdigest())
     prior={}
     if a.factor=="window":
         registration["geometry_sha256"]=sha256(Path(__file__).with_name("llada_window_geometry.py").read_bytes()).hexdigest()
+    if a.factor=="successor":
+        registration["successor_sha256"]=sha256(Path(__file__).with_name("llada_successor_seats.py").read_bytes()).hexdigest()
     if a.extend_from:
         require(a.factor=="frontier" and a.offer==8 and a.limit==90,"unsupported extension")
         old_reg=json.loads((a.extend_from/"run.json").read_bytes())
@@ -215,8 +225,10 @@ def run(a):
             continue
         ref=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
         require(i==ref["index"] and ref["generation_cap"]==CAP and ref["prompt_ids"],"wrong prompt")
+        policy=(dict(cross=("quarter",False),coverage="head",warm_head_sample=True)
+                if a.factor=="successor" else dict(cross=("head",False)))
         arms=[evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.offer,Law(),
-                             cross=("head",False),request_cls=cls) for cls in controls]
+                             **policy,request_cls=cls) for cls in controls]
         old,new=arms[:2]
         require(all(old[k]==r[k] for r in arms[1:] for k in (*KEYS,"input_sha256")),"unpaired input")
         if a.factor=="frontier":
@@ -226,6 +238,12 @@ def run(a):
             from .llada_window_geometry import first_geometry
             first=first_geometry(old,new)
             extra=dict(window=compact(new))
+        elif a.factor=="successor":
+            from .llada_successor_seats import first as first_tail
+            first=first_tail(old,new,edit=False)
+            edit=first_tail(new,arms[2],edit=True)
+            require(bool(first)==bool(edit),"missing matched successor opportunity")
+            extra=dict(read=compact(new),edit=compact(arms[2]),edit_first=edit)
         else:
             first=first_interior(old,new,compare_sampling=False)
             edit=first_interior(new,arms[2],compare_sampling=True)
@@ -253,9 +271,9 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
     for k in ("reference","samples","checkpoint","out"):
         ap.add_argument("--"+k,type=Path,required=True)
-    ap.add_argument("--offer",choices=(4,8,16),type=int,required=True)
+    ap.add_argument("--offer",choices=(4,8,16,64),type=int,required=True)
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
-    ap.add_argument("--factor",choices=("frontier","interior","window"),default="frontier")
+    ap.add_argument("--factor",choices=("frontier","interior","window","successor"),default="frontier")
     ap.add_argument("--extend-from",type=Path)
     ap.add_argument("--handoff",type=Path)
     ap.add_argument("--deadline",type=int,required=True)

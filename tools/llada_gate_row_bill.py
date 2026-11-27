@@ -74,11 +74,84 @@ def report(control, gate, warm_pilot, warm_rest, manifest):
     return [dict(cohort=k[0], arm=k[1], **v) for k,v in data.items()]
 
 
+IDLE = ("shape", "stopping", "closed_tail", "open_tail_cold", "open_tail_warm_mask",
+        "open_tail_clean_active", "open_tail_clean_finished")
+
+
+def unpack_idle(arm):
+    """Reconstruct remaining Q64 seats; do not infer logits or downstream benefit."""
+    total, decoded = Counter(dict.fromkeys(IDLE, 0)), set()
+    proof = bill(arm)
+    for e in arm["trace"]:
+        st = e["pre_state"]
+        lo, split, end = max(st["head"], st["origin"]), st["head"]+32, st["end"]
+        paid = set(e["rows"])
+        total.update(F=1, Q=len(paid))
+        if st["stopping"]:
+            require(not e["sampled"], "Sampling after stop")
+            total["stopping"] += 64-len(paid)
+        else:
+            head = set(range(lo, min(split, end)))
+            tail = set(range(split, min(split+32, end)))
+            require(head <= paid <= head|tail and e["head_mask_at_plan"] == len(head-decoded),
+                    "Not a full head, or reconstructed wrong MASK state")
+            total["shape"] += 64-len(head)-len(tail)
+            idle = tail-paid
+            if not e["tail_opened"]:
+                total["closed_tail"] += len(idle)
+            else:
+                total["open_F"] += 1
+                if idle:
+                    total["open_with_idle_F"] += 1
+                for pos in idle:
+                    if pos >= st["last_end"]:
+                        require(pos not in decoded, "Decoded unbuilt seat")
+                        role = "open_tail_cold"
+                    elif pos not in decoded:
+                        role = "open_tail_warm_mask"
+                    else:
+                        role = "open_tail_clean_active" if tail-decoded else "open_tail_clean_finished"
+                    total[role] += 1
+        admitted, edited, revoked = (set(e[k]) for k in ("admitted","edited","revoked"))
+        require(not (admitted & decoded) and edited|revoked <= decoded, "Inconsistent token history")
+        decoded -= revoked
+        decoded |= admitted
+    require(total["F"] == proof["F"] and total["Q"] == proof["history_Q"]
+            and sum(total[k] for k in IDLE) == 64*total["F"]-total["Q"], "Idle bill does not close")
+    return total
+
+
+def idle_report(root, manifest):
+    tasks = load(manifest)["samples"]
+    require([t["index"] for t in tasks] == list(range(90)), "Expected frozen90")
+    groups = defaultdict(Counter)
+    for t in tasks:
+        r = load(root/"rows"/f'{t["index"]:02d}.json')
+        a = r["new"]
+        require(all(a[k] == r[k] == t[k] for k in ("index","dataset","task_id","seed"))
+                and a["coverage"] == "head" and a["cross_open"] == "quarter" and a["q"] == 64
+                and not a["borrow"] and all("warm_head_sample" in e for e in a["trace"]),
+                "Wrong registered Q64 trajectory")
+        counts = unpack_idle(a)
+        for name in ("original30" if t["index"] < 30 else "new60","all90"):
+            groups[name].update(counts)
+    return [dict(cohort=k, **{c:v[c] for c in ("F","Q","open_F","open_with_idle_F",*IDLE)})
+            for k,v in groups.items()]
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
-    for name in ("control","gate","warm-pilot","warm-rest","manifest"):
-        ap.add_argument("--"+name, type=Path, required=True)
-    rows = report(**vars(ap.parse_args()))
+    for name in ("control","gate","warm-pilot","warm-rest","quarter-warm","manifest"):
+        ap.add_argument("--"+name, type=Path, required=name=="manifest")
+    opts = vars(ap.parse_args())
+    quarter = opts.pop("quarter_warm")
+    quartet = [opts[k] for k in ("control","gate","warm_pilot","warm_rest")]
+    if quarter and not any(quartet):
+        rows = idle_report(quarter, opts["manifest"])
+    elif not quarter and all(quartet):
+        rows = report(**opts)
+    else:
+        ap.error("Specify either --quarter-warm or all four control roots")
     writer = csv.DictWriter(sys.stdout, fieldnames=list(rows[0]), lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)

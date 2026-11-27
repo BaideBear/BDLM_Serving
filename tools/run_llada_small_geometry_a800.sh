@@ -17,6 +17,15 @@ case "$mode/$q" in
     out="/gs/results/llada-window-q$q-1128"
     extra=(--factor window --limit 30)
     ;;
+  successor/64)
+    gpu=1
+    module=llada_frontier_seat
+    out=/gs/results/llada-quarter-successor-q64-1128
+    extra=(--factor successor --limit 30)
+    # The three-arm interior study owns A1 until it exits with a full cohort.
+    /usr/bin/python3 -B -m experiments.t2t.serving_slots.llada_seat_report \
+      /gs/results/llada-interior-q8-1128 benchmarks/frozen90/manifest.json >/dev/null
+    ;;
   *) exit 2 ;;
 esac
 test ! -e "$out"

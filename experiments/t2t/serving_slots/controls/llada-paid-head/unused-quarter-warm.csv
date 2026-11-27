@@ -1,0 +1,4 @@
+cohort,F,Q,open_F,open_with_idle_F,shape,stopping,closed_tail,open_tail_cold,open_tail_warm_mask,open_tail_clean_active,open_tail_clean_finished
+original30,3223,145807,1554,654,2496,0,52934,0,0,3577,1458
+all90,9247,417016,4450,1782,7900,0,151904,0,0,10414,4574
+new60,6024,271209,2896,1128,5404,0,98970,0,0,6837,3116

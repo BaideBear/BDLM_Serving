@@ -4,6 +4,7 @@ from bdlm_serving.methods.t2t.budget_family import Plan
 from experiments.t2t.serving_slots.llada_frontier_seat import exchange, interior_exchange
 from experiments.t2t.serving_slots.llada_selection_geometry import policy
 from experiments.t2t.serving_slots.llada_window_geometry import window
+from experiments.t2t.serving_slots.llada_successor_seats import extra_rows
 
 
 def test_exchange_preserves_width_dirty_sampler_arity_and_contiguous_build():
@@ -59,3 +60,13 @@ def test_window_keeps_contiguous_new_keys_if_cold_and_warm_mix():
     p=Plan((4,8,9,10),(4,),(8,9,10),(),(),False)
     new,sampled,_=window(p,p.cold,{7,8,9,10},set(range(8)),11)
     assert new.rows==(4,7,8,9) and new.cold==sampled==(8,9)
+
+
+def test_successor_only_revisits_an_already_built_unfinished_tail():
+    p=Plan((2,31,32,34),(32,),(),(34,),(2,),False)
+    masks={31,34}
+    assert extra_rows(p,p.rows,32,36,masks,set(range(36)))==(33,35)
+    assert not extra_rows(p,p.rows,32,36,{31},set(range(36)))
+    assert not extra_rows(p,p.rows,32,36,masks,set(range(35)))
+    assert not extra_rows(p,(),32,36,masks,set(range(36)))
+    assert not extra_rows(replace(p,cold=(34,)),(34,),32,36,masks,set(range(36)))

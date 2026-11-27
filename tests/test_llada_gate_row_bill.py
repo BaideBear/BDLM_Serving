@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 
-from tools.llada_gate_row_bill import bill
+from tools.llada_gate_row_bill import IDLE, bill, unpack_idle
 
 
 def fixture():
@@ -30,3 +30,27 @@ def test_invalid_ledger_fails_closed(field,value):
     arm["trace"][1][field]=value
     with pytest.raises(ValueError):
         bill(arm)
+
+
+def test_q64_unused_is_not_the_number_of_pending_masks():
+    trace=[]
+    for i,(rows,dirty,admitted,opened) in enumerate([
+        ([63],[],[], False), ([63,64,65],[],[64], True),
+        ([63,64,65],[64],[], True), ([63,65],[],[65], True),
+        ([63,65],[65],[], True),
+    ]):
+        trace.append(dict(tick=i,q=len(rows),offer=64,rows=rows,sampled=rows,
+                          layer_physical_q=[len(rows)]*20,prefix_kv_length=63,
+                          dirty_before=dirty,dirty=dirty,cold=[],mask=[],prefix=[],edited=[],
+                          admitted=admitted,revoked=[],written_absolute=admitted,dirty_after=admitted,
+                          tail_q=len(rows)-1,tail_opened=opened,head_mask_at_plan=1,
+                          pre_state=dict(head=32,origin=63,end=66,last_end=[63,64,66,66,66][i],
+                                         stopping=False)))
+    q=sum(e["q"] for e in trace)
+    arm=dict(F=5,Q=q,decoder_Q=q,encoder_Q=0,N=3,correct=False,failure=None,trace=trace)
+    actual=unpack_idle(arm)
+    assert [actual[k] for k in IDLE] == [305,0,2,0,0,1,1]
+    assert actual["open_F"] == 4 and actual["open_with_idle_F"] == 2
+    arm["trace"][-1]["head_mask_at_plan"]=0
+    with pytest.raises(ValueError,match="MASK state"):
+        unpack_idle(arm)

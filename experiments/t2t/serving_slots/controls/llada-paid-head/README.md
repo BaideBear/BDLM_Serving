@@ -145,3 +145,36 @@ Reproduce on the receipt host using `tools/llada_gate_row_bill.py` with
 the original four-arm root, the gate complement and the two warm-head roots
 above, and `--manifest benchmarks/frozen90/manifest.json`. Only cohort counts
 are exported; these are whole trajectories, not a same-state counterfactual.
+
+### What paying for a full second block could buy
+
+On the **quarter gate plus warm-head sampling** profile, all 90 sequences paid
+417,016 decoder rows over 9,247 forwards. The ceiling of 64 per call leaves
+174,792 unused seats. Replaying admissions and revocations in order from the
+recorded states partitions them, without inference or assumptions about logits:
+
+| Reason a Q64 seat was unused | Seats | Share of unused |
+|---|---:|---:|
+| Second block not open to sampling (includes suppression after head EOS) | 151,904 | 86.91% |
+| Partial prompt/output block, no generated position for this seat | 7,900 | 4.52% |
+| Tail open, already decoded and clean, some tail MASKs remain | 10,414 | 5.96% |
+| Tail open and all tail tokens already decoded | 4,574 | 2.62% |
+| Tail open, unbuilt or still MASK and not selected | 0 | 0% |
+
+[Original30, added60 and frozen90](unused-quarter-warm.csv). `open_F` counts
+eligibility, even when no tail rows are selected. Only 1,782 of 4,450 eligible
+forwards had any untaken tail position. Unlike tail debt, an untaken clean
+row is not a correctness violation: its KV is retained. None of these counts
+predict an accuracy or speed gain. Reproduce with `tools/llada_gate_row_bill.py
+--quarter-warm /gs/results/llada-hfull-quarter-warm-single-factor-20261128-053736
+--manifest benchmarks/frozen90/manifest.json`.
+
+Fixed-Q64 original30 GPU experiment: unchanged `quarter_edit_warm` Q64 control;
+on warm sample calls with both blocks resident and MASKs remaining in the
+eligible successor, use otherwise unused seats to project its remaining clean
+rows; either discard the supplemental logits or allow T2T/revocation using the
+same measured rows. Do not fill a finished block, open a block earlier, replace
+any incumbent MASK, relax thresholds, or introduce a new sampling forward.
+The three arms are independent full request trajectories; work and final
+output may diverge after the first treatment. See `llada_frontier_seat.py
+--factor successor` and `tools/run_llada_small_geometry_a800.sh successor DEADLINE 64`.
