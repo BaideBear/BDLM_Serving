@@ -120,7 +120,11 @@ class LLaDABudgetRequest:
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
                  switchable=False, top_gate="quarter", lower_borrow=False,
-                 coverage="sparse", warm_head_sample=False):
+                 coverage="sparse", warm_head_sample=False, close_policy="unchanged"):
+        if close_policy not in ("unchanged","full_write","edit_once") or (
+                close_policy!="unchanged" and (cross!="head" or borrow or switchable or ablation is not None)):
+            raise ValueError("Terminal row experiment requires the fixed head-only path")
+        self.close_policy, self.close_attempted = close_policy, None
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
@@ -284,6 +288,18 @@ class LLaDABudgetRequest:
         head_ids = self.x[0, lo:min(split, self.end)].tolist()
         has_next = split < self.end and self.eos_ids.isdisjoint(head_ids)
         head_masks = {lo + i for i, t in enumerate(head_ids) if t == self.mask_id}
+
+        if getattr(self,"close_policy","unchanged")!="unchanged":
+            if q!=B:
+                raise ValueError("Terminal row experiment is registered only for fixed B")
+            head_rows = tuple(range(lo, lo+len(head_ids)))
+            if (not head_masks and dirty and self.close_attempted!=self.head and
+                    set(head_rows)<=self.bank.initialized and dirty<=set(head_rows)):
+                self.close_attempted = self.head
+                edit = self.close_policy=="edit_once"
+                self._cross_evidence = dict(head_masks=0,opened=False,borrowed=0)
+                plan = Plan(head_rows,tuple(sorted(dirty)),(),(),(),not edit)
+                return plan,head_rows if edit else (),"close_edit_once" if edit else "close_full_write",q
 
         if q == 2 * B:
             opened = has_next and self._tail_open(split, head_ids, head_masks)
@@ -477,8 +493,11 @@ class LLaDABudgetRequest:
         else:
             plan, sampled, phase, cap = self._ablation_plan(q)
         rows = plan.rows
+        full_close_edit = (phase=="close_edit_once" and q==B and len(before)==q
+                           and rows==sampled==tuple(sorted(before)) and len(rows)==q)
         if (not rows or not set(plan.dirty) == before.intersection(rows)
-                or (len(before) >= q and (len(plan.dirty) != q or (sampled and phase != "dense_joint")))):
+                or (len(before) >= q and (len(plan.dirty) != q or (sampled and phase != "dense_joint"
+                                                                   and not full_close_edit)))):
             raise RuntimeError("Empty plan, skipped required refresh or sampled through a full debt offer")
         split=self.head+B
         intervention=None
