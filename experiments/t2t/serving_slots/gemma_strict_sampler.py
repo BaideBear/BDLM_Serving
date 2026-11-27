@@ -88,6 +88,23 @@ class SelectedRowSampler:
         if self.phase != "sample" or self.age >= self.steps:
             raise RuntimeError("Sampling closed or reverse clock exhausted")
         rows, idx, ids, logits = self._project(rows, project)
+        return self._consume(rows, idx, ids, logits)
+
+    @torch.inference_mode()
+    def consume(self, rows, logits):
+        """Sample measured rows from an already executed joint refresh/sample call."""
+        if self.phase != "sample" or self.age >= self.steps:
+            raise RuntimeError("Sampling closed or reverse clock exhausted")
+        rows = tuple(rows)
+        if (not 0 < len(rows) <= self.cap or any(type(r) is not int or not 0 <= r < self.block
+                                                  for r in rows) or rows != tuple(sorted(set(rows)))
+                or logits.shape != (1,len(rows),self.vocab) or logits.dtype != torch.float32
+                or logits.device != self.ids.device):
+            raise ValueError("Invalid selected rows or measured logits")
+        idx = torch.tensor(rows, device=self.ids.device)
+        return self._consume(rows, idx, self.ids.index_select(1,idx), logits)
+
+    def _consume(self, rows, idx, ids, logits):
         clock = self.steps - self.age
         t = torch.tensor(clock, device=ids.device, dtype=torch.int32)
         scores = self.temp(ids, logits, cur_step=t)

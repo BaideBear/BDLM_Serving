@@ -44,4 +44,20 @@ Offers: **32, 64, 128, 256, 512**. `economy` retains causal visibility, admits a
 
 **Measured cost.** `price.main_q` is the projected width of the next decoder; `mandatory_q` is included. Mandatory cache writeback, warm-up, verification or commit can exceed a small nominal offer on this reference path. One such forward disqualifies a run from the strict tier even if mean Q is below the cap. Use `step.paid_q` / `step.paid_f` for actual generation costs, including conditional encoder work. `result()` returns token IDs; the frozen scorer counts non-special output tokens for N. TPF is `mean(N/F)` and efficiency is `sum(N)/sum(paid_Q)` across requests.
 
+**Strict Gemma decoder (experimental).** To actually limit *every decoder projection* to Q128, including the first visit and the final argmax sweep, use the single-canvas request below. One call performs one measured decoder forward. For the frozen suite, charge post-commit encoder calls as shown; only pure prompt prefill is excluded.
+
+```python
+from experiments.t2t.serving_slots.gemma_strict_request import StrictRequest
+
+request = StrictRequest(model, data, seed=seed, max_new_tokens=2048, prefix_quota=0)
+f = physical_q = 0
+while request.status == "ready":
+    step = request.step(128)
+    f += 1 + int(step["encoded"])
+    physical_q += step["q"] + 256 * int(step["encoded"])
+token_ids = request.tokens
+```
+
+Valid single-canvas caps are 32, 64, 128 and 256; do not use this class to represent Q512. An externally changed cap can be supplied to the same object. Token changes (including re-noising) and changes in acceptance require a refresh; a change in self-conditioning alone does not. Unselected rows keep their cached state. Right-prefix sampling can revise a token; this differs from the LLaDA IBS control which only refreshes KV in spare seats. This experimental local sampler, sparse initialization and ordered terminal sweep change the trajectory relative to native Gemma. The first real-weight paired case is a functional test, not a frozen90 quality result. [Physical projection tests](../tests/test_gemma_strict_request.py).
+
 **Reproduce and inspect.** [Frozen data and environment](reproduce.md), [slot results, baselines, and limits](../experiments/t2t/serving_slots/EXPANDED.md), [directional mask and paired results](../experiments/t2t/serving_slots/mask-evidence.svg), [tests of the public entry points](../tests/test_request_profiles.py). The single-request wrappers expect this checkout, including `experiments/t2t/serving_slots`, on the Python path.
