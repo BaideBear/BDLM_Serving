@@ -29,4 +29,6 @@ LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位�
 
 以 `python -Bm experiments.t2t.serving_slots.fixed_family_report MODEL --device cpu`（`MODEL=llada21` 或 `gemma`）从集群原件重算。报告显式区分已登记任务、已封存题数、完整 cohort 和同一批题的早期检查；没有实现的档位不计入早期比较，正式原30/新60/全90只填齐全的档位。CPU 行不得与历史 GPU 行直接组成配对结论。
 
+[固定预算 GPU 基线表](../experiments/t2t/serving_slots/controls/fixed-family-references.csv) 含两模型 20 个配置的原30、新60、全90三组统计。正确数来自归档评分，TPF、总行数、每次真实 decoder 峰值从 1,800 个请求的原始调用记录交叉核对；没有重新跑模型。Gemma Optimus 适配沿用归档的 M2T-only 更新规则，不声称与带 T2T 的候选是同一个采样器。Optimus 最大可比原生窗口至一块；两块档保留实算可比的 FlowBlock W2，不把一块档重命名为两块。复算：`python -Bm experiments.t2t.serving_slots.fixed_family_references`。
+
 另有[严格旧执行器的三题刷新开销](../experiments/t2t/serving_slots/controls/gemma-strict-drain-grid-cpu3.json)，仅用于识别成本来源，不是统一候选的成绩。Q32/64/128 K0 的纯刷新分别有 2,837/2,929/2,753 个投影行次，其中只因未接受位置重新加噪而计算的分别为 1,581/1,772/1,871；这些数字不是可无损删除的工作量。
