@@ -1,5 +1,14 @@
 # Single-request execution at a given Q budget
 
+For a switchable Gemma profile with the measured Q256 full-head stop, pass
+`profile="dense_b_stop_fused"` to `open_strict_gemma`. The other fixed offers
+keep their `fixed90_fused` paths. Only two consecutive real, complete,
+single-canvas Q256 samples of the same head/encoder epoch can trigger the
+native criterion. Any intervening ineligible tick resets the observation.
+A completed decision survives a subsequent downshift; required writes,
+ordered verification and encoder commits still run and are billed. This is
+an opt-in fixed-budget candidate, not a policy for choosing offers.
+
 The experimental Gemma profile `phase_high_fused` uses the same five external
 offers and the same guarded fuse as `fixed90_fused`. Only at Q256 and with
 at least 128 still-unaccepted head positions does it request the full head.

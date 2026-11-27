@@ -27,13 +27,15 @@ def offer_cycle(tiers=TIERS):
 
 
 def reference_path(root, q, index, profile="fixed90_candidate"):
-    if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"):
+    if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused","dense_b_stop_fused"):
         if q in (128,512):
             return root/"profile-close-1128"/f"C{q}-profile-fuse1-{index:02}.json"
         if q==256 and profile=="fixed90_dense_fused":
             return root/"capacity-head-1128"/f"C256-capacity1-{index:02}.json"
         if q==256 and profile=="phase_high_fused":
             return root/"phase-density-1128"/f"C256-density-high-{index:02}.json"
+        if q==256 and profile=="dense_b_stop_fused":
+            return root/"dense-stop-1128"/f"C256-dense-stop1-{index:02}.json"
         return root/"paid-close-1128"/f"C{q}-fuse1-{index:02}.json"
     if q == 128:
         return root/"cross-race-1128"/f"C128-gateoff-slack0-4-pref1of4-{index:02}.json"
@@ -47,7 +49,8 @@ def check(ok, message):
         raise ValueError(message)
 
 
-def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate"):
+def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
+          dense_shadow=False):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -57,6 +60,8 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate")
     transitions, routes = Counter(), Counter()
     old, head, verify, encoded, d_q = None, 0, 0, 0, 0
     parked_pay = physical_downshift = 0
+    last_full, stopped_head = None, None
+    triggers = Counter()
     cfg = dict(seed=task["seed"], initial_offer=schedule[0], profile=profile)
     with ExitStack() as stack:
         events = stack.enter_context(observe(model))
@@ -64,12 +69,21 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate")
         enc = stack.enter_context(encoder_tape(model))
         h = open_strict_gemma(model, data, **cfg)
         stack.callback(h.close)
+        if dense_shadow:
+            from .gemma_draft_shadow import DraftShadow
+            check(profile=='dense_b_stop_fused' and schedule==(256,) and not drop_after_stop, 'wrong shadow policy')
+            shadow=DraftShadow(h._request.stop_observer,h._request.eos)
+            stack.enter_context(shadow.install(model))
         check(h.opened_prefill_q == origin and events == ledger, "open prefill")
         tick = 0
         while h.status == "ready":
             check(time.time() < deadline and tick < 12000, "deadline or no bounded progress")
             q = schedule[tick % len(schedule)]
+            if drop_after_stop:
+                q = 32 if stopped_head==head else 256
             e = h.step(q)
+            if dense_shadow:
+                shadow.after(e,origin)
             rows = positions[-1]
             sampled, changed = set(e["sampled_absolute"]), set(e["written_absolute"])
             check(e["tick"] == tick and e["ordinal"] == head and e["positions"] == rows
@@ -78,6 +92,21 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate")
                   and all(t[-1] == len(rows) for t in proj.values()), "unmeasured physical projection")
             check(e["dirty_before_absolute"] == sorted(debt) and set(sorted(debt)[:q]) <= set(rows)
                   and changed <= sampled <= set(rows), "unpaid old or unmeasured new writes")
+            if profile=="dense_b_stop_fused":
+                mark=e['fullstop']
+                full=(q==256 and mark['resident']==1 and e['route']=='dense_single'
+                      and sampled==set(range(origin+head*256,origin+(head+1)*256)))
+                pair=full and last_full==(tick-1,head)
+                check(mark['in_scope']==full and mark['epoch']==origin+head*256 and
+                      (not mark['hit'] or pair) and mark['latched']==mark['hit'], 'stale or partial stop')
+                if stopped_head==head:
+                    check(not sampled and e['route'] in ('drain','verify_paid','verify'), 'sampling after stop')
+                    triggers['post_stop_sub_B_ticks']+=int(q<256)
+                if mark['latched']:
+                    stopped_head=head
+                    triggers['latches']+=1
+                triggers['eligible_pairs']+=int(pair)
+                last_full=(tick,head) if full else None
             if old is not None:
                 transitions[old,q] += 1
                 if old > q:
@@ -121,7 +150,8 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate")
                 decoder_Q=d_q, encoder_F=encoded, encoder_Q=256*encoded, routes=dict(routes),
                 directed_pairs={f"{a}>{b}":v for (a,b),v in sorted(transitions.items())},
                 downshifts_with_debt=physical_downshift, parked_rows_paid_on_downshift=parked_pay,
-                decoder_projection_modules=len(proj), output_digest=sha256(
+                decoder_projection_modules=len(proj), **({'stop_checks':dict(triggers)} if profile=="dense_b_stop_fused" else {}),
+                **({'draft_shadow':shadow.blocks} if dense_shadow else {}), output_digest=sha256(
                     json.dumps(ids,separators=(",",":")).encode()).hexdigest()), ids
 
 
@@ -133,9 +163,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     for key in ("checkpoint","samples","receipts","out"):
         ap.add_argument("--"+key, type=Path, required=True)
-    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused","phase_high_fused"),
+    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused","phase_high_fused","dense_b_stop_fused"),
                     default="fixed90_candidate")
     ap.add_argument("--deadline",type=int,required=True)
+    ap.add_argument("--dense-shadow",action="store_true",help="Frozen90 observation of fixed Q256 draft vs fresh verify")
     a = ap.parse_args(argv)
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
@@ -147,8 +178,15 @@ def main(argv=None):
         device_map={"":"cuda:0"}).eval()
     jobs = [(f"fixed{q}",(q,)) for q in TIERS] + [("switch25",offer_cycle()),
                                                     ("park", (512,)*5+(32,)*3+(512,))]
+    if a.profile=="dense_b_stop_fused":
+        jobs.append(('drop_after_stop',(256,32)))
+    indices=(0,10,20)
+    if a.dense_shadow:
+        check(a.profile=='dense_b_stop_fused','dense shadow profile')
+        jobs=[('fixed256',(256,))]
+        indices=[j+k for j in range(10) for k in (0,10,20)]+list(range(30,90))
     with torch.inference_mode():
-        for i in (0,10,20):
+        for i in indices:
             t = tasks[i]
             data = proc.apply_chat_template([{"role":"user","content":t["prompt"]}], tokenize=True,
                 add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
@@ -156,9 +194,11 @@ def main(argv=None):
                 dst = a.out/f"{name}-{i:02}.json"
                 if dst.exists():
                     previous = json.loads(dst.read_bytes())
-                    check(previous.get("profile","fixed90_candidate")==a.profile, "wrong profile in destination")
+                    check(previous.get("profile","fixed90_candidate")==a.profile and
+                          ('draft_shadow' in previous)==a.dense_shadow, "wrong profile in destination")
                     continue
-                row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile)
+                row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile,
+                                  drop_after_stop=name=='drop_after_stop',dense_shadow=a.dense_shadow)
                 if len(schedule)==1:
                     src = reference_path(a.receipts,schedule[0],i,a.profile)
                     blob = src.read_bytes()

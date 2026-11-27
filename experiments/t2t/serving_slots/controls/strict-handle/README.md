@@ -65,3 +65,11 @@ replays, using the independently measured high-unresolved arm for Q256. The
 three switch-cycle cases covered all 25 directed pairs, with 26 downshifts
 carrying debt and 109 parked rows refreshed at the downshift. This is a
 functional check, not a mixed-budget quality curve.
+
+[`dense_b_stop_fused`](gemma-dense-b-stop-fused.json) replayed all 15 fixed
+cases against their own controls, with zero eligible stop pairs at fixed
+Q32/64/128/512. `switch25` exercised 25 directed pairs, with 29 downshifts
+carrying debt and 360 parked rows written at downshifts. The separate
+`drop_after_stop` schedule applied Q32 after a latched Q256 stop: four such
+downshifts with debt and 37 sub-B decoder ticks after a latch. A latch can
+coincide with ordinary termination; these counts do not imply four early exits.

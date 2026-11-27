@@ -125,7 +125,8 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest, B, TIERS
     if type(initial_offer) is not int or initial_offer not in TIERS:
         raise ValueError("Invalid initial Gemma offer")
-    if profile not in ("fixed90_candidate", "reference", "fixed90_fused", "fixed90_dense_fused","phase_high_fused"):
+    stop = profile=="dense_b_stop_fused"
+    if not stop and profile not in ("fixed90_candidate", "reference", "fixed90_fused", "fixed90_dense_fused","phase_high_fused"):
         raise ValueError("Unknown strict Gemma profile")
     # Only Q128 switches doses: the 90 paired tasks support 1/4 here.
     # Other sparse tiers retain the reference; dense top calls bypass the quota.
@@ -134,8 +135,9 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     raw = AblationRequest(model, data, q=initial_offer, seed=seed, ablation="00",
                           max_new_tokens=max_new_tokens, law=laws[TIERS.index(initial_offer)],
                           top_gate="half", prefix_order="right",
-                          fuse_first_verify=profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"))
-    raw.full_head_at_b = profile == "fixed90_dense_fused"
+                          fuse_first_verify=stop or profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"),
+                          fullstop=True if stop else None, stop_at_single_b_only=stop)
+    raw.full_head_at_b = stop or profile == "fixed90_dense_fused"
     return StrictHandle(raw, TIERS, laws, B, full_head_min_unresolved=B//2 if profile=="phase_high_fused" else None)
 
 

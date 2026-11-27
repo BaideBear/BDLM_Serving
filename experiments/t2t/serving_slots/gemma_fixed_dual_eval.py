@@ -159,6 +159,13 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                             'Not a dense top-tier call')
                     if route=='dense_head_debt':
                         require(all(i<start+B for i in e['sampled_absolute']), 'Sampled a parked tail')
+                if route=='rebuild_sample':
+                    start=origin+B*len(sealed)
+                    require(req.sample_full_rebuild and t>0 and trace[t-1]['encoded']
+                            and trace[t-1]['promoted']==e['ordinal'] and not epoch_rows and not debt
+                            and e['head_initialized_before']==B and e['opened'] is None and len(e['parts'])==1
+                            and pos[t]==e['sampled_absolute']==list(range(start,start+B))
+                            and e['parts'][0]['phase']=='sample', 'Unmeasured or partial sampled rebuild')
             if q < 2*B and ablation == '00':
                 require(all(p['ordinal']==e['ordinal'] for p in e['parts']), 'Tail on fixed 00')
             if e['opened'] is not None and q < 2*B:

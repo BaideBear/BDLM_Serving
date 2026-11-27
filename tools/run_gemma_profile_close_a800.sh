@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run both fusion arms for one fixed offer on one otherwise idle device. No holder.
 set -euo pipefail
-case "${1:-}:${2:-}" in 2:128|4:512|4:capacity|4:density|4:dense-stop) ;; *) exit 2 ;; esac
+case "${1:-}:${2:-}" in 2:128|4:512|4:capacity|4:density|4:dense-stop|4:promotion) ;; *) exit 2 ;; esac
 i=$1
 q=$2
 deadline=${3:?provide the study deadline in Unix seconds}
@@ -31,6 +31,8 @@ elif [[ $q == density ]]; then
     args=(--suite density --capacity-controls /gs/results/paid-close-1128 --output /gs/results/phase-density-1128)
 elif [[ $q == dense-stop ]]; then
     args=(--suite dense-stop --capacity-controls /gs/results/capacity-head-1128 --output /gs/results/dense-stop-1128)
+elif [[ $q == promotion ]]; then
+    args=(--suite promotion --capacity-controls /gs/results/profile-close-1128 --output /gs/results/promotion-1128)
 else
     args=(--suite profile-close --profile-close-budget "$q" --output /gs/results/profile-close-1128)
 fi

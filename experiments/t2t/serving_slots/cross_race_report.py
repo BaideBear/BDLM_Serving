@@ -17,7 +17,7 @@ from statistics import mean
 
 MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.json"
 COHORTS = {"original30": range(30), "new60": range(30, 90), "frozen90": range(90)}
-DECODER_KINDS = ("cross", "rank", "close", "profile-close", "capacity", "density")
+DECODER_KINDS = ("cross", "rank", "close", "profile-close", "capacity", "density","promotion")
 KINDS = DECODER_KINDS + ("layout_sweep", "layout_llada")
 CATEGORIES = ("rebuild", "verify", "mandatory", "prefix", "unresolved", "clean-other")
 TAIL = ("tail_open", "tail_discard", "tail_touched_positions", "tail_last_candidate",
@@ -96,6 +96,7 @@ def _llada(budget, cold, den):
 
 
 def _comparisons():
+    yield Arm("promotion",512,"C512-promotion0"), Arm("promotion",512,"C512-promotion1")
     for left,right in (("never","high"),("never","low"),("high","always"),("low","always")):
         yield Arm("density",256,"C256-density-"+left), Arm("density",256,"C256-density-"+right)
     yield Arm("capacity",256,"C256-capacity0"), Arm("capacity",256,"C256-capacity1")
@@ -207,12 +208,19 @@ def normalize(row):
     input_sha = None
     output_digest = None
     sources = ()
-    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1"):
+    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1","full-promotion-sample-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
         dose = tuple(_nat(i, "prefix") for i in row["prefix"])
         _check(len(dose) == 2, "invalid prefix dose")
         arm = _cross(c, row["gate"], row["slack"], den, dose)
+        if schema=="full-promotion-sample-v1":
+            on=row['promotion']
+            _check(type(on) is bool and c==512 and not row['slack'] and row['gate']=='half'
+                   and row['fuse'] is True and dose==(1,8) and den==4 and
+                   (on or row['historical_differences']==[]), 'invalid promotion control')
+            _sha(row['reference_sha256'],'fixed Q512 replay')
+            arm=Arm('promotion',c,f'C512-promotion{int(on)}')
         if schema == "prefix-rank-v1":
             _check(type(row["reuse"]) is bool and not row["slack"] and row["gate"] == "off"
                    and den == 4 and dose == (1,8), "rank intervention changed another factor")
@@ -248,12 +256,15 @@ def normalize(row):
                        "density endpoint replay mismatch")
             else:
                 _check("replay" not in row,"unregistered density replay")
-        if schema in ("paid-close-v1", "prefix-rank-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1"):
+        if schema in ("paid-close-v1", "prefix-rank-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1","full-promotion-sample-v1"):
             hashes = row["source_sha256"]
             _check(isinstance(hashes, dict) and
                    {"cross_race.py", "gemma_fixed_dual.py", "gemma_fixed_dual_eval.py"} <= hashes.keys(),
                    "missing experiment source digests")
             sources = tuple(sorted((k, _sha(v, k)) for k, v in hashes.items()))
+            if schema=="full-promotion-sample-v1":
+                _check(bool(row['gpu_visible']) and bool(row['host']), 'missing same-device promotion evidence')
+                sources+= (('device',row['host']+':'+row['gpu_visible']),)
             _sha(row["scorer_sha256"], "scorer_sha256")
             ids = row["output_ids"]
             _check(isinstance(ids,list) and all(type(x) is int and x>=0 for x in ids), "invalid token IDs")
@@ -270,6 +281,11 @@ def normalize(row):
         raise ValueError(f"unsupported receipt schema {schema!r}")
     _check(ARMS.get(arm.name) == arm, f"unregistered arm {arm.name}")
     work = _cross_work(row, c, history) if arm.kind in DECODER_KINDS else _layout_work(row, arm, history)
+    if arm.kind=='promotion':
+        f=work['promotion_F']=row['route_F'].get('rebuild_sample',0)
+        _check(row['route_Q'].get('rebuild_sample',0)==256*f and (not f or row['promotion'])
+               and sum(row['route_F'].values())==work['decoder_F'] and sum(row['route_Q'].values())==work['decoder_Q'],
+               'invalid promotion work')
     if arm.kind=="capacity":
         work["prior_mismatches"] = int(bool(row["replay"]["different"]))
         _check(not work["joint_F"] and not work["tail_Q"], "capacity factor opened a tail")
@@ -415,6 +431,12 @@ def _paired(left, right, indices, draws, seed):
             result["output_comparison"] = dict(changed_output_indices=[
                 a.index for a, b in pairs if a.output_digest != b.output_digest])
         kind = pairs[0][0].arm.kind
+        if kind=='promotion':
+            result['parity']=dict(
+                changed_output_indices=[a.index for a,b in pairs if a.output_digest!=b.output_digest],
+                changed_encoder_work_indices=[a.index for a,b in pairs if a.work['encoder_Q']!=b.work['encoder_Q']],
+                wrong_F_delta_indices=[a.index for a,b in pairs if a.work['F']-b.work['F']!=b.work['promotion_F']],
+                wrong_Q_delta_indices=[a.index for a,b in pairs if a.work['decoder_Q']-b.work['decoder_Q']!=256*b.work['promotion_F']])
         if kind in ("close", "profile-close"):
             _check(all(a.arm==_close(a.arm.budget, False, kind) and b.arm==_close(b.arm.budget,True, kind)
                        for a,b in pairs), "close parity requires off then on")

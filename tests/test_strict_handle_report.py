@@ -25,6 +25,8 @@ def test_new_profiles_check_their_own_fixed_controls(tmp_path):
         assert dense.name == ("C256-capacity1-10.json" if q==256 else expected)
         phase = reference_path(tmp_path,q,10,"phase_high_fused")
         assert phase.name == ("C256-density-high-10.json" if q==256 else expected)
+        stop = reference_path(tmp_path,q,10,"dense_b_stop_fused")
+        assert stop.name == ("C256-dense-stop1-10.json" if q==256 else expected)
 
 
 @pytest.fixture
@@ -52,6 +54,21 @@ def test_count_only_consecutive_steps_in_each_request(cohort):
     result = summarize(path, "llada", manifest)["arms"]
     assert result["park"]["directed_pairs"] == {"64>4": 3}
     assert sum(result["switch25"]["directed_pairs"].values()) == 75
+
+
+def test_verified_draft_compares_through_eos_and_requires_complete_canvas():
+    from experiments.t2t.serving_slots.gemma_draft_shadow import compare_block
+    full=[10]*256
+    a=full.copy()
+    a[10]=1
+    b=a.copy()
+    b[11]=7
+    assert compare_block(a,b,{1})==dict(changed=1,first_change=11,draft_eos=10,verify_eos=10,delivered_equal=True)
+    b[3]=1
+    assert not compare_block(a,b,{1})['delivered_equal']
+    assert compare_block(full,full,{1})['verify_eos']==256
+    with pytest.raises(ValueError):
+        compare_block(a[:32],b[:32],{1})
 
 
 @pytest.mark.parametrize("invalid", ["missing", "different", "lost-transition"])

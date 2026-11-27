@@ -245,3 +245,24 @@ two-canvas Q512 stop. Historical Optimus IBS256 is 79/90, 23.656, 11.10%
 IBS on the two main metrics but not on selected-row efficiency, and trails
 native on all three. See [cohorts](fullstop/dense-summary.jsonl) and
 [paired counts](fullstop/dense-pairs.csv).
+
+**Can the last full draft simply replace the final verification?** No exact
+equivalence. In a read-only GPU shadow on the fixed dense Q256 stop path, all
+90 requests reproduced the measured outputs and F/Q of that path. Compare the
+native criterion's actual last full processed-logit argmax with the current
+fresh verify on the same head and same encoder epoch. Out of 171 canvases,
+22 (22 requests) differed, by one token each, before or at the delivery
+boundary. First EOS location never changed, but four nonterminal canvases
+would have fed different encoder inputs to the next block. Of 139 latched
+canvases, 14 differed even after a positive criterion. This is *not* the
+accuracy of a bypass: all later observations condition on the original
+verified trajectory. The original30 contributed 9/54 different canvases and
+the new60 contributed 13/117. See the [audited counts](fullstop/draft-shadow.json).
+
+**Q512 successor promotion.** `cross_race --suite promotion` measures whether
+new-epoch full-canvas KV rebuild can serve as the first measured denoising
+step of the promoted head. Only combine when all B rows would be rebuilt,
+there is no debt and the ordinary half gate would keep the next canvas
+closed on that tick. Controls replay the existing terminal-fused Q512
+half gate; full output IDs and physical workload are checked per task.
+The intervention never carries decoder KV across an encoder epoch.

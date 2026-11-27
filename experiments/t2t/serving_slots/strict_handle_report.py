@@ -14,6 +14,8 @@ def summarize(root, model, manifest):
     for p in sorted(root.glob("*.json")):
         r = json.loads(p.read_bytes())
         s, i = r["suite"], r["index"]
+        if model=='gemma' and r.get('profile')=='dense_b_stop_fused':
+            groups.setdefault('drop_after_stop',[])
         if (s not in groups or i not in (0,10,20) or p.name!=f"{s}-{i:02}.json"
                 or r["schema"]!=f"strict-handle-{model}-qualification-v1"
                 or r["samples_sha256"]!=manifest["samples_sha256"]
@@ -51,6 +53,15 @@ def summarize(root, model, manifest):
             arms[suite]["exact_replays"] = len(rows)
             if model=="gemma":
                 arms[suite]["reference_sha256"]={r["index"]:r["reference_sha256"] for r in rows}
+        if profiles=={'dense_b_stop_fused'}:
+            counts=Counter()
+            for r in rows:
+                counts.update(r['stop_checks'])
+            if (counts['latches']>counts['eligible_pairs'] or
+                    fixed and suite!='fixed256' and (counts['eligible_pairs'] or counts['latches']) or
+                    suite=='drop_after_stop' and not (counts['latches'] and counts['post_stop_sub_B_ticks'] and changes['256>32'])):
+                raise ValueError('unqualified native stop scope or missing post-latch downshift')
+            arms[suite]['stop_checks']=dict(counts)
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
                 **({"profile":profiles.pop()} if model=="gemma" else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",

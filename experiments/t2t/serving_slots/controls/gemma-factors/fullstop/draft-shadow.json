@@ -1,0 +1,56 @@
+{
+  "frozen90": {
+    "counts": {
+      "blocks": 171,
+      "different_blocks": 22,
+      "different_deliveries": 22,
+      "different_encoder_inputs": 4,
+      "different_first_eos": 0,
+      "different_latched_deliveries": 14,
+      "different_tokens": 22,
+      "latched_blocks": 139,
+      "requests": 90,
+      "requests_with_delivery_difference": 22,
+      "requests_with_encoder_difference": 4,
+      "terminal_writes": 5668
+    },
+    "expected": 90,
+    "observed": 90
+  },
+  "new60": {
+    "counts": {
+      "blocks": 117,
+      "different_blocks": 13,
+      "different_deliveries": 13,
+      "different_encoder_inputs": 2,
+      "different_first_eos": 0,
+      "different_latched_deliveries": 8,
+      "different_tokens": 13,
+      "latched_blocks": 95,
+      "requests": 60,
+      "requests_with_delivery_difference": 13,
+      "requests_with_encoder_difference": 2,
+      "terminal_writes": 4354
+    },
+    "expected": 60,
+    "observed": 60
+  },
+  "original30": {
+    "counts": {
+      "blocks": 54,
+      "different_blocks": 9,
+      "different_deliveries": 9,
+      "different_encoder_inputs": 2,
+      "different_first_eos": 0,
+      "different_latched_deliveries": 6,
+      "different_tokens": 9,
+      "latched_blocks": 44,
+      "requests": 30,
+      "requests_with_delivery_difference": 9,
+      "requests_with_encoder_difference": 2,
+      "terminal_writes": 1314
+    },
+    "expected": 30,
+    "observed": 30
+  }
+}

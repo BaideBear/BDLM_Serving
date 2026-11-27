@@ -157,6 +157,8 @@ class FixedFamilyRequest(FamilyRequest):
         head = states[0]
         verify, rebuild = route in ('verify', 'verify_paid'), route == 'rebuild'
         obs = self.stop_observer
+        scoped = getattr(self, 'stop_at_single_b_only', False)
+        in_scope = not scoped or (offer==B and len(states)==1 and route=='dense_single')
         if obs is not None:
             from .gemma_fullstop import HeadSample, HeadTick
             source = HeadTick(self.tick, head.ordinal, int(self.cache.get_seq_length()))
@@ -209,7 +211,7 @@ class FixedFamilyRequest(FamilyRequest):
                 if sampled:
                     idx = list(sampled)
                     before = s.ids[0,idx]
-                    tap = obs is not None and c is head
+                    tap = obs is not None and c is head and in_scope
                     hooks = {'on_scores': observe_head} if tap else {}
                     if self.keep_rejected_noise is not None:
                         from .gemma_rejected_noise import RejectNoise
@@ -234,9 +236,11 @@ class FixedFamilyRequest(FamilyRequest):
         if obs is not None:
             hp = next((p for p in event['parts'] if p['ordinal'] == current.ordinal), None)
             phase = hp['phase'] if hp else 'absent'
-            if phase != 'sample':
-                obs.observe(current, phase=phase)
+            if not in_scope or phase != 'sample':
+                obs.observe(current, phase=phase if in_scope else 'absent')
             event['fullstop'] = dict(epoch=current.epoch, hit=hit, latched=bool(hit and self.fullstop))
+            if scoped:
+                event['fullstop'].update(in_scope=in_scope, resident=len(states))
         if rebuild:
             base = self.origin + B * head.ordinal
             self.rebuild = any(base+i not in self.bank.live for i in head.rows.initialized)
@@ -267,7 +271,8 @@ class AblationRequest(FixedFamilyRequest):
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
                  prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None,
-                 keep_rejected_noise=None, dense_stop=False):
+                 keep_rejected_noise=None, dense_stop=False, stop_at_single_b_only=False,
+                 sample_full_rebuild=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
@@ -287,17 +292,27 @@ class AblationRequest(FixedFamilyRequest):
                 or reuse_paid_masks or fuse_first_verify or fullstop is not None):
             raise ValueError('Rejected-noise experiment requires the fixed head-only 1/8 control')
         self.keep_rejected_noise = keep_rejected_noise
+        if type(sample_full_rebuild) is not bool or sample_full_rebuild and (
+                q!=2*B or ablation!='00' or top_gate!='half' or head_first or fullstop is not None
+                or not fuse_first_verify or law!=Law() or reuse_paid_masks or prefix_order!='right'):
+            raise ValueError('Promotion experiment requires the fixed fused half-gate 2B profile')
+        self.sample_full_rebuild = sample_full_rebuild
         self.fullstop = fullstop  # None: legacy; False: shadow; True: apply.
+        self.stop_at_single_b_only = stop_at_single_b_only
+        if type(stop_at_single_b_only) is not bool or stop_at_single_b_only and (
+                dense_stop or fullstop is not True or q not in TIERS or ablation!='00' or top_gate!='half'
+                or head_first or reuse_paid_masks or prefix_order!='right' or not fuse_first_verify):
+            raise ValueError('The switchable stop requires the single-head profile and half gate at 2B')
         if type(dense_stop) is not bool or dense_stop and (
                 q != B or ablation != '00' or top_gate != 'off' or head_first or reuse_paid_masks
                 or prefix_order != 'right' or law != Law(1,8) or type(fullstop) is not bool
                 or not fuse_first_verify):
             raise ValueError('Dense stop requires the registered fused, head-only B control')
-        if dense_stop:
+        if dense_stop or stop_at_single_b_only:
             self.full_head_at_b = True
         if fullstop is not None:
             from .gemma_fullstop import FullHeadStop
-            if type(fullstop) is not bool or fuse_first_verify and not dense_stop:
+            if type(fullstop) is not bool or fuse_first_verify and not (dense_stop or stop_at_single_b_only):
                 raise ValueError('fullstop requires a boolean arm and separate unfused verify')
             cfg, unused = model._prepare_generation_config(None, max_new_tokens=max_new_tokens)
             if unused or (cfg.stability_threshold, cfg.confidence_threshold) != (1, .005):
@@ -380,6 +395,15 @@ class AblationRequest(FixedFamilyRequest):
         if self.rebuild:
             # Promoted sampler and clock survive; decoder KV from the old encoder epoch does not.
             missing = sorted((base+i for i in head.rows.initialized if base+i not in self.bank.live))
+            if (getattr(self,'sample_full_rebuild',False) and q==2*B and self.ordinal>0 and
+                    self.tail is None and not debt and head.can_sample and head.sampler.phase=='sample'
+                    and len(missing)==B and
+                    not (room_for_tail and head_masks<=B//2 and self._no_accepted_eos(head))):
+                event=run('rebuild_sample',missing,missing)
+                if not set(missing).issubset(self.bank.live):
+                    raise RuntimeError('Incomplete new-epoch KV at promoted full-head sample')
+                self.rebuild=False
+                return event
             return run('rebuild', missing[:q])
 
         def spawn():

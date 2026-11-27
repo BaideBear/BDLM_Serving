@@ -12,7 +12,7 @@ from .cross_race_report import COHORTS, MANIFEST
 def tables(report, kind, manifest):
     if (report["schema"] != "cross-race-report-v1" or not report["manifest_verified"]
             or report["samples_sha256"] != manifest["samples_sha256"]
-            or kind not in ("rank", "close", "profile-close", "capacity","density")):
+            or kind not in ("rank", "close", "profile-close", "capacity","density","promotion")):
         raise ValueError("unregistered schema or manifest")
     coverage, results = [], []
     for pair in report["comparisons"]:
@@ -43,7 +43,7 @@ def tables(report, kind, manifest):
                                     **{k:w[k] for k in ("prefix_seats", "differing_prefix_seats",
                                         "prefix_distance_sum", "prefix_edits", "prefix_revoked",
                                         "resample_paid_F", "fused_F", "fused_dirty_Q", "prior_mismatches",
-                                        "high_dense_F","low_dense_F") if k in w},
+                                        "high_dense_F","low_dense_F","promotion_F") if k in w},
                                     **diag, **{k+"_ci95":v for k,v in cohort["confidence95"].items()
                                         if k in ("accuracy_delta", "macro_TPF_delta", "N_per_history_Q_delta")}))
     return coverage, results
@@ -63,7 +63,7 @@ def write_csv(path, rows):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("kind", choices=["rank","close","profile-close","capacity","density"])
+    ap.add_argument("kind", choices=["rank","close","profile-close","capacity","density","promotion"])
     ap.add_argument("destination", type=Path)
     args = ap.parse_args()
     report = json.load(sys.stdin)

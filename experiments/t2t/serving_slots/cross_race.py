@@ -168,7 +168,7 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
-    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close','capacity','density','dense-stop'), default='cross')
+    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close','capacity','density','dense-stop','promotion'), default='cross')
     ap.add_argument('--capacity-controls', type=Path)
     ap.add_argument('--profile-close-budget', type=int, choices=(128,512))
     ap.add_argument('--fuse-first-verify', action='store_true')
@@ -177,7 +177,7 @@ def main():
     ap.add_argument('--fullstop-arm', choices=('off','on'), help='off is shadow-observed')
     ap.add_argument('--fullstop-qualify', action='store_true', help='one frozen item per dataset')
     a = ap.parse_args()
-    if (a.suite in ('capacity','density','dense-stop')) != (a.capacity_controls is not None):
+    if (a.suite in ('capacity','density','dense-stop','promotion')) != (a.capacity_controls is not None):
         ap.error('Select the registered paid-close controls for the capacity experiment')
     if (a.suite=='profile-close') != (a.profile_close_budget is not None):
         ap.error('Select one profile-close budget for the same-device pair')
@@ -221,6 +221,8 @@ def main():
             work = capacity_cases()  # Identical balanced order; final bool now selects stop.
     elif a.suite=='profile-close':
         work = profile_close_cases(a.profile_close_budget)
+    elif a.suite=='promotion':
+        work = profile_close_cases(512)
     elif a.suite=='capacity':
         work = capacity_cases()
     elif a.suite=='density':
@@ -236,6 +238,7 @@ def main():
         if a.suite == 'close':
             key = f'C{c}-fuse{int(a.fuse_first_verify)}-{i:02d}'
         fuse, dense_at_b, density = a.fuse_first_verify, False, None
+        promotion=False
         if a.suite=='capacity':
             dense_at_b, fuse, on = on, True, None
             key = f'C{c}-capacity{int(dense_at_b)}-{i:02d}'
@@ -248,6 +251,9 @@ def main():
         elif a.suite=='dense-stop':
             dense_at_b = fuse = True
             key = f'C{c}-dense-stop{int(on)}-{i:02d}'
+        elif a.suite=='promotion':
+            promotion,fuse,on=on,True,None
+            key=f'C{c}-promotion{int(promotion)}-{i:02d}'
         elif on is not None:
             key = f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}'
         out = a.output / (key+'.json')
@@ -268,7 +274,8 @@ def main():
                 full_head_at_b=dense_at_b, density=density,
                 policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
                             prefix_order=rank,reuse_paid_masks=reuse,
-                            fuse_first_verify=fuse, fullstop=on, dense_stop=a.suite=='dense-stop'))
+                            fuse_first_verify=fuse, fullstop=on, dense_stop=a.suite=='dense-stop',
+                            sample_full_rebuild=promotion))
             assert r['projection_modules']==85 and r['max_decoder_Q']<=c
             ids = r['output_ids']
             n = sum(tid not in special for tid in ids)
@@ -316,6 +323,22 @@ def main():
                 row['full_head_at_b'] = dense_at_b
                 refq = 512 if dense_at_b else 256
                 row['replay'] = replay_capacity(row, a.capacity_controls/f'C{refq}-fuse1-{i:02}.json')
+            if a.suite=='promotion':
+                prior=a.capacity_controls/f'C512-profile-fuse1-{i:02}.json'
+                blob=prior.read_bytes()
+                ref=json.loads(blob)
+                from hashlib import sha256
+                if (ref['schema']!='profile-paid-close-v1' or ref['gate']!='half' or not ref['fuse']
+                        or ref['budget']!=512 or ref['scorer_sha256']!=scorer_sha or
+                        any(row[k]!=ref[k] for k in ('task_id','dataset','index','seed','input_sha256','samples_sha256'))):
+                    raise ValueError('Wrong 2B promotion control')
+                keys=('output_ids','N','F','decoder_Q','encoder_Q','route_F','route_Q','categories','tail_open','tail_discard')
+                different=[k for k in keys if row[k]!=ref[k]]
+                if not promotion and different:
+                    raise ValueError(f'Promotion control drift {different}')
+                row.update(schema='full-promotion-sample-v1',promotion=promotion,fuse=True,
+                    source_sha256=sources,reference_sha256=sha256(blob).hexdigest(),scorer_sha256=scorer_sha,
+                    historical_differences=different,gpu_visible=os.environ['CUDA_VISIBLE_DEVICES'])
             if density is not None:
                 row['density'] = density
                 row['density_F'] = dict(Counter(('high' if e['head_mask_before']>=128 else 'low')+'_'+e['route']
