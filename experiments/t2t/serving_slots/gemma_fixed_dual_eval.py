@@ -55,13 +55,17 @@ def fullstop_receipt(trace, origin, enabled):
 
 @torch.inference_mode()
 def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation=None,
-            policy=None, full_head_at_b=False):
+            policy=None, full_head_at_b=False, density=None):
     # None preserves the pre-ablation fixture / archived Q512 registration.
     if type(q) is not int or q not in TIERS or (ablation is None and q != 512) or (
             ablation is not None and ablation not in ABLATIONS):
         raise ValueError('Invalid Gemma audit configuration')
     if type(full_head_at_b) is not bool or (full_head_at_b and (q != B or ablation != '00')):
         raise ValueError('Full-head audit requires the physical one-block offer')
+    if density is not None and (density not in ('never','high','low','always') or full_head_at_b
+            or q!=B or ablation!='00' or not policy or policy.get('top_gate')!='off'
+            or policy.get('fuse_first_verify') is not True):
+        raise ValueError('Density experiment requires fixed B, one canvas and identical closure')
     prompt = data['input_ids'][0].tolist()
     origin = len(prompt)
     trace, heads, top = [], [], []
@@ -81,6 +85,8 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
         while req.status == 'ready':
             require(len(trace) < (max_new_tokens // B) * (2*48*(B//min(q,B)+2)+2*B//min(q,B)+4),
                     'No bounded decoder progress')
+            if density is not None:
+                req.full_head_at_b = density in ('always', 'high' if B-len(req.rows.accepted)>=B//2 else 'low')
             trace.append(req.step())
     widths = [e['q'] for e in trace]
     require(heads == widths and proj and all(t == heads for t in proj.values()) and
@@ -119,7 +125,14 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                         (e['head_mask_before']==0 or e['parts'][0]['age_before']==48) and
                         e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
                         'Ineligible or reordered terminal writeback fusion')
-            if full_head_at_b and route not in ('drain', 'verify', 'verify_paid'):
+            dense = full_head_at_b
+            if density is not None:
+                start = origin+B*len(sealed)
+                remaining = B-len(accepted.intersection(range(start,start+B)))
+                require(remaining==e['head_mask_before'], 'Wrong pre-forward density')
+                dense = density=='always' or density=='high' and remaining>=B//2 or density=='low' and remaining<B//2
+                require(not build and not e['opened'] and (dense or route!='dense_single'), 'Unexpected dense work or successor')
+            if dense and route not in ('drain', 'verify', 'verify_paid'):
                 base = origin+B*len(sealed)
                 full_rows = list(range(base, base+B))
                 require(route=='dense_single' and e['positions']==e['sampled_absolute']==full_rows

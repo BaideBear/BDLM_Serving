@@ -104,6 +104,30 @@ scorer; report parity mismatches, never relabel old runs as fresh Q256. Only
 the same-budget arms estimate the effect. Recompute with `gather_gemma_factors.sh
 capacity`.
 
+All 90 pairs now pass the physical Q256 cap and historical endpoint checks.
+Sparse vs full head was **83 vs 83 correct** (one rescue, one loss), macro TPF
+**19.799 vs 22.940** (paired delta +3.141, 95% bootstrap interval +2.171 to
++4.125), selected-Q efficiency **10.28% vs 8.21%**. The extra **88,330 decoder
+Q** bought **114 fewer post-prefill forwards**, not identical outputs or
+identical accuracy per task. Both still trail native in TPF and correct count.
+The original30 changed 29 to 28; the added60 changed 54 to 55.
+
+[Five-budget chart, frozen90](fixed-profile/frozen90.png) ·
+[original30](fixed-profile/original30.png) · [added60](fixed-profile/new60.png) ·
+[numeric data and source per point](fixed-profile/metrics.csv). The line is the
+strict fused profile, not best-of; the diamond shows the full-head alternative
+at the same cap. Dashed lines are external controls rather than matched
+interventions. Rebuild with `python -m experiments.t2t.serving_slots.plot_fixed_gemma_profile`.
+
+`density/` isolates whole-head selection **within** a fixed Q256 offer.
+Compare never, only when at least half of the head remains unresolved, only
+when fewer than half remain, and always. Each head uses its *pre-forward* state
+without hindsight, and admissions/revocations can move the threshold either
+way. All four arms retain the same sparse law, verify fusion, no successor and
+no early-stop experiment. Endpoints must reproduce the previous local controls
+(IDs and F/Q) per task. `gather_gemma_factors.sh density` exports totals only on
+complete frozen cohorts; high/low dense F counts are physical route counts.
+
 ## Prefix location and sampling on refresh: original 30
 
 Each entry is correct out of 30, then macro TPF. All use 1/8 and the same

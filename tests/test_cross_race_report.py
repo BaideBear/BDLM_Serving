@@ -249,6 +249,33 @@ def test_factor_publication_only_complete_cohorts_includes_negative_parity():
         tables(r, "close", manifest() | {"samples_sha256":"b"*64})
 
 
+def test_density_registered_at_one_offer_and_checks_phases():
+    from experiments.t2t.serving_slots.cross_race import density_cases
+    cases=list(density_cases())
+    assert len(set(cases))==360 and {c[1:8] for c in cases}=={(256,'off',False,4,(1,8),'right',False)}
+    r=cross(0) | PROVENANCE | dict(schema="phase-density-v1",budget=256, density="high",fuse=True,
+            fused_F=0,fused_dirty_Q=0, route_F={"sparse":2},route_Q={"sparse":10},
+            density_F={"low_sparse":2})
+    assert report.normalize(r).work["low_dense_F"]==0
+    with pytest.raises(ValueError, match="density route"):
+        report.normalize(r | {"density_F":{"low_dense_single":2}})
+    with pytest.raises(ValueError, match="conservation"):
+        report.normalize(r | {"density_F":{"low_sparse":1}})
+
+
+def test_gemma_published_fixed_offers_and_denominators():
+    from experiments.t2t.serving_slots.plot_fixed_gemma_profile import collect, COHORTS, TIERS
+    data=collect()
+    for cohort,_,n in COHORTS:
+        part=[r for r in data if r["cohort"]==cohort]
+        assert len(part)==13 and all(r["n"]==n for r in part)
+        assert {r["budget"] for r in part if r["method"]=="Optimus IBS"}==set(TIERS)
+        assert next(r for r in part if r["method"]=="Flow W2")["token_efficiency"] is None
+        for r in part:
+            if r["history_Q"]:
+                assert r["token_efficiency"]==pytest.approx(r["N"]/r["history_Q"])
+
+
 def test_layout_uses_history_cap_not_actual_projection():
     shared = dict(**identity(0), samples_sha256=SNAPSHOT, output_tokens=8,
                   generation_forwards=3, truncated=False, correct=True)

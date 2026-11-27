@@ -49,3 +49,13 @@ with the checkpoint, frozen samples, controls and output directories. Reproduce
 benchmarks/frozen90/manifest.json`; for the other model select `llada` and
 `/gs/results/public-strict-llada-1128`. The reporter rejects partial cohorts;
 its JSON is aggregate and contains no output IDs.
+
+Additional Gemma qualifications on the same frozen 0/10/20: both
+[`fixed90_fused`](gemma-fused.json) and
+[`fixed90_dense_fused`](gemma-dense-fused.json) replayed all 15 constant
+cases exactly on GPU (final IDs and measured workload). Each exercised all
+25 directed transitions in `switch25`, with 29 downshifts carrying debt.
+They respectively refreshed 140 and 360 parked rows *at* a downshift. These
+are different live trajectories, not a cost comparison at identical states.
+`fixed90_dense_fused` changes only the actual one-block offer when the entire
+head and its mandatory writes fit. Neither configuration restarts upon switching.

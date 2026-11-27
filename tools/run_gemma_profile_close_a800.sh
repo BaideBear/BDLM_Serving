@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run both fusion arms for one fixed offer on one otherwise idle device. No holder.
 set -euo pipefail
-case "${1:-}:${2:-}" in 2:128|4:512|4:capacity) ;; *) exit 2 ;; esac
+case "${1:-}:${2:-}" in 2:128|4:512|4:capacity|4:density) ;; *) exit 2 ;; esac
 i=$1
 q=$2
 deadline=${3:?provide the study deadline in Unix seconds}
@@ -27,6 +27,8 @@ export PYTHONPATH="$PWD:/gs/env/deps:/gs/env/fixed-baseline-deps"
 export TRITON_CACHE_DIR="/gs/runtime/block-history-1127/triton-g$i"
 if [[ $q == capacity ]]; then
     args=(--suite capacity --capacity-controls /gs/results/paid-close-1128 --output /gs/results/capacity-head-1128)
+elif [[ $q == density ]]; then
+    args=(--suite density --capacity-controls /gs/results/paid-close-1128 --output /gs/results/phase-density-1128)
 else
     args=(--suite profile-close --profile-close-budget "$q" --output /gs/results/profile-close-1128)
 fi

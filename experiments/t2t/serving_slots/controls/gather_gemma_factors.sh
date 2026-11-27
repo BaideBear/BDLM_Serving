@@ -8,6 +8,7 @@ case "$kind" in
     close) name=paid-close-1128 ;;
     profile-close) name=profile-close-1128 ;;
     capacity) name=capacity-head-1128 ;;
+    density) name=phase-density-1128 ;;
     *) exit 2 ;;
 esac
 opts=(-o BatchMode=yes -o ConnectTimeout=8)

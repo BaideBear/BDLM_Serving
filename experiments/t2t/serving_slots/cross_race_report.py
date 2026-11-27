@@ -17,8 +17,8 @@ from statistics import mean
 
 MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.json"
 COHORTS = {"original30": range(30), "new60": range(30, 90), "frozen90": range(90)}
-KINDS = ("cross", "rank", "close", "profile-close", "capacity", "layout_sweep", "layout_llada")
-DECODER_KINDS = ("cross", "rank", "close", "profile-close", "capacity")
+DECODER_KINDS = ("cross", "rank", "close", "profile-close", "capacity", "density")
+KINDS = DECODER_KINDS + ("layout_sweep", "layout_llada")
 CATEGORIES = ("rebuild", "verify", "mandatory", "prefix", "unresolved", "clean-other")
 TAIL = ("tail_open", "tail_discard", "tail_touched_positions", "tail_last_candidate",
         "tail_final_matches", "discarded_tail_Q", "tail_Q")
@@ -96,6 +96,8 @@ def _llada(budget, cold, den):
 
 
 def _comparisons():
+    for left,right in (("never","high"),("never","low"),("high","always"),("low","always")):
+        yield Arm("density",256,"C256-density-"+left), Arm("density",256,"C256-density-"+right)
     yield Arm("capacity",256,"C256-capacity0"), Arm("capacity",256,"C256-capacity1")
     for c in (32, 64, 128, 256, 512):
         yield _close(c, False), _close(c, True)
@@ -205,7 +207,7 @@ def normalize(row):
     input_sha = None
     output_digest = None
     sources = ()
-    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1", "profile-paid-close-v1", "capacity-head-v1"):
+    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
         dose = tuple(_nat(i, "prefix") for i in row["prefix"])
@@ -233,7 +235,20 @@ def normalize(row):
             _check(replay["reference_budget"]==(512 if dense else 256) and isinstance(replay["different"],list)
                    and all(isinstance(x,str) for x in replay["different"]), "invalid historical parity")
             arm = Arm("capacity",256,f"C256-capacity{int(dense)}")
-        if schema in ("paid-close-v1", "prefix-rank-v1", "profile-paid-close-v1", "capacity-head-v1"):
+        if schema=="phase-density-v1":
+            mode = row["density"]
+            _check(mode in ("never","high","low","always") and c==256 and row["fuse"] is True
+                   and not row["slack"] and den==4 and dose==(1,8) and row["gate"]=="off",
+                   "invalid density factor")
+            arm = Arm("density",256,"C256-density-"+mode)
+            if mode in ("never","always"):
+                ref = row["replay"]
+                _sha(ref["source_sha256"],"density endpoint replay")
+                _check(ref["different"]==[] and ref["reference_budget"]==(256 if mode=="never" else 512),
+                       "density endpoint replay mismatch")
+            else:
+                _check("replay" not in row,"unregistered density replay")
+        if schema in ("paid-close-v1", "prefix-rank-v1", "profile-paid-close-v1", "capacity-head-v1","phase-density-v1"):
             hashes = row["source_sha256"]
             _check(isinstance(hashes, dict) and
                    {"cross_race.py", "gemma_fixed_dual.py", "gemma_fixed_dual_eval.py"} <= hashes.keys(),
@@ -258,7 +273,17 @@ def normalize(row):
     if arm.kind=="capacity":
         work["prior_mismatches"] = int(bool(row["replay"]["different"]))
         _check(not work["joint_F"] and not work["tail_Q"], "capacity factor opened a tail")
-    if arm.kind in ("close","profile-close","capacity"):
+    if arm.kind=="density":
+        slots=row["density_F"]
+        totals={}
+        for key,value in slots.items():
+            phase,route=key.split("_",1)
+            _check(phase in ("high","low") and route in ("dense_single","sparse","drain","verify","verify_paid")
+                   and (route!="dense_single" or row["density"] in (phase,"always")), "illegal density route")
+            totals[route]=totals.get(route,0)+_nat(value,"density route F",1)
+        _check(totals==row["route_F"] and not work["joint_F"] and not work["tail_Q"],"density F conservation")
+        work.update({p+"_dense_F":slots.get(p+"_dense_single",0) for p in ("high","low")})
+    if arm.kind in ("close","profile-close","capacity","density"):
         f = work["fused_F"] = _nat(row["fused_F"],"fused_F")
         d = work["fused_dirty_Q"] = _nat(row["fused_dirty_Q"],"fused_dirty_Q")
         _check(f == row["route_F"].get("verify_paid",0) and f <= d <= f*min(c,256)
@@ -386,7 +411,7 @@ def _paired(left, right, indices, draws, seed):
                   paired_score_pending_indices=[a.index for a, b in pairs
                                                  if a.correct is None or b.correct is None])
     if pairs:
-        if pairs[0][0].arm.kind in ("rank","capacity"):
+        if pairs[0][0].arm.kind in ("rank","capacity","density"):
             result["output_comparison"] = dict(changed_output_indices=[
                 a.index for a, b in pairs if a.output_digest != b.output_digest])
         kind = pairs[0][0].arm.kind
