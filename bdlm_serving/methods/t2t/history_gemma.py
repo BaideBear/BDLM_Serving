@@ -126,8 +126,16 @@ class Ledger:
     probes: list = field(default_factory=list)
 
 
+def attention_backend(budget, width, saturating_sdpa=False):
+    if budget is None:
+        return "native_sdpa_reference"
+    if saturating_sdpa and budget >= width:
+        return "native_sdpa_saturating_dispatch"
+    return "triton_block_history"
+
+
 @contextmanager
-def history_gemma(model, budget, *, audit=False):
+def history_gemma(model, budget, *, audit=False, saturating_sdpa=False):
     """Instrument one exclusive, unpadded native generate call.
 
     budget=None is the native SDPA reference. Audit mode adds same-input SDPA
@@ -139,6 +147,8 @@ def history_gemma(model, budget, *, audit=False):
     width = model.config.canvas_length
     if model.training or (budget is not None and not 1 <= budget <= 2 * width):
         raise ValueError("Expected an eval model and a fixed Gemma history budget")
+    backend = attention_backend(budget, width, saturating_sdpa)
+    split = backend == "triton_block_history"
     attn_layers = [layer.self_attn for layer in model.model.decoder.layers]
     native_step, sdpa = model._denoising_step, impl["sdpa"]
     alias = "bdlm_gemma_block_history"
@@ -183,8 +193,11 @@ def history_gemma(model, budget, *, audit=False):
         heads = q.shape[1]
         scope["layers"][i] = (selected, sum(bc) * heads, sum(hc[j] for j in selected) * heads,
                               tuple(j for j, n in enumerate(hc) if n))
-        if budget is None:
-            return sdpa(module, q, k, v, mask, **kw)
+        if not split:
+            out = sdpa(module, q, k, v, mask, **kw)
+            if scope["probe"]:
+                scope["attention_probe"][i] = _numerics(out[0], out[0])
+            return out
         if selected not in scope["plans"]:
             scope["plans"][selected] = SlotPlan.make([selected], b, q.device)
         if i not in states:
@@ -296,7 +309,11 @@ def history_gemma(model, budget, *, audit=False):
         stop = bool(finished.item())
         closing = stop and budget is not None and budget < width and not forced
         closed = not closing and (stop or clock == 1)
+        if (any(accepted[i] or after_ids[i] != before_ids[i] for i in set(range(width)) - set(eligible))
+                or (closed and no_sample)):
+            raise RuntimeError("Cold row accepted, mutated or committed")
         record = dict(block=prefix - prompt_length, encoder_version=epoch, invalidated=invalidated,
+                      attention_backend=backend,
                       clock=clock, q=width, history_q=len(selected),
                       history_layer_q=sum(len(item[0]) for item in layers.values()),
                       block_edges=sum(item[1] for item in layers.values()),
@@ -311,7 +328,10 @@ def history_gemma(model, budget, *, audit=False):
                       stop_candidate=stop, closed=closed)
         if audit:
             record.update(selected=selected, canvas=canvas_digest(after_ids, accepted),
-                          draft=canvas_digest(draft[0].tolist(), accepted))
+                          draft=canvas_digest(draft[0].tolist(), accepted),
+                          sampler_eligible=eligible, accepted_rows=[i for i, ok in enumerate(accepted) if ok],
+                          admitted_rows=sorted(admitted), edited_rows=sorted(edits), revoked_rows=sorted(revoked),
+                          pending_dirty_rows=sorted(rows.dirty))
         ledger.trace.append(record)
         return after, draft, sc, torch.zeros_like(finished) if closing else finished
 

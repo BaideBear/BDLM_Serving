@@ -1,5 +1,7 @@
 # 单请求 Serving 槽位：固定曲线与运行中切档
 
+[2026-11-28：当前块全算、选行读历史 KV。两模型各五档，与原生、Optimus IBS、FlowBlock 和 B3 的 frozen90 对照](BLOCK_LOCAL_HISTORY_ROW_PLAN.md)。
+
 [2026-11-27：跨块选择与整块建 KV 实验已停止，封存结果、对照与复盘](BLOCK_ABLATION_POSTMORTEM.md)。Gemma 完整 90 题；LLaDA 停止时各档共同 66 题，另列原 30 题。不再续跑该矩阵。
 
 [北京时间 11 月 26 日 20:05 起的 24 小时设计周期](PLAN_24H.md)
