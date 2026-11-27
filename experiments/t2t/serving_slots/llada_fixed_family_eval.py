@@ -24,7 +24,14 @@ SCORER_SHA = "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
 OUT = reg.DATA/"llada21-fixed-family-v1"
 
 
-def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
+def fixed(model, tok, task, prompt, q, law, *, ablation="00"):
+    """Registered batch-one oracle; constructing the request always starts a new bank."""
+    if ablation not in ("00", "10", "11") or q not in TIERS:
+        raise ValueError("Expected a registered ablation and fixed offer")
+    return _fixed(model, tok, task, prompt, q, law, ablation=ablation)
+
+
+def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager"):
     import torch
     from bdlm_serving.methods.t2t.llada_budget_request import LLaDABudgetRequest
 
@@ -48,7 +55,7 @@ def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
         ctx.enter_context(model.lm_head.register_forward_pre_hook(lambda _,args: head_width.append(args[0].shape[1])))
         req = LLaDABudgetRequest(model,x,mask_id=mask,eos_ids=[eos],max_new_tokens=reg.CAP,
                                 seed=task["seed"],law=law,confidence_threshold=.9,editing_threshold=.5,
-                                tail_rule=tail_rule)
+                                tail_rule=tail_rule, ablation=ablation)
         reg.require(attention == [list(range(origin))] and head_width == [origin],"Wrong pure prompt prefill")
         debt = set()
         while req.status == "ready":
@@ -64,8 +71,14 @@ def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
                 break
             rows = set(e["rows"])
             w = len(rows)
+            build = e["phase"] == "build_sample"
+            if build:
+                start = e["rows"][0]
+                reg.require(ablation == "11" and q < 64 and not debt and start % 32 == 0 and
+                            start in (lo, lo+32) and e["rows"] == list(range(start,min(start+32,req.end)))
+                            and e["cold"] == e["sampled"] == e["rows"], "Invalid whole-block decode")
             reg.require(e["tick"] == len(attention)-2 and e["rows"] == attention[-1] and
-                        e["q"] == head_width[-1] == w <= q and e["offer"] == q and
+                        e["q"] == head_width[-1] == w <= (32 if build else q) and e["offer"] == q and
                         e["layer_physical_q"] == [w]*20 and e["dirty_before"] == sorted(debt) and
                         rows & debt == set(sorted(debt)[:q]),"Decode-width or debt accounting mismatch")
             writes = set(e["written_absolute"])
@@ -89,7 +102,8 @@ def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
             sampled.append(e)
     gen = attention[1:]
     widths = list(map(len,gen))
-    reg.require(widths == head_width[1:] and widths and max(widths)<=q, "Unpaid projection")
+    reg.require(widths == head_width[1:] and widths and widths == [e["q"] for e in sampled],
+                "Unpaid projection")
     if failure:
         reg.require(len(widths)==len(sampled) and req.status=="failed","Invalid progress failure")
         ids = []
@@ -103,6 +117,9 @@ def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
     score = {"correct":False,"reason":"generation_failed"} if failure else scoring.score(
         tok.decode(ids,skip_special_tokens=True),task)
     return dict(**{k:task[k] for k in reg.KEYS}, q=q, law=[law.num,law.den],
+                **({"ablation":ablation, "build_F":phases["build_sample"],
+                    "build_Q":sum(e["q"] for e in sampled if e["phase"]=="build_sample"),
+                    "over_offer_F":sum(w>q for w in widths)} if ablation is not None else {}),
                 input_sha256=sha256(json.dumps(prompt,separators=(",",":")).encode()).hexdigest(),
                 output_ids=ids, score=score, correct=bool(score["correct"]), failure=failure,
                 N=n,F=f,Q=paid,TPF=n/f,efficiency=n/paid,max_decoder_Q=max(widths),
@@ -110,15 +127,26 @@ def fixed(model, tok, task, prompt, q, law, *, tail_rule="eager"):
                 row_visits=dict(stats),phase_F=dict(phases),trace=sampled)
 
 
+def assert_dense_joint_match(*cases):
+    """Check three independently evaluated Q64 rows, never synthesize a control row."""
+    reg.require(len(cases)==3 and {c["ablation"] for c in cases}=={"00","10","11"}
+                and all(c["q"]==64 and not c["build_F"] for c in cases), "Expected three Q64 arms")
+    for key in (*reg.KEYS, "law", "input_sha256", "failure", "trace", "output_ids", "score", "N", "F", "Q"):
+        reg.require(all(c[key]==cases[0][key] for c in cases[1:]), f"Q64 arms diverged: {key}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--tiers",type=int,choices=TIERS,nargs="+",default=(32,64,16,8,4))
     ap.add_argument("--num",type=int,choices=(0,1),default=1)
-    ap.add_argument("--tail-pilot",action="store_true",help="Three fixed Q64 arms on frozen 0/10/20, CPU cores 44-47")
+    modes=ap.add_mutually_exclusive_group()
+    modes.add_argument("--tail-pilot",action="store_true",help="Three fixed Q64 arms on frozen 0/10/20, CPU cores 44-47")
+    modes.add_argument("--tail-full90",action="store_true",help="Fresh eager/fill-head pairs on frozen90 at Q64")
     a = ap.parse_args()
-    if a.tail_pilot and (tuple(a.tiers)!=(64,) or a.num!=1):
-        ap.error("--tail-pilot requires --tiers 64 and the 1/8 law")
-    cores=range(44,48) if a.tail_pilot else range(36,40)
+    tail=a.tail_pilot or a.tail_full90
+    if tail and (tuple(a.tiers)!=(64,) or a.num!=1):
+        ap.error("Tail contrasts require --tiers 64 and the 1/8 law")
+    cores=range(44,48) if tail else range(36,40)
     reg.require(len(a.tiers)==len(set(a.tiers)) and os.environ.get("CUDA_VISIBLE_DEVICES")==""
                 and os.sched_getaffinity(0)==set(cores), "Use the registered four-core CPU lane")
     import torch, transformers, transformers.utils as u
@@ -138,9 +166,14 @@ def main():
     ref = resolve_reference(SimpleNamespace(samples=samples))
     law = Law(a.num,8)
     ordinary=OUT/"cpu"/f"law-{a.num}-8"
-    root=reg.DATA/"llada21-family-tail-cpu3-v1" if a.tail_pilot else ordinary
+    pilot_root=reg.DATA/"llada21-family-tail-cpu3-v1"
+    root=pilot_root if a.tail_pilot else reg.DATA/"llada21-family-tail-cpu90-v1" if a.tail_full90 else ordinary
     indices=(0,10,20) if a.tail_pilot else ORDER
-    rules=("eager","defer_tail","fill_head") if a.tail_pilot else ("eager",)
+    rules=(("eager","defer_tail","fill_head") if a.tail_pilot else ("eager","fill_head") if a.tail_full90 else ("eager",))
+    if a.tail_full90:
+        seal=reg.read(pilot_root/"complete.json")
+        reg.require(seal["run"]==reg.sha(pilot_root/"run.json") and len(seal["files"])==9 and
+                    all(reg.sha(pilot_root/k)==v for k,v in seal["files"].items()),"Unsealed tail pilot")
     reg.require(reg.sha(samples)==reg.SAMPLES_SHA,"Unexpected frozen inputs")
     root.mkdir(parents=True,exist_ok=False)
     paths = [HERE, *(REPO/p for p in ("bdlm_serving/methods/t2t/budget_family.py",
@@ -149,7 +182,8 @@ def main():
     hashes = {p.name:reg.sha(p) for p in paths}
     meta = root/"run.json"
     reg.save(meta,dict(tiers=a.tiers,indices=indices,samples=reg.sha(samples),scoring=SCORER_SHA,
-        **({"tail_rules":rules,"cores":list(cores),"eager_reference":reg.sha(ordinary/"run.json")} if a.tail_pilot else {}),
+        **({"tail_rules":rules,"cores":list(cores),"eager_reference":reg.sha(ordinary/"run.json")} if tail else {}),
+        **({"pilot_seal":reg.sha(pilot_root/"complete.json")} if a.tail_full90 else {}),
         files=hashes,law=[law.num,law.den],checkpoint=str(CKPT),device="cpu",
         torch=torch.__version__,transformers=transformers.__version__,length_cap=reg.CAP,
         m2t=.9,t2t=.5,retirement="all_resident_no_masks_no_token_debt",case_failure_score=0))
@@ -166,11 +200,11 @@ def main():
         prompt=reg.read(ref/reg.filename(i,"native32"))["prompt_ids"]
         for q in a.tiers:
             for rule in rules:
-                suffix=f"-{rule}" if a.tail_pilot else ""
+                suffix=f"-{rule}" if tail else ""
                 dst=root/f"{i:02}-q{q}{suffix}.json"
                 reg.require(not dst.exists() and all(reg.sha(p)==hashes[p.name] for p in paths),"Source/row changed")
                 print(f"Running fixed Q{q} index={i} {rule}",flush=True)
-                row=fixed(model,tok,tasks[i],prompt,q,law,tail_rule=rule)
+                row=_fixed(model,tok,tasks[i],prompt,q,law,tail_rule=rule)
                 if a.tail_pilot:
                     refrow=reg.read(ordinary/f"{i:02}-q{q}.json")
                     reg.require(all(row[k]==refrow[k] for k in (*reg.KEYS,"q","law","input_sha256")) and
@@ -180,6 +214,17 @@ def main():
                         reg.require(all(row[k]==refrow[k] for k in ("trace","output_ids","score","N","F","Q")),
                                     "Rerun differs from original CPU control")
                     else:
+                        row["first_intervention"]=compare_tail(row,refrow)
+                elif a.tail_full90:
+                    row["tail_rule"]=rule
+                    if i in (0,10,20):
+                        pilot_row=reg.read(pilot_root/dst.name)
+                        reg.require(all(row[k]==pilot_row[k] for k in ("trace","output_ids","score","N","F","Q")),
+                                    "Expanded cohort does not reproduce its pilot")
+                    if rule!="eager":
+                        refrow=reg.read(root/f"{i:02}-q64-eager.json")
+                        reg.require(all(row[k]==refrow[k] for k in (*reg.KEYS,"q","law","input_sha256"))
+                                    and refrow["registration_sha256"]==reg.sha(meta),"Unpaired full90 treatment")
                         row["first_intervention"]=compare_tail(row,refrow)
                 row["registration_sha256"]=reg.sha(meta)
                 reg.save(dst,row)

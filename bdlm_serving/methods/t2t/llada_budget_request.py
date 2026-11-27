@@ -11,10 +11,35 @@ from types import SimpleNamespace
 import torch
 
 from bdlm_serving.methods.optimus.upstream import SelectedResidentCache
-from bdlm_serving.methods.t2t.budget_family import Law, choose
+from bdlm_serving.methods.t2t.budget_family import Law, Plan, choose
 from bdlm_serving.methods.t2t.llada_sparse import LLaDASparseKernel
 
 B = 32
+
+
+def _interleave(left, right, first):
+    sides = (left, right) if not first else (right, left)
+    return [side[i] for i in range(max(len(left), len(right)))
+            for side in sides if i < len(side)]
+
+
+def _joint_plan(q, split, dirty, masks, prefix, cold, law, first):
+    """Use choose's seat law with scheduler ranks, never absolute-id priority."""
+    candidates = [sorted((p for p in masks-dirty if (p >= split) == side),
+                         key=lambda p: (p not in cold, p)) for side in (False, True)]
+    ranked = _interleave(*candidates, first)
+    fronts = _interleave([p for p in prefix if p < split], [p for p in prefix if p >= split], first)
+    position = sorted(dirty) + ranked + fronts
+    rank = {p:i for i,p in enumerate(position)}
+    picked = choose(q, B, (rank[p] for p in dirty), (rank[p] for p in masks),
+                    (rank[p] for p in fronts), law=law)
+    def absolute(indices):
+        return tuple(sorted(position[i] for i in indices))
+    selected = absolute(picked.mask)
+    following = int(position[picked.mask[-1]] < split) if picked.mask else first
+    return Plan(absolute(picked.rows), absolute(picked.dirty), tuple(p for p in selected if p in cold),
+                tuple(p for p in selected if p not in cold), absolute(picked.prefix),
+                picked.drain_only), following
 
 
 class _Bank(SelectedResidentCache):
@@ -42,7 +67,9 @@ class _Bank(SelectedResidentCache):
 class LLaDABudgetRequest:
     """Absolute positions throughout. records excludes prefill; tokens is the retired suffix.
 
-    q<=B offers one active physical block, q>B offers up to two. Debt from
+    In the legacy family q<=B offers one block and q>B offers up to two.
+    In the registered ablation 2B always selects the full live window;
+    below 2B the arm controls early opening. Debt from
     parked blocks is global. Cold MASKs are sampled immediately; on mixed
     cold calls other rows only refresh. Warm calls sample the selected masks,
     editable prefix and active dirty rows in blocks still containing MASKs.
@@ -53,16 +80,21 @@ class LLaDABudgetRequest:
     @torch.inference_mode()
     def __init__(self, model, input_ids, *, mask_id, eos_ids=(), seed=0,
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
-                 tail_rule="eager"):
+                 tail_rule="eager", ablation=None):
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
                 or type(mask_id) is not int or not isinstance(law, Law)
                 or tail_rule not in ("eager","defer_tail","fill_head")
+                or ablation not in (None, "00", "10", "11")
+                or (ablation is not None and tail_rule != "eager")
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
         self.tail_rule = tail_rule
+        self.ablation = ablation  # None preserves the original registered family/pilots.
+        self.pending_build = None
+        self.next_side = 0
         vocab = model.get_input_embeddings().weight.shape[0]
         self.mask_id, self.eos_ids = mask_id, frozenset(eos_ids)
         if (not 0 <= mask_id < vocab or mask_id in self.eos_ids
@@ -108,6 +140,61 @@ class LLaDABudgetRequest:
                                   if r not in self.dirty and r in self.bank.initialized)
         return masks, prefix, eligible
 
+    def _ablation_plan(self, q):
+        """Return a single physical call; only build_sample may exceed the offer."""
+        split = self.head+B
+        lo = max(self.head, self.origin)
+        dirty = self.dirty
+        def drain():
+            plan = choose(q, B, dirty, (), (), law=self.law)
+            return plan, (), "drain", q
+
+        if self.stopping:
+            return drain()
+        head_ids = self.x[0,lo:min(split,self.end)].tolist()
+        has_next = split < self.end and self.eos_ids.isdisjoint(head_ids)
+        if q == 2*B:
+            # Check the current offer before either arm bit, even after a down/upshift.
+            self.pending_build = None
+            end = min(self.end, split+B if has_next else split)
+            masks, prefix, eligible = self._inputs(2*B if has_next else B)
+            rows = tuple(sorted(set(range(lo, end)) | dirty))
+            cold = masks-self.bank.initialized
+            plan = Plan(rows, tuple(sorted(dirty)), tuple(sorted(cold)),
+                        tuple(sorted(masks-cold-dirty)), tuple(sorted(prefix)), not eligible)
+            return plan, tuple(p for p in rows if p in eligible), "dense_joint", q
+
+        gate = (has_next and self.bank.last_end >= split
+                and 4*head_ids.count(self.mask_id) <= len(head_ids))
+        # An opening survives revocations, but not an EOS in its predecessor.
+        joint = self.ablation != "00" and has_next and (gate or self.bank.last_end > split)
+        if self.ablation == "11":
+            if self.pending_build == split and not has_next:
+                self.pending_build = None
+            if joint and self.bank.last_end == split:
+                self.pending_build = split
+            if self.pending_build is not None:
+                if dirty:
+                    return drain()
+                start = self.pending_build
+                if self.bank.last_end != start or start not in (self.head, split):
+                    raise RuntimeError("Invalid pending whole-block opening")
+                rows = tuple(range(start, min(start+B, self.end)))
+                self.pending_build = None
+                return Plan(rows, (), rows, (), (), False), rows, "build_sample", len(rows)
+
+        masks, prefix, eligible = self._inputs(2*B if joint else B)
+        cold = masks-self.bank.initialized
+        if joint:
+            plan, self.next_side = _joint_plan(q, split, dirty, masks, prefix, cold, self.law,
+                                               self.next_side)
+            sampled = tuple(p for p in plan.rows if p in eligible)
+        else:
+            plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
+            sampled = plan.cold or tuple(p for p in plan.rows if p in eligible)
+        sampled = () if plan.drain_only else sampled
+        return plan, sampled, "sample" if sampled else "drain", q
+
     def _retire(self):
         retired = []
         while not self.stopping and self.head < self.end:
@@ -140,14 +227,18 @@ class LLaDABudgetRequest:
         if self._stall >= 8*B+2:
             raise RuntimeError("No head retirement within 258 paid calls; not a valid completion")
         before = self.dirty.copy()
-        masks, prefix, eligible = self._inputs(q)
-        cold = masks-self.bank.initialized
-        plan = choose(q,B,before,masks,prefix,cold=cold,law=self.law)
+        if self.ablation is None:
+            masks, prefix, eligible = self._inputs(q)
+            cold = masks-self.bank.initialized
+            plan = choose(q,B,before,masks,prefix,cold=cold,law=self.law)
+            sampled = () if plan.drain_only else plan.cold or tuple(r for r in plan.rows if r in eligible)
+            phase, cap = None, q
+        else:
+            plan, sampled, phase, cap = self._ablation_plan(q)
         rows = plan.rows
         if (not rows or not set(plan.dirty) == before.intersection(rows)
-                or (len(before) >= q and (len(plan.dirty) != q or not plan.drain_only))):
+                or (len(before) >= q and (len(plan.dirty) != q or (sampled and phase != "dense_joint")))):
             raise RuntimeError("Empty plan, skipped required refresh or sampled through a full debt offer")
-        sampled = () if plan.drain_only else plan.cold or tuple(r for r in rows if r in eligible)
         split=self.head+B
         intervention=None
         if self.tail_rule!="eager" and q>B and any(p>=split for p in plan.cold):
@@ -163,7 +254,7 @@ class LLaDABudgetRequest:
                         sampled=tuple(sorted((*sampled,*extra)))
                         plan=replace(plan,rows=rows,mask=tuple(sorted((*plan.mask,*extra))))
                         intervention=dict(rule=self.tail_rule,added=list(extra))
-        e, logits = self._project(rows, q, 'sample' if sampled else 'drain')
+        e, logits = self._project(rows, cap, phase or ('sample' if sampled else 'drain'))
         admitted, edited, revoked = [], [], []
         if sampled:
             idx = self.x.new_tensor(sampled)
@@ -189,7 +280,15 @@ class LLaDABudgetRequest:
             self.sample_clock += 1
         written = set(admitted+edited+revoked)
         self.dirty = (before-set(rows)) | written
+        was_stopping = self.stopping
+        if self.ablation is not None:
+            # Revisions are immediately visible at absolute positions, not append-only output.
+            e["position_updates"] = [[p,t] for p,t in zip(idx[write[0]].tolist(), draft[write].tolist())] if written else []
         retired = self._retire()
+        if (self.ablation is not None and not was_stopping and self.stopping and self.tokens
+                and self.tokens[-1] in self.eos_ids):
+            # Withdraw provisional positioned output at/after this exclusive output end.
+            e["invalidate_from"] = self.origin+len(self.tokens)
         # Nonconvergent MASK proposals / revocation cycles must not emit incomplete text.
         self._stall = 0 if retired else self._stall+1
         e.update(tick=len(self.records), offer=q, q=len(rows), rows=list(rows), dirty_before=sorted(before),
