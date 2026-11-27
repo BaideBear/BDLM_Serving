@@ -121,10 +121,14 @@ class LLaDABudgetRequest:
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
                  switchable=False, top_gate="quarter", lower_borrow=False,
                  coverage="sparse", warm_head_sample=False, close_policy="unchanged",
-                 audit_admission=False):
+                 audit_admission=False, admission_scope="global"):
         if type(audit_admission) is not bool:
             raise ValueError("Expected a boolean sample receipt option")
         self.audit_admission = audit_admission
+        if admission_scope not in ("global","warm_head") or (admission_scope=="warm_head" and
+                (confidence_threshold!=.9 or editing_threshold!=.5)):
+            raise ValueError("Warm-head admission requires the registered 0.9/0.5 control")
+        self.admission_scope = admission_scope
         if close_policy not in ("unchanged","full_write","edit_once") or (
                 close_policy!="unchanged" and (cross!="head" or borrow or switchable or ablation is not None)):
             raise ValueError("Terminal row experiment requires the fixed head-only path")
@@ -518,7 +522,12 @@ class LLaDABudgetRequest:
                         sampled=tuple(sorted((*sampled,*extra)))
                         plan=replace(plan,rows=rows,mask=tuple(sorted((*plan.mask,*extra))))
                         intervention=dict(rule=self.tail_rule,added=list(extra))
+        scoped = getattr(self, "admission_scope", "global") == "warm_head"
+        warm_head = scoped and all(p in self.bank.initialized for p in
+                                   range(max(self.origin,self.head), min(self.end,split)))
         e, logits = self._project(rows, cap, phase or ('sample' if sampled else 'drain'))
+        if scoped:
+            e["admission_head_warm_before"] = warm_head
         if getattr(self, "switchable", False):
             evidence = self._switch_evidence or {}
             self._switch_evidence = None
@@ -566,6 +575,9 @@ class LLaDABudgetRequest:
                 e["proposals"] = list(zip(old[0].tolist(), draft[0].tolist(), conf[0].tolist(),
                                           (conf[0] > .5).tolist(), (conf[0] > .9).tolist()))
             accept = unresolved & (conf > self.threshold)
+            if warm_head:
+                # Only the already-established current block can take the lower cutoff.
+                accept |= unresolved & (idx//B == self.head//B) & (conf > .5)
             # Preserve the per-B32 fallback, but only over measured MASK proposals.
             for block in sorted({p//B for p in sampled}):
                 group = unresolved & (idx//B == block)

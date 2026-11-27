@@ -4,12 +4,19 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 gpu=${1:?GPU index}; q=${2:?offer}; old=${3:?registered predecessor PID}
 birth=${4:?registered predecessor start tick}; deadline=${5:?epoch}
-case "$gpu/$q" in 4/32|6/64) ;; *) exit 2 ;; esac
+trial=${6:-low}
+case "$gpu/$q/$trial" in 4/32/low|6/64/low|6/64/warm_head) ;; *) exit 2 ;; esac
 [[ $old =~ ^[0-9]+$ && $birth =~ ^[0-9]+$ && $deadline =~ ^[0-9]+$ ]]
 uuid=$(nvidia-smi -i "$gpu" --query-gpu=uuid --format=csv,noheader)
-case "$gpu" in
-  4) pattern=experiments.t2t.serving_slots.llada_close_factor ;;
-  6) pattern=experiments.t2t.serving_slots.gemma_cold_pacing_eval ;;
+out="/gs/results/llada-admission-c$q-1128"
+extra=()
+case "$gpu/$trial" in
+  4/low) pattern=experiments.t2t.serving_slots.llada_close_factor ;;
+  6/low) pattern=experiments.t2t.serving_slots.gemma_cold_pacing_eval ;;
+  6/warm_head)
+    pattern="$out"
+    extra=(--paired-history "$out" --trial warm_head)
+    out="/gs/results/llada-warm-admission-c$q-1128" ;;
 esac
 if [[ -r /proc/$old/stat && $(awk '{print $22}' "/proc/$old/stat") == "$birth" ]]; then
   tr '\0' ' ' < "/proc/$old/cmdline" | grep -F "$pattern" >/dev/null
@@ -32,6 +39,6 @@ export CUDA_VISIBLE_DEVICES="$uuid" OMP_NUM_THREADS=2 HF_HUB_OFFLINE=1 PYTHONUNB
 export PYTHONPATH="$PWD:/gs/env/fixed-baseline-deps" TRITON_CACHE_DIR="/gs/runtime/llada-admission-1128/triton-$q"
 exec timeout -k 3 "$remaining" /gs/env/venv-llada/bin/python -B -c \
 'import os,runpy,sys;sys.path.insert(0,os.getcwd());runpy.run_module("experiments.t2t.serving_slots.llada_admission_factor",run_name="__main__")' \
- run --out "/gs/results/llada-admission-c$q-1128" --offer "$q" --history /gs/results \
+ run --out "$out" "${extra[@]}" --offer "$q" --history /gs/results \
  --reference /gs/work/llada-refs/llada21 --checkpoint /gs/models/LLaDA2.1-mini \
  --samples /gs/code/samples.json --deadline "$deadline"

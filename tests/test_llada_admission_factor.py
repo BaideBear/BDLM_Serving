@@ -34,3 +34,25 @@ def test_wrong_first_rows_or_update_fails():
     e["admitted"]=[30]
     with pytest.raises(ValueError):
         decisions(e,0,"high")
+
+
+def test_relax_only_a_previously_initialized_head_not_a_joint_tail():
+    # The second block has a 0.7 candidate that a global 0.5 rule would admit.
+    e=dict(block=3,sampled=[98,99,128,129],
+           proposals=[(0,3,.8,True,False),(0,4,.7,True,False),
+                      (0,5,.95,True,True),(0,6,.7,True,False)],
+           admitted=[98,99,128],edited=[],revoked=[])
+    r=decisions(e,0,"warm_head",True)
+    assert (r["natural"],r["fallback"])==(3,0)
+    with pytest.raises(ValueError):
+        decisions(e,0,"warm_head",False)
+    e["admitted"]=[98,128]
+    r=decisions(e,0,"warm_head",False)
+    assert (r["natural"],r["fallback"])==(1,1)
+
+
+def test_a_cold_head_cannot_claim_the_warm_threshold():
+    high,low=arm("high"),arm("low")
+    low["trace"][0]["admission_head_warm_before"]=True
+    with pytest.raises(ValueError,match="pre-forward warm"):
+        paired(high,low,0,"warm_head")

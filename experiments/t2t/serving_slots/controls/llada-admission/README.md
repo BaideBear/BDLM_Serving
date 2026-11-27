@@ -1,0 +1,50 @@
+# LLaDA 2.1: more accepted MASKs do not imply a better request
+
+Same-device paired Q64 run, full current head, successor admission at ≤1/4
+remaining head MASK, one fixed offer for the entire request. The M2T cutoff
+is the only intervention. Both arms use the same T2T cutoff (0.5), per-block
+fallback and planner. At the first divergence each request sees the same
+selected Q rows and measured proposals; extra admissions must be explained by
+the changed cutoff. Subsequent writes, edits, output lengths and forwards are
+allowed to differ and are billed in full.
+
+| Fixed configuration, original 30 | Correct | Macro TPF | Pooled TE | F | N | History Q |
+|---|---:|---:|---:|---:|---:|---:|
+| Global 0.9 control | 24 | 5.643 | 8.64% | 3,598 | 14,095 | 163,115 |
+| Global 0.5 trial | 19 | 8.510 | 12.00% | 2,439 | 13,684 | 114,022 |
+| Historical Optimus IBS64 | 24 | 4.228 | 13.74% | 5,078 | 14,469 | 105,283 |
+| Historical Flow W2 | 23 | 9.721 | unavailable | 1,768 | 13,359 | unavailable |
+| Historical native B32 (different offer) | 26 | 5.728 | 15.55% | 2,575 | 12,814 | 82,400 |
+
+All 30 pairs reached a measured difference; no failures. Lowering the cutoff
+rescued three answers and lost eight. T2T events increased 633→1,001,
+while per-block fallback admissions fell 2,544→1,181. This is a quality/TPF
+tradeoff, not an equivalent-work speedup. The three qualification tasks
+alone misleadingly favored the lower cutoff on quality (1→3).
+See the [registered receipt](c64.json) and the
+[same-cohort baselines](../block-history90-matrix.csv). Only complete
+cohorts have metrics; the qualification tasks also belong to the original 30.
+
+The separate `warm_head` variant permits 0.5 only on MASKs of the current
+physical head once its valid generated rows had already been projected
+**before** this tick; first visits and successor rows stay at 0.9. Each new
+control must replay the prior high-cutoff result on the same device (including
+the complete output digest, F and Q). This variant is not the published
+0.5 result and is not enabled in the default policy.
+
+## Head-only Q16
+
+At fixed Q16 on n164, the [same-device registered comparison](c16.json)
+on the original 30 also loses scored answers (three rescues, five losses).
+Here even the total physical work rises despite the higher macro TPF:
+
+| Original 30 | Correct | Macro TPF | Pooled TE | F | N | History Q |
+|---|---:|---:|---:|---:|---:|---:|
+| 0.9 | 18 | 2.494 | 12.78% | 11,175 | 16,978 | 132,839 |
+| 0.5 | 16 | 3.220 | 13.20% | 11,883 | 18,693 | 141,602 |
+| Historical IBS16 | 24 | 3.173 | 19.90% | 5,549 | 14,548 | 73,098 |
+
+These are unweighted per-request N/F means and pooled N/Q efficiencies.
+Do not use the other device's historical head-only row as the paired
+control. The same-device qualification replays indices 0, 10 and 20;
+it is not a cross-device equivalence test on all 30 outputs.
