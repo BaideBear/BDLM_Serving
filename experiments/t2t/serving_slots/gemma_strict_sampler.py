@@ -47,6 +47,7 @@ class Changes(NamedTuple):
 class SelectedRowSampler:
     block = 256
     steps = 48
+    entropy_bound = 0.1
 
     def __init__(self, *, cap, vocab_size, seed, device="cpu", embedding_dtype=torch.bfloat16):
         if type(cap) is not int or not 1 <= cap <= self.block:
@@ -110,7 +111,7 @@ class SelectedRowSampler:
         scores = self.temp(ids, logits, cur_step=t)
         probs = scores.softmax(dim=-1, dtype=torch.float32)
         sampled = torch.multinomial(probs.reshape(-1, self.vocab), 1, generator=self.rng).view_as(ids)
-        sampler = EntropyBoundSampler(EntropyBoundSamplerConfig(0.1), len(rows), self.vocab, self.steps)
+        sampler = EntropyBoundSampler(EntropyBoundSamplerConfig(self.entropy_bound), len(rows), self.vocab, self.steps)
         proposed = sampler.accept_canvas(ids, sampled, scores, t)
         accepted = sampler.accepted_token_mask
         noise = torch.randint(self.vocab, ids.shape, generator=self.rng, device=ids.device)

@@ -25,6 +25,14 @@ Q8 时如果有六个已改 token，只有两行能自由分配；Q64 时如果�
 输入相同；70 题可省，共省 282 F / 9,024 个 decoder Q。正确数 85→85，宏 TPF
 4.669→4.879，TE 14.98%→15.63%。这是固定档单因素，不是其他报价或混合路径的验证。
 见 [Q32 配对账本](../experiments/t2t/serving_slots/controls/gemma-factors/verified-eos/q32/cohorts.csv)。
+同一干预在 [固定 Q64](../experiments/t2t/serving_slots/controls/gemma-factors/verified-eos/q64/cohorts.csv)
+也通过全90逐 token 和 encoder 对照：68 题真正省下分片，正确数 83→83，宏 TPF
+7.881→8.176，TE 13.43%→13.96%，少 141 F、9,024 decoder Q。仍低于同档 IBS 的 TPF 11.116。
+
+相反，[Q128 暖头接受阈值消融](../experiments/t2t/serving_slots/controls/gemma-factors/warm-entropy/README.md)
+将联合熵上限从 0.10 放到 0.20，限定在头块已完全建立的正常稀疏采样轮。全90从
+88→84 题，无救回、四题丢失，TPF 12.794→12.929，配对增量区间包含零；
+总 F 从 2,430 **增加**到 2,572。保留 0.10，不把轻微的宏 TPF 上升视为省去了计算。
 
 | 本轮状态 | 优先算 | 可以不算 |
 |---|---|---|

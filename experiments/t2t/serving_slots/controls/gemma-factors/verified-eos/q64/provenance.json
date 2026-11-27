@@ -1,0 +1,23 @@
+{
+  "eos": [
+    1,
+    50,
+    106
+  ],
+  "gpu": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+  "history": "/gs/results",
+  "pair_files_sha256": "09d8a5a32a6d2f94f546185cd0abfa33d868f6c23a6ddaf1f4b6ee35e778d46f",
+  "pairs": 90,
+  "raw": "/gs/results/verified-eos-1128",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "schema": "verified-eos-compact-v1",
+  "source": {
+    "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+    "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+    "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+    "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+    "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+    "gemma_verified_eos": "1469ba441c9075ae92f90f71d9cf8eb459344fb2a2beab22e6ee8eccc2133177",
+    "gemma_verified_eos_eval": "df658f981898afad9adcf94fd8dab6703be12d02e3f87c0b22053629785b1aa1"
+  }
+}

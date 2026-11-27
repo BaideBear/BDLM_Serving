@@ -36,6 +36,14 @@ other 20 had EOS in the last chunk. Totals fell from 7,156 to 6,874 F and
 arms. Macro TPF rose from 4.669 to 4.879 and pooled token efficiency
 from 14.98% to 15.63%. These numbers do not include results from other offers.
 
+Fixed [Q64](q64/cohorts.csv) independently matched all 90 delivered ID sequences,
+scores and encoder inputs, at 83/90 (29/30 original, 54/60 new).
+68/90 requests saved whole terminal chunks; 22 had EOS in the last chunk.
+F fell 4,090 to 3,949 and decoder Q 237,671 to 228,647, with the same N=31,925.
+Macro TPF rose from 7.881 to 8.176 and pooled token efficiency from 13.43% to
+13.96%. The number of skipped rows happens to equal Q32's total, but Q64
+skips only 141 forwards. Both physically billed the whole EOS-containing chunk.
+
 Independent per-request prediction from the historical final IDs: if EOS
 is at zero-based block-local position `j`, the number of removable forwards
 is `(255-j)//Q`; removable physical rows are that count times Q. An EOS in

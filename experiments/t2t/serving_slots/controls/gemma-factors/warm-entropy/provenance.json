@@ -1,0 +1,20 @@
+{
+  "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+  "history": "/gs/results/profile-close-1128",
+  "ibs_matrix_sha256": "034a0cf4a7e6320432daafa4072638cdade266510b020a6e687e36b1027ed02a",
+  "pair_files_sha256": "7c7a36f81baced1f75475189a6c134a5103abff205747c1a61cd130ba66de649",
+  "pairs": 90,
+  "q": 128,
+  "raw": "/gs/results/warm-entropy-a1-1128",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "schema": "warm-entropy-compact-v1",
+  "scorer_sha256": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+  "source": {
+    "gemma_fixed_dual": "94137d48feb4aec61a07cb19d9f91d1f559dd569d49a9360c867360622c7f23d",
+    "gemma_fixed_dual_eval": "c4d82d770aa4285bb3fa3ea2f3fe126a9e3978f02d969dcf870fe4abde77b58d",
+    "gemma_strict_sampler": "f927477dda44859036ef138ed9d51ad80bb4f648f9960acb3ff916aea009f293",
+    "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+    "gemma_warm_entropy": "ed5d8540ea21c30c883933ea9e3293fbf8093341895e2222f49c8a0b58f2e2a4",
+    "gemma_warm_entropy_eval": "4b566cc48290c421f4497609ea981b79db4b4f9881d7893b134c714df0559c4d"
+  }
+}
