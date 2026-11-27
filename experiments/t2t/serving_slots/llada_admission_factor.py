@@ -85,13 +85,19 @@ def run(a):
               transformers=transformers.__version__,sources={Path(p).name:sha256(Path(p).read_bytes()).hexdigest()
                     for p in (__file__,llada_budget_request.__file__,fixed.__file__)})
     (a.out/"run.json").write_text(json.dumps(meta,sort_keys=True)+"\n")
-    tok,model=load_gpu(a,lambda:None)
+    def ready():
+        if a.handoff is not None:
+            (a.handoff/'ready').touch(exist_ok=False)
+            while not (a.handoff/'go').exists():
+                require(time.time()<a.deadline,"handoff expired")
+                time.sleep(.2)
+    tok,model=load_gpu(a,ready)
     for serial,i in enumerate(ORDER):
         task=tasks[i]
         native=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
         require(native['index']==i and native['generation_cap']==CAP,"wrong native prompt")
         q=a.offer
-        opts=dict(cross=("head",False)) if q==32 else dict(cross=("quarter",False),coverage="head")
+        opts=dict(cross=("head",False)) if q<=32 else dict(cross=("quarter",False),coverage="head")
         rows={}
         arms=("high","low") if serial%2==0 else ("low","high")
         for arm in arms:
@@ -102,8 +108,9 @@ def run(a):
         first,counts=paired(high,low,tok.convert_tokens_to_ids("<|mask|>"))
         anchor=None
         if i in ANCHORS:
-            path=(a.history/(f"llada-low-dose-a800-gpu2/rows/c32-p1of8-{i:02d}.json" if q==32
-                              else f"llada-hfull-paired/rows/c64-full-quarter-{i:02d}.json"))
+            path=a.history/{16:f"rows/c16-noborrow-{i:02d}.json",
+                            32:f"llada-low-dose-a800-gpu2/rows/c32-p1of8-{i:02d}.json",
+                            64:f"llada-hfull-paired/rows/c64-full-quarter-{i:02d}.json"}[q]
             blob=path.read_bytes()
             ref=json.loads(blob)
             require(ref['samples_sha256']==SAMPLES and ref['law']==[1,8] and all(ref[k]==high[k]
@@ -126,7 +133,7 @@ def run(a):
 def report(root,manifest):
     meta=json.loads((root/"run.json").read_bytes())
     q=meta["offer"]
-    require(q in (32,64) and meta['protocol']=='llada-admission-v1'
+    require(q in (16,32,64) and meta['protocol']=='llada-admission-v1'
             and meta['order']==list(ORDER) and meta['samples']==manifest['samples_sha256']==SAMPLES
             and meta['scorer']==SCORER_SHA,"wrong registration")
     rows={}
@@ -165,7 +172,8 @@ if __name__=="__main__":
     ev=modes.add_parser("run")
     for name in ("out","reference","history","samples","checkpoint"):
         ev.add_argument("--"+name,type=Path,required=True)
-    ev.add_argument("--offer",choices=(32,64),type=int,required=True)
+    ev.add_argument("--offer",choices=(16,32,64),type=int,required=True)
+    ev.add_argument("--handoff",type=Path)
     ev.add_argument("--deadline",type=int,required=True)
     agg=modes.add_parser("report")
     agg.add_argument("root",type=Path)

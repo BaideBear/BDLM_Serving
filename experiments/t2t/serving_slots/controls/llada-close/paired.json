@@ -2,15 +2,69 @@
   "cohorts": {
     "frozen90": {
       "expected": 90,
-      "paired": 10
+      "paired": 30
     },
     "new60": {
       "expected": 60,
       "paired": 0
     },
     "original30": {
+      "arms": {
+        "edit_once": {
+          "F": 4170,
+          "N": 13817,
+          "Q": 90225,
+          "blocks": 463,
+          "correct": 26,
+          "drain_F": 31,
+          "failures": 0,
+          "macro_TPF": 4.81122041305965,
+          "terminal_Q": 14305,
+          "terminal_edits": 61,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.15313937378775283
+        },
+        "full_write": {
+          "F": 3994,
+          "N": 13259,
+          "Q": 86453,
+          "blocks": 445,
+          "correct": 26,
+          "drain_F": 445,
+          "failures": 0,
+          "macro_TPF": 4.74072169549882,
+          "terminal_Q": 13738,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.15336656911848057
+        },
+        "unchanged": {
+          "F": 5174,
+          "N": 14832,
+          "Q": 99295,
+          "blocks": 0,
+          "correct": 23,
+          "drain_F": 493,
+          "failures": 0,
+          "macro_TPF": 3.9448113355605385,
+          "terminal_Q": 0,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.1493730802155194
+        }
+      },
       "expected": 30,
-      "paired": 10
+      "full_write_to_edit_once": {
+        "changed_ids": 14,
+        "losses": 1,
+        "rescues": 1
+      },
+      "paired": 30,
+      "unchanged_to_full_write": {
+        "changed_ids": 29,
+        "losses": 1,
+        "rescues": 4
+      }
     },
     "qualification": {
       "arms": {

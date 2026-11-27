@@ -54,3 +54,21 @@ to the qualification. The archived LLaDA native and Flow W2 runner uses
 
 The [budget decision rules](../../../../../docs/request-budget-decisions.md)
 register the independent cutoff comparison; it uses **unchanged** retirement.
+
+## Original 30 complete
+
+| Method at Q32 | Correct / 30 | Macro TPF | Pooled TE | F | Q | N |
+|---|---:|---:|---:|---:|---:|---:|
+| unchanged: dirty-only | 23 | 3.945 | 14.94% | 5174 | 99295 | 14832 |
+| full_write, no sampling | 26 | 4.741 | 15.34% | 3994 | 86453 | 13259 |
+| edit_once | 26 | 4.811 | 15.31% | 4170 | 90225 | 13817 |
+| Historical native B32 | 26 | 5.728 | 15.55% | 2575 | 82400 | 12814 |
+| Historical Optimus IBS32 | 25 | 4.271 | 13.34% | 5099 | 106270 | 14177 |
+
+No failures among the 90 executions. Dirty-only to full_write changed 29/30
+returned ID sequences, with 4 rescues and 1 loss. Increased coverage has a
+downstream effect even though the additional rows never sample at closure.
+Full_write to edit_once changed 14 sequences, rescued one and lost one; the
+61 terminal edits were all token-to-token, with zero revocations. Do not label
+the difference a mechanical reduction in F; output N also changes. None of
+these 30-case candidate scores may be labeled as new60 or frozen90.
