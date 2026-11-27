@@ -44,6 +44,7 @@ class FixedFamilyRequest(FamilyRequest):
     block-local actions under `parts`. Only a verified head may commit.
     """
     stop_observer = None
+    keep_rejected_noise = None
 
     def __init__(self, model, data, *, q, seed, max_new_tokens=2048, law=Law()):
         if type(q) is not int or q not in TIERS or not isinstance(law, Law):
@@ -209,8 +210,11 @@ class FixedFamilyRequest(FamilyRequest):
                     idx = list(sampled)
                     before = s.ids[0,idx]
                     tap = obs is not None and c is head
-                    changes = s.consume(idx, measured_rows(logits, active),
-                                        **({'on_scores': observe_head} if tap else {}))
+                    hooks = {'on_scores': observe_head} if tap else {}
+                    if self.keep_rejected_noise is not None:
+                        from .gemma_rejected_noise import RejectNoise
+                        hooks['after_renoise'] = RejectNoise(self.keep_rejected_noise, part)
+                    changes = s.consume(idx, measured_rows(logits, active), **hooks)
                     changed = (before != s.ids[0,idx]).tolist()
                     rows.finish(rp, accepted_after=s.accepted[0,idx].tolist(), input_changed=changed,
                                 native_stop=bool(tap and hit and self.fullstop))
@@ -262,7 +266,8 @@ class AblationRequest(FixedFamilyRequest):
 
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
-                 prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None):
+                 prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None,
+                 keep_rejected_noise=None):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
@@ -276,6 +281,12 @@ class AblationRequest(FixedFamilyRequest):
         self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
         self.prefix_order, self.reuse_paid_masks = prefix_order, reuse_paid_masks
         self.fuse_first_verify = fuse_first_verify
+        if keep_rejected_noise is not None and (
+                type(keep_rejected_noise) is not bool or q not in (32,64,128) or ablation!='00'
+                or top_gate!='off' or head_first or prefix_order!='right' or law!=Law(1,8)
+                or reuse_paid_masks or fuse_first_verify or fullstop is not None):
+            raise ValueError('Rejected-noise experiment requires the fixed head-only 1/8 control')
+        self.keep_rejected_noise = keep_rejected_noise
         self.fullstop = fullstop  # None: legacy; False: shadow; True: apply.
         if fullstop is not None:
             from .gemma_fullstop import FullHeadStop

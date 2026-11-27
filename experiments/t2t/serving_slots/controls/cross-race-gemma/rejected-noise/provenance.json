@@ -1,0 +1,71 @@
+{
+  "checkpoint": "/gs/models/diffusiongemma-cd40195",
+  "gpu_visible": "GPU-8c80a093-8254-7eb4-db21-6a1bbe2d5d83",
+  "historical_exact": 270,
+  "history": "/gs/results/paid-close-1128",
+  "history_fields": [
+    "index",
+    "dataset",
+    "task_id",
+    "seed",
+    "input_sha256",
+    "samples_sha256",
+    "scorer_sha256",
+    "N",
+    "output_ids",
+    "correct",
+    "F",
+    "decoder_F",
+    "encoder_F",
+    "decoder_Q",
+    "encoder_Q",
+    "route_F",
+    "route_Q",
+    "max_decoder_Q",
+    "torch",
+    "transformers"
+  ],
+  "policy": {
+    "fullstop": null,
+    "fuse_first_verify": false,
+    "head_first": false,
+    "prefix": [
+      1,
+      8
+    ],
+    "prefix_order": "right",
+    "reuse_paid_masks": false,
+    "top_gate": "off"
+  },
+  "qualification": {
+    "128": {
+      "avoided": 1729,
+      "matched": 3
+    },
+    "32": {
+      "avoided": 435,
+      "matched": 3
+    },
+    "64": {
+      "avoided": 1045,
+      "matched": 3
+    }
+  },
+  "root": "/gs/results/reject-noise-1128",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "scorer_sha256": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+  "sealed_arms": 540,
+  "source_sha256": {
+    "gemma_budget_family": "5e2f7ad2532493599a5807c710f39e37bd9a2370fceeb3f79e0d4a0fdb3c26c4",
+    "gemma_fixed_dual": "d89d58054492236dad5361d7343d7a81744be8c3c8af7c62e5539e96790e7be1",
+    "gemma_fixed_dual_eval": "8f0b13e249d30fae34fd300cab2f0d3bb1c89e506616ba5dd25e4c9a1dad296f",
+    "gemma_rejected_noise": "13a95ebe9ea0a5f576112e460efcb40a324724cfae8fe20e4111b3fd0bc8e01d",
+    "gemma_rejected_noise_eval": "960ff45dca0f65e55fe2f4a590c54770e351c43836d6215f43bb741281de10dc",
+    "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+    "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+    "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+    "gemma_wave_kv": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+  },
+  "torch": "2.6.0+cu124",
+  "transformers": "5.12.0"
+}

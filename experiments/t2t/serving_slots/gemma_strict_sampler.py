@@ -91,7 +91,7 @@ class SelectedRowSampler:
         return self._consume(rows, idx, ids, logits)
 
     @torch.inference_mode()
-    def consume(self, rows, logits, *, on_scores=None):
+    def consume(self, rows, logits, *, on_scores=None, after_renoise=None):
         """Sample measured rows from an already executed joint refresh/sample call."""
         if self.phase != "sample" or self.age >= self.steps:
             raise RuntimeError("Sampling closed or reverse clock exhausted")
@@ -102,9 +102,9 @@ class SelectedRowSampler:
                 or logits.device != self.ids.device):
             raise ValueError("Invalid selected rows or measured logits")
         idx = torch.tensor(rows, device=self.ids.device)
-        return self._consume(rows, idx, self.ids.index_select(1,idx), logits, on_scores)
+        return self._consume(rows, idx, self.ids.index_select(1,idx), logits, on_scores, after_renoise)
 
-    def _consume(self, rows, idx, ids, logits, on_scores=None):
+    def _consume(self, rows, idx, ids, logits, on_scores=None, after_renoise=None):
         clock = self.steps - self.age
         t = torch.tensor(clock, device=ids.device, dtype=torch.int32)
         scores = self.temp(ids, logits, cur_step=t)
@@ -116,6 +116,8 @@ class SelectedRowSampler:
         noise = torch.randint(self.vocab, ids.shape, generator=self.rng, device=ids.device)
         new_ids = torch.where(accepted, proposed, noise)
         old = self.accepted.index_select(1, idx)
+        if after_renoise is not None:
+            new_ids = after_renoise(rows, self.sc.keys(), ids, old, accepted, new_ids)
 
         def positions(mask):
             return tuple(idx[mask[0]].tolist())
