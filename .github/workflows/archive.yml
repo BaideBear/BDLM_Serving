@@ -1,5 +1,11 @@
 name: Verify frozen results
-on: [push, pull_request]
+on:
+  push:
+    # This job checks frozen30, not the separate T2T experiment outputs.
+    paths-ignore:
+      - 'experiments/t2t/**'
+      - 'bdlm_serving/methods/t2t/**'
+  pull_request:
 permissions:
   contents: read
 jobs:

@@ -68,10 +68,19 @@ def gemma_figures(overall):
 
 
 def report(study, allrows, paired):
-    lines = ["# "+TITLES[study], "", SCOPE[study], "", COMMON, "",
-             "[逐题数值](requests.csv) · [全体与各数据集汇总](summary.csv) · [矢量图](figures/comparison.svg)"
-             + (" · [配对差值、逐题得失](comparisons.csv)" if paired else ""), "",
-             f"![{TITLES[study]}：TPF、token efficiency、质量](figures/comparison.png)", ""]
+    lines = ["# "+TITLES[study], "", SCOPE[study], "", COMMON, ""]
+    if study == OBS:
+        lines += [
+            "**与后续物理 Q 口径的区别：** 本页保留历史图表的请求行效率 `N/Q`。"
+            "后续 Serving 实验使用 `N/physical_Q`；这两个字段在旧表中不总相等。"
+            "跨实验比较时请读 [summary.csv](summary.csv) 的 `physical_efficiency`。"
+            "例如 LLaDA 窗口 32 开掩码是 9.56%（物理行）而非 9.63%（请求行）；"
+            "[四档物理口径对照](../t2t/serving_slots/EXPANDED.md#跨物理块的注意力是否有效)。",
+            "",
+        ]
+    lines += ["[逐题数值](requests.csv) · [全体与各数据集汇总](summary.csv) · [矢量图](figures/comparison.svg)"
+              + (" · [配对差值、逐题得失](comparisons.csv)" if paired else ""), "",
+              f"![{TITLES[study]}：TPF、token efficiency、质量](figures/comparison.png)", ""]
     for m, model in MODELS.items():
         rows = [r for r in allrows if r["model"] == m]
         if not rows:
