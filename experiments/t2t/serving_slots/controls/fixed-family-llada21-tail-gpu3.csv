@@ -1,0 +1,7 @@
+device,index,q,correct,failure,N,F,paid_Q,head_Q,tail_Q,both_F,tail_only_F,head_only_F,tail_cold_F,warm_head_no_mask_sample_F,possible_head_mask_Q,tail_first_m2t,tail_first_in_output,tail_first_later_edited,beyond_output_Q,tail_beyond_output_Q
+cuda,0,32,1,0,274,56,1150,1150,0,0,0,56,0,0,0,0,0,0,38,0
+cuda,0,64,1,0,267,41,1658,520,1138,41,0,0,9,6,106,182,156,9,54,54
+cuda,10,32,1,0,349,113,2070,2070,0,0,0,113,0,0,0,0,0,0,44,0
+cuda,10,64,0,0,360,142,4674,2311,2363,113,0,29,9,5,78,210,178,3,124,88
+cuda,20,32,1,0,221,35,605,605,0,0,0,35,0,0,0,0,0,0,10,0
+cuda,20,64,0,0,241,78,2602,1022,1580,73,0,5,7,5,69,155,138,5,70,70

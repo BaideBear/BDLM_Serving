@@ -98,3 +98,5 @@ CPU 真权重，固定 index 0、10、20，每次请求重新开始。单元格�
 | 64 | 1/3 · 4.046 | — | — | W2: 3/3 · 12.279 |
 
 三题中 Q32 候选持平两种 Optimus 的正确数，且宏 TPF 较高，但未追上 W1。Q64 比自身 Q32 的正确数和 TPF 都低，未满足更大预算有更好收益的目标。不能用 CPU 的 Q4/Q8 门控数替换 GPU 候选。复核：`python -Bm experiments.t2t.serving_slots.fixed_family_pairs --smoke3 llada21`。GPU4 的旧队列在前序对照评分缺依赖后退出，未登记固定档结果；本组由独立、排他的真实 holder 交接启动，使用原固定档数据/模型/源码和检查，不复用失败链的结果。
+
+**Q64 的行花在哪里？** [三题 GPU 账本](../experiments/t2t/serving_slots/controls/fixed-family-llada21-tail-gpu3.csv)按投影发生时的位置划分：头块 3,853 行、后块 5,081 行；227 次 forward 同时计算两块，34 次只计算头块。后块首次投影共 25 轮，其中 16 轮头块已驻留、有未解 MASK，却没有采样任何头块 MASK。这 16 轮若保留原有实算行，在 Q64 余量内一共容得下 253 个额外头块 MASK 行次；这是容量，不是已经获得的 token。后块首解后最终留在交付位置的有 472 个，其中 17 个后来记录过编辑或撤销。最终输出边界以外共 248 个实算行次（其中 212 个投影时仍属后块）；不能把所有后块行都当成浪费。复算：`python -Bm experiments.t2t.serving_slots.fixed_tail_work --device cuda`。原30、新60及完整90可分别加 `--cohort original30/added60/full90`，样本不足不会出表。
