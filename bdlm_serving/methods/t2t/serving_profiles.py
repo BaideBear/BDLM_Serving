@@ -1,5 +1,9 @@
 """Batch-one request profiles. Configure selection, never the offer sequence."""
 
+from threading import current_thread
+
+from .budget_family import Law
+
 
 def gemma_plan(base, profile="economy"):
     if base.get("block_size") != 256:
@@ -37,3 +41,105 @@ def open_llada(model, input_ids, config, *, gen_length, seed, mask_id, eos_ids,
     kernel = SpawnGatedKernel(model, spawn_threshold=.8 if profile=="progress80_candidate" else None,
                               fuse_growth=True, prefix_mode="zero")
     return open_handle(kernel,input_ids,config,gen_length,seed,mask_id,eos_ids)
+
+
+class StrictHandle:
+    """Drive the same hard-cap executor across ticks. No forecast or load policy."""
+
+    def __init__(self, request, offers, laws, block_size):
+        if (len(offers) != len(laws) or len(set(offers)) != len(offers)
+                or not all(isinstance(law, Law) for law in laws)):
+            raise ValueError("Incomplete fixed-offer profile")
+        self._request, self._offers, self._laws = request, tuple(offers), tuple(laws)
+        self._block_size, self._owner = block_size, current_thread()
+        self.opened_prefill_q = request.origin
+        self._status, self._result = "ready", None
+
+    @property
+    def offers(self):
+        return self._offers
+
+    @property
+    def status(self):
+        return self._status
+
+    def _lane(self):
+        if current_thread() is not self._owner:
+            raise RuntimeError("Use the owning serial inference lane")
+
+    def step(self, q):
+        self._lane()
+        if self.status != "ready":
+            raise RuntimeError(f"Request is {self.status}")
+        if type(q) is not int or q not in self.offers:
+            raise ValueError(f"Select a supported offer from {self.offers}")
+        req = self._request
+        # Both strict planners read the request law when selecting positions.
+        # Installing a dose has no effect on KV, ordinal, RNG, or the sampler.
+        law = self._laws[self.offers.index(q)]
+        req.law = law
+        self._status = "advancing"
+        try:
+            event = req.step(q)
+            width = event["q"]
+            enc_f, enc_q = event.get("encoder_F", 0), event.get("encoder_Q", 0)
+            if (event["offer"] != q or not 0 < width <= q or
+                    width != event.get("decoder_Q", width) or event.get("decoder_F", 1) != 1
+                    or enc_f not in (0, 1) or enc_q != self._block_size*enc_f):
+                raise RuntimeError("Paid work does not match strict offer")
+            # Step returns the actual projection ledger, never a menu estimate.
+            out = dict(event, prefix_share=(law.num, law.den), decoder_F=1,
+                       decoder_Q=width, history_Q=width, encoder_F=enc_f, encoder_Q=enc_q,
+                       generation_F=1+enc_f, physical_generation_Q=width+enc_q)
+            if req.status == "done":
+                self._result = tuple(req.tokens)
+                self._request = None
+            elif req.status != "ready":
+                raise RuntimeError(f"Unexpected request status: {req.status}")
+            self._status = req.status
+            return out
+        except BaseException:
+            self._status, self._request = "failed", None
+            raise
+
+    def result(self):
+        if self.status != "done":
+            raise RuntimeError(f"No completed output: {self.status}")
+        return self._result
+
+    def close(self):
+        self._lane()
+        if self.status == "ready":
+            self._status, self._request = "cancelled", None
+        elif self.status == "advancing":
+            raise RuntimeError("Cancel only at a tick boundary")
+
+
+def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
+                      profile="fixed90_candidate"):
+    """Half gate at 2B, no subtop borrow; no experimental stop or close fusion."""
+    from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest, B, TIERS
+    if type(initial_offer) is not int or initial_offer not in TIERS:
+        raise ValueError("Invalid initial Gemma offer")
+    if profile not in ("fixed90_candidate", "reference"):
+        raise ValueError("Unknown strict Gemma profile")
+    # Only Q128 switches doses: the 90 paired tasks support 1/4 here.
+    # Other sparse tiers retain the reference; dense top calls bypass the quota.
+    laws = tuple(Law(1, 4) if profile == "fixed90_candidate" and c == B//2 else Law()
+                 for c in TIERS)
+    raw = AblationRequest(model, data, q=initial_offer, seed=seed, ablation="00",
+                          max_new_tokens=max_new_tokens, law=laws[TIERS.index(initial_offer)],
+                          top_gate="half", prefix_order="right")
+    return StrictHandle(raw, TIERS, laws, B)
+
+
+def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_tokens=2048,
+                      coverage="sparse", top_gate="half"):
+    """Hard-cap LLaDA family with no subtop borrow and one explicit 2B gate."""
+    from .llada_budget_request import B, LLaDABudgetRequest
+    offers = (4, 8, 16, 32, 64)
+    raw = LLaDABudgetRequest(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids,
+                             max_new_tokens=max_new_tokens, law=Law(), confidence_threshold=.9,
+                             editing_threshold=.5, switchable=True, top_gate=top_gate,
+                             coverage=coverage, lower_borrow=False)
+    return StrictHandle(raw, offers, (Law(),)*len(offers), B)

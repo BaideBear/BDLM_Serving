@@ -1,0 +1,5 @@
+arm,gate,coverage,requests,total_F,affected_F,affected_questions,first_tick_min,first_tick_median,first_tick_max,paid_warm_head_mask_rows,total_warm_head_mask_rows,paid_share,head_sample0_F,head_sample0_with_head_mask_F,cold_tail_only_F,cold_mixed_F,cold_head_only_F,no_cold_F,affected_F_share
+c64-full-off,off,head,17,1603,0,0,,,,0,15585,0.0,185,0,0,0,185,1418,0.0
+c64-full-eager,eager,head,17,2555,171,17,2,6,19,2577,24879,0.10358133365488967,400,171,175,1600,0,2330,0.06692759295499022
+c64-full-half,half,head,17,2751,204,17,1,3,10,2519,23690,0.10633178556352892,440,204,226,0,35,2490,0.07415485278080698
+c64-full-quarter,quarter,head,17,1679,143,17,1,6,15,741,15150,0.04891089108910891,339,143,184,0,38,1457,0.0851697438951757

@@ -1,10 +1,49 @@
 # Single-request execution at a given Q budget
 
-Start with [the fixed-budget family experiment](fixed-family.md). Each item is generated independently from prompt to EOS with one constant hard decoder budget. Do not substitute mixed-trajectory measurements or combine a different executor at each tier. The paths below document earlier experiments, not the new fixed-family results.
+Start with the [current fixed-budget evidence](../experiments/t2t/serving_slots/design_race/README.md). To drive the current request on **one serial model lane**, use the strict entry points below. They do not run a scheduler. The nominal-budget interfaces further down remain for historical reproduction.
+
+```python
+from bdlm_serving.methods.t2t import serving_profiles as profiles
+
+# Call one constructor, with GPU-resident, registered model and inputs.
+h = profiles.open_strict_gemma(model, data, seed=seed, initial_offer=32)
+# Or, after installing the rectangular LLaDA mask on the loaded model:
+# h = profiles.open_strict_llada(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids)
+generation_f = history_q = physical_q = 0
+try:
+    while h.status == "ready":
+        e = h.step(q)  # fixed q for evaluation; an external caller may change it every tick
+        generation_f += e["generation_F"]
+        history_q += e["history_Q"]
+        physical_q += e["physical_generation_Q"]
+    output_ids = h.result()
+finally:
+    h.close()
+```
+
+`initial_offer` on Gemma selects the initial setup, never an obligatory first
+large decoder forward. Opening performs prompt-only prefill. The first and every
+subsequent generation projection use the actual offer passed to `step`.
+No clean-ups, warm-ups or second decoder forwards are hidden from the offer.
+A Gemma encoder commit can add one F and 256 physical Q but does not add to
+the selected decoder rows reading prefix KV. Use the count `N` of final
+non-special IDs, excluding repeated edits: TPF is mean per-request `N/F`;
+token efficiency is `sum(N)/sum(history_q)` across the registered cohort.
+The profile does not manufacture a forecast for a different offer.
+
+Gemma `fixed90_candidate` uses the right-edge rank and clean-prefix share
+1/4 at Q128, reference 1/8 at the other sparse tiers. `reference` keeps 1/8
+throughout. Both use the half gate at Q512, do not borrow at lower tiers, and
+do not enable the experimental stop or terminal fusion. An offer with no
+eligible prefix or a dense two-block operation need not use any quota. LLaDA
+uses the same 1/8 law at all tiers pending its paired dose results; select
+`coverage="sparse"` (default) or experimentally `"head"` at Q64, and specify
+`top_gate` explicitly for a registered alternative. These are fixed-tier
+candidates, not an assertion that either profile dominates IBS or FlowBlock.
 
 The kernel takes one request and a supplied budget. At each fixed budget the two objectives are frozen-task accuracy and tokens per forward (TPF). Do not trade away one in a hidden scalar score: report the observed non-dominated methods when the two objectives disagree. Only compare strict-budget candidates after checking every generation decoder forward, including initialization, verification and commit. Gemma's post-commit encoder is a separate, explicitly billed cost; a decoder cap is not an end-to-end per-forward cap on that encoder. There is no request ordering, admission or load controller in this task.
 
-The handle below is the existing serial reference. Its nominal offers are **not** a strict cap. Keep the same handle if the supplied budget changes; replaying a predetermined sequence tests cache continuity, not how to choose that sequence.
+The handle below is the historical serial reference. Its nominal offers are **not** a strict cap. Keep the same handle if the supplied budget changes; replaying a predetermined sequence tests cache continuity, not how to choose that sequence.
 
 ```python
 from bdlm_serving.methods.t2t import serving_profiles as profiles
@@ -44,7 +83,7 @@ handle = profiles.open_gemma(model, data, dict(block_size=256, cap=2048),
 
 Offers: **32, 64, 128, 256, 512**. `economy` retains causal visibility, admits a second canvas when the head progress threshold is met, and inserts no optional prefix. `q128_prefix_candidate` fills genuine spare Q128 positions with up to 32 random positions from the current block's contiguous decoded prefix. Use it as a fixed-slot comparison, not as the mixed-path default: [paired transfer results](../experiments/t2t/serving_slots/controls/gemma-unified-profile-transfer.csv).
 
-**Measured cost.** `price.main_q` is the projected width of the next decoder; `mandatory_q` is included. Mandatory cache writeback, warm-up, verification or commit can exceed a small nominal offer on this reference path. One such forward disqualifies a run from the strict tier even if mean Q is below the cap. Use `step.paid_q` / `step.paid_f` for actual generation costs, including conditional encoder work. `result()` returns token IDs; the frozen scorer counts non-special output tokens for N. TPF is `mean(N/F)` and efficiency is `sum(N)/sum(paid_Q)` across requests.
+**Measured cost.** `price.main_q` is the projected width of the next decoder; `mandatory_q` is included. Mandatory cache writeback, warm-up, verification or commit can exceed a small nominal offer on this reference path. One such forward disqualifies a run from the strict tier even if mean Q is below the cap. Use `step.paid_q` / `step.paid_f` for actual generation costs, including conditional encoder work. `result()` returns token IDs; the frozen scorer counts non-special output tokens for N. TPF is `mean(N/F)`. Historical `sum(N)/sum(paid_Q)` is a physical-work ratio, **not** token efficiency when `paid_Q` includes encoder work. Publish token efficiency only with a verified prefix-KV row denominator.
 
 **Strict Gemma decoder (experimental).** To actually limit *every decoder projection* to Q128, including the first visit and the final argmax sweep, use the single-canvas request below. One call performs one measured decoder forward. For the frozen suite, charge post-commit encoder calls as shown; only pure prompt prefill is excluded.
 

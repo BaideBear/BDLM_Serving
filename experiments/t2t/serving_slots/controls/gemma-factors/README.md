@@ -47,3 +47,42 @@ The intervention removes a duplicate projection, not final verification or
 the encoder. It is easier for the original first verification slice to contain
 all remaining dirty rows at a large offer. The table is a statement about
 these 30 inputs only; a real two-canvas C512 finish has not been tested here.
+
+## Prefix location and sampling on refresh: original 30
+
+Each entry is correct out of 30, then macro TPF. All use 1/8 and the same
+head-only executor. The last column changes sampling eligibility, **not**
+the rank: it uses current (not stale) logits from fully paid unresolved rows
+on certain otherwise refresh-only ticks.
+
+| Offer | Right edge | Oldest | Seeded uniform | Right edge + sampling on refresh |
+|---:|---:|---:|---:|---:|
+| 32 | 29, 4.607 | 28, 4.553 | 28, 4.534 | 22, 4.049 |
+| 64 | 29, 7.713 | 29, 7.453 | 27, 7.402 | 20, 6.025 |
+| 128 | 30, 12.024 | 28, 12.198 | 29, 12.002 | 25, 9.666 |
+| 256 | 29, 17.177 | 28, 17.615 | 28, 17.417 | 28, 17.831 |
+
+Keep the right edge for now. At Q64 the alternative sampling rule lost nine
+previously correct answers without a rescue and lowered pooled token efficiency
+from 13.07% to 8.14%. This is an end-to-end change to the sampling schedule;
+the comparison does not isolate which later change in the trajectory caused a
+wrong answer. At Q256 the outcome is a speed/quality tradeoff, not dominance.
+
+## Native stop on fully measured consecutive heads
+
+`fullstop/` contains a separate 366-receipt study: off/on on the same GPU per
+pair, all 90 at C256 (head only) and C512 (half gate), plus 3 *qualification*
+pairs at C128. No terminal fusion and no logits imputed for unselected rows.
+Recompute on the original A800 runtime with `python readout.py --complete`.
+`pairs.csv` contains only per-request counts and paired changes, not outputs.
+Separate the original 30 and additional 60 via the `index` column.
+
+| Offer | Correct / 90, off → on | Macro TPF | Token efficiency | Applied effect |
+|---:|---:|---:|---:|---|
+| 256 | 83 → 83 | 17.742 → 17.742 | 10.17% → 10.17% | 189 full head ticks in control, only one consecutive pair; zero hits |
+| 512 | 84 → 83 | 21.344 → 21.785 | 7.02% → 7.22% | 42/90 had an actionable hit; total F 1,579 → 1,560 |
+
+C512 changed 14 complete output sequences, with one additional wrong answer
+(index 65) and no rescues. The paired TPF difference is +0.441, 95% interval
+[0.144, 0.770]. Keep the stop *off* in the public profile. C128 had zero full
+head ticks on the three qualification tasks; it is not a 90-task result.

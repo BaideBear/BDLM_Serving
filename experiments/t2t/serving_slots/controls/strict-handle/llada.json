@@ -1,0 +1,138 @@
+{
+  "arms": {
+    "fixed16": {
+      "F": 303,
+      "decoder_F": 303,
+      "decoder_Q": 3663,
+      "directed_pairs": {
+        "16>16": 300
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3
+    },
+    "fixed32": {
+      "F": 237,
+      "decoder_F": 237,
+      "decoder_Q": 4404,
+      "directed_pairs": {
+        "32>32": 234
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3
+    },
+    "fixed4": {
+      "F": 782,
+      "decoder_F": 782,
+      "decoder_Q": 2946,
+      "directed_pairs": {
+        "4>4": 779
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3
+    },
+    "fixed64": {
+      "F": 168,
+      "decoder_F": 168,
+      "decoder_Q": 8395,
+      "directed_pairs": {
+        "64>64": 165
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3
+    },
+    "fixed8": {
+      "F": 452,
+      "decoder_F": 452,
+      "decoder_Q": 3114,
+      "directed_pairs": {
+        "8>8": 449
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3
+    },
+    "park": {
+      "F": 217,
+      "decoder_F": 217,
+      "decoder_Q": 7191,
+      "directed_pairs": {
+        "4>4": 46,
+        "4>64": 23,
+        "64>4": 23,
+        "64>64": 122
+      },
+      "downshifts_with_debt": 22,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 19,
+      "requests": 3
+    },
+    "switch25": {
+      "F": 276,
+      "decoder_F": 276,
+      "decoder_Q": 4676,
+      "directed_pairs": {
+        "16>16": 11,
+        "16>32": 11,
+        "16>4": 11,
+        "16>64": 11,
+        "16>8": 11,
+        "32>16": 11,
+        "32>32": 11,
+        "32>4": 11,
+        "32>64": 10,
+        "32>8": 11,
+        "4>16": 11,
+        "4>32": 11,
+        "4>4": 12,
+        "4>64": 11,
+        "4>8": 12,
+        "64>16": 11,
+        "64>32": 11,
+        "64>4": 9,
+        "64>64": 10,
+        "64>8": 11,
+        "8>16": 11,
+        "8>32": 11,
+        "8>4": 11,
+        "8>64": 11,
+        "8>8": 11
+      },
+      "downshifts_with_debt": 101,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 46,
+      "requests": 3
+    }
+  },
+  "gpu": [
+    "NVIDIA A800-SXM4-80GB"
+  ],
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "metric": "functional GPU qualification; no mixed-budget quality ranking",
+  "model": "llada",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}
