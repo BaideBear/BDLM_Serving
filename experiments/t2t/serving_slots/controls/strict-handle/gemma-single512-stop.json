@@ -1,0 +1,708 @@
+{
+  "arms": {
+    "after_top_stop": {
+      "F": 24,
+      "by_index": {
+        "10": {
+          "epoch": 322,
+          "events": [
+            {
+              "age": 5,
+              "debt_after": 13,
+              "debt_before": 36,
+              "full": true,
+              "hit": false,
+              "masks": 7,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 12,
+              "width": 256
+            },
+            {
+              "age": 6,
+              "debt_after": 7,
+              "debt_before": 13,
+              "full": true,
+              "hit": true,
+              "masks": 2,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 13,
+              "width": 256
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 7,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "drain",
+              "tick": 14,
+              "width": 7
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 15,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 16,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 17,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 18,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 19,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 20,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 21,
+              "width": 32
+            },
+            {
+              "age": 6,
+              "debt_after": 0,
+              "debt_before": 0,
+              "full": false,
+              "hit": false,
+              "masks": 2,
+              "offer": 32,
+              "route": "verify",
+              "tick": 22,
+              "width": 32
+            }
+          ],
+          "fixed_actionable_tick": 13,
+          "ledger_sha256": "f579fff748cc251b7e6b4db4babfdc038959a53508afdec78ac6884c2181c0fc",
+          "ordinal": 1,
+          "prefix_ticks": 14,
+          "stop_checks": {
+            "eligible_pairs": 8,
+            "joint_calls": 1,
+            "latches": 1,
+            "post_stop_sub_B_ticks": 9,
+            "sampled_promotions": 1,
+            "tail_dirty_Q_in_joint": 135,
+            "top_actionable": 1,
+            "top_eligible_pairs": 8,
+            "top_full_ticks": 10,
+            "top_latches": 1
+          }
+        }
+      },
+      "decoder_F": 23,
+      "decoder_Q": 4494,
+      "directed_pairs": {
+        "32>32": 8,
+        "512>32": 1,
+        "512>512": 13
+      },
+      "downshifts_with_debt": 1,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 1,
+      "stop_checks": {
+        "eligible_pairs": 8,
+        "joint_calls": 1,
+        "latches": 1,
+        "post_stop_sub_B_ticks": 9,
+        "sampled_promotions": 1,
+        "tail_dirty_Q_in_joint": 135,
+        "top_actionable": 1,
+        "top_eligible_pairs": 8,
+        "top_full_ticks": 10,
+        "top_latches": 1
+      }
+    },
+    "drop_after_promotion": {
+      "F": 43,
+      "decoder_F": 41,
+      "decoder_Q": 12246,
+      "directed_pairs": {
+        "32>512": 2,
+        "512>32": 2,
+        "512>512": 34
+      },
+      "downshifts_with_debt": 2,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 19,
+        "joint_calls": 2,
+        "latches": 2,
+        "post_promotion_downshifts": 2,
+        "post_promotion_downshifts_with_debt": 2,
+        "post_stop_sub_B_ticks": 0,
+        "sampled_promotions": 2,
+        "tail_dirty_Q_in_joint": 161,
+        "top_actionable": 1,
+        "top_eligible_pairs": 19,
+        "top_full_ticks": 24,
+        "top_latches": 2
+      }
+    },
+    "drop_after_stop": {
+      "F": 78,
+      "decoder_F": 76,
+      "decoder_Q": 11071,
+      "directed_pairs": {
+        "256>256": 34,
+        "256>32": 4,
+        "32>256": 2,
+        "32>32": 33
+      },
+      "downshifts_with_debt": 4,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 33,
+        "latches": 4,
+        "post_stop_sub_B_ticks": 37
+      }
+    },
+    "drop_at_joint": {
+      "F": 65,
+      "decoder_F": 63,
+      "decoder_Q": 13003,
+      "directed_pairs": {
+        "32>32": 21,
+        "32>512": 2,
+        "512>32": 2,
+        "512>512": 35
+      },
+      "downshifts_with_debt": 2,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "parked_rows_paid_on_downshift": 26,
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 22,
+        "joint_deferred": 7,
+        "latches": 2,
+        "post_stop_sub_B_ticks": 0,
+        "sampled_promotions": 2,
+        "small_verify_chunks": 16,
+        "top_actionable": 1,
+        "top_eligible_pairs": 22,
+        "top_full_ticks": 27,
+        "top_latches": 2,
+        "top_to_small_at_joint": 2
+      }
+    },
+    "fixed128": {
+      "F": 74,
+      "decoder_F": 72,
+      "decoder_Q": 7916,
+      "directed_pairs": {
+        "128>128": 69
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "reference_sha256": {
+        "0": "aa89fb30c02603996de881d4f568b07766045da1eebe53a04e7285f1e811c05a",
+        "10": "1a74ec5fc2828c1003d7ce4347c5b6808861e24416737700b57e2664a03f482e",
+        "20": "eedf42c8a226a196dd5483fdf35360b395d0543e47101ac78cc8bb16cf80729a"
+      },
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 0
+      }
+    },
+    "fixed256": {
+      "F": 45,
+      "decoder_F": 43,
+      "decoder_Q": 11008,
+      "directed_pairs": {
+        "256>256": 40
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "reference_sha256": {
+        "0": "71353a14f22d3efd25c97acd6f92821f4dfe0a796f97ea762f1d6a3c5645ada8",
+        "10": "de8cbfba9f70f5c3f9bb7b2c5f1ca29e071279cefb46210e295152919f69dc4a",
+        "20": "3725c3dcdfdc90c23f07a99abaf19a8293a4137f2d5ca3d8c167d8331364b2e8"
+      },
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 33,
+        "latches": 4,
+        "post_stop_sub_B_ticks": 0
+      }
+    },
+    "fixed32": {
+      "F": 199,
+      "decoder_F": 197,
+      "decoder_Q": 6110,
+      "directed_pairs": {
+        "32>32": 194
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "reference_sha256": {
+        "0": "5f2d4fa0d1082d696951f82fa59b3e4d5860a5b564fe989a1a19b70811b4cf7a",
+        "10": "5a9baa8743a6e37b9db9d00e4dc0f330dcd1896e89c32dc5bca0b6ff49b7d2ad",
+        "20": "321570bf670274431e2430ec82cef9065f1a65e753f855bf12969d1829980652"
+      },
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 0
+      }
+    },
+    "fixed512": {
+      "F": 44,
+      "by_index": {
+        "0": {
+          "ledger_sha256": "2e978d1b383f84816a07d73e7634887b39d0fa94a2ea3475a6569c82e093d2a7",
+          "prefix_ticks": 21,
+          "stop_checks": {
+            "eligible_pairs": 10,
+            "joint_calls": 1,
+            "latches": 1,
+            "post_stop_sub_B_ticks": 0,
+            "sampled_promotions": 1,
+            "tail_dirty_Q_in_joint": 26,
+            "top_actionable": 0,
+            "top_eligible_pairs": 10,
+            "top_full_ticks": 12,
+            "top_latches": 1
+          }
+        },
+        "10": {
+          "ledger_sha256": "f579fff748cc251b7e6b4db4babfdc038959a53508afdec78ac6884c2181c0fc",
+          "prefix_ticks": 15,
+          "stop_checks": {
+            "eligible_pairs": 8,
+            "joint_calls": 1,
+            "latches": 1,
+            "post_stop_sub_B_ticks": 0,
+            "sampled_promotions": 1,
+            "tail_dirty_Q_in_joint": 135,
+            "top_actionable": 1,
+            "top_eligible_pairs": 8,
+            "top_full_ticks": 10,
+            "top_latches": 1
+          }
+        },
+        "20": {
+          "ledger_sha256": "1aec3e953e4927fe03c6c54703123cdf7be5202b474dd25b029994971ce31bbc",
+          "prefix_ticks": 6,
+          "stop_checks": {
+            "eligible_pairs": 4,
+            "top_eligible_pairs": 4,
+            "top_full_ticks": 5,
+            "top_latches": 0
+          }
+        }
+      },
+      "decoder_F": 42,
+      "decoder_Q": 12961,
+      "directed_pairs": {
+        "512>512": 39
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "reference_sha256": {
+        "0": "ce9165cdbd70e20f6a0b4a9950116bb0f5189c0e4b1a6fbb12d50f94d769fd6d",
+        "10": "62cec880a47f07a7eafa99939525fcd652b921d5976e834cdd2daca23bf7e8cc",
+        "20": "7201dfffdc635e2b917d0351e19e679c4565e9b57e10b755d3dcc25ed0281f36"
+      },
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 22,
+        "joint_calls": 2,
+        "latches": 2,
+        "post_stop_sub_B_ticks": 0,
+        "sampled_promotions": 2,
+        "tail_dirty_Q_in_joint": 161,
+        "top_actionable": 1,
+        "top_eligible_pairs": 22,
+        "top_full_ticks": 27,
+        "top_latches": 2
+      }
+    },
+    "fixed64": {
+      "F": 130,
+      "decoder_F": 128,
+      "decoder_Q": 7302,
+      "directed_pairs": {
+        "64>64": 125
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "reference_sha256": {
+        "0": "45c472942a0f5d99aba91ff3d85b5a85cb63ddec0e0a5bc8df1df3a98105b00b",
+        "10": "bf1f8d119d4b515296fe786289397582ea24e1138645de17f0e078563f1c9d46",
+        "20": "4df8423dabab5905115e44257da4bfe0e5eed4111692111eeaf26c1019e7cb45"
+      },
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 0
+      }
+    },
+    "interrupt_top_256": {
+      "F": 17,
+      "by_index": {
+        "10": {
+          "epoch": 322,
+          "events": [
+            {
+              "age": 5,
+              "debt_after": 13,
+              "debt_before": 36,
+              "full": true,
+              "hit": false,
+              "masks": 7,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 12,
+              "width": 256
+            },
+            {
+              "age": 6,
+              "debt_after": 7,
+              "debt_before": 13,
+              "full": true,
+              "hit": false,
+              "masks": 2,
+              "offer": 256,
+              "route": "dense_single",
+              "tick": 13,
+              "width": 256
+            },
+            {
+              "age": 7,
+              "debt_after": 2,
+              "debt_before": 7,
+              "full": true,
+              "hit": false,
+              "masks": 0,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 14,
+              "width": 256
+            },
+            {
+              "age": 7,
+              "debt_after": 0,
+              "debt_before": 2,
+              "full": false,
+              "hit": false,
+              "masks": 0,
+              "offer": 512,
+              "route": "verify_paid",
+              "tick": 15,
+              "width": 256
+            }
+          ],
+          "fixed_actionable_tick": 13,
+          "ledger_sha256": "f579fff748cc251b7e6b4db4babfdc038959a53508afdec78ac6884c2181c0fc",
+          "ordinal": 1,
+          "prefix_ticks": 13,
+          "stop_checks": {
+            "eligible_pairs": 7,
+            "joint_calls": 1,
+            "sampled_promotions": 1,
+            "tail_dirty_Q_in_joint": 135,
+            "top_eligible_pairs": 7,
+            "top_full_ticks": 10,
+            "top_latches": 0
+          }
+        }
+      },
+      "decoder_F": 16,
+      "decoder_Q": 4743,
+      "directed_pairs": {
+        "256>512": 1,
+        "512>256": 1,
+        "512>512": 13
+      },
+      "downshifts_with_debt": 1,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 1,
+      "stop_checks": {
+        "eligible_pairs": 7,
+        "joint_calls": 1,
+        "sampled_promotions": 1,
+        "tail_dirty_Q_in_joint": 135,
+        "top_eligible_pairs": 7,
+        "top_full_ticks": 10,
+        "top_latches": 0
+      }
+    },
+    "interrupt_top_32": {
+      "F": 17,
+      "by_index": {
+        "10": {
+          "epoch": 322,
+          "events": [
+            {
+              "age": 5,
+              "debt_after": 13,
+              "debt_before": 36,
+              "full": true,
+              "hit": false,
+              "masks": 7,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 12,
+              "width": 256
+            },
+            {
+              "age": 6,
+              "debt_after": 7,
+              "debt_before": 13,
+              "full": false,
+              "hit": false,
+              "masks": 1,
+              "offer": 32,
+              "route": "sparse",
+              "tick": 13,
+              "width": 15
+            },
+            {
+              "age": 7,
+              "debt_after": 1,
+              "debt_before": 7,
+              "full": true,
+              "hit": false,
+              "masks": 0,
+              "offer": 512,
+              "route": "dense_single",
+              "tick": 14,
+              "width": 256
+            },
+            {
+              "age": 7,
+              "debt_after": 0,
+              "debt_before": 1,
+              "full": false,
+              "hit": false,
+              "masks": 0,
+              "offer": 512,
+              "route": "verify_paid",
+              "tick": 15,
+              "width": 256
+            }
+          ],
+          "fixed_actionable_tick": 13,
+          "ledger_sha256": "f579fff748cc251b7e6b4db4babfdc038959a53508afdec78ac6884c2181c0fc",
+          "ordinal": 1,
+          "prefix_ticks": 13,
+          "stop_checks": {
+            "eligible_pairs": 7,
+            "joint_calls": 1,
+            "sampled_promotions": 1,
+            "tail_dirty_Q_in_joint": 135,
+            "top_eligible_pairs": 7,
+            "top_full_ticks": 10,
+            "top_latches": 0
+          }
+        }
+      },
+      "decoder_F": 16,
+      "decoder_Q": 4502,
+      "directed_pairs": {
+        "32>512": 1,
+        "512>32": 1,
+        "512>512": 13
+      },
+      "downshifts_with_debt": 1,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "parked_rows_paid_on_downshift": 0,
+      "requests": 1,
+      "stop_checks": {
+        "eligible_pairs": 7,
+        "joint_calls": 1,
+        "sampled_promotions": 1,
+        "tail_dirty_Q_in_joint": 135,
+        "top_eligible_pairs": 7,
+        "top_full_ticks": 10,
+        "top_latches": 0
+      }
+    },
+    "park": {
+      "F": 59,
+      "decoder_F": 57,
+      "decoder_Q": 12535,
+      "directed_pairs": {
+        "32>32": 12,
+        "32>512": 6,
+        "512>32": 6,
+        "512>512": 30
+      },
+      "downshifts_with_debt": 6,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "parked_rows_paid_on_downshift": 26,
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 18,
+        "joint_calls": 1,
+        "joint_deferred": 1,
+        "latches": 1,
+        "post_promotion_downshifts": 1,
+        "post_promotion_downshifts_with_debt": 1,
+        "post_stop_sub_B_ticks": 0,
+        "sampled_promotions": 2,
+        "tail_dirty_Q_in_joint": 135,
+        "top_actionable": 0,
+        "top_eligible_pairs": 18,
+        "top_full_ticks": 24,
+        "top_latches": 1,
+        "top_to_small_at_joint": 1
+      }
+    },
+    "switch25": {
+      "F": 82,
+      "decoder_F": 80,
+      "decoder_Q": 9800,
+      "directed_pairs": {
+        "128>128": 2,
+        "128>256": 2,
+        "128>32": 5,
+        "128>512": 2,
+        "128>64": 3,
+        "256>128": 2,
+        "256>256": 2,
+        "256>32": 4,
+        "256>512": 2,
+        "256>64": 2,
+        "32>128": 5,
+        "32>256": 5,
+        "32>32": 5,
+        "32>512": 4,
+        "32>64": 5,
+        "512>128": 2,
+        "512>256": 2,
+        "512>32": 2,
+        "512>512": 2,
+        "512>64": 3,
+        "64>128": 3,
+        "64>256": 3,
+        "64>32": 5,
+        "64>512": 2,
+        "64>64": 3
+      },
+      "downshifts_with_debt": 29,
+      "encoder_F": 2,
+      "encoder_Q": 512,
+      "parked_rows_paid_on_downshift": 360,
+      "requests": 3,
+      "stop_checks": {
+        "eligible_pairs": 1,
+        "joint_calls": 1,
+        "joint_deferred": 2,
+        "post_promotion_downshifts": 1,
+        "post_promotion_downshifts_with_debt": 1,
+        "sampled_promotions": 1,
+        "tail_dirty_Q_in_joint": 0,
+        "top_eligible_pairs": 1,
+        "top_full_ticks": 6,
+        "top_latches": 0,
+        "top_to_small_at_joint": 1
+      }
+    }
+  },
+  "gpu": [
+    "NVIDIA A800-SXM4-80GB"
+  ],
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "metric": "functional GPU qualification; no mixed-budget quality ranking",
+  "model": "gemma",
+  "profile": "dense_stop_joint_single512",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}

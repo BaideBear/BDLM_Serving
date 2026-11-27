@@ -34,6 +34,7 @@ class HeadTick:
     tick: int       # Request-wide physical decoder tick, not sampler age.
     ordinal: int    # Committed head, not a speculative tail.
     epoch: int      # Encoder-cache generation (or its committed boundary).
+    offer: int | None = None  # Separate qualified windows when both B and 2B can stop.
 
     def __post_init__(self):
         if any(type(x) is not int or x < 0 for x in (self.tick, self.ordinal, self.epoch)):
@@ -74,7 +75,7 @@ class FullHeadStop:
                 self._reset()
                 raise ValueError("Replayed or out-of-order decoder tick")
             if (current.tick != last.tick + 1 or current.ordinal != last.ordinal
-                    or current.epoch != last.epoch):
+                    or current.epoch != last.epoch or current.offer != last.offer):
                 self._reset()
         self.last = current
         if phase in ("absent", "drain", "rebuild", "verify"):

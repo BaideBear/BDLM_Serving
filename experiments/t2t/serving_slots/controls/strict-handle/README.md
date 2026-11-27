@@ -90,3 +90,33 @@ The dedicated fallback offered 32 instead of 512 at **two actual resident-tail
 close opportunities**: it did not take the joint shortcut, paid 26 parked
 rows at the downshift and verified the two heads in 16 small chunks.
 This proves the measured functional paths, not their comparative quality.
+
+[`dense_stop_joint_single512`](gemma-single512-stop.json) passed 15/15 fixed
+replays (indices 0, 10, 20 at five offers) and all 25 directed transitions
+in `switch25`. The three fixed Q512 requests additionally matched every
+one of the 42 decoder ticks against the sealed `single1` tapes: selected
+rows, admissions/revocations, writes, clock, stop and physical bills. Of
+27 qualified full-head ticks, 22 had a qualified predecessor at the same
+offer; 2 latched. Only #10 still had masks and remaining sampler steps.
+#0's latch coincided with full acceptance; #20 had no latch.
+
+The three targeted switches therefore each have denominator **one request**.
+All were aligned to #10, head 1, encoder epoch 322, fixed hit at tick 13:
+
+| Offer at the boundary | Observed result |
+|---|---|
+| 512 on the hit, then 32 | 2 masks and 7 dirty rows at latch. Q32 paid the 7 rows in one drain, then freshly verified 8 ordered chunks of 32. Sampler age remained 6. |
+| 256 instead of 512 on the hit, then 512 | Both ticks were real full-head samples; neither hit. A pair cannot straddle two otherwise eligible offers. |
+| 32 instead of 512 on the hit, then 512 | Partial sampling interrupted the pair; the first fresh full Q512 sample on return did not hit. |
+
+These are 33 functional runs (15 fixed, 15 standard mixed, 3 targeted), not
+a mixed-budget accuracy estimate. No new frozen90 quality run. A800 physical
+7 only; source snapshot `badf953ac0e51a0b3e3b1e5860041c6b5008ac54` plus
+the API/qualification patch in `/gs/runtime/single512-api-1128/repo`.
+Rebuild the compact file from existing remote receipts without loading a model:
+
+```sh
+cd /gs/runtime/single512-api-1128/repo
+/usr/bin/python3 -B -m experiments.t2t.serving_slots.strict_handle_report \
+    gemma /gs/results/qualify-single512-api-1128 benchmarks/frozen90/manifest.json
+```

@@ -97,6 +97,14 @@ class TestPinned(TestCase):
         self.assertTrue(publish(obs, 6, last_row_edit, epoch=14, ordinal=1))
         self.assertFalse(publish(obs, 7, last_row_edit * .1, epoch=14, ordinal=1))
 
+    def test_distinct_full_offer_windows(self):
+        scores, obs = tape(), self.observer()
+        hits = []
+        for tick, q in enumerate((512,256,512,512,256,256)):
+            stamp = HeadTick(tick,0,13,q)
+            hits.append(obs.observe(stamp,phase="sample",sample=HeadSample(stamp,FULL,scores)))
+        self.assertEqual(hits,[False,False,False,True,False,True])
+
     def test_all_accepted_is_not_a_stop_and_confidence_bound_is_strict(self):
         scores = tape(30.)
         ids = torch.zeros(1, B, dtype=torch.long)

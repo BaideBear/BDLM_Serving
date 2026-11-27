@@ -31,6 +31,8 @@ def test_new_profiles_check_their_own_fixed_controls(tmp_path):
         assert combined == (tmp_path/"promotion-1128"/"C512-promotion1-10.json" if q==512 else stop)
         joint = reference_path(tmp_path,q,10,"dense_stop_joint_verify")
         assert joint == (tmp_path/"joint-verify-1128"/"C512-joint1-10.json" if q==512 else combined)
+        top = reference_path(tmp_path,q,10,"dense_stop_joint_single512")
+        assert top == (tmp_path/"single512-stop-1128"/"C512-single1-10.json" if q==512 else joint)
 
 
 @pytest.fixture

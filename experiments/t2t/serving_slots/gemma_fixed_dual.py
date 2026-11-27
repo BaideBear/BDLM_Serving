@@ -162,11 +162,14 @@ class FixedFamilyRequest(FamilyRequest):
             validate_plan(self, states, pos, sample, offer)
         obs = self.stop_observer
         scoped = getattr(self, 'stop_at_single_b_only', False)
-        in_scope = not scoped or (offer==B and len(states)==1 and route=='dense_single')
+        single_top = getattr(self, 'stop_at_single_2b', False)
+        eligible_offer = offer==B or (single_top and offer==2*B)
+        in_scope = not scoped or (eligible_offer and len(states)==1 and route=='dense_single')
         if obs is not None:
             from .gemma_fullstop import HeadSample, HeadTick
-            source = HeadTick(self.tick, head.ordinal, int(self.cache.get_seq_length()))
-            current = HeadTick(self.tick, self.ordinal, self.origin + B * self.ordinal)
+            window_offer = offer if single_top else None
+            source = HeadTick(self.tick, head.ordinal, int(self.cache.get_seq_length()), window_offer)
+            current = HeadTick(self.tick, self.ordinal, self.origin + B * self.ordinal, window_offer)
             if source != current:
                 raise RuntimeError('Wrong fullstop source head or epoch')
             hit = False

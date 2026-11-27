@@ -118,12 +118,11 @@ def collect():
     return rows
 
 
-def public_profile(rows, fixed_candidate=False):
-    """Whole-request endpoints of one runtime profile, not maxima per metric."""
-    arm={32:"fixed90_fused",64:"fixed90_fused",128:"fixed90_fused",256:"dense + native stop",512:"joint verify"}
-    if fixed_candidate:
-        arm[512]="single-resident stop"
-    return [dict(r,method="Fixed candidate" if fixed_candidate else "Request") if arm[r["budget"]]==r["method"] else r for r in rows
+def public_profile(rows, previous=False):
+    """Fixed endpoints of one qualified API profile, not maxima per metric."""
+    arm={32:"fixed90_fused",64:"fixed90_fused",128:"fixed90_fused",256:"dense + native stop",
+         512:"joint verify" if previous else "single-resident stop"}
+    return [dict(r,method="Previous request" if previous else "Request") if arm[r["budget"]]==r["method"] else r for r in rows
             if arm[r["budget"]]==r["method"] or r["method"] in ("Native / Flow W1","Optimus IBS","Flow W2")]
 
 
@@ -137,7 +136,7 @@ def plot(path, rows, compact=False):
              "Flow W2":"#a65216","full-head variant":"#b02c53",
              "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24",
              "sample on rebuild":"#1670a0","joint verify":"#ac3860","single-resident stop":"#9b4025",
-             "Request":"#087469","Fixed candidate":"#087469"}
+             "Request":"#087469","Previous request":"#087469"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -159,7 +158,7 @@ def plot(path, rows, compact=False):
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
                                        "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*",
                                        "sample on rebuild":"P","joint verify":"X","single-resident stop":"*",
-                                       "Request":"o","Fixed candidate":"o"}[name],
+                                       "Request":"o","Previous request":"o"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
@@ -189,8 +188,8 @@ def plot(path, rows, compact=False):
                ncol=min(6,len(handles)),frameon=False,fontsize=8)
     note=("Request: strict fixed decoder offer, sparse through 128, dense stop at 256, two-block joint verification at 512."
           if compact else "High/low MASK: dense head when unresolved count is at least/below 128.")
-    if "Fixed candidate" in handles:
-        note="Fixed offers only: Q512 also enables guarded native stopping on a single resident head. Not a mixed-budget ranking."
+    if "Request" in handles:
+        note="Fixed offers: Q512 uses joint verification or guarded stopping with one resident head. Not a mixed-budget ranking."
     fig.text(.05,.02,note+" Native runs at Q256; IBS 512 saturates. Missing values are not zero.",fontsize=9)
     fig.savefig(path,dpi=160,facecolor="white")
     plt.close(fig)
@@ -202,9 +201,9 @@ if __name__=="__main__":
     data=collect()
     write_csv(dst/"metrics.csv",data)
     write_csv(dst/"request-vs-baselines.csv",public_profile(data))
-    write_csv(dst/"fixed-candidate-vs-baselines.csv",public_profile(data,fixed_candidate=True))
+    write_csv(dst/"previous-joint-vs-baselines.csv",public_profile(data,previous=True))
     for cohort,_,_ in COHORTS:
         cohort_rows=[r for r in data if r["cohort"]==cohort]
         plot(dst/f"{cohort}.png",cohort_rows)
         plot(dst/f"request-{cohort}.png",public_profile(cohort_rows),compact=True)
-        plot(dst/f"fixed-candidate-{cohort}.png",public_profile(cohort_rows,fixed_candidate=True),compact=True)
+        plot(dst/f"previous-joint-{cohort}.png",public_profile(cohort_rows,previous=True),compact=True)

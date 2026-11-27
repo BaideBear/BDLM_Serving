@@ -9,11 +9,13 @@ from pathlib import Path
 import time
 
 from bdlm_serving.methods.t2t.serving_profiles import open_strict_gemma
+from . import strict_single512_qualification as single
 
 TIERS = (32,64,128,256,512)
 PROMOTION = "dense_stop_promotion_fused"
 JOINT = "dense_stop_joint_verify"
-PROMOTION_PROFILES = (PROMOTION,JOINT)
+JOINT_PROFILES = (JOINT, single.PROFILE)
+PROMOTION_PROFILES = (PROMOTION,*JOINT_PROFILES)
 STOP_PROFILES = ("dense_b_stop_fused", *PROMOTION_PROFILES)
 
 
@@ -32,6 +34,8 @@ def offer_cycle(tiers=TIERS):
 
 def reference_path(root, q, index, profile="fixed90_candidate"):
     if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused",*STOP_PROFILES):
+        if q==512 and profile==single.PROFILE:
+            return root/"single512-stop-1128"/f"C512-single1-{index:02}.json"
         if q==512 and profile==JOINT:
             return root/"joint-verify-1128"/f"C512-joint1-{index:02}.json"
         if q==512 and profile==PROMOTION:
@@ -58,7 +62,7 @@ def check(ok, message):
 
 
 def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
-          drop_after_promotion=False, drop_at_joint=False, dense_shadow=False):
+          drop_after_promotion=False, drop_at_joint=False, dense_shadow=False, boundary=None):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -93,9 +97,12 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                 q = 32 if stopped_head==head else 256
             if drop_after_promotion:
                 q = 32 if prev_rebuild_sample else 512
+            if boundary is not None:
+                q = boundary.offer(tick,head)
             joint_opportunity = False
-            if profile==JOINT:
+            if profile in JOINT_PROFILES:
                 raw=h._request
+                had_tail = raw.tail is not None
                 joint_opportunity=(raw.tail is not None and not raw.rebuild and not raw.cursor
                       and len(raw.rows.initialized)==256 and raw.sampler.phase=="sample" and bool(debt)
                       and (raw.rows._native_stop or raw.rows.age>=raw.rows.max_steps or len(raw.rows.accepted)==256))
@@ -114,7 +121,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                   and all(t[-1] == len(rows) for t in proj.values()), "unmeasured physical projection")
             check(e["dirty_before_absolute"] == sorted(debt) and set(sorted(debt)[:q]) <= set(rows)
                   and changed <= sampled <= set(rows), "unpaid old or unmeasured new writes")
-            if profile==JOINT:
+            if profile in JOINT_PROFILES:
                 joint=e["route"]=="verify_joint_paid"
                 check(joint==(q==512 and joint_opportunity),"joint verification not gated by current offer/state")
                 if joint:
@@ -151,9 +158,11 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                 prev_rebuild_sample = e["route"]=="rebuild_sample"
             if profile in STOP_PROFILES:
                 mark=e['fullstop']
-                full=(q==256 and mark['resident']==1 and e['route']=='dense_single'
+                if profile in JOINT_PROFILES:
+                    check(mark['resident']==1+int(had_tail or e["opened"] is not None), "wrong physical residency")
+                full=((q==256 or (q==512 and profile==single.PROFILE)) and mark['resident']==1 and e['route']=='dense_single'
                       and sampled==set(range(origin+head*256,origin+(head+1)*256)))
-                pair=full and last_full==(tick-1,head)
+                pair=full and last_full==(tick-1,head,q)
                 check(mark['in_scope']==full and mark['epoch']==origin+head*256 and
                       (not mark['hit'] or pair) and mark['latched']==mark['hit'], 'stale or partial stop')
                 if stopped_head==head:
@@ -163,7 +172,17 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                     stopped_head=head
                     triggers['latches']+=1
                 triggers['eligible_pairs']+=int(pair)
-                last_full=(tick,head) if full else None
+                if q==512 and profile==single.PROFILE:
+                    triggers['top_full_ticks']+=int(full)
+                    triggers['top_eligible_pairs']+=int(pair)
+                    triggers['top_latches']+=int(mark['latched'])
+                    if mark['latched']:
+                        hp=e['parts'][0]
+                        masks=e['head_mask_before']-len(hp['admitted'])+len(hp['revoked'])
+                        triggers['top_actionable']+=int(masks>0 and hp['age_after']<48)
+                last_full=(tick,head,q) if full else None
+            if boundary is not None:
+                boundary.observe(e)
             if old is not None:
                 transitions[old,q] += 1
                 if old > q:
@@ -180,7 +199,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                               and debt and debt<=set(rows) and e["head_initialized_before"]==256
                               and e["promoted"] is None, "unpaid or reordered fused verification")
                     elif e["route"]=="verify_joint_paid":
-                        check(profile==JOINT and q==512 and verify==0 and bool(debt)
+                        check(profile in JOINT_PROFILES and q==512 and verify==0 and bool(debt)
                               and debt<=set(rows),"missing write on joint verify")
                     else:
                         check(not debt,"pending write on plain verification")
@@ -211,6 +230,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                 directed_pairs={f"{a}>{b}":v for (a,b),v in sorted(transitions.items())},
                 downshifts_with_debt=physical_downshift, parked_rows_paid_on_downshift=parked_pay,
                 decoder_projection_modules=len(proj), **({'stop_checks':dict(triggers)} if profile in STOP_PROFILES else {}),
+                **({'top_boundary':boundary.finish()} if boundary is not None else {}),
                 **({'draft_shadow':shadow.blocks} if dense_shadow else {}), output_digest=sha256(
                     json.dumps(ids,separators=(",",":")).encode()).hexdigest()), ids
 
@@ -228,6 +248,14 @@ def main(argv=None):
     ap.add_argument("--deadline",type=int,required=True)
     ap.add_argument("--dense-shadow",action="store_true",help="Frozen90 observation of fixed Q256 draft vs fresh verify")
     a = ap.parse_args(argv)
+    if a.profile==single.PROFILE:
+        from .gemma_joint_verify_eval import available
+        from transformers.models.diffusion_gemma import generation_diffusion_gemma as native
+        import transformers
+        available(False)
+        check(transformers.__version__=="5.12.0" and
+              sha256(Path(native.__file__).read_bytes()).hexdigest()=="cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+              "Wrong native stopper")
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tasks = load_tasks(a.samples)
@@ -242,7 +270,7 @@ def main(argv=None):
         jobs.append(('drop_after_stop',(256,32)))
     if a.profile in PROMOTION_PROFILES:
         jobs.append(('drop_after_promotion',(512,32)))
-    if a.profile==JOINT:
+    if a.profile in JOINT_PROFILES:
         jobs.append(('drop_at_joint',(512,32)))
     indices=(0,10,20)
     if a.dense_shadow:
@@ -254,25 +282,37 @@ def main(argv=None):
             t = tasks[i]
             data = proc.apply_chat_template([{"role":"user","content":t["prompt"]}], tokenize=True,
                 add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
-            for name, schedule in jobs:
+            ref_top = None
+            case_jobs = list(jobs)
+            if a.profile==single.PROFILE:
+                src_top = reference_path(a.receipts,512,i,a.profile)
+                ref_top = single.reference(src_top)
+                check(ref_top[0]['index']==i and ref_top[0]['samples_sha256']==SAMPLES_SHA, "Wrong stop case")
+                if any(h['actionable'] for h in ref_top[0]['stop']['hits']):
+                    case_jobs.extend((s,(512,32 if s!="interrupt_top_256" else 256)) for s in single.BOUNDARIES)
+            for name, schedule in case_jobs:
                 dst = a.out/f"{name}-{i:02}.json"
                 if dst.exists():
                     previous = json.loads(dst.read_bytes())
                     check(previous.get("profile","fixed90_candidate")==a.profile and
                           ('draft_shadow' in previous)==a.dense_shadow, "wrong profile in destination")
                     continue
+                boundary = single.Boundary(name,*ref_top) if ref_top and name in ("fixed512",*single.BOUNDARIES) else None
+                if ref_top:
+                    available(True)
                 row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile,
                                   drop_after_stop=name=='drop_after_stop',drop_after_promotion=name=='drop_after_promotion',
-                                  drop_at_joint=name=='drop_at_joint',dense_shadow=a.dense_shadow)
+                                  drop_at_joint=name=='drop_at_joint',dense_shadow=a.dense_shadow,boundary=boundary)
                 if len(schedule)==1:
                     src = reference_path(a.receipts,schedule[0],i,a.profile)
                     blob = src.read_bytes()
                     ref = json.loads(blob)
                     joint_ref = a.profile==JOINT and schedule==(512,)
+                    top_ref = ref_top is not None and schedule==(512,)
                     if joint_ref:
                         check(ref["schema"]=="joint-verify-v1" and ref["on"] is True and
                               ref["samples_sha256"]==SAMPLES_SHA,"wrong joint reference")
-                    ids_match = row["output_digest"]==ref["ids"] if joint_ref else list(ids)==ref["output_ids"]
+                    ids_match = row["output_digest"]==ref["ids"] if joint_ref or top_ref else list(ids)==ref["output_ids"]
                     same = ids_match and all(row[k]==ref[k] for k in
                             ("index","seed","task_id","dataset","input_sha256","F","decoder_F","encoder_F","decoder_Q","encoder_Q"))
                     row.update(reference_sha256=sha256(blob).hexdigest(), identical=same)

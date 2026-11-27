@@ -125,7 +125,8 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest, B, TIERS
     if type(initial_offer) is not int or initial_offer not in TIERS:
         raise ValueError("Invalid initial Gemma offer")
-    joint = profile=="dense_stop_joint_verify"
+    single_top = profile=="dense_stop_joint_single512"
+    joint = single_top or profile=="dense_stop_joint_verify"
     promotion = joint or profile=="dense_stop_promotion_fused"
     stop = promotion or profile=="dense_b_stop_fused"
     if not stop and profile not in ("fixed90_candidate", "reference", "fixed90_fused", "fixed90_dense_fused","phase_high_fused"):
@@ -141,6 +142,7 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
                           fullstop=True if stop else None, stop_at_single_b_only=stop,
                           sample_full_rebuild=promotion)
     raw.joint_verify = joint
+    raw.stop_at_single_2b = single_top
     raw.full_head_at_b = stop or profile == "fixed90_dense_fused"
     return StrictHandle(raw, TIERS, laws, B, full_head_min_unresolved=B//2 if profile=="phase_high_fused" else None)
 

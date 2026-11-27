@@ -4,6 +4,19 @@
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.
 
+`open_strict_gemma(..., profile="dense_stop_joint_single512")` opts into
+the joint-verify profile below plus single-head stopping at Q512. A pair
+requires consecutive `dense_single` samples of all 256 positions, exactly
+one resident block, the same head and encoder epoch, **and the same offer**
+(256 or 512). A parked successor, sampled rebuild, partial sample or changed
+offer breaks the window. Each decision uses fresh processed logits. A hit
+stops further sampling of that head, not writeback or final verification.
+For example, `step(32)` after a Q512 latch pays the old writes and the normal
+ordered terminal sweep in cap-sized calls; only fresh terminal logits supply
+the output. The default profile and `dense_stop_joint_verify` are unchanged.
+See the [GPU replay and switch qualification](../experiments/t2t/serving_slots/controls/strict-handle/gemma-single512-stop.json)
+and the [current fixed five-tier chart](../experiments/t2t/serving_slots/controls/gemma-factors/fixed-profile/request-frozen90.png).
+
 `open_strict_gemma(..., profile="dense_stop_joint_verify")` keeps the same
 five offers and the previous guarded stop/promotion rules. Only an offer of
 512 with a fully initialized terminal head, resident successor and outstanding
@@ -11,7 +24,7 @@ writes can combine the full head verification and the successor's required KV
 writes. No tail sampling or encoder work is skipped. A smaller offer drains the
 writes within its own physical limit, then verifies in chunks. See the
 [fixed frozen90 comparison](../experiments/t2t/serving_slots/controls/gemma-factors/joint-verify/README.md),
-[current five-tier chart](../experiments/t2t/serving_slots/controls/gemma-factors/fixed-profile/request-frozen90.png)
+[previous five-tier chart](../experiments/t2t/serving_slots/controls/gemma-factors/fixed-profile/previous-joint-frozen90.png)
 and [public API GPU qualification](../experiments/t2t/serving_slots/controls/strict-handle/gemma-joint-verify.json).
 
 `profile="dense_stop_promotion_fused"` additionally lets a fixed Q512 offer

@@ -3,7 +3,7 @@ import argparse
 from collections import Counter
 import json
 from pathlib import Path
-from .strict_handle_qualify import JOINT, PROMOTION_PROFILES, STOP_PROFILES
+from .strict_handle_qualify import JOINT_PROFILES, PROMOTION_PROFILES, STOP_PROFILES, single
 
 
 def summarize(root, model, manifest):
@@ -19,8 +19,11 @@ def summarize(root, model, manifest):
             groups.setdefault('drop_after_stop',[])
             if r['profile'] in PROMOTION_PROFILES:
                 groups.setdefault('drop_after_promotion',[])
-            if r['profile']==JOINT:
+            if r['profile'] in JOINT_PROFILES:
                 groups.setdefault('drop_at_joint',[])
+            if r['profile']==single.PROFILE:
+                for name in single.BOUNDARIES:
+                    groups.setdefault(name,[])
         if (s not in groups or i not in (0,10,20) or p.name!=f"{s}-{i:02}.json"
                 or r["schema"]!=f"strict-handle-{model}-qualification-v1"
                 or r["samples_sha256"]!=manifest["samples_sha256"]
@@ -36,8 +39,12 @@ def summarize(root, model, manifest):
     profiles = {r.get("profile","fixed90_candidate") for rows in groups.values() for r in rows}
     if len(profiles)>1:
         raise ValueError("mixed profiles in qualification")
+    candidate = profiles=={single.PROFILE}
+    top = {r["index"]:r for r in groups["fixed512"]} if candidate else {}
+    actionable = {i for i,r in top.items() if r["stop_checks"].get("top_actionable",0)}
     for suite, rows in groups.items():
-        if {r["index"] for r in rows}!={0,10,20}:
+        needed = actionable if suite in single.BOUNDARIES else {0,10,20}
+        if not needed or {r["index"] for r in rows}!=needed:
             raise ValueError(f"incomplete qualification: {suite}")
         changes = Counter()
         for r in rows:
@@ -63,7 +70,8 @@ def summarize(root, model, manifest):
             for r in rows:
                 counts.update(r['stop_checks'])
             if (counts['latches']>counts['eligible_pairs'] or
-                    fixed and suite!='fixed256' and (counts['eligible_pairs'] or counts['latches']) or
+                    fixed and not (suite=='fixed256' or candidate and suite=='fixed512')
+                    and (counts['eligible_pairs'] or counts['latches']) or
                     suite=='drop_after_stop' and not (counts['latches'] and counts['post_stop_sub_B_ticks'] and changes['256>32'])):
                 raise ValueError('unqualified native stop scope or missing post-latch downshift')
             if profiles <= set(PROMOTION_PROFILES) and (
@@ -72,12 +80,24 @@ def summarize(root, model, manifest):
                     or suite=='drop_after_promotion' and not (
                         counts['post_promotion_downshifts_with_debt'] and changes['512>32'])):
                 raise ValueError('unqualified promotion scope or missing debt-carrying downshift')
-            if profiles=={JOINT} and (fixed and suite!='fixed512' and counts['joint_calls'] or
+            if profiles<=set(JOINT_PROFILES) and (fixed and suite!='fixed512' and counts['joint_calls'] or
                     suite=='fixed512' and not (counts['joint_calls'] and counts['tail_dirty_Q_in_joint']) or
                     suite=='drop_at_joint' and not (counts['top_to_small_at_joint'] and counts['small_verify_chunks']
                                                    and not counts['joint_calls'] and changes['512>32'])):
                 raise ValueError('unqualified joint verification or missing fallback')
             arms[suite]['stop_checks']=dict(counts)
+        if candidate and (suite=="fixed512" or suite in single.BOUNDARIES):
+            for r in rows:
+                i, b = r["index"], r["top_boundary"]
+                if b["ledger_sha256"]!=top[i]["top_boundary"]["ledger_sha256"]:
+                    raise ValueError("Boundary used a different historical ledger")
+                if suite=="fixed512":
+                    if b["prefix_ticks"]!=r["decoder_F"]:
+                        raise ValueError("Fixed physical tape incomplete")
+                elif not b.get("events") or b["prefix_ticks"]!=b["fixed_actionable_tick"]+int(suite=="after_top_stop"):
+                    raise ValueError("Missing aligned boundary")
+            arms[suite]["by_index"]={r["index"]:dict(**r["top_boundary"],stop_checks=r["stop_checks"])
+                                     for r in rows}
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
                 **({"profile":profiles.pop()} if model=="gemma" else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",
