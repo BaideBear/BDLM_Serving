@@ -1,0 +1,64 @@
+# Stop an ordered sparse terminal sweep at measured EOS
+
+Question: after paying for a whole verification chunk, can we omit the
+remaining chunks of the **last** canvas without changing any delivered token?
+These fixed offers use the `fixed90_fused` controls (Q32/64: 1/8; Q128: 1/4),
+right-edge prefix selection, no successor, and the existing guarded first
+verification chunk. No sampling threshold, RNG, dirty rule or encoder changed.
+The intervention is experiment-only, not installed in a public profile.
+
+The sampler freezes ids and self-conditioning and seals the argmax of each
+actual ordered terminal forward. All positions from zero through the current
+chunk must have been sealed, and all writes paid. Only an EOS in this chunk
+can finish the request. The EOS token is delivered; all positions in its chunk
+are physically charged, even those after EOS. The unchanged executor would
+truncate at the same EOS without an encoder call. A draft EOS never suffices.
+Without a measured EOS, the usual full sweep and commit still run, including
+the full last canvas on reaching the length cap.
+
+## Evidence and limits
+
+Each pair ran sequentially on physical A800 GPU7. The off arm first has to
+match its registered historical result: full output IDs, score, input hash,
+token count, encoder and decoder F/Q, and per-route F/Q. For both arms, hooks
+record decoder position IDs, 85 projection widths, model-output argmax, and
+the actual encoder IDs and positions. The audit reconstructs the output from
+terminal argmax, checks the dirty ledger and block clocks, and requires the
+same measured per-step fingerprint up to and including the EOS-containing
+chunk. All nonterminal blocks must verify 256 rows and encode identically.
+The only removable route is ordinary terminal verification after EOS.
+
+Fixed Q32 on the [complete frozen90 cohort](q32/cohorts.csv): 85/90 in
+both arms (29/30 original and 56/60 new). Every delivered ID, score and
+encoder input matched. 70/90 requests saved at least one whole chunk; the
+other 20 had EOS in the last chunk. Totals fell from 7,156 to 6,874 F and
+218,713 to 209,689 decoder Q, with 32,774 nonspecial output tokens in both
+arms. Macro TPF rose from 4.669 to 4.879 and pooled token efficiency
+from 14.98% to 15.63%. These numbers do not include results from other offers.
+
+Independent per-request prediction from the historical final IDs: if EOS
+is at zero-based block-local position `j`, the number of removable forwards
+is `(255-j)//Q`; removable physical rows are that count times Q. An EOS in
+the last chunk, or reaching the cap without EOS, gives zero. Reported savings
+must match independently measured off-minus-on bills on every pair.
+
+`pairs.csv` contains scalar paired results and an ID digest, no generation text.
+`cohorts.csv` contains complete original30, new60 and frozen90 by offer.
+Macro TPF is the mean of per-request `N/F`; micro TPF pools tokens and paid
+forwards. Prompt prefill is excluded, post-block encoder work included.
+These are accounting metrics, not measured latency, wall-clock throughput or
+a claim about other models, unordered verification, or mixed offers.
+
+The paired runner and source snapshot are under `/gs/runtime/verified-eos-1128/repo`
+on A800, based on `badf953ac0e51a0b3e3b1e5860041c6b5008ac54`. Runs, token
+sequences and tapes stay under `/gs/results/verified-eos-1128`. To regenerate
+the compact files without allocating a GPU or downloading raw outputs:
+
+```sh
+cd /gs/runtime/verified-eos-1128/repo
+/usr/bin/python3 -B -m experiments.t2t.serving_slots.gemma_verified_eos_report \
+  --root /gs/results/verified-eos-1128 --history /gs/results \
+  --manifest benchmarks/frozen90/manifest.json \
+  --generation-config /gs/models/diffusiongemma-cd40195/generation_config.json \
+  --out /gs/runtime/verified-eos-1128/compact
+```

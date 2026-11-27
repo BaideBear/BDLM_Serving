@@ -1,0 +1,4 @@
+q,cohort,pairs,exposed,eos_last_chunk,no_eos,correct,matched_ids,matched_scores,matched_encoder,full_nonterminal_blocks,N,off_F,on_F,off_decoder_F,on_decoder_F,off_decoder_Q,on_decoder_Q,off_total_Q,on_total_Q,saved_F,saved_Q,theoretical_F,theoretical_Q,encoder_F,encoder_Q,off_macro_TPF,off_micro_TPF,on_macro_TPF,on_micro_TPF
+32,original30,30,25,5,0,29,30,30,30,26,10495,2351,2247,2325,2221,71740,68412,78396,75068,104,3328,104,3328,26,6656,4.60651,4.464058,4.832302,4.670672
+32,new60,60,45,15,0,56,60,60,60,54,22279,4805,4627,4751,4573,146973,141277,160797,155101,178,5696,178,5696,54,13824,4.700913,4.636629,4.901982,4.814999
+32,frozen90,90,70,20,0,85,90,90,90,80,32774,7156,6874,7076,6794,218713,209689,239193,230169,282,9024,282,9024,80,20480,4.669445,4.579933,4.878755,4.767821
