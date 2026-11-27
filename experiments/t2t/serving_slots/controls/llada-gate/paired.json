@@ -1,0 +1,519 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "c16-noborrow / c16-borrow": {
+        "expected": 90,
+        "n": 40
+      },
+      "c64-eager / c64-full-eager": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-full-off / c64-full-eager": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-full-off / c64-full-half": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-full-off / c64-full-quarter": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-half / c64-full-half": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-off / c64-eager": {
+        "expected": 90,
+        "n": 40
+      },
+      "c64-off / c64-full-off": {
+        "expected": 90,
+        "n": 39
+      },
+      "c64-off / c64-half": {
+        "expected": 90,
+        "n": 40
+      },
+      "c64-off / c64-quarter": {
+        "expected": 90,
+        "n": 40
+      },
+      "c64-quarter / c64-full-quarter": {
+        "expected": 90,
+        "n": 39
+      },
+      "c8-noborrow / c8-borrow": {
+        "expected": 90,
+        "n": 39
+      }
+    },
+    "new60": {
+      "c16-noborrow / c16-borrow": {
+        "expected": 60,
+        "n": 10
+      },
+      "c64-eager / c64-full-eager": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-full-off / c64-full-eager": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-full-off / c64-full-half": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-full-off / c64-full-quarter": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-half / c64-full-half": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-off / c64-eager": {
+        "expected": 60,
+        "n": 10
+      },
+      "c64-off / c64-full-off": {
+        "expected": 60,
+        "n": 9
+      },
+      "c64-off / c64-half": {
+        "expected": 60,
+        "n": 10
+      },
+      "c64-off / c64-quarter": {
+        "expected": 60,
+        "n": 10
+      },
+      "c64-quarter / c64-full-quarter": {
+        "expected": 60,
+        "n": 9
+      },
+      "c8-noborrow / c8-borrow": {
+        "expected": 60,
+        "n": 9
+      }
+    },
+    "original30": {
+      "c16-noborrow / c16-borrow": {
+        "c16-borrow": {
+          "F": 6704,
+          "N": 15865,
+          "Q": 94721,
+          "correct": 20,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 81465,
+          "head_full_F": 0,
+          "macro_TPF": 2.8611729474000995,
+          "tail_Q": 13256,
+          "tail_read_only_Q": 13256,
+          "token_efficiency": 0.16749189725615227
+        },
+        "c16-noborrow": {
+          "F": 12229,
+          "N": 17649,
+          "Q": 146300,
+          "correct": 14,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 146300,
+          "head_full_F": 0,
+          "macro_TPF": 2.4949727770080914,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.12063568010936432
+        },
+        "expected": 30,
+        "losses": 1,
+        "n": 30,
+        "rescues": 7
+      },
+      "c64-eager / c64-full-eager": {
+        "c64-eager": {
+          "F": 4349,
+          "N": 16313,
+          "Q": 160825,
+          "correct": 16,
+          "failures": 0,
+          "full64_F": 147,
+          "head_Q": 61278,
+          "head_full_F": 0,
+          "macro_TPF": 5.463696141613578,
+          "tail_Q": 99547,
+          "tail_read_only_Q": 618,
+          "token_efficiency": 0.1014332348826364
+        },
+        "c64-full-eager": {
+          "F": 4848,
+          "N": 15701,
+          "Q": 264437,
+          "correct": 17,
+          "failures": 0,
+          "full64_F": 961,
+          "head_Q": 153219,
+          "head_full_F": 4848,
+          "macro_TPF": 5.494151437385332,
+          "tail_Q": 111218,
+          "tail_read_only_Q": 699,
+          "token_efficiency": 0.05937520089851269
+        },
+        "expected": 30,
+        "losses": 4,
+        "n": 30,
+        "rescues": 5
+      },
+      "c64-full-off / c64-full-eager": {
+        "c64-full-eager": {
+          "F": 4848,
+          "N": 15701,
+          "Q": 264437,
+          "correct": 17,
+          "failures": 0,
+          "full64_F": 961,
+          "head_Q": 153219,
+          "head_full_F": 4848,
+          "macro_TPF": 5.494151437385332,
+          "tail_Q": 111218,
+          "tail_read_only_Q": 699,
+          "token_efficiency": 0.05937520089851269
+        },
+        "c64-full-off": {
+          "F": 3504,
+          "N": 12946,
+          "Q": 110135,
+          "correct": 25,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 110135,
+          "head_full_F": 3504,
+          "macro_TPF": 4.947679214616802,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.11754664729649975
+        },
+        "expected": 30,
+        "losses": 9,
+        "n": 30,
+        "rescues": 1
+      },
+      "c64-full-off / c64-full-half": {
+        "c64-full-half": {
+          "F": 5258,
+          "N": 15374,
+          "Q": 280606,
+          "correct": 19,
+          "failures": 0,
+          "full64_F": 1000,
+          "head_Q": 166033,
+          "head_full_F": 5258,
+          "macro_TPF": 5.292622206641338,
+          "tail_Q": 114573,
+          "tail_read_only_Q": 308,
+          "token_efficiency": 0.05478856474915005
+        },
+        "c64-full-off": {
+          "F": 3504,
+          "N": 12946,
+          "Q": 110135,
+          "correct": 25,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 110135,
+          "head_full_F": 3504,
+          "macro_TPF": 4.947679214616802,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.11754664729649975
+        },
+        "expected": 30,
+        "losses": 7,
+        "n": 30,
+        "rescues": 1
+      },
+      "c64-full-off / c64-full-quarter": {
+        "c64-full-off": {
+          "F": 3504,
+          "N": 12946,
+          "Q": 110135,
+          "correct": 25,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 110135,
+          "head_full_F": 3504,
+          "macro_TPF": 4.947679214616802,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.11754664729649975
+        },
+        "c64-full-quarter": {
+          "F": 3598,
+          "N": 14095,
+          "Q": 163115,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 840,
+          "head_Q": 113079,
+          "head_full_F": 3598,
+          "macro_TPF": 5.6432593200472425,
+          "tail_Q": 50036,
+          "tail_read_only_Q": 667,
+          "token_efficiency": 0.08641142752046102
+        },
+        "expected": 30,
+        "losses": 3,
+        "n": 30,
+        "rescues": 2
+      },
+      "c64-half / c64-full-half": {
+        "c64-full-half": {
+          "F": 5258,
+          "N": 15374,
+          "Q": 280606,
+          "correct": 19,
+          "failures": 0,
+          "full64_F": 1000,
+          "head_Q": 166033,
+          "head_full_F": 5258,
+          "macro_TPF": 5.292622206641338,
+          "tail_Q": 114573,
+          "tail_read_only_Q": 308,
+          "token_efficiency": 0.05478856474915005
+        },
+        "c64-half": {
+          "F": 4888,
+          "N": 16873,
+          "Q": 162288,
+          "correct": 16,
+          "failures": 0,
+          "full64_F": 14,
+          "head_Q": 65059,
+          "head_full_F": 0,
+          "macro_TPF": 5.11118741850525,
+          "tail_Q": 97229,
+          "tail_read_only_Q": 423,
+          "token_efficiency": 0.10396948634526275
+        },
+        "expected": 30,
+        "losses": 3,
+        "n": 30,
+        "rescues": 6
+      },
+      "c64-off / c64-eager": {
+        "c64-eager": {
+          "F": 4349,
+          "N": 16313,
+          "Q": 160825,
+          "correct": 16,
+          "failures": 0,
+          "full64_F": 147,
+          "head_Q": 61278,
+          "head_full_F": 0,
+          "macro_TPF": 5.463696141613578,
+          "tail_Q": 99547,
+          "tail_read_only_Q": 618,
+          "token_efficiency": 0.1014332348826364
+        },
+        "c64-off": {
+          "F": 4951,
+          "N": 15087,
+          "Q": 99675,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 99675,
+          "head_full_F": 0,
+          "macro_TPF": 4.187276120748108,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.1513619262603461
+        },
+        "expected": 30,
+        "losses": 9,
+        "n": 30,
+        "rescues": 1
+      },
+      "c64-off / c64-full-off": {
+        "c64-full-off": {
+          "F": 3504,
+          "N": 12946,
+          "Q": 110135,
+          "correct": 25,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 110135,
+          "head_full_F": 3504,
+          "macro_TPF": 4.947679214616802,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.11754664729649975
+        },
+        "c64-off": {
+          "F": 4951,
+          "N": 15087,
+          "Q": 99675,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 99675,
+          "head_full_F": 0,
+          "macro_TPF": 4.187276120748108,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.1513619262603461
+        },
+        "expected": 30,
+        "losses": 1,
+        "n": 30,
+        "rescues": 2
+      },
+      "c64-off / c64-half": {
+        "c64-half": {
+          "F": 4888,
+          "N": 16873,
+          "Q": 162288,
+          "correct": 16,
+          "failures": 0,
+          "full64_F": 14,
+          "head_Q": 65059,
+          "head_full_F": 0,
+          "macro_TPF": 5.11118741850525,
+          "tail_Q": 97229,
+          "tail_read_only_Q": 423,
+          "token_efficiency": 0.10396948634526275
+        },
+        "c64-off": {
+          "F": 4951,
+          "N": 15087,
+          "Q": 99675,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 99675,
+          "head_full_F": 0,
+          "macro_TPF": 4.187276120748108,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.1513619262603461
+        },
+        "expected": 30,
+        "losses": 10,
+        "n": 30,
+        "rescues": 2
+      },
+      "c64-off / c64-quarter": {
+        "c64-off": {
+          "F": 4951,
+          "N": 15087,
+          "Q": 99675,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 99675,
+          "head_full_F": 0,
+          "macro_TPF": 4.187276120748108,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.1513619262603461
+        },
+        "c64-quarter": {
+          "F": 4752,
+          "N": 15568,
+          "Q": 133904,
+          "correct": 20,
+          "failures": 0,
+          "full64_F": 17,
+          "head_Q": 68245,
+          "head_full_F": 0,
+          "macro_TPF": 4.953195174014937,
+          "tail_Q": 65659,
+          "tail_read_only_Q": 465,
+          "token_efficiency": 0.11626239694109212
+        },
+        "expected": 30,
+        "losses": 6,
+        "n": 30,
+        "rescues": 2
+      },
+      "c64-quarter / c64-full-quarter": {
+        "c64-full-quarter": {
+          "F": 3598,
+          "N": 14095,
+          "Q": 163115,
+          "correct": 24,
+          "failures": 0,
+          "full64_F": 840,
+          "head_Q": 113079,
+          "head_full_F": 3598,
+          "macro_TPF": 5.6432593200472425,
+          "tail_Q": 50036,
+          "tail_read_only_Q": 667,
+          "token_efficiency": 0.08641142752046102
+        },
+        "c64-quarter": {
+          "F": 4752,
+          "N": 15568,
+          "Q": 133904,
+          "correct": 20,
+          "failures": 0,
+          "full64_F": 17,
+          "head_Q": 68245,
+          "head_full_F": 0,
+          "macro_TPF": 4.953195174014937,
+          "tail_Q": 65659,
+          "tail_read_only_Q": 465,
+          "token_efficiency": 0.11626239694109212
+        },
+        "expected": 30,
+        "losses": 1,
+        "n": 30,
+        "rescues": 5
+      },
+      "c8-noborrow / c8-borrow": {
+        "c8-borrow": {
+          "F": 14645,
+          "N": 18596,
+          "Q": 114317,
+          "correct": 10,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 100748,
+          "head_full_F": 0,
+          "macro_TPF": 1.5771142585402147,
+          "tail_Q": 13569,
+          "tail_read_only_Q": 13569,
+          "token_efficiency": 0.16267046895912243
+        },
+        "c8-noborrow": {
+          "F": 16220,
+          "N": 18468,
+          "Q": 113469,
+          "correct": 11,
+          "failures": 0,
+          "full64_F": 0,
+          "head_Q": 113469,
+          "head_full_F": 0,
+          "macro_TPF": 1.6346012323238144,
+          "tail_Q": 0,
+          "tail_read_only_Q": 0,
+          "token_efficiency": 0.162758110144621
+        },
+        "expected": 30,
+        "losses": 6,
+        "n": 30,
+        "rescues": 5
+      }
+    }
+  },
+  "protocol": "llada-cross-race-v2",
+  "registered_sources": {
+    "cross_race_llada.py": "9d3ebabf01b5315370c069ec0968963933dc9ffc939ac97c7cabf39351698af6"
+  },
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}
