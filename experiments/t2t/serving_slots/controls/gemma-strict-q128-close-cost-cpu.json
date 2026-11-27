@@ -1,0 +1,676 @@
+{
+  "dataset": "gemma-strict-eval-v1",
+  "budget": 128,
+  "canvas": 256,
+  "preselected": [
+    0,
+    10,
+    20
+  ],
+  "paired_indices": [
+    0,
+    10,
+    20
+  ],
+  "excluded": [],
+  "sample_manifest_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "tokenizer_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+  "method": {
+    "measured": "Observed baseline only. N excludes specials; F/Q include generation encoder, exclude prompt.",
+    "original_order": "Drop only the immediately preceding pure drain suffix fully overwritten by verify chunk 0. Conditional, not measured parity.",
+    "conditions": "All B rows already live. IDs, SC, RNG, encoder prefix, mask and ordinal unchanged. Every layer writes all selected KV before attention. Drain logits unused; keep both original verify chunks, argmax commit and encoder boundary.",
+    "visibility": "Same-block attention may read either half. Any remaining dirty row visible outside chunk 0 can affect chunk 0 and later-layer KV; sharing some coordinates or identical SC alone is insufficient.",
+    "repacked": "Optimistic ceiling: retain one verify projection per each of B positions, pack dirty rows first within cap; dropping all pure terminal drains may change cross-row dependencies, logits, EOS and all subsequent work.",
+    "limitations": "No model execution, rescoring, measured speedup, or counterfactual quality/TPF. No sample, nonterminal drain, verify coverage, or encoder saving claimed."
+  },
+  "arms": [
+    {
+      "index": 0,
+      "dataset": "gsm8k",
+      "k": 0,
+      "N": 372,
+      "F": 31,
+      "Q": 3401,
+      "decoder_F": 30,
+      "decoder_Q": 3145,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "prefill_rows": 48,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 16,
+        "drain": 10,
+        "verify": 4
+      },
+      "phase_Q": {
+        "sample": 1592,
+        "drain": 1041,
+        "verify": 512
+      },
+      "prefix_rows": 0,
+      "prefix_edited": 0,
+      "prefix_revoked": 0,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 375,
+      "correct": true,
+      "original_order_save_F": 1,
+      "original_order_save_Q": 16,
+      "repacked_ceiling_F": 2,
+      "repacked_ceiling_Q": 17,
+      "drain_write_or_flip_Q": 356,
+      "drain_unaccepted_noise_Q": 685,
+      "pure_drains": 10,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 14,
+          "verify_ticks": [
+            16,
+            17
+          ],
+          "terminal_drain_ticks": [
+            15
+          ],
+          "terminal_drain_widths": [
+            1
+          ],
+          "other_drain_F": 6,
+          "other_drain_Q": 768,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            0,
+            1
+          ],
+          "first_verify_plus_all_dirty_Q": 129,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 1,
+          "drain_write_or_flip_Q": 208,
+          "drain_unaccepted_noise_Q": 561,
+          "pure_drains": 7
+        },
+        {
+          "ordinal": 1,
+          "stop_reason": "resolved",
+          "last_sample_tick": 26,
+          "verify_ticks": [
+            28,
+            29
+          ],
+          "terminal_drain_ticks": [
+            27
+          ],
+          "terminal_drain_widths": [
+            16
+          ],
+          "other_drain_F": 2,
+          "other_drain_Q": 256,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            16,
+            0
+          ],
+          "first_verify_plus_all_dirty_Q": 128,
+          "fits_original_first": true,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 1,
+          "original_order_save_Q": 16,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 16,
+          "drain_write_or_flip_Q": 148,
+          "drain_unaccepted_noise_Q": 124,
+          "pure_drains": 3
+        }
+      ],
+      "sha256": {
+        "compact": "eb94d8f7e8fc6d5d76a04a13e494a98b1acf7067e8fe92f6969c3b29994311c5",
+        "run": "eeac7ac68131c6db3f184bee186a00daa79946fe780c5095e87f217e2ba4288a",
+        "evidence": "1537242b478072e79ae9e1fdfbda8477653103b0071e5073fbab0ad3fa55edaf"
+      }
+    },
+    {
+      "index": 0,
+      "dataset": "gsm8k",
+      "k": 32,
+      "N": 374,
+      "F": 32,
+      "Q": 3645,
+      "decoder_F": 31,
+      "decoder_Q": 3389,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "prefill_rows": 48,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 17,
+        "drain": 10,
+        "verify": 4
+      },
+      "phase_Q": {
+        "sample": 1849,
+        "drain": 1028,
+        "verify": 512
+      },
+      "prefix_rows": 213,
+      "prefix_edited": 1,
+      "prefix_revoked": 0,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 377,
+      "correct": true,
+      "original_order_save_F": 1,
+      "original_order_save_Q": 2,
+      "repacked_ceiling_F": 2,
+      "repacked_ceiling_Q": 4,
+      "drain_write_or_flip_Q": 343,
+      "drain_unaccepted_noise_Q": 685,
+      "pure_drains": 10,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 14,
+          "verify_ticks": [
+            16,
+            17
+          ],
+          "terminal_drain_ticks": [
+            15
+          ],
+          "terminal_drain_widths": [
+            2
+          ],
+          "other_drain_F": 6,
+          "other_drain_Q": 768,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            0,
+            2
+          ],
+          "first_verify_plus_all_dirty_Q": 130,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 2,
+          "drain_write_or_flip_Q": 209,
+          "drain_unaccepted_noise_Q": 561,
+          "pure_drains": 7
+        },
+        {
+          "ordinal": 1,
+          "stop_reason": "resolved",
+          "last_sample_tick": 27,
+          "verify_ticks": [
+            29,
+            30
+          ],
+          "terminal_drain_ticks": [
+            28
+          ],
+          "terminal_drain_widths": [
+            2
+          ],
+          "other_drain_F": 2,
+          "other_drain_Q": 256,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            2,
+            0
+          ],
+          "first_verify_plus_all_dirty_Q": 128,
+          "fits_original_first": true,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 1,
+          "original_order_save_Q": 2,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 2,
+          "drain_write_or_flip_Q": 134,
+          "drain_unaccepted_noise_Q": 124,
+          "pure_drains": 3
+        }
+      ],
+      "sha256": {
+        "compact": "c10f738d65c9202863e97eeb8f6b423c879d05dcddaac5bde35592f0e4e61b66",
+        "run": "1e4cbe92b21610449ea7585c2d8812afbaa4489ceea406f90a8489ab83eb4404",
+        "evidence": "aa1f7c41362752f677e6cff5fcf91111d11ac23075a4bae4b866ebceff1ddd44"
+      }
+    },
+    {
+      "index": 10,
+      "dataset": "math500",
+      "k": 0,
+      "N": 301,
+      "F": 32,
+      "Q": 3606,
+      "decoder_F": 31,
+      "decoder_Q": 3350,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "prefill_rows": 66,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 16,
+        "drain": 11,
+        "verify": 4
+      },
+      "phase_Q": {
+        "sample": 1670,
+        "drain": 1168,
+        "verify": 512
+      },
+      "prefix_rows": 0,
+      "prefix_edited": 0,
+      "prefix_revoked": 0,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 304,
+      "correct": true,
+      "original_order_save_F": 1,
+      "original_order_save_Q": 2,
+      "repacked_ceiling_F": 2,
+      "repacked_ceiling_Q": 16,
+      "drain_write_or_flip_Q": 334,
+      "drain_unaccepted_noise_Q": 834,
+      "pure_drains": 11,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 16,
+          "verify_ticks": [
+            18,
+            19
+          ],
+          "terminal_drain_ticks": [
+            17
+          ],
+          "terminal_drain_widths": [
+            14
+          ],
+          "other_drain_F": 7,
+          "other_drain_Q": 896,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            1,
+            13
+          ],
+          "first_verify_plus_all_dirty_Q": 141,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": false,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 14,
+          "drain_write_or_flip_Q": 157,
+          "drain_unaccepted_noise_Q": 753,
+          "pure_drains": 8
+        },
+        {
+          "ordinal": 1,
+          "stop_reason": "resolved",
+          "last_sample_tick": 27,
+          "verify_ticks": [
+            29,
+            30
+          ],
+          "terminal_drain_ticks": [
+            28
+          ],
+          "terminal_drain_widths": [
+            2
+          ],
+          "other_drain_F": 2,
+          "other_drain_Q": 256,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            2,
+            0
+          ],
+          "first_verify_plus_all_dirty_Q": 128,
+          "fits_original_first": true,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 1,
+          "original_order_save_Q": 2,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 2,
+          "drain_write_or_flip_Q": 177,
+          "drain_unaccepted_noise_Q": 81,
+          "pure_drains": 3
+        }
+      ],
+      "sha256": {
+        "compact": "88833ecff026abd519d649cb8290397ad564011af9e9cecbf3e1ff1020835fcb",
+        "run": "965ebe93054fa0d03f079ee5c408bceb4f0e39a814ebd1a38bc6748974ccc702",
+        "evidence": "582fbd38a41473d5bf0dc06e87e0651648cd70f9255abf9dc0d30c1c4cebe344"
+      }
+    },
+    {
+      "index": 10,
+      "dataset": "math500",
+      "k": 32,
+      "N": 301,
+      "F": 33,
+      "Q": 3744,
+      "decoder_F": 32,
+      "decoder_Q": 3488,
+      "encoder_F": 1,
+      "encoder_Q": 256,
+      "prefill_rows": 66,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 17,
+        "drain": 11,
+        "verify": 4
+      },
+      "phase_Q": {
+        "sample": 1807,
+        "drain": 1169,
+        "verify": 512
+      },
+      "prefix_rows": 140,
+      "prefix_edited": 1,
+      "prefix_revoked": 0,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 304,
+      "correct": true,
+      "original_order_save_F": 1,
+      "original_order_save_Q": 1,
+      "repacked_ceiling_F": 2,
+      "repacked_ceiling_Q": 17,
+      "drain_write_or_flip_Q": 335,
+      "drain_unaccepted_noise_Q": 834,
+      "pure_drains": 11,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 16,
+          "verify_ticks": [
+            18,
+            19
+          ],
+          "terminal_drain_ticks": [
+            17
+          ],
+          "terminal_drain_widths": [
+            16
+          ],
+          "other_drain_F": 7,
+          "other_drain_Q": 896,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            0,
+            16
+          ],
+          "first_verify_plus_all_dirty_Q": 144,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 16,
+          "drain_write_or_flip_Q": 159,
+          "drain_unaccepted_noise_Q": 753,
+          "pure_drains": 8
+        },
+        {
+          "ordinal": 1,
+          "stop_reason": "resolved",
+          "last_sample_tick": 28,
+          "verify_ticks": [
+            30,
+            31
+          ],
+          "terminal_drain_ticks": [
+            29
+          ],
+          "terminal_drain_widths": [
+            1
+          ],
+          "other_drain_F": 2,
+          "other_drain_Q": 256,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            1,
+            0
+          ],
+          "first_verify_plus_all_dirty_Q": 128,
+          "fits_original_first": true,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 1,
+          "original_order_save_Q": 1,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 1,
+          "drain_write_or_flip_Q": 176,
+          "drain_unaccepted_noise_Q": 81,
+          "pure_drains": 3
+        }
+      ],
+      "sha256": {
+        "compact": "52924dff64d04fdc464725a35a841b2e68178bc768908c778610d567b8c49e00",
+        "run": "7efadf40f998378b649299a88084d20c50132e2075cb00896084940866a1efb7",
+        "evidence": "0c89492fd632f983192821b7636db031a09fe158aaea0a0132d8ac35082f2e39"
+      }
+    },
+    {
+      "index": 20,
+      "dataset": "humaneval",
+      "k": 0,
+      "N": 238,
+      "F": 13,
+      "Q": 1504,
+      "decoder_F": 13,
+      "decoder_Q": 1504,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "prefill_rows": 145,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 6,
+        "drain": 5,
+        "verify": 2
+      },
+      "phase_Q": {
+        "sample": 704,
+        "drain": 544,
+        "verify": 256
+      },
+      "prefix_rows": 0,
+      "prefix_edited": 0,
+      "prefix_revoked": 0,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 241,
+      "correct": true,
+      "original_order_save_F": 0,
+      "original_order_save_Q": 0,
+      "repacked_ceiling_F": 1,
+      "repacked_ceiling_Q": 32,
+      "drain_write_or_flip_Q": 192,
+      "drain_unaccepted_noise_Q": 352,
+      "pure_drains": 5,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 9,
+          "verify_ticks": [
+            11,
+            12
+          ],
+          "terminal_drain_ticks": [
+            10
+          ],
+          "terminal_drain_widths": [
+            32
+          ],
+          "other_drain_F": 4,
+          "other_drain_Q": 512,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            2,
+            30
+          ],
+          "first_verify_plus_all_dirty_Q": 158,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": false,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 32,
+          "drain_write_or_flip_Q": 192,
+          "drain_unaccepted_noise_Q": 352,
+          "pure_drains": 5
+        }
+      ],
+      "sha256": {
+        "compact": "d78ddc6ea9f369fd4c6fb9b27c4e27fdccc922dee2f2e6ac486b604287344af1",
+        "run": "f2f41423def6fc93a165a70ccfe71522c1448be8c644d40e5170360bad2bea78",
+        "evidence": "6f86d94cc83147afd179ea6da7e168048e81dcd474c0f10cba1d6376f5567c59"
+      }
+    },
+    {
+      "index": 20,
+      "dataset": "humaneval",
+      "k": 32,
+      "N": 238,
+      "F": 14,
+      "Q": 1599,
+      "decoder_F": 14,
+      "decoder_Q": 1599,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "prefill_rows": 145,
+      "decoder_q_max": 128,
+      "layers": 30,
+      "projection_modules": 85,
+      "phase_F": {
+        "sample": 7,
+        "drain": 5,
+        "verify": 2
+      },
+      "phase_Q": {
+        "sample": 830,
+        "drain": 513,
+        "verify": 256
+      },
+      "prefix_rows": 95,
+      "prefix_edited": 0,
+      "prefix_revoked": 1,
+      "eos": true,
+      "truncated": false,
+      "output_ids_count": 241,
+      "correct": true,
+      "original_order_save_F": 0,
+      "original_order_save_Q": 0,
+      "repacked_ceiling_F": 1,
+      "repacked_ceiling_Q": 1,
+      "drain_write_or_flip_Q": 161,
+      "drain_unaccepted_noise_Q": 352,
+      "pure_drains": 5,
+      "blocks": [
+        {
+          "ordinal": 0,
+          "stop_reason": "resolved",
+          "last_sample_tick": 10,
+          "verify_ticks": [
+            12,
+            13
+          ],
+          "terminal_drain_ticks": [
+            11
+          ],
+          "terminal_drain_widths": [
+            1
+          ],
+          "other_drain_F": 4,
+          "other_drain_Q": 512,
+          "verify_F": 2,
+          "verify_Q": 256,
+          "dirty_by_verify_chunk": [
+            0,
+            1
+          ],
+          "first_verify_plus_all_dirty_Q": 129,
+          "fits_original_first": false,
+          "dirty_fits_one_original_chunk": true,
+          "original_order_save_F": 0,
+          "original_order_save_Q": 0,
+          "repacked_ceiling_F": 1,
+          "repacked_ceiling_Q": 1,
+          "drain_write_or_flip_Q": 161,
+          "drain_unaccepted_noise_Q": 352,
+          "pure_drains": 5
+        }
+      ],
+      "sha256": {
+        "compact": "0130b15aa8d2b59c7f533ab8958add6bfdcd85fffa394a1e7596f57a90e91adc",
+        "run": "c2e4a2e5d3851f8bc244084ba1326e0430e4cb677f0ae0c19bfeba0dd6218c74",
+        "evidence": "90263d8d475ca0faf3f61b4eb2e59d59a9f281150a1c7635afff0e31b7e0690f"
+      }
+    }
+  ],
+  "totals": [
+    {
+      "N": 911,
+      "F": 76,
+      "Q": 8511,
+      "correct": 3,
+      "original_order_save_F": 2,
+      "original_order_save_Q": 18,
+      "repacked_ceiling_F": 5,
+      "repacked_ceiling_Q": 65,
+      "drain_write_or_flip_Q": 882,
+      "drain_unaccepted_noise_Q": 1871,
+      "pure_drains": 26,
+      "k": 0,
+      "requests": 3,
+      "observed_macro_TPF": 13.237980769230768,
+      "observed_pooled_efficiency": 0.1070379508870873
+    },
+    {
+      "N": 913,
+      "F": 79,
+      "Q": 8988,
+      "correct": 3,
+      "original_order_save_F": 2,
+      "original_order_save_Q": 3,
+      "repacked_ceiling_F": 5,
+      "repacked_ceiling_Q": 22,
+      "drain_write_or_flip_Q": 839,
+      "drain_unaccepted_noise_Q": 1871,
+      "pure_drains": 26,
+      "k": 32,
+      "requests": 3,
+      "observed_macro_TPF": 12.602904040404042,
+      "observed_pooled_efficiency": 0.10157988429016467
+    }
+  ]
+}

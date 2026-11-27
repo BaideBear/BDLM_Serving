@@ -30,6 +30,45 @@ def comparison(root):
     return out
 
 
+def strict_prefix_pilot_plot(root, target):
+    """Compare same-device case-matched interventions; don't compose their gains."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    a = json.loads((root/"gemma-strict-q128-prefix-actions.json").read_bytes())["pairs"]
+    b = json.loads((root/"gemma-strict-q128-close-paired.json").read_bytes())["pairs"]
+    if [p["index"] for p in a] != [0,10,20] or len(b) != len(a):
+        raise ValueError("Wrong Q128 pilot cohorts")
+    series = [[], [], [], []]
+    for x,y in zip(a,b,strict=True):
+        if (any(x[k]!=y[k] for k in ("index","seed","task_id","input_sha256"))
+                or any(x["arms"]["k0"][k]!=y["arms"]["control"][k] for k in ("N","F","Q","correct"))):
+            raise ValueError("Mismatched Q128 controls")
+        for values,m in zip(series, [x["arms"][k] for k in ("k0","kv_only","editable")]
+                            +[y["arms"]["dirty_first"]],strict=True):
+            values.append(m)
+    labels = ["K0 control", "K32 KV only", "K32 editable", "K0 fused close"]
+    fig, axes = plt.subplots(1,4,figsize=(12.3,3.1),layout="constrained")
+    for ax, col, title, fmt in zip(axes, range(4), ("Correct / 3","Tokens / forward","Token efficiency (%)","Actual Q"),
+                                   (".0f",".3f",".2f",",.0f"),strict=True):
+        vals=[]
+        for ms in series:
+            n=sum(m["N"] for m in ms)
+            q=sum(m["Q"] for m in ms)
+            vals.append((sum(m["correct"] for m in ms),sum(m["N"]/m["F"] for m in ms)/len(ms),100*n/q,q)[col])
+        bars=ax.barh(range(4),vals,color=["#58697c","#377a80","#cb8a48","#59784c"])
+        ax.bar_label(bars,labels=[format(v,fmt) for v in vals],padding=3,fontsize=9)
+        ax.set_yticks(range(4),labels if col==0 else [])
+        ax.invert_yaxis()
+        ax.set_xlim(0,max(vals)*1.29)
+        ax.set_title(title,fontsize=10)
+        ax.spines[["top","right"]].set_visible(False)
+    fig.suptitle("DiffusionGemma | strict decoder Q128 | 3 paired CPU requests, not frozen90")
+    fig.savefig(target,dpi=150)
+    plt.close(fig)
+
+
 def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, rank=False, dose_q=None):
     import matplotlib
     matplotlib.use("Agg")
@@ -234,6 +273,8 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    if (HERE/"controls/gemma-strict-q128-prefix-actions.json").exists():
+        strict_prefix_pilot_plot(HERE/"controls", HERE/"gemma-strict-q128-prefix-actions.png")
     rows = comparison(HERE/"controls")
     with (HERE/"gemma-optimus.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(next(iter(rows.values()))), lineterminator="\n")

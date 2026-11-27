@@ -1,0 +1,364 @@
+{
+  "protocol": "Real paired CPU dirty-first close at fixed Q128/K0; independent model-free evidence audit; not a K32 outcome or frozen90 estimate.",
+  "cases": [
+    0,
+    10,
+    20
+  ],
+  "settings": {
+    "checkpoint_revision": "cd40195554d3cfcb56f34b9adfb66efc790ed5b6",
+    "transformers": "5.12.0",
+    "torch": "2.9.0+cu128",
+    "cpu_affinity": [
+      36,
+      37,
+      38,
+      39
+    ],
+    "canvas": 256,
+    "decoder_cap": 128,
+    "prefix_quota": 0,
+    "new_token_cap": 2048,
+    "attention": "sdpa",
+    "experts": "grouped_mm",
+    "dtype": "bfloat16"
+  },
+  "accounting": "N: non-special returned tokens; F/Q: decoder calls/rows plus paid post-block encoder calls/rows. Excludes pure prompt prefill. Encoder charges are B256, outside the decoder cap.",
+  "pairs": [
+    {
+      "index": 0,
+      "dataset": "gsm8k",
+      "task_id": "gsm8k/167",
+      "seed": 17000,
+      "input_sha256": "3ddddcbd303b29fc16a7b8c015504163dac9d41447ed75b3bbaa6795722fff3c",
+      "metric": "numeric_exact_match",
+      "arms": {
+        "control": {
+          "N": 372,
+          "F": 31,
+          "Q": 3401,
+          "decoder_F": 30,
+          "decoder_Q": 3145,
+          "encoder_F": 1,
+          "encoder_Q": 256,
+          "phase_F": {
+            "sample": 16,
+            "drain": 10,
+            "verify": 4
+          },
+          "phase_Q": {
+            "sample": 1592,
+            "drain": 1041,
+            "verify": 512
+          },
+          "correct": true
+        },
+        "dirty_first": {
+          "N": 372,
+          "F": 29,
+          "Q": 3384,
+          "decoder_F": 28,
+          "decoder_Q": 3128,
+          "encoder_F": 1,
+          "encoder_Q": 256,
+          "phase_F": {
+            "sample": 16,
+            "drain": 8,
+            "verify": 4
+          },
+          "phase_Q": {
+            "sample": 1592,
+            "drain": 1024,
+            "verify": 512
+          },
+          "correct": true
+        }
+      },
+      "decoder_q_max": 128,
+      "first_divergent_decoder_tick_0based": 15,
+      "first_divergence_ordinal": 0,
+      "dirty_count_at_first_divergence": 1,
+      "all_sample_observations_matched": 16,
+      "identical_full_argmax_blocks": 2,
+      "identical_output_ids": true,
+      "verify_chunks_same_rows_and_logits_hash": 2,
+      "verify_chunks_different_rows_not_logit_comparable": 2,
+      "control_terminal_drain": {
+        "F": 2,
+        "Q": 17
+      },
+      "delta_FQ_beyond_terminal_drains": {
+        "F": 0,
+        "Q": 0
+      }
+    },
+    {
+      "index": 10,
+      "dataset": "math500",
+      "task_id": "test/precalculus/807.json",
+      "seed": 17010,
+      "input_sha256": "ed850f6e2310dbed866af86e833753409bbc6833faa30e7a5905840fae9347c4",
+      "metric": "math_verify_0.8.0_last_box",
+      "arms": {
+        "control": {
+          "N": 301,
+          "F": 32,
+          "Q": 3606,
+          "decoder_F": 31,
+          "decoder_Q": 3350,
+          "encoder_F": 1,
+          "encoder_Q": 256,
+          "phase_F": {
+            "sample": 16,
+            "drain": 11,
+            "verify": 4
+          },
+          "phase_Q": {
+            "sample": 1670,
+            "drain": 1168,
+            "verify": 512
+          },
+          "correct": true
+        },
+        "dirty_first": {
+          "N": 301,
+          "F": 30,
+          "Q": 3590,
+          "decoder_F": 29,
+          "decoder_Q": 3334,
+          "encoder_F": 1,
+          "encoder_Q": 256,
+          "phase_F": {
+            "sample": 16,
+            "drain": 9,
+            "verify": 4
+          },
+          "phase_Q": {
+            "sample": 1670,
+            "drain": 1152,
+            "verify": 512
+          },
+          "correct": true
+        }
+      },
+      "decoder_q_max": 128,
+      "first_divergent_decoder_tick_0based": 17,
+      "first_divergence_ordinal": 0,
+      "dirty_count_at_first_divergence": 14,
+      "all_sample_observations_matched": 16,
+      "identical_full_argmax_blocks": 2,
+      "identical_output_ids": true,
+      "verify_chunks_same_rows_and_logits_hash": 2,
+      "verify_chunks_different_rows_not_logit_comparable": 2,
+      "control_terminal_drain": {
+        "F": 2,
+        "Q": 16
+      },
+      "delta_FQ_beyond_terminal_drains": {
+        "F": 0,
+        "Q": 0
+      }
+    },
+    {
+      "index": 20,
+      "dataset": "humaneval",
+      "task_id": "HumanEval/6",
+      "seed": 17020,
+      "input_sha256": "4ed39c30f62cf72a57b0dbad8ca1232ddfb77d63160ddce274d7c901d1cabb7a",
+      "metric": "humaneval_base_pass1",
+      "arms": {
+        "control": {
+          "N": 238,
+          "F": 13,
+          "Q": 1504,
+          "decoder_F": 13,
+          "decoder_Q": 1504,
+          "encoder_F": 0,
+          "encoder_Q": 0,
+          "phase_F": {
+            "sample": 6,
+            "drain": 5,
+            "verify": 2
+          },
+          "phase_Q": {
+            "sample": 704,
+            "drain": 544,
+            "verify": 256
+          },
+          "correct": true
+        },
+        "dirty_first": {
+          "N": 238,
+          "F": 12,
+          "Q": 1472,
+          "decoder_F": 12,
+          "decoder_Q": 1472,
+          "encoder_F": 0,
+          "encoder_Q": 0,
+          "phase_F": {
+            "sample": 6,
+            "drain": 4,
+            "verify": 2
+          },
+          "phase_Q": {
+            "sample": 704,
+            "drain": 512,
+            "verify": 256
+          },
+          "correct": true
+        }
+      },
+      "decoder_q_max": 128,
+      "first_divergent_decoder_tick_0based": 10,
+      "first_divergence_ordinal": 0,
+      "dirty_count_at_first_divergence": 32,
+      "all_sample_observations_matched": 6,
+      "identical_full_argmax_blocks": 1,
+      "identical_output_ids": true,
+      "verify_chunks_same_rows_and_logits_hash": 0,
+      "verify_chunks_different_rows_not_logit_comparable": 2,
+      "control_terminal_drain": {
+        "F": 1,
+        "Q": 32
+      },
+      "delta_FQ_beyond_terminal_drains": {
+        "F": 0,
+        "Q": 0
+      }
+    }
+  ],
+  "measured_totals": {
+    "control": {
+      "N": 911,
+      "F": 76,
+      "Q": 8511,
+      "decoder_Q": 7999,
+      "encoder_Q": 512,
+      "correct": 3,
+      "pooled_N_per_F": 11.986842105263158,
+      "pooled_N_per_Q": 0.1070379508870873,
+      "mean_request_N_per_F": 13.237980769230768
+    },
+    "dirty_first": {
+      "N": 911,
+      "F": 71,
+      "Q": 8446,
+      "decoder_Q": 7934,
+      "encoder_Q": 512,
+      "correct": 3,
+      "pooled_N_per_F": 12.830985915492958,
+      "pooled_N_per_Q": 0.10786170968505801,
+      "mean_request_N_per_F": 14.231417624521072
+    }
+  },
+  "dirty_first_minus_control": {
+    "N": 0,
+    "F": -5,
+    "Q": -65,
+    "decoder_Q": -65,
+    "encoder_Q": 0
+  },
+  "decision": "Replicate as a call-count optimization. For these three cases all net savings were terminal drains; no evidence for a large physical-row gain, measured latency improvement or general quality neutrality.",
+  "audit": {
+    "status": "pass",
+    "files": "Checked registration, all three independent pair files, both arms of each, summary, and original CPU K0 receipts.",
+    "reconstructed": "Replayed evidence only: chronological D/E ledger, every head width and all 85 registered Q/K/V projection widths in 30 layers, positions and decoder IDs against pre-call canvas; independently tracked dirty changes/acceptance flips, clock, coverage, pure prompt and B256 encodes, two disjoint fresh verify chunks per block, argmax-to-block/EOS-to-suffix, N/F/Q and stored score agreement. Historical control matched original IDs, text, score, traces and physical tapes.",
+    "first_fork": "All first divergent ticks were control drain versus dirty-first verify in block zero, with equal observed pre-state. Leading equality includes trace, RNG, SC input and logit hashes. Same sampled calls were also matched separately throughout each request ignoring global tick offsets.",
+    "limitations": "No model, raw logits, KV values, new scoring or timing. Archival hashes/argmax were compared, not regenerated. Different selected rows mean logit hashes are not comparable even when the final argmax mosaic matches. The same three outputs/scores do not imply equivalence at other seeds, tasks, quotas or hardware."
+  },
+  "prefix_action_interpretation": {
+    "scope": "Source-level attribution for strict K0/K32 with ordinary close held fixed. Numbers in the close result above are K0 only. K32 observations below are historical editable controls, not kv_only measurements.",
+    "K0": "Negative control: quota zero bypasses the replacement planner in both action labels. No optional prefix is not absence of T2T on mandatory sampled rows. Same-seed repeats should match the entire tape.",
+    "K32_kv_only_vs_K0": "Adds up to 32 eligible clean accepted prefix rows in spare seats to the physical projection. At the first matched opportunity the mandatory sampler cohort can stay fixed; recomputed prefix KV can affect mandatory logits in that same call. This measures the policy of extra joint projection/refresh, not a pure latency or isolated single-KV effect.",
+    "K32_editable_vs_kv_only": "At a matched pre-state the projection rows, order, input IDs and old SC should agree. kv_only removes only the optional prefix from the sampler; editable consumes it jointly with the mandatory rows. Later offers remain 128, not necessarily actual rows or work. This is the effect of sampler participation conditional on projecting those rows, not of writing a changed token in isolation.",
+    "rng_and_entropy": "With seed + block ordinal the initial stream matches. Each consume calls multinomial and draws row-shaped renoise for the entire ordered sampled cohort, including accepted rows. Changing cohort shape/order can reassign draws on common rows and change subsequent RNG state. One temperature clock per consume, not per row; later call counts can diverge. Pinned entropy acceptance sorts the entire local sampled cohort and applies cumsum(H)-H <= 0.1; adding prefix candidates can flip mandatory acceptance even at identical mandatory logits.",
+    "self_conditioning": "kv_only projects the optional prefix with its stored ID and old SC; the fresh forward updates resident KV, not its ID, acceptance or stored SC. Editable writes temperature-processed scores in embedding dtype for every consumed prefix row, even with unchanged ID; edits, revocations and renoise can also create future debt. Projection alone is not an SC refresh.",
+    "trajectory": "After the first action fork: later mandatory/prefix membership, dirty drains, age, EOS, block count, re-encodes, N/F/Q and score are outcomes. Equal cap/seed or zero observed prefix edits do not isolate an edit effect. K0->editable is a total policy contrast. Do not reuse close savings for K32 or infer additive independent mechanisms.",
+    "identification": "Use K0 label parity, then at first eligible K32 tick compare pre-state, actual positions/widths, SC and same-row logits before consuming; report groups, RNG before/after and next-state differences. To isolate prefix token writeback requires a different matched control holding sampled cohort/order, entropy groups, draw mapping and SC update fixed and gating only writeback. No claim of native dense parity.",
+    "historical_editable_context": [
+      {
+        "index": 0,
+        "prefix_calls": 9,
+        "prefix_rows": 213,
+        "prefix_edited": 1,
+        "prefix_revoked": 0,
+        "compact_sha256": "c10f738d65c9202863e97eeb8f6b423c879d05dcddaac5bde35592f0e4e61b66",
+        "evidence_sha256": "aa1f7c41362752f677e6cff5fcf91111d11ac23075a4bae4b866ebceff1ddd44"
+      },
+      {
+        "index": 10,
+        "prefix_calls": 8,
+        "prefix_rows": 140,
+        "prefix_edited": 1,
+        "prefix_revoked": 0,
+        "compact_sha256": "52924dff64d04fdc464725a35a841b2e68178bc768908c778610d567b8c49e00",
+        "evidence_sha256": "0c89492fd632f983192821b7636db031a09fe158aaea0a0132d8ac35082f2e39"
+      },
+      {
+        "index": 20,
+        "prefix_calls": 3,
+        "prefix_rows": 95,
+        "prefix_edited": 0,
+        "prefix_revoked": 1,
+        "compact_sha256": "0130b15aa8d2b59c7f533ab8958add6bfdcd85fffa394a1e7596f57a90e91adc",
+        "evidence_sha256": "90263d8d475ca0faf3f61b4eb2e59d59a9f281150a1c7635afff0e31b7e0690f"
+      }
+    ],
+    "implementation_observed_sha256": {
+      "gemma_prefix_action.py": "fdcba60cf98c0bb602ea49903c2b08891b4ce4a1646943baaa6f191f735e5654",
+      "transformers/models/diffusion_gemma/generation_diffusion_gemma.py": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc"
+    }
+  },
+  "provenance": {
+    "raw_root": "/data1/project_data/gx-erqw-20261123/runtime/t2t-native-1125/prefix90/gemma-strict-close-pilot-v1",
+    "raw_artifact_sha256": {
+      "00-control.json": "1a6cbfdfe5b6f48ad1476b1b7bf101cedb6d55f1c4724aaa2bab9d8eef20f9a3",
+      "00-dirty_first.json": "089f4eafd030d6a97b9edaaf2a091f70ffbc3e06f1dfe3681cb3170f4acf6d3a",
+      "00-pair.json": "43962cdb37c537a3e068850994f895b7854b3fd6701f04f047c2b97bcb2f6acf",
+      "10-control.json": "08c341e898ba79f6f120aca5e19527cd4c4a25f0d62505914448d15d1a8f7222",
+      "10-dirty_first.json": "6e3ca3b992ca52c0357bdc7eeab3c5bce2c1914d1dbdbae8c7aa639b21bb4277",
+      "10-pair.json": "b186ce4f3d76458461ee7855a65988995a46eb4a0a230eefccedb3388c79d239",
+      "20-control.json": "9c0084026bd431460cd1e9e229545a6d912a632d70aae6976dbdca8784bb1237",
+      "20-dirty_first.json": "8a5240be2a0071c0dc2da7e397d1b21e656cabbc5c630dfc0f7620e3b40f0510",
+      "20-pair.json": "b6fc7f8d111a62014f222ba67a5f990cd466bf62ad88294b63cda678557f652e",
+      "registration.json": "e004123e53081f84e9d93d4483bb832d04e77a6c7438606940ec9431eb7db71a",
+      "summary.json": "92286cd435a74f2910250a42359f9fc979b680658ff03a79a21de21e621b006e"
+    },
+    "raw_manifest_canonical_sha256": "97ecedb76da586e9dae7681b2fb8b3b7f61bb67d005351490aef7d93605ff1c7",
+    "historical_root": "/data1/project_data/gx-erqw-20261123/runtime/t2t-native-1125/prefix90/gemma-strict-eval-v1",
+    "historical_K0_sha256": {
+      "cpu-q128-k0-00": {
+        "compact": "eb94d8f7e8fc6d5d76a04a13e494a98b1acf7067e8fe92f6969c3b29994311c5",
+        "evidence": "1537242b478072e79ae9e1fdfbda8477653103b0071e5073fbab0ad3fa55edaf",
+        "run": "eeac7ac68131c6db3f184bee186a00daa79946fe780c5095e87f217e2ba4288a"
+      },
+      "cpu-q128-k0-10": {
+        "compact": "88833ecff026abd519d649cb8290397ad564011af9e9cecbf3e1ff1020835fcb",
+        "evidence": "582fbd38a41473d5bf0dc06e87e0651648cd70f9255abf9dc0d30c1c4cebe344",
+        "run": "965ebe93054fa0d03f079ee5c408bceb4f0e39a814ebd1a38bc6748974ccc702"
+      },
+      "cpu-q128-k0-20": {
+        "compact": "d78ddc6ea9f369fd4c6fb9b27c4e27fdccc922dee2f2e6ac486b604287344af1",
+        "evidence": "6f86d94cc83147afd179ea6da7e168048e81dcd474c0f10cba1d6376f5567c59",
+        "run": "f2f41423def6fc93a165a70ccfe71522c1448be8c644d40e5170360bad2bea78"
+      }
+    },
+    "registered_source_sha256": {
+      "gemma_strict_close.py": "2f6185c8b8fb443eee95c95214e839b1cc121f293e79bfdfeaa5d1428f3ffe63",
+      "gemma_strict_close_pilot.py": "08c25e09f61124efeee705a2d55f9b166804bc072ff0d636cd870c4081b7dde3",
+      "gemma_strict_eval.py": "c38aecc95591b81591ea9c0d125af5c7f4d31f0c44064a006e36dac3bc813b0e",
+      "gemma_strict_project.py": "0a13739cb2cb099b9015b0a11664fb34acd2a2d178d36200189bf06ad16c3fcd",
+      "gemma_strict_request.py": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows.py": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler.py": "4a4f0354528557506dc83a270a4a344ca31b6c8480cdbf511576bcf8e922226e",
+      "gemma_unified.py": "9f597f7033681f2972891ded300be37a57f93962f025cb35f77d5acff3429827",
+      "gemma_unified_audit.py": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_wave_kv.py": "d93973c829342ee27015a404611d1007dea71d9ac24cb5cde87290aa1aaa2c1a"
+    },
+    "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "frozen_scorer_sha256": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "checkpoint_manifest_sha256": "ceb951734eb354728d7ba984093739119addbeda981b554af46d5dc105071f53",
+    "tokenizer_json_sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f",
+    "generation_config_canonical_sha256": "134cc67165891edb51515a0cac88e61ee0b95d28a524eafaa6d027015bfefc02"
+  }
+}

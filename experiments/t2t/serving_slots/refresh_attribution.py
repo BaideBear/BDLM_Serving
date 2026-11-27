@@ -126,15 +126,17 @@ def llada_strict_pilot(data,k,threshold):
                 n=3,peak_decoder_Q=8,**c)
 
 
-def strict_pilot(data,k):
+def strict_pilot(data,k,q=128):
     c = Counter()
+    per_request_tpf = []
     for i in (0,10,20):
         g = data/"gemma-strict-eval-v1"
-        stem = f"cpu-q128-k{k}-{i:02d}"
+        stem = f"cpu-q{q}-k{k}-{i:02d}"
         r = read(g/"compact"/(stem+".json"))
         trace = read(g/"raw"/stem/"evidence.json")["trace"]
         require(r["run_sha256"] == sha(g/"raw"/stem/"run.json") and
-                sum(e["q"] for e in trace) == r["decoder_Q"] and r["decoder_q_max"]==128,
+                sum(e["q"] for e in trace) == r["decoder_Q"] and r["decoder_q_max"]==q and
+                all(0 < e["q"] <= q for e in trace) and (r["index"],r["q"],r["k"])==(i,q,k),
                 "Wrong pilot tape")
         for e in trace:
             req, pref, edit = (set(e[key]) for key in ("dirty_before","prefix","edited"))
@@ -143,11 +145,16 @@ def strict_pilot(data,k):
             c.update(required=len(req),prefix=len(pref),required_t2t=len(req&edit),
                      prefix_t2t=len(pref&edit),total_t2t=len(edit))
         c.update(paid_Q=r["Q"],decoder_Q=r["decoder_Q"],encoder_Q=r["encoder_Q"])
-    return dict(model="gemma",offer=128,K=k,arm=f"strict-right-k{k}",protocol="strict-cpu3",
-                n=3,peak_decoder_Q=128,**c)
+        require(r["F"] == len(trace) + r["encoder_F"] and r["Q"] == r["decoder_Q"]+r["encoder_Q"]
+                and r["N_per_F"] == r["N"]/r["F"], "Inconsistent compact metrics")
+        c.update(correct=int(r["correct"]), N=r["N"], F=r["F"])
+        per_request_tpf.append(r["N_per_F"])
+    return dict(model="gemma",offer=q,K=k,arm=f"strict-right-k{k}",protocol="strict-cpu3",
+                n=3,peak_decoder_Q=q,macro_TPF=sum(per_request_tpf)/3,
+                token_efficiency=c["N"]/c["paid_Q"],**c)
 
 
-def report(data):
+def report(data, strict_low=False):
     require(sha(data/"samples.json")==SAMPLES_SHA,"Wrong frozen suite")
     rows = []
     for q,k in ((4,2),(8,4),(16,4),(32,8)):
@@ -166,7 +173,8 @@ def report(data):
         rows.append(tally(data,"gemma",q,k,f"t2t_q{q}_f0_m{k}_hard_prefix_slack_right",
                           "slack-right",f"gemma-ratio-q{q}-part2"))
     rows.append(tally(data,"gemma",512,0,"q512","unified","gemma-unified90-q512-q512_open",True))
-    rows.extend(strict_pilot(data,k) for k in (0,32))
+    for q in ((32,64,128) if strict_low else (128,)):
+        rows.extend(strict_pilot(data,k,q) for k in (0,q//4))
     rows.extend(llada_strict_pilot(data,k,t) for t in (90,50) for k in (0,2))
     return rows
 
@@ -175,8 +183,9 @@ if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("output", type=Path)
     p.add_argument("--data",type=Path,default=DATA)
+    p.add_argument("--strict-low",action="store_true",help="Also require all Q32/Q64 three-case pairs.")
     a=p.parse_args()
-    rows=report(a.data)
+    rows=report(a.data, a.strict_low)
     with a.output.open("w",newline="") as f:
         writer=csv.DictWriter(f,fieldnames=list(dict.fromkeys(key for r in rows for key in r)),
                               lineterminator="\n")
