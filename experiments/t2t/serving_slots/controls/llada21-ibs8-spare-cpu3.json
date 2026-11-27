@@ -1,0 +1,98 @@
+{
+  "run": {
+    "model": "llada21",
+    "arms": {
+      "0": "optcap_ibs_8",
+      "2": "ibs_q8_spare2_right_kvonly"
+    },
+    "q": 8,
+    "indices": [
+      0,
+      10,
+      20
+    ],
+    "cap": 96,
+    "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "sources": {
+      "bdlm_serving/methods/optimus/fixed.py": "b95003b5f8867bd6ef7d5126c9814e08fb6d03bab57f67642618028d8a1960d4",
+      "bdlm_serving/methods/optimus/upstream.py": "f21a4704697cace53b19dfbbbf94bbabc877241b9c979e15b0d40e9a2ea0d223",
+      "bdlm_serving/methods/optimus/prefix_refresh.py": "66b0beec4cd322900a2ab60cd886c8c64be394be67f418b3db883e15f55ab1fe",
+      "bdlm_serving/runtime/batch.py": "f9a5363bffdd10026a0ab29fba5505da9c838cc13fc6449a469da91894b23a03",
+      "bdlm_serving/runtime/serial.py": "6f92dcee3651e8248deb62f46c54b5f72f94b6dad02953f00712a35d13144fe8",
+      "bdlm_serving/evaluation/scoring.py": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+      "experiments/t2t/serving_slots/ibs_prefix_pair.py": "987012cf11deb9c27de832db77f0c918fc727f53da308f2e629f974b05704ab8"
+    },
+    "formal": false,
+    "cohort": "frozen90"
+  },
+  "receipt": {
+    "indices": [
+      0,
+      10,
+      20
+    ],
+    "study": "fa026ec5b8cd913a74dd0fa89f33f75399838c7185e3f9388236d048438c8069",
+    "pairs": [
+      {
+        "index": 0,
+        "control": {
+          "first": null,
+          "rounds": 0,
+          "prefix_Q": 0,
+          "N": 96,
+          "F": 59,
+          "Q": 411
+        },
+        "refresh": {
+          "first": 5,
+          "rounds": 12,
+          "prefix_Q": 22,
+          "N": 96,
+          "F": 48,
+          "Q": 361
+        },
+        "same_ids": false
+      },
+      {
+        "index": 10,
+        "control": {
+          "first": null,
+          "rounds": 0,
+          "prefix_Q": 0,
+          "N": 96,
+          "F": 49,
+          "Q": 367
+        },
+        "refresh": {
+          "first": 7,
+          "rounds": 9,
+          "prefix_Q": 12,
+          "N": 96,
+          "F": 48,
+          "Q": 375
+        },
+        "same_ids": true
+      },
+      {
+        "index": 20,
+        "control": {
+          "first": null,
+          "rounds": 0,
+          "prefix_Q": 0,
+          "N": 96,
+          "F": 31,
+          "Q": 231
+        },
+        "refresh": {
+          "first": 14,
+          "rounds": 1,
+          "prefix_Q": 2,
+          "N": 96,
+          "F": 31,
+          "Q": 233
+        },
+        "same_ids": true
+      }
+    ]
+  }
+}

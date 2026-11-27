@@ -1,5 +1,6 @@
 """Rebuild the matched-cohort Optimus comparison from the public aggregate CSVs."""
 import csv
+import json
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -188,6 +189,47 @@ def llada_capped_plot(q, root, target):
     plt.close(fig)
 
 
+def fixed_gemma_masks(root, target):
+    """Use full90 on/off arm pairs; a fixed offer is not a physical cap."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rows = []
+    for q in (32, 64, 128, 256):
+        payload = json.loads((root/f"gemma-mask-fixed{q}.json").read_text())
+        pair, = payload["pairs"]
+        s, = (x for x in pair["statistics"] if (x["cohort"], x["scope"]) == ("full90","all"))
+        if pair["offers"] != [q] or (pair["control_policy"], pair["trial_policy"]) != (
+                f"q{q}", f"q{q}_unmask{q}") or s["requests"] != 90:
+            raise ValueError(f"Expected the fixed Q{q} pair")
+        a,b = s["control"],s["trial"]
+        rows.append((q, a["trigger_requests"], *[(a[k],b[k]) for k in
+                     ("correct","macro_TPF","micro_efficiency")]))
+    with (root/"gemma-unified-q512-mask-gpu90.csv").open() as f:
+        high, = (r for r in csv.DictReader(f) if r["cohort"]=="full90" and r["scope"]=="all")
+    if (high["on_policy"],high["off_policy"],high["requests"]) != ("q512","q512_open","90"):
+        raise ValueError("Expected the fixed Q512 pair")
+    rows.append((512, int(high["exposed"]), *[(float(high["on_"+k]), float(high["off_"+k]))
+                for k in ("correct","macro_tpf","token_efficiency")]))
+    fig, axes = plt.subplots(1, 3, figsize=(12.6, 4.9), layout="constrained")
+    for j, (ax, title, scale, fmt) in enumerate(zip(axes,
+            ("Correct / 90","Macro tokens / forward","Token efficiency (%)"), (1,1,100),(".0f",".3f",".2f"))):
+        for arm, shift, color, label in ((0, -.19, "#287268","Causal"), (1,.19,"#9b6846","Open")):
+            nums=[r[2+j][arm]*scale for r in rows]
+            bars=ax.barh([i+shift for i in range(5)], nums, height=.35, color=color, label=label)
+            ax.bar_label(bars,labels=[format(v,fmt) for v in nums],padding=2,fontsize=8)
+        ax.set_yticks(range(5), [f"Q{q}  ({n}/90)" for q,n,*_ in rows] if j==0 else [])
+        ax.invert_yaxis()
+        ax.set_xlim(0,max(max(r[2+j])*scale for r in rows)*1.22)
+        ax.set_title(title)
+        ax.spines[["top","right"]].set_visible(False)
+    axes[1].legend(loc="upper center", bbox_to_anchor=(.5,-.055), ncol=2, frameon=False)
+    fig.suptitle("DiffusionGemma | fixed offers, frozen90\nParentheses: requests exposed to a cross-block attention edge")
+    fig.savefig(target, dpi=150)
+    plt.close(fig)
+
+
 def main():
     import matplotlib
     matplotlib.use("Agg")
@@ -222,6 +264,8 @@ def main():
     low = HERE/"controls/gemma-fixed-caps-vs-k0.csv"
     if low.exists():
         mixed_plot(low,HERE/"gemma-q32-q64-capped.png",fixed_low=True)
+    if all((HERE/f"controls/gemma-mask-fixed{q}.json").is_file() for q in (32,64,128,256)):
+        fixed_gemma_masks(HERE/"controls",HERE/"gemma-fixed-offer-masks.png")
     if list((HERE/"controls").glob("gemma-unified-q*-vs-baselines.csv")):
         mixed_plot(HERE/"controls",HERE/"gemma-unified-fixed.png",unified=True)
     for p in sorted((HERE/"controls").glob("gemma-unified-q*-k*-rank.csv")):

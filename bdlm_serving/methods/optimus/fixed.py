@@ -4,10 +4,21 @@ import numpy as np
 import torch
 from transformers.cache_utils import DynamicCache
 from bdlm_serving.methods.optimus.upstream import load_controls, SelectedResidentCache, COMMIT
+from bdlm_serving.methods.optimus.prefix_refresh import plan_prefix_refresh
 
 
 class FixedOptimus:
-    def __init__(self, model, kind, chunk, mode, *, physical_caps=()):
+    """Fixed IBS/OBS controls, with optional KV-only prefix refresh.
+
+    ``prefix_refresh=k`` is a controlled budget intervention: it may consume
+    only physical-Q slack left by the original hard-capped LLaDA2.1 IBS
+    planner (``offer - original picked``).  Injected rows are stable, initialized,
+    non-dirty prefix rows projected as real Q rows so their K/V is refreshed;
+    their logits are discarded and they are never sampled or T2T-edited.
+    ``prefix_refresh=0`` is byte-identical to the baseline.
+    """
+    def __init__(self, model, kind, chunk, mode, *, physical_caps=(),
+                 prefix_refresh=0, prefix_order="right"):
         self.caps = tuple(physical_caps)
         if self.caps:
             if (kind != "llada21" or chunk != max(self.caps) or len(self.caps)>16 or
@@ -16,7 +27,14 @@ class FixedOptimus:
         elif chunk not in (4, 8, 16, 32):
             raise ValueError("Unknown uncapped Optimus chunk")
         assert mode in ("ibs", "obs")
+        if type(prefix_refresh) is not int or prefix_refresh < 0:
+            raise ValueError("prefix_refresh must be a non-negative integer")
+        if prefix_order not in ("right", "oldest"):
+            raise ValueError("prefix_order must be 'right' or 'oldest'")
+        if prefix_refresh and (kind != "llada21" or mode != "ibs" or not self.caps):
+            raise ValueError("prefix_refresh requires hard-capped LLaDA2.1 IBS")
         self.model, self.kind, self.chunk, self.mode = model, kind, chunk, mode
+        self.prefix_refresh, self.prefix_order = prefix_refresh, prefix_order
         self.controls, strategy, self.hashes = load_controls()
         self.unmask = self.controls.UnmaskingProcessor(types.SimpleNamespace(
             confidence_threshold=.9, block_length=32, denoising_steps=32,
@@ -92,7 +110,46 @@ class FixedOptimus:
                 positions = selected + start
                 if self.mode == "ibs":
                     assert bool((positions < start+32).all())
-                logits = forward(positions, "optimus")
+                extra_abs = np.empty(0, dtype=np.int64)
+                eligible_abs = np.empty(0, dtype=np.int64)
+                slack = 0
+                if self.prefix_refresh:
+                    # KV-only refresh: fill physical slack after the original
+                    # picked rows.  The helper only returns stable, initialized,
+                    # non-dirty prefix rows strictly inside the cached prefix and
+                    # strictly earlier than the largest original picked row, so
+                    # the cache visible span is unchanged.
+                    extra_abs, eligible_abs, slack = plan_prefix_refresh(
+                        prompt_len=p, block_start=start,
+                        cached_prefix_before=prefix_before,
+                        old_mask=old_mask, dirty=dirty,
+                        initialized=cache.initialized,
+                        original_positions=positions.tolist(), offer=offer,
+                        quota=self.prefix_refresh, order=self.prefix_order)
+                projected = positions
+                if len(extra_abs):
+                    # Project the union in one ascending order, then gather the
+                    # original rows' logits by absolute position.  Sorting keeps
+                    # absolute_positions batch/audit friendly and leaves the
+                    # cache visible end equal to max(original picked)+1.
+                    extra = torch.as_tensor(extra_abs, device=x.device,
+                                            dtype=positions.dtype)
+                    projected = torch.sort(torch.cat((positions, extra))).values
+                    original_index = torch.searchsorted(projected, positions)
+                    assert torch.equal(projected[original_index], positions)
+                if self.prefix_refresh:
+                    if offer is None:
+                        raise RuntimeError("prefix_refresh requires a physical cap")
+                    # The physical cap is a hard invariant: original picked rows
+                    # plus injected rows may never exceed the offered Q budget.
+                    assert len(projected) <= offer
+                    assert len(extra_abs) <= min(self.prefix_refresh, slack)
+                    assert bool((projected[1:] > projected[:-1]).all())
+                logits = forward(projected, "optimus")
+                if len(extra_abs):
+                    # Only original rows may sample or T2T-write.  Injected rows
+                    # contribute K/V only; their logits are never gathered.
+                    logits = logits[:, original_index]
                 masked = before[0, selected] == mask_id
                 proposed = logits[0].argmax(-1)
                 accepted = torch.zeros(width, dtype=torch.bool, device=x.device)
@@ -146,7 +203,22 @@ class FixedOptimus:
                     edited_positions=positions[edited].tolist(),
                     cache_deferred_t2t_positions=positions[edited].tolist(),
                     cross_boundary_rows=int((positions >= start+32).sum()),
-                    visible_kv=cache.visible_end, active_width=width)
+                    visible_kv=cache.visible_end, active_width=width,
+                    **({
+                        "original_q_tokens": int(count),
+                        "prefix_refresh_original_absolute": positions.tolist(),
+                        "prefix_refresh_q_tokens": int(len(extra_abs)),
+                        "prefix_refresh_quota": int(self.prefix_refresh),
+                        "prefix_refresh_order": self.prefix_order,
+                        "prefix_refresh_slack": int(slack),
+                        "prefix_refresh_eligible": eligible_abs.tolist(),
+                        "prefix_refresh_added": int(len(extra_abs)),
+                        "prefix_refresh_local": (extra_abs - start).tolist(),
+                        "prefix_refresh_absolute": extra_abs.tolist(),
+                        "prefix_refresh_projection_order": projected.tolist(),
+                        "prefix_refresh_visible_end": int(cache.visible_end),
+                        "prefix_refresh_visible_span": [0, int(cache.visible_end)],
+                    } if self.prefix_refresh else {}))
                 assert not bool((positions[edited] < start+ready).any())
                 if offer is not None and any(a < start+ready for a in dirty):
                     raise RuntimeError("Retired an unrefreshed write")
@@ -168,4 +240,8 @@ class FixedOptimus:
             "scope": ("upstream candidate plan with a shared hard cap before physical projection; selected-only T2T"
                       if self.caps else "unchanged official prefix/unmask controls; common backend; selected-only T2T"),
             **({"physical_caps":list(self.caps)} if self.caps else {}),
+            **({"prefix_refresh": self.prefix_refresh,
+                "prefix_order": self.prefix_order,
+                "prefix_refresh_scope": ("slack-only KV refresh; injected rows are never sampled or T2T-edited")}
+               if self.prefix_refresh else {}),
         }
