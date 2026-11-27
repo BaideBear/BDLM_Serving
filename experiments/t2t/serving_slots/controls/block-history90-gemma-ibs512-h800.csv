@@ -1,0 +1,4 @@
+model,method,setting,policy,cohort,requests,correct,macro_tpf,token_efficiency,N,F,physical_Q,failed,truncated,source
+gemma,ibs,512,ibs_512,original-0-29,30,27,23.04530992747327,0.09199055575735561,10130,554,110120,0,0,gemma-ibs512-h800-paired-233825
+gemma,ibs,512,ibs_512,added-30-89,60,52,23.96119303750905,0.10976125447119284,22063,1009,201009,0,0,gemma-ibs512-h800-paired-233825
+gemma,ibs,512,ibs_512,all-0-89,90,79,23.655898667497123,0.10347155038585282,32193,1563,311129,0,0,gemma-ibs512-h800-paired-233825
