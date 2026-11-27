@@ -71,7 +71,7 @@ def validate(events, trace, prompt_len):
         raise ValueError("IBS left the physical canvas")
 
 
-def main(args):
+def main(args, before_cuda=None):
     settings = json.loads((ROOT / "archive/diffusiongemma-native/config.json").read_text())
     if (transformers.__version__ != settings["transformers"] or
             (ibs.B, ibs.CAP, settings["batch_size"]) != (B, 2048, 1)):
@@ -97,9 +97,12 @@ def main(args):
         model = DiffusionGemmaForBlockDiffusion.from_pretrained(
             args.checkpoint, dtype=torch.bfloat16, local_files_only=True,
             attn_implementation=settings["attention"], experts_implementation=settings["experts"],
-            device_map={"": "cuda:0"}).eval()
+            device_map={"": "cpu" if before_cuda is not None else "cuda:0"}).eval()
         if model.config.canvas_length != B or model.generation_config.max_denoising_steps != 48:
             raise ValueError("wrong checkpoint generation configuration")
+        if before_cuda is not None:
+            before_cuda(model)
+            model.to("cuda:0")
         save_json(args.output / "run.json", dict(settings, model="gemma", policies=[POLICY],
                   suite="frozen90", seed_offset=0, chunk=C, block=B, hard_q_cap=False,
                   extended_window_enabled=False, acceptance="optimus_dynamic_sparse_argmax_0.9",
