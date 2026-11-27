@@ -100,12 +100,47 @@ def audit(base):
     return results
 
 
+def gemma_ibs512(group, ledger):
+    """Join the external scorer's request ledger to the exact GPU records."""
+    policy = "ibs_512"
+    scored = [r for r in read(ledger) if r["policy"] == policy]
+    tasks = read(ROOT / "benchmarks/frozen90/manifest.json")["samples"]
+    if len(scored) != 90 or read(group / f"complete-{policy}.json") != dict(policy=policy, requests=90):
+        raise ValueError("incomplete IBS512 ledger")
+    by_id = {r["index"]: r for r in scored}
+    tape = []
+    for task in tasks:
+        i = task["index"]
+        entry = by_id[i]
+        raw = (group / f"{i:02d}-{policy}.json").read_bytes()
+        row = json.loads(raw)
+        if (hashlib.sha256(raw).hexdigest() != entry["raw_sha256"] or
+                not all(task[k] == entry[k] == row[k] for k in ("index", "dataset", "seed", "task_id")) or
+                row["policy"] != policy or entry["correct"] not in (0, 1)):
+            raise ValueError(f"wrong IBS512 record {i}")
+        tape.append((entry["correct"], row["output_tokens"], row["generation_forwards"],
+                     row["generation_physical_padded_rows"], row["status"] != "success", row["truncated"]))
+    for cohort, start, end in COHORTS:
+        subset = tape[start:end]
+        correct,n,f,q,failed,truncated = map(sum,zip(*subset))
+        yield dict(model="gemma", method="ibs", setting=512, policy=policy, cohort=cohort,
+                   requests=len(subset), correct=correct, macro_tpf=fmean(r[1]/r[2] for r in subset),
+                   token_efficiency=n/q, N=n, F=f, physical_Q=q, failed=failed,
+                   truncated=truncated, source=group.name)
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("archive", type=Path)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--gemma-ibs512-run", type=Path)
+    p.add_argument("--gemma-ibs512-ledger", type=Path, help="requests.json from audit_gemma_original_ibs90")
     args = p.parse_args()
     rows = audit(args.archive)
+    if bool(args.gemma_ibs512_run) != bool(args.gemma_ibs512_ledger):
+        p.error("pass both Gemma IBS512 paths or neither")
+    if args.gemma_ibs512_run:
+        rows.extend(gemma_ibs512(args.gemma_ibs512_run, args.gemma_ibs512_ledger))
     with args.output.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0], lineterminator="\n")
         writer.writeheader()

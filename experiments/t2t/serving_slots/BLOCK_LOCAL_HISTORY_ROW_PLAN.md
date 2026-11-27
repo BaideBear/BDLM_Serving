@@ -24,7 +24,7 @@
 
 ## 已归档的原版 IBS，完整90题
 
-2026-11-27 重新按冻结记录核对了 14 个配置（1,260 个请求）：两个模型的 Native、FlowBlock W1/W2 及下表前四档不设硬上限的原版 IBS。[核查表](controls/block-history90-audited.csv)保留原30、新60、全90，每行包括正确数、实际 N/F/Q、失败及截断数。核查脚本 `tools/audit_history_controls.py` 逐项检查样本哈希、题号/种子与策略；从逐题 GPU 记录重新计算 TPF、效率及工作量，与已有评分汇总对账，不重新评价答案。LLaDA C64、Gemma C512 的原 IBS 须以真实配置单独核验，不以本表外推。
+2026-11-27 已按冻结记录核对 15 个配置（1,350 个请求）。其中 14 个复用归档：两个模型的 Native、FlowBlock W1/W2 及下表前四档不设硬上限的原版 IBS。另独立实测并评分了 Gemma IBS C512。[核查表](controls/block-history90-audited.csv)保留原30、新60、全90，每行包括正确数、实际 N/F/Q、失败及截断数。`tools/audit_history_controls.py` 核对题号、种子和归档，重算逐题工作量并与评分表对账；C512 的评分通过原始记录 SHA256 与评分账本逐题关联。
 
 | LLaDA 2.1 档 | 正确/90 | 宏 TPF | 效率 | DiffusionGemma 档 | 正确/90 | 宏 TPF | 效率 |
 |---:|---:|---:|---:|---:|---:|---:|---:|
@@ -32,6 +32,8 @@
 | 8 | 69 | 2.341 | 28.22% | 64 | 80 | 11.116 | 15.92% |
 | 16 | 73 | 3.371 | 20.51% | 128 | 79 | 16.418 | 13.39% |
 | 32 | 71 | 4.495 | 15.23% | 256 | 79 | 23.656 | 10.35% |
-| 64 | — | — | — | 512 | — | — | — |
+| 64 | 待核验 | | | 512 | 78 | 22.873 | 10.12% |
 
-LLaDA 源自同目录 `controls/llada21-q{4,8,16,32}-original-ibs.csv` 的 `baseline_policy=optimus_ibs_c*`、`cohort=all-0-89`、`scope=all` 的 baseline 列；Gemma 取同目录 `gemma-optimus.csv` 的 `method=IBS`、`cohort=all-0-89`。按逐请求身份和协议复核后复用；不是硬上限 IBS，也不是本轮新测。
+LLaDA 前四档源自 `controls/llada21-q{4,8,16,32}-original-ibs.csv` 的 `baseline_policy=optimus_ibs_c*`、`cohort=all-0-89`、`scope=all` 的 baseline 列；Gemma 前四档取 `gemma-optimus.csv` 的 `method=IBS`、`cohort=all-0-89`。均保留原版 IBS 的实际 Q。
+
+Gemma C512 的原30为 27/30，新60为 51/60。1,553 次 decoder forward 均未跨出当前 256-token 块；生成阶段共 1,635 F，decoder 300,048 Q，重编码 20,992 Q，输出 32,481 token。C512 不是两个物理块：同状态的 341 次控制器检查中，C256/C512 选位均一致。但旧 C256 和新 C512 使用不同 GPU 环境与 PyTorch 版本；逐题比较新测救回 4 题、丢掉 5 题，不能将净差一题归因于窗口变大。复现入口 `tools/gemma_ibs512_frozen90.py`；五档逐题评分 `tools/audit_gemma_original_ibs90.py`。
