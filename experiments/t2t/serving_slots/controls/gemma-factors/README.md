@@ -150,6 +150,30 @@ Do not confuse *head unresolved density* with the remaining request length,
 or infer equal per-task outputs from the equal score totals. Check the added
 60 separately before changing the recommended profile.
 
+**Completed fixed Q256 phase study, 360/360 scored receipts.** Counts are
+correct responses, not matching token streams. The sparse and fully dense
+endpoints replayed their full-output and workload controls. Subsets cover
+the same frozen 30 and additional 60 in each arm.
+
+| Q256 denoising policy | Original30 | Added60 | All90 | Macro TPF | TE | N | Total F | Decoder Q |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Sparse throughout | 29 | 54 | 83 | 19.799 | 10.28% | 30,992 | 1,718 | 301,558 |
+| Dense when unresolved ≥128 | 29 | 54 | 83 | 21.601 | 10.90% | 32,759 | 1,720 | 300,575 |
+| Dense when unresolved <128 | 29 | 55 | 84 | 20.862 | 7.89% | 31,426 | 1,685 | 398,238 |
+| Dense throughout | 28 | 55 | 83 | 22.940 | 8.21% | 32,006 | 1,604 | 389,888 |
+
+High-density only raises macro TPF on both original30 and added60; pooled
+over all90 it uses 983 fewer decoder rows but **two more forwards** than
+sparse. Outputs get longer; the macro improvement (+1.802, paired 95%
+interval +0.765 to +2.839) is not proof of lower latency or fewer total
+rounds. Two rescues and two losses leave the total score unchanged. Low-only
+rescues one and loses none relative to sparse, at 96,680 extra decoder Q.
+Full throughout is the fastest by TPF of these four, not the most efficient
+by rows. Native (85, 25.510, 9.31%) and historical IBS256 (79, 23.656,
+11.10%) prevent a claim of joint dominance. The high-density option is a
+candidate for row-efficient execution at fixed B, not evidence for switching
+the external budget at the tail of a request.
+
 ## Prefix location and sampling on refresh: original 30
 
 Each entry is correct out of 30, then macro TPF. All use 1/8 and the same

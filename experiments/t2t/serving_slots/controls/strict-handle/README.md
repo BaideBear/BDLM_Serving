@@ -59,3 +59,9 @@ They respectively refreshed 140 and 360 parked rows *at* a downshift. These
 are different live trajectories, not a cost comparison at identical states.
 `fixed90_dense_fused` changes only the actual one-block offer when the entire
 head and its mandatory writes fit. Neither configuration restarts upon switching.
+
+[`phase_high_fused`](gemma-phase-high-fused.json) also passed 15/15 exact fixed
+replays, using the independently measured high-unresolved arm for Q256. The
+three switch-cycle cases covered all 25 directed pairs, with 26 downshifts
+carrying debt and 109 parked rows refreshed at the downshift. This is a
+functional check, not a mixed-budget quality curve.

@@ -46,12 +46,13 @@ def open_llada(model, input_ids, config, *, gen_length, seed, mask_id, eos_ids,
 class StrictHandle:
     """Drive the same hard-cap executor across ticks. No forecast or load policy."""
 
-    def __init__(self, request, offers, laws, block_size):
+    def __init__(self, request, offers, laws, block_size, *, full_head_min_unresolved=None):
         if (len(offers) != len(laws) or len(set(offers)) != len(offers)
                 or not all(isinstance(law, Law) for law in laws)):
             raise ValueError("Incomplete fixed-offer profile")
         self._request, self._offers, self._laws = request, tuple(offers), tuple(laws)
         self._block_size, self._owner = block_size, current_thread()
+        self._full_head_min_unresolved = full_head_min_unresolved
         self.opened_prefill_q = request.origin
         self._status, self._result = "ready", None
 
@@ -80,6 +81,9 @@ class StrictHandle:
         req.law = law
         self._status = "advancing"
         try:
+            if self._full_head_min_unresolved is not None:
+                remaining = self._block_size - len(req.rows.accepted)
+                req.full_head_at_b = q == self._block_size and remaining >= self._full_head_min_unresolved
             event = req.step(q)
             width = event["q"]
             enc_f, enc_q = event.get("encoder_F", 0), event.get("encoder_Q", 0)
@@ -121,7 +125,7 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest, B, TIERS
     if type(initial_offer) is not int or initial_offer not in TIERS:
         raise ValueError("Invalid initial Gemma offer")
-    if profile not in ("fixed90_candidate", "reference", "fixed90_fused", "fixed90_dense_fused"):
+    if profile not in ("fixed90_candidate", "reference", "fixed90_fused", "fixed90_dense_fused","phase_high_fused"):
         raise ValueError("Unknown strict Gemma profile")
     # Only Q128 switches doses: the 90 paired tasks support 1/4 here.
     # Other sparse tiers retain the reference; dense top calls bypass the quota.
@@ -130,9 +134,9 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     raw = AblationRequest(model, data, q=initial_offer, seed=seed, ablation="00",
                           max_new_tokens=max_new_tokens, law=laws[TIERS.index(initial_offer)],
                           top_gate="half", prefix_order="right",
-                          fuse_first_verify=profile in ("fixed90_fused","fixed90_dense_fused"))
+                          fuse_first_verify=profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"))
     raw.full_head_at_b = profile == "fixed90_dense_fused"
-    return StrictHandle(raw, TIERS, laws, B)
+    return StrictHandle(raw, TIERS, laws, B, full_head_min_unresolved=B//2 if profile=="phase_high_fused" else None)
 
 
 def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_tokens=2048,

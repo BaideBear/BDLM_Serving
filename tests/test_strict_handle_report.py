@@ -23,6 +23,8 @@ def test_new_profiles_check_their_own_fixed_controls(tmp_path):
         assert path.name == expected
         dense = reference_path(tmp_path,q,10,"fixed90_dense_fused")
         assert dense.name == ("C256-capacity1-10.json" if q==256 else expected)
+        phase = reference_path(tmp_path,q,10,"phase_high_fused")
+        assert phase.name == ("C256-density-high-10.json" if q==256 else expected)
 
 
 @pytest.fixture

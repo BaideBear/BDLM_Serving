@@ -27,11 +27,13 @@ def offer_cycle(tiers=TIERS):
 
 
 def reference_path(root, q, index, profile="fixed90_candidate"):
-    if profile in ("fixed90_fused","fixed90_dense_fused"):
+    if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"):
         if q in (128,512):
             return root/"profile-close-1128"/f"C{q}-profile-fuse1-{index:02}.json"
         if q==256 and profile=="fixed90_dense_fused":
             return root/"capacity-head-1128"/f"C256-capacity1-{index:02}.json"
+        if q==256 and profile=="phase_high_fused":
+            return root/"phase-density-1128"/f"C256-density-high-{index:02}.json"
         return root/"paid-close-1128"/f"C{q}-fuse1-{index:02}.json"
     if q == 128:
         return root/"cross-race-1128"/f"C128-gateoff-slack0-4-pref1of4-{index:02}.json"
@@ -131,7 +133,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     for key in ("checkpoint","samples","receipts","out"):
         ap.add_argument("--"+key, type=Path, required=True)
-    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused"),
+    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused","phase_high_fused"),
                     default="fixed90_candidate")
     ap.add_argument("--deadline",type=int,required=True)
     a = ap.parse_args(argv)

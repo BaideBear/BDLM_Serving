@@ -65,3 +65,17 @@ def test_wrong_lane_cannot_advance():
     t.start()
     t.join()
     assert errors == ["Use the owning serial inference lane"] and not seen
+
+
+def test_optional_full_head_uses_current_density_only_at_the_one_block_offer():
+    req=SimpleNamespace(origin=12,status="ready",rows=SimpleNamespace(accepted=set()))
+    flags=[]
+    def step(q):
+        flags.append(req.full_head_at_b)
+        return dict(offer=q,q=q)
+    req.step=step
+    h=StrictHandle(req,(128,256,512),(Law(),)*3,256,full_head_min_unresolved=128)
+    for q,accepted in ((128,0),(256,128),(256,129),(512,10),(256,127)):
+        req.rows.accepted=set(range(accepted))
+        h.step(q)
+    assert flags==[False,True,False,False,True]

@@ -1,5 +1,14 @@
 # Single-request execution at a given Q budget
 
+The experimental Gemma profile `phase_high_fused` uses the same five external
+offers and the same guarded fuse as `fixed90_fused`. Only at Q256 and with
+at least 128 still-unaccepted head positions does it request the full head.
+The executor still declines that path if it would displace outstanding writes
+to a parked successor. No state is reset at this density threshold; it can
+be crossed in either direction after token revisions. This is not a change
+in the offered budget. See the [fixed-budget study](../experiments/t2t/serving_slots/controls/gemma-factors/README.md)
+for the evidence; this experimental profile does not change the default.
+
 Start with the [current fixed-budget evidence](../experiments/t2t/serving_slots/design_race/README.md). To drive the current request on **one serial model lane**, use the strict entry points below. They do not run a scheduler. The nominal-budget interfaces further down remain for historical reproduction.
 
 ```python
