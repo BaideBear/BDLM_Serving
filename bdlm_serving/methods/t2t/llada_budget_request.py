@@ -107,13 +107,20 @@ class LLaDABudgetRequest:
     ``False``). A downshift never closes or drops KV: the tail is parked in the
     bank, dirty debt stays global, and an upshift reuses every resident row.
     Pure drains refresh debt only and never advance ``sample_clock``.
+
+    ``warm_head_sample`` is an opt-in single-factor arm for ``coverage="head"``.
+    In a full-head forward whose cold rows are all in the next block, with warm
+    unresolved head MASKs and global debt payable in this call, it adds those
+    already-projected head MASKs to ``sampled`` alongside the tail cold. It
+    selects no extra Q, no clean prefix and no dirty row; the default is False
+    and the old control keeps its exact plan and record schema.
     """
     @torch.inference_mode()
     def __init__(self, model, input_ids, *, mask_id, eos_ids=(), seed=0,
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
                  switchable=False, top_gate="quarter", lower_borrow=False,
-                 coverage="sparse"):
+                 coverage="sparse", warm_head_sample=False):
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
                 or type(max_new_tokens) is not int or max_new_tokens < 1 or type(seed) is not int
@@ -132,6 +139,8 @@ class LLaDABudgetRequest:
                 or (coverage == "head" and (ablation is not None or
                                             (not switchable and cross not in
                                              ("off", "eager", "half", "quarter"))))
+                or type(warm_head_sample) is not bool
+                or (warm_head_sample and coverage != "head")
                 or not (0 <= confidence_threshold <= 1 and 0 <= editing_threshold <= 1)):
             raise ValueError("Expected a raw eval model, unpadded batch-one IDs, and valid protocol")
         self.model, self.law, self.seed = model, law, seed  # Native temperature zero uses no RNG.
@@ -140,6 +149,7 @@ class LLaDABudgetRequest:
         self.cross, self.borrow = cross, borrow
         self.coverage = coverage
         self.switchable, self.top_gate, self.lower_borrow = switchable, top_gate, lower_borrow
+        self.warm_head_sample = warm_head_sample
         self._cross_evidence = None
         self._switch_evidence = None
         self.pending_build = None
@@ -345,11 +355,23 @@ class LLaDABudgetRequest:
         sampled = () if drain else (cold_sel or tuple(p for p in rows if p in eligible))
         if not sampled:
             drain = True
+        warm_added = ()
+        if getattr(self, "warm_head_sample", False) and not drain:
+            # Only already-selected warm head MASKs; no extra Q, prefix or dirty.
+            head_warm = tuple(p for p in mask_sel if p < split)
+            debt_payable = set(dirty) <= set(rows)
+            if cold_sel and all(p >= split for p in cold_sel) and head_warm and debt_payable:
+                warm_added = head_warm
+                sampled = tuple(sorted(set(sampled) | set(warm_added)))
         plan = Plan(rows, dirty_sel, cold_sel, mask_sel, prefix_sel, drain)
         self._cross_evidence = dict(head_masks=len(head_masks), opened=opened, borrowed=0,
                                     head_full=set(head_rows) <= row_set,
                                     head_rows=len(head_rows), tail_rows=len(tail_rows),
                                     tail_cold=len(tail_cold))
+        if getattr(self, "warm_head_sample", False):
+            self._cross_evidence.update(warm_head_sample=len(warm_added),
+                                        warm_head_rows=list(warm_added),
+                                        warm_head_debt_payable=set(dirty) <= set(rows))
         return plan, sampled, ("sample" if sampled else "drain"), q
 
     def _switch_plan(self, q):
@@ -489,6 +511,9 @@ class LLaDABudgetRequest:
             if getattr(self, "coverage", "sparse") == "head":
                 # Keep the legacy sparse switch record schema untouched.
                 e.update(coverage="head", head_full=bool(evidence.get("head_full", False)))
+            if getattr(self, "warm_head_sample", False):
+                e.update(warm_head_sample=evidence.get("warm_head_sample", 0),
+                         warm_head_rows=evidence.get("warm_head_rows", []))
         elif getattr(self, "cross", None) is not None:
             evidence = self._cross_evidence or {}
             self._cross_evidence = None
@@ -500,6 +525,9 @@ class LLaDABudgetRequest:
                      tail_opened=bool(evidence.get("opened")),
                      borrowed_rows=evidence.get("borrowed", 0),
                      head_full=bool(evidence.get("head_full", False)))
+            if getattr(self, "warm_head_sample", False):
+                e.update(warm_head_sample=evidence.get("warm_head_sample", 0),
+                         warm_head_rows=evidence.get("warm_head_rows", []))
         admitted, edited, revoked = [], [], []
         if sampled:
             idx = self.x.new_tensor(sampled)
