@@ -1,0 +1,156 @@
+{
+  "cases": [
+    0,
+    10,
+    20
+  ],
+  "device": "cpu",
+  "cap": 2048,
+  "rows": [
+    {
+      "q": 32,
+      "k": 0,
+      "requests": 3,
+      "macro_TPF": 4.5617075364054775,
+      "efficiency": 0.12671052631578947,
+      "N": 963,
+      "F": 234,
+      "Q": 7600,
+      "correct": 3,
+      "decoder_Q": 7088,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 1256,
+      "drain_unaccepted_noise_Q": 1581,
+      "pure_drains": 92,
+      "pure_drain_Q": 2837,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 53,
+      "evidence_sha256": [
+        "cd21210659f5b86aa6c8d301b7eb6acf369f0538ec1610fd4ddb25c3e6c70425",
+        "3f51331c4c82440562558153714afc5bc733beeb30fb6587608c7ffad10f232c",
+        "05d8bba3b81337ebc669c043522f3dd9d42cd764b0600d93fa3e759303ba832c"
+      ]
+    },
+    {
+      "q": 32,
+      "k": 8,
+      "requests": 3,
+      "macro_TPF": 4.578048976374718,
+      "efficiency": 0.12506507027589797,
+      "N": 961,
+      "F": 232,
+      "Q": 7684,
+      "correct": 3,
+      "decoder_Q": 7172,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 1241,
+      "drain_unaccepted_noise_Q": 1567,
+      "pure_drains": 91,
+      "pure_drain_Q": 2808,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 56,
+      "evidence_sha256": [
+        "715d8354e9da0434d8bec03f528ed18edadb40f276e38690b99936a442e0f43f",
+        "f523727a8b4a20f9e83a0eadf89463791c6edfb4fd81157e52eb9059d54c8a90",
+        "d32e64a8a2a1f17e1838b249aeec630b10b9096c4e19cfe0f2e4833bb6e7d59d"
+      ]
+    },
+    {
+      "q": 64,
+      "k": 0,
+      "requests": 3,
+      "macro_TPF": 8.308417508417508,
+      "efficiency": 0.11900577454180267,
+      "N": 948,
+      "F": 129,
+      "Q": 7966,
+      "correct": 3,
+      "decoder_Q": 7454,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 1157,
+      "drain_unaccepted_noise_Q": 1772,
+      "pure_drains": 50,
+      "pure_drain_Q": 2929,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 49,
+      "evidence_sha256": [
+        "a237cb54e5861f85fe8f710fbd1d6a2ea313c6e0baa2528f938852a0312a1c98",
+        "e89c662d7ca501f5d75e79fb9c9806712158b6695255442da8245d288d127eea",
+        "5bab23f01c8bcee38cb8de0b50b9caf7a0639448b39da312f2d3ea24c7241571"
+      ]
+    },
+    {
+      "q": 64,
+      "k": 16,
+      "requests": 3,
+      "macro_TPF": 8.426601444211506,
+      "efficiency": 0.11780686589281304,
+      "N": 954,
+      "F": 127,
+      "Q": 8098,
+      "correct": 3,
+      "decoder_Q": 7586,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 1153,
+      "drain_unaccepted_noise_Q": 1782,
+      "pure_drains": 50,
+      "pure_drain_Q": 2935,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 55,
+      "evidence_sha256": [
+        "ec7e847b708c62890d8666a758b3ab1de8729980fe6708332751be4e53e1776a",
+        "c3f0f1e539e0bf838f9625f3af219fb8433f531efd6445c96ff6cf05d9a11b49",
+        "cf9d4b50daae1dba3e30470dbf3250cdbea7b0a8bbbfcf205608d44b0319fe5c"
+      ]
+    },
+    {
+      "q": 128,
+      "k": 0,
+      "requests": 3,
+      "macro_TPF": 13.237980769230768,
+      "efficiency": 0.1070379508870873,
+      "N": 911,
+      "F": 76,
+      "Q": 8511,
+      "correct": 3,
+      "decoder_Q": 7999,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 882,
+      "drain_unaccepted_noise_Q": 1871,
+      "pure_drains": 26,
+      "pure_drain_Q": 2753,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 65,
+      "evidence_sha256": [
+        "1537242b478072e79ae9e1fdfbda8477653103b0071e5073fbab0ad3fa55edaf",
+        "582fbd38a41473d5bf0dc06e87e0651648cd70f9255abf9dc0d30c1c4cebe344",
+        "6f86d94cc83147afd179ea6da7e168048e81dcd474c0f10cba1d6376f5567c59"
+      ]
+    },
+    {
+      "q": 128,
+      "k": 32,
+      "requests": 3,
+      "macro_TPF": 12.602904040404042,
+      "efficiency": 0.10157988429016467,
+      "N": 913,
+      "F": 79,
+      "Q": 8988,
+      "correct": 3,
+      "decoder_Q": 8476,
+      "encoder_Q": 512,
+      "drain_write_or_flip_Q": 839,
+      "drain_unaccepted_noise_Q": 1871,
+      "pure_drains": 26,
+      "pure_drain_Q": 2710,
+      "terminal_drain_F": 5,
+      "terminal_drain_Q": 22,
+      "evidence_sha256": [
+        "aa1f7c41362752f677e6cff5fcf91111d11ac23075a4bae4b866ebceff1ddd44",
+        "0c89492fd632f983192821b7636db031a09fe158aaea0a0132d8ac35082f2e39",
+        "90263d8d475ca0faf3f61b4eb2e59d59a9f281150a1c7635afff0e31b7e0690f"
+      ]
+    }
+  ],
+  "scope": "Paid rows in pure drain calls; neither exposure in mixed calls nor a counterfactual saving."
+}

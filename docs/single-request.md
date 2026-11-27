@@ -1,5 +1,7 @@
 # Single-request execution at a given Q budget
 
+Start with [the fixed-budget family experiment](fixed-family.md). Each item is generated independently from prompt to EOS with one constant hard decoder budget. Do not substitute mixed-trajectory measurements or combine a different executor at each tier. The paths below document earlier experiments, not the new fixed-family results.
+
 The kernel takes one request and a supplied budget. At each fixed budget the two objectives are frozen-task accuracy and tokens per forward (TPF). Do not trade away one in a hidden scalar score: report the observed non-dominated methods when the two objectives disagree. Only compare strict-budget candidates after checking every generation decoder forward, including initialization, verification and commit. Gemma's post-commit encoder is a separate, explicitly billed cost; a decoder cap is not an end-to-end per-forward cap on that encoder. There is no request ordering, admission or load controller in this task.
 
 The handle below is the existing serial reference. Its nominal offers are **not** a strict cap. Keep the same handle if the supplied budget changes; replaying a predetermined sequence tests cache continuity, not how to choose that sequence.

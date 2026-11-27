@@ -69,12 +69,12 @@ def drain_composition(block):
 DRAIN_FIELDS = ('drain_write_or_flip_Q','drain_unaccepted_noise_Q','pure_drains')
 
 
-def close_geometry(block):
+def close_geometry(block, q=Q):
     """Original sequential verify partition. No inference of KV/logit equality."""
     start_v = next((i for i, e in enumerate(block) if e['phase'] == 'verify'), len(block))
     verifies = block[start_v:]
     chunks = [e['rows'] for e in verifies]
-    need(chunks == [list(range(i, min(i + Q, B))) for i in range(0, B, Q)] and
+    need(chunks == [list(range(i, min(i + q, B))) for i in range(0, B, q)] and
          all(e['phase'] == 'verify' and not e['dirty_before'] for e in verifies), 'wrong verify sweep')
     start_d = start_v
     while start_d and block[start_d-1]['phase'] == 'drain':
@@ -85,7 +85,7 @@ def close_geometry(block):
     paid = set()
     for e in drains:
         rows = positions(e, 'rows')
-        need(debt - paid == positions(e, 'dirty_before') and e['rows'] == sorted(debt - paid)[:Q]
+        need(debt - paid == positions(e, 'dirty_before') and e['rows'] == sorted(debt - paid)[:q]
              and not e['sampled'] and not e['encoded'], 'wrong terminal dirty drain')
         paid |= rows
     need(paid == debt, 'terminal debt not flushed')
@@ -105,13 +105,13 @@ def close_geometry(block):
                 other_drain_F=sum(e['phase'] == 'drain' for e in block[:start_d]),
                 other_drain_Q=sum(e['q'] for e in block[:start_d] if e['phase'] == 'drain'),
                 verify_F=len(verifies), verify_Q=B, dirty_by_verify_chunk=hits,
-                first_verify_plus_all_dirty_Q=len(first | debt), fits_original_first=len(first | debt) <= Q,
+                first_verify_plus_all_dirty_Q=len(first | debt), fits_original_first=len(first | debt) <= q,
                 dirty_fits_one_original_chunk=bool(debt) and max(hits) == len(debt),
                 original_order_save_F=len(removable), original_order_save_Q=sum(e['q'] for e in removable),
                 repacked_ceiling_F=len(drains), repacked_ceiling_Q=len(paid))
 
 
-def audit_tape(evidence, compact, special):
+def audit_tape(evidence, compact, special, q=Q):
     tr = evidence['trace']
     tokens, enc = evidence['output_ids'], evidence['encoder_inputs']
     cfg = evidence['generation_config']
@@ -142,12 +142,12 @@ def audit_tape(evidence, compact, special):
         for e in block:
             tick, w, phase = e['tick'], e['q'], e['phase']
             need(tick == sum(counts.values()) and phase in ('sample', 'drain', 'verify')
-                 and e['offer'] == Q and 0 < w <= Q, 'invalid decoder call')
+                 and e['offer'] == q and 0 < w <= q, 'invalid decoder call')
             rows, dirty, sampled, pref, add, edit, rev = (positions(e, k) for k in
                 ('rows', 'dirty_before', 'sampled', 'prefix', 'admitted', 'edited', 'revoked'))
             need(e['rows'] == sorted(rows) and len(rows) == w and pos[tick] == [base+r for r in sorted(rows)],
                  'physical positions disagree')
-            need(debt_min <= dirty <= debt_max and set(sorted(dirty)[:Q]) <= rows, 'dirty ledger mismatch')
+            need(debt_min <= dirty <= debt_max and set(sorted(dirty)[:q]) <= rows, 'dirty ledger mismatch')
             need(pref <= sampled <= rows and (add | edit | rev) <= sampled and not add & accepted
                  and (edit | rev) <= accepted and not edit & rev and bool(sampled) == (phase == 'sample'),
                  'sample ledger mismatch')
@@ -160,7 +160,7 @@ def audit_tape(evidence, compact, special):
                 need(len(seen) == B and not dirty and e['stop_reason'] in ('limit', 'resolved', 'native_stop')
                      and (e['stop_reason'] != 'resolved' or len(accepted) == B), 'bad terminal state')
             if phase == 'drain':
-                need(rows == set(sorted(dirty)[:Q]), 'not a pure drain')
+                need(rows == set(sorted(dirty)[:q]), 'not a pure drain')
             # Renoise changes are not listed individually. Bound the next debt
             # after a sample; on a drain the transition is known exactly.
             debt_min, debt_max = (dirty-rows) | add | edit | rev, (dirty-rows) | sampled
@@ -177,7 +177,7 @@ def audit_tape(evidence, compact, special):
                 expected.append(['encoder', B])
                 need(enc[b+1] == [tokens[b*B:(b+1)*B], list(range(base, base+B))], 'wrong generation encoder tape')
         need(len(reasons) == 1, 'inconsistent close reason')
-        blocks.append(close_geometry(block) | drain_composition(block))
+        blocks.append(close_geometry(block, q) | drain_composition(block))
     need(expected == evidence['events'] and len(enc) == len(blocks) and (len(blocks)-1)*B < len(tokens) <= len(blocks)*B,
          'physical event order or block count mismatch')
     metrics = dict(N=n, F=len(expected)-1, Q=sum(w for _, w in expected[1:]), decoder_F=len(tr),
@@ -190,21 +190,21 @@ def audit_tape(evidence, compact, special):
     return metrics, blocks
 
 
-def case_arm(root, task, k, special):
+def case_arm(root, task, k, special, q=Q):
     idx = task['index']
-    tag = f'cpu-q128-k{k}-{idx:02d}'
+    tag = f'cpu-q{q}-k{k}-{idx:02d}'
     folder = root/'raw'/tag
     compact, seal_sha = read(root/'compact'/(tag+'.json'))
     run, run_sha = read(folder/'run.json', compact['run_sha256'])
     ev, ev_sha = read(folder/'evidence.json')
-    identity = dict(device='cpu', q=Q, k=k, index=idx, seed=task['seed'], samples_sha256=SAMPLES_SHA,
+    identity = dict(device='cpu', q=q, k=k, index=idx, seed=task['seed'], samples_sha256=SAMPLES_SHA,
                     scorer_sha256=SCORER_SHA)
     need(all(run[key] == value == compact[key] for key, value in identity.items()) and
          run['case'] == task['task_id'] == compact['task_id'] and compact['dataset'] == task['dataset']
          and fingerprint(run['native']) == NATIVE_SHA and fingerprint(run['sources']) == SOURCE_SET_SHA
          and compact['revision'] == run['native']['revision'] and compact['prefix_mode'] == 'right'
          and compact['cap'] == CAP, 'wrong sealed run provenance')
-    metrics, blocks = audit_tape(ev, compact, special)
+    metrics, blocks = audit_tape(ev, compact, special, q)
     need(k or not metrics['prefix_rows'], 'K0 used prefix seats')
     bounds = {key: sum(b[key] for b in blocks) for key in (*BOUNDS,*DRAIN_FIELDS)}
     need(bounds['drain_write_or_flip_Q'] + bounds['drain_unaccepted_noise_Q']
@@ -247,12 +247,38 @@ def analyze(root=ROOT, tokenizer=TOKENIZER):
                 arms=arms, totals=totals)
 
 
+def tiers(root, tokenizer):
+    """No missing cases or arms admitted. Count only the measured, pure refresh calls."""
+    tasks = read(root.parent/'samples.json', SAMPLES_SHA)[0]['samples']
+    special = {t['id'] for t in read(tokenizer, TOKENIZER_SHA)[0]['added_tokens'] if t['special']}
+    rows = []
+    for q in (32, 64, 128):
+        groups = [[case_arm(root, tasks[i], k, special, q) for k in (0,q//4)] for i in CASES]
+        for a, b in groups:
+            need(a[0] == b[0], 'mismatched paired prompts')
+        for j, k in enumerate((0,q//4)):
+            arms = [pair[j][1] for pair in groups]
+            agg = {key:sum(r[key] for r in arms) for key in (
+                'N','F','Q','correct','decoder_Q','encoder_Q',*DRAIN_FIELDS)}
+            agg['pure_drain_Q'] = sum(r['phase_Q'].get('drain',0) for r in arms)
+            agg['terminal_drain_F'] = sum(r['repacked_ceiling_F'] for r in arms)
+            agg['terminal_drain_Q'] = sum(r['repacked_ceiling_Q'] for r in arms)
+            rows.append(dict(q=q,k=k,requests=len(arms),macro_TPF=sum(r['N']/r['F'] for r in arms)/len(arms),
+                             efficiency=agg['N']/agg['Q'], **agg,
+                             evidence_sha256=[r['sha256']['evidence'] for r in arms]))
+    return dict(cases=CASES, device='cpu',cap=CAP,rows=rows,
+                scope='Paid rows in pure drain calls; neither exposure in mixed calls nor a counterfactual saving.')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', default=ROOT, type=Path)
     parser.add_argument('--tokenizer', default=TOKENIZER, type=Path)
     parser.add_argument('--out', default=OUTPUT, type=Path)
+    parser.add_argument('--tiers', action='store_true', help='Audit the full Q32/Q64/Q128 three-case grid')
     args = parser.parse_args()
-    report = analyze(args.root, args.tokenizer)
+    if args.tiers and args.out == OUTPUT:
+        parser.error('--tiers requires a distinct --out')
+    report = tiers(args.root, args.tokenizer) if args.tiers else analyze(args.root, args.tokenizer)
     args.out.write_text(json.dumps(report, indent=2, allow_nan=False)+'\n')
-    print('Paired:', report['paired_indices'], 'Excluded:', report['excluded'])
+    print('Wrote', args.out)
