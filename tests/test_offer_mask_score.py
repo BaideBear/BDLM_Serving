@@ -125,6 +125,19 @@ def test_llada_events_keep_prefill_in_prefix_and_check_actual_edges():
         mod.audit_pair(a, b, task(0), "llada21", pair, fields)
 
 
+def test_llada_registered_replay(tmp_path):
+    trace = [64, 8, 16]
+    meta = dict(model="llada21", kernel="SpawnGatedKernel", trace=trace, targets=[8, 16],
+                arms={a: dict(target=v, trace=trace) for a, v in
+                      [("causal", None), ("open8", 8), ("open16", 16)]})
+    pairs = mod.discover_pairs(tmp_path, meta)
+    assert pairs == [mod.Pair(8, "causal", "open8"), mod.Pair(16, "causal", "open16")]
+    mod.check_registration(meta, pairs, HASH)
+    meta["arms"]["open8"]["target"] = 16
+    with pytest.raises(ValueError, match="registered LLaDA"):
+        mod.check_registration(meta, pairs, HASH)
+
+
 def test_metrics_keep_macro_tpf_and_micro_efficiency_distinct():
     a, b = (False, 12, 3, 48, 1, 5), (True, 9, 3, 18, 2, 10)
     c = (True, 5, 1, 10, 0, 0)

@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "direction": "trial minus control",
+  "uncertainty": {
+    "method": "dataset-stratified paired percentile bootstrap",
+    "confidence": 0.95,
+    "draws": 4000,
+    "seed": 17000,
+    "simultaneous": false
+  },
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "exposure_field": "opportunity",
+  "opened_field": null,
+  "witness_field": "offer_mask_witness",
+  "ignored_event_fields": [],
+  "pairs": [
+    {
+      "model": "diffusiongemma",
+      "target": 64,
+      "control_policy": "q64",
+      "trial_policy": "q64_unmask64",
+      "offers": [
+        64
+      ],
+      "statistics": [
+        {
+          "cohort": "full90",
+          "scope": "all",
+          "requests": 90,
+          "control": {
+            "correct": 82,
+            "quality": 0.9111111111111111,
+            "macro_TPF": 12.342739072345763,
+            "micro_efficiency": 0.1296427621664746,
+            "N": 32175,
+            "F": 2775,
+            "Q": 248182,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 82,
+            "quality": 0.9111111111111111,
+            "macro_TPF": 12.342739072345763,
+            "micro_efficiency": 0.1296427621664746,
+            "N": 32175,
+            "F": 2775,
+            "Q": 248182,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.12218582291809503,
+            0.12218582291809503
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "cohort": "full90",
+          "scope": "exposed",
+          "requests": 0,
+          "control": null,
+          "trial": null,
+          "delta": null,
+          "paired_ci95": null,
+          "rescued": 0,
+          "lost": 0
+        },
+        {
+          "cohort": "full90",
+          "scope": "unexposed",
+          "requests": 90,
+          "control": {
+            "correct": 82,
+            "quality": 0.9111111111111111,
+            "macro_TPF": 12.342739072345763,
+            "micro_efficiency": 0.1296427621664746,
+            "N": 32175,
+            "F": 2775,
+            "Q": 248182,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 82,
+            "quality": 0.9111111111111111,
+            "macro_TPF": 12.342739072345763,
+            "micro_efficiency": 0.1296427621664746,
+            "N": 32175,
+            "F": 2775,
+            "Q": 248182,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.12218582291809503,
+            0.12218582291809503
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "cohort": "original30",
+          "scope": "all",
+          "requests": 30,
+          "control": {
+            "correct": 27,
+            "quality": 0.9,
+            "macro_TPF": 11.86182238294243,
+            "micro_efficiency": 0.1275073557240352,
+            "N": 10444,
+            "F": 976,
+            "Q": 81909,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 27,
+            "quality": 0.9,
+            "macro_TPF": 11.86182238294243,
+            "micro_efficiency": 0.1275073557240352,
+            "N": 10444,
+            "F": 976,
+            "Q": 81909,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.21898292928454444,
+            0.21898292928454444
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "cohort": "original30",
+          "scope": "exposed",
+          "requests": 0,
+          "control": null,
+          "trial": null,
+          "delta": null,
+          "paired_ci95": null,
+          "rescued": 0,
+          "lost": 0
+        },
+        {
+          "cohort": "original30",
+          "scope": "unexposed",
+          "requests": 30,
+          "control": {
+            "correct": 27,
+            "quality": 0.9,
+            "macro_TPF": 11.86182238294243,
+            "micro_efficiency": 0.1275073557240352,
+            "N": 10444,
+            "F": 976,
+            "Q": 81909,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 27,
+            "quality": 0.9,
+            "macro_TPF": 11.86182238294243,
+            "micro_efficiency": 0.1275073557240352,
+            "N": 10444,
+            "F": 976,
+            "Q": 81909,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.21898292928454444,
+            0.21898292928454444
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "cohort": "new60",
+          "scope": "all",
+          "requests": 60,
+          "control": {
+            "correct": 55,
+            "quality": 0.9166666666666666,
+            "macro_TPF": 12.58319741704743,
+            "micro_efficiency": 0.1306947008834868,
+            "N": 21731,
+            "F": 1799,
+            "Q": 166273,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 55,
+            "quality": 0.9166666666666666,
+            "macro_TPF": 12.58319741704743,
+            "micro_efficiency": 0.1306947008834868,
+            "N": 21731,
+            "F": 1799,
+            "Q": 166273,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.14939992764885085,
+            0.14939992764885085
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        },
+        {
+          "cohort": "new60",
+          "scope": "exposed",
+          "requests": 0,
+          "control": null,
+          "trial": null,
+          "delta": null,
+          "paired_ci95": null,
+          "rescued": 0,
+          "lost": 0
+        },
+        {
+          "cohort": "new60",
+          "scope": "unexposed",
+          "requests": 60,
+          "control": {
+            "correct": 55,
+            "quality": 0.9166666666666666,
+            "macro_TPF": 12.58319741704743,
+            "micro_efficiency": 0.1306947008834868,
+            "N": 21731,
+            "F": 1799,
+            "Q": 166273,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "trial": {
+            "correct": 55,
+            "quality": 0.9166666666666666,
+            "macro_TPF": 12.58319741704743,
+            "micro_efficiency": 0.1306947008834868,
+            "N": 21731,
+            "F": 1799,
+            "Q": 166273,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "delta": {
+            "correct": 0,
+            "quality": 0.0,
+            "macro_TPF": 0.0,
+            "micro_efficiency": 0.0,
+            "N": 0,
+            "F": 0,
+            "Q": 0,
+            "trigger_requests": 0,
+            "trigger_rounds": 0,
+            "edge_pairs": 0
+          },
+          "paired_quality_score_ci95": [
+            -0.14939992764885085,
+            0.14939992764885085
+          ],
+          "quality_fallback_strata": 3,
+          "rescued": 0,
+          "lost": 0,
+          "paired_ci95": {
+            "quality": [
+              0.0,
+              0.0
+            ],
+            "macro_TPF": [
+              0.0,
+              0.0
+            ],
+            "micro_efficiency": [
+              0.0,
+              0.0
+            ],
+            "F": [
+              0.0,
+              0.0
+            ],
+            "Q": [
+              0.0,
+              0.0
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

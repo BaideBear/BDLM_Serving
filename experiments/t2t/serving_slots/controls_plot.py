@@ -143,6 +143,51 @@ def mixed_plot(source, target, matched=False, fixed_low=False, unified=False, ra
     plt.close(fig)
 
 
+def llada_capped_plot(q, root, target):
+    """Reconcile shared arms in the four paired comparisons before plotting."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    controls = {}
+    for mode in ("ibs", "obs"):
+        expected = (
+            (f"llada21-q{q}-{mode}-original-vs-capped.csv", f"optimus_{mode}_c{q}", f"optcap_{mode}_{q}"),
+            (f"llada21-q{q}-vs-capped-{mode}.csv", f"optcap_{mode}_{q}", f"t2t_q{q}_f0_m{q}_hard_prefix_zero"),
+        )
+        for filename, baseline, arm in expected:
+            with (root / filename).open() as f:
+                record, = (r for r in csv.DictReader(f) if r["window"] == "90" and r["scope"] == "all")
+            if (record["baseline_policy"], record["arm_policy"], record["model"], record["requests"]) != (
+                baseline, arm, "llada21", "90"
+            ):
+                raise ValueError(f"Unexpected frozen90 arm: {filename}")
+            for side, policy in [("baseline", baseline), ("arm", arm)]:
+                values = tuple(float(record[f"{side}_{k}"]) for k in METRICS)
+                if controls.setdefault(policy, values) != values:
+                    raise ValueError(f"Disagreement between controls for {policy}")
+    order = [f"optimus_ibs_c{q}", f"optcap_ibs_{q}", f"optimus_obs_c{q}", f"optcap_obs_{q}",
+             f"t2t_q{q}_f0_m{q}_hard_prefix_zero"]
+    fig, axes = plt.subplots(1, 4, figsize=(13, 3.25), layout="constrained")
+    labels = ["IBS original", "IBS capped", "OBS original", "OBS capped", "Ours, K0"]
+    for i, (axis, col, factor, digits, title) in enumerate(zip(
+        axes, ("correct", "macro_tpf", "pooled_token_efficiency", "q_per_f"),
+        (1, 1, 100, 1), (0, 3, 2, 2),
+        ("Correct / 90", "Tokens / forward", "Token efficiency (%)", "Physical Q / forward"),
+    )):
+        values = [controls[p][METRICS.index(col)] * factor for p in order]
+        bars = axis.barh(range(5), values, color=["#9ba9b5", "#546f83", "#aaa4ab", "#756579", "#147a6b"])
+        axis.bar_label(bars, labels=[f"{v:.{digits}f}" for v in values], padding=3, fontsize=9)
+        axis.set_yticks(range(5), labels if i == 0 else [])
+        axis.invert_yaxis()
+        axis.set_xlim(0, max(values) * 1.29)
+        axis.set_title(title, fontsize=10)
+        axis.spines[["top", "right"]].set_visible(False)
+    fig.suptitle(f"LLaDA2.1 | nominal Q{q}, different physical costs | frozen90")
+    fig.savefig(target, dpi=150)
+    plt.close(fig)
+
+
 def main():
     import matplotlib
     matplotlib.use("Agg")
@@ -192,6 +237,10 @@ def main():
         path=HERE/f"controls/gemma-unified-profile-{name}.csv"
         if path.is_file():
             mixed_plot(path,HERE/(path.stem+".png"))
+    for q in (4, 8, 16, 32):
+        if all((HERE/"controls"/f"llada21-q{q}-{name}.csv").is_file()
+               for m in ("ibs", "obs") for name in (f"vs-capped-{m}", f"{m}-original-vs-capped")):
+            llada_capped_plot(q, HERE/"controls", HERE/f"llada21-q{q}-optimus-capped.png")
 
 
 if __name__ == "__main__":

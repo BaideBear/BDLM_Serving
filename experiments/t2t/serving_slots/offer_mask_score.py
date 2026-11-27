@@ -128,6 +128,8 @@ def witness(row, gen, offer_key, target, fields, *, trial):
     first, pretrace, geometry, rounds, edges = (
         record[k] for k in ("first_tick", "pretrace_sha256", "geometry_sha256",
                             "rounds", "edge_pairs"))
+    if first is None and pretrace is None and row.get("model") == "llada21":
+        pretrace = record.get("trajectory_sha256")
     require(is_digest(pretrace) and integer(rounds) and integer(edges, rounds),
             "Malformed mask witness")
     require((geometry in (None, NULL_DIGEST) and rounds == edges == 0) if first is None else
@@ -260,8 +262,14 @@ def summarize(verified, *, draws=4000, seed=17000):
                 continue
             control = arm_metrics([a for _, a, _ in cases])
             trial = arm_metrics([b for _, _, b in cases])
+            from tools.prefix_cohorts import quality_ci
+            paired_counts = defaultdict(lambda: [0,0,0,0])
+            for dataset,a,b in cases:
+                paired_counts[dataset][(0 if a[0] else 2)+(0 if b[0] else 1)] += 1
+            _,_,lo95,hi95,fallback = quality_ci(paired_counts)
             result.append(dict(
                 row, control=control, trial=trial, delta={k: trial[k]-control[k] for k in control},
+                paired_quality_score_ci95=[lo95,hi95], quality_fallback_strata=fallback,
                 rescued=sum(b[0] and not a[0] for _, a, b in cases),
                 lost=sum(a[0] and not b[0] for _, a, b in cases),
                 paired_ci95=paired_ci(cases, draws, seed)))
@@ -278,6 +286,9 @@ def offer_schedule(model, control):
     if control == "replay":
         return REPLAYS[model]
     fixed = re.fullmatch(r"(?:q|fixed)([1-9][0-9]*)", control)
+    alt = re.fullmatch(r"alternate(32|64|128|256)",control)
+    if model=="diffusiongemma" and alt:
+        return (512,int(alt[1]))
     return (int(fixed[1]),) if fixed else None
 
 
@@ -288,6 +299,8 @@ def read_registration(group):
 
 def discover_pairs(group, metadata=None):
     found = set()
+    if metadata and metadata.get("model") == "llada21" and metadata.get("kernel") == "SpawnGatedKernel":
+        return [Pair(q, "causal", f"open{q}") for q in metadata["targets"]]
     registered = (metadata or {}).get("unmask_only_on_offer")
     policies = registered if isinstance(registered, dict) else (
         path.stem.partition("-")[2] for path in group.glob("*-*_unmask*.json"))
@@ -311,6 +324,12 @@ def check_registration(metadata, pairs, samples_digest):
                 and all(p.control in targets and targets[p.control] is None
                         and type(targets.get(p.trial)) is int and targets[p.trial] == p.target
                         for p in pairs), "Pair disagrees with registered mask targets")
+    if metadata.get("model") == "llada21" and metadata.get("kernel") == "SpawnGatedKernel":
+        arms, trace = metadata["arms"], metadata["trace"]
+        require(all(p.target in metadata["targets"] and p.target in trace
+                    and arms[p.control]["target"] is None and arms[p.trial]["target"] == p.target
+                    and arms[p.control]["trace"] == arms[p.trial]["trace"] == trace for p in pairs),
+                "Pair disagrees with registered LLaDA mask targets")
 
 
 def score_group(group, model, pairs, tasks, judge, *, fields=None, offers=None,
@@ -418,8 +437,11 @@ def main(argv=None):
                  else discover_pairs(args.group, metadata))
         samples_digest = hashlib.sha256(args.samples.read_bytes()).hexdigest()
         check_registration(metadata, pairs, samples_digest)
+        registered_trace = metadata.get("trace") if metadata.get("kernel") == "SpawnGatedKernel" else None
+        require(not registered_trace or not args.offers or registered_trace == args.offers,
+                "Offer override differs from registered trace")
         results = score_group(args.group, args.model, pairs, load_tasks(args.samples), score,
-                              fields=fields, offers=args.offers, draws=args.draws, seed=args.seed)
+                              fields=fields, offers=args.offers or registered_trace, draws=args.draws, seed=args.seed)
         payload = json.dumps(dict(
             schema_version=1, direction="trial minus control",
             uncertainty=dict(method="dataset-stratified paired percentile bootstrap",

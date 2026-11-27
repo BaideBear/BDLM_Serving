@@ -82,7 +82,7 @@ def protected():
 
 def gpu0_lease(entry, output, tag):
     """Use the pinned stage-before-release supervisor for a sibling GPU0 study."""
-    reg.require(entry.parent==HERE.parent and entry.stem in ("spawn_mask_gpu","commit_pair_probe")
+    reg.require(entry.parent==HERE.parent and entry.stem in ("spawn_mask_gpu","commit_pair_probe","llada_offer_masks")
                 and output.parent==reg.DATA and sys.argv[1:] in
                 (["llada21","0"],["llada21","0","worker"]) and not sys.flags.optimize,
                 "Unregistered lease or worker")
