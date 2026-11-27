@@ -53,13 +53,33 @@ def load(n):
     return vals
 
 
-def render(n, out):
+def history_points(n):
+    cohort = {90: "all-0-89", 30: "original-0-29"}[n]
+    values = {}
+    for q in OFFERS:
+        records = rows(HERE / f"controls/gemma-unified-q{q}-vs-baselines.csv")
+        pts = {(100*float(r["arm_pooled_token_efficiency"]), float(r["arm_macro_tpf"]), int(r["arm_correct"]))
+               for r in records if r["model"] == "gemma" and r["scope"] == "all"
+               and r["cohort"] == cohort and int(r["requests"]) == n and r["arm_policy"] == f"q{q}"}
+        if len(pts) != 1:
+            raise ValueError(f"Inconsistent historical Q{q} records: {pts}")
+        values[q] = pts.pop()
+    return values
+
+
+def render(n, out, historical=False):
     data = load(n)
+    styles = STYLES
+    if historical:
+        styles = {k: STYLES[k] for k in ("00", "10", "11")}
+        styles["old"] = ("#2763ac", "D", "Previous fixed-Q kernel")
+        data["old"] = history_points(n)
     native = data["native"][256]
     fig = plt.figure(figsize=(14.15, 8.35), facecolor="white")
     gs = fig.add_gridspec(1, 3, left=.063, right=.977, bottom=.458, top=.755, wspace=.25)
     axes = [fig.add_subplot(gs[0, j]) for j in range(3)]
-    fig.text(.045, .944, f"DiffusionGemma 26B  |  Fixed Q budget", fontsize=23, weight="bold")
+    title = "Fixed Q: previous vs current kernel" if historical else "Fixed Q budget"
+    fig.text(.045, .944, f"DiffusionGemma 26B  |  {title}", fontsize=23, weight="bold")
     fig.text(.045, .906, f"Frozen {n} questions   /   Physical block size 256   /   Matched GPU inference",
              fontsize=12, color="#4c5762")
     def fmt(j, x):
@@ -76,10 +96,10 @@ def render(n, out):
         ax.spines[["bottom", "left"]].set_color("#b4bdc4")
         ax.tick_params(labelsize=10)
         ax.axhline(native[j], color=NATIVE, ls=(0, (5, 3)), lw=1.65, zorder=1.7)
-        for k, (c, marker, _) in STYLES.items():
+        for k, (c, marker, _) in styles.items():
             x = sorted(data[k])
             ax.plot(x, [data[k][q][j] for q in x], color=c, marker=marker, ms=6.3,
-                    mfc="white" if k in ("ibs", "obs", "flow") else c, mew=1.2,
+                    mfc=c if k in ("00", "10", "11") else "white", mew=1.2,
                     lw=1.9, ls="-" if k in ("00", "10", "11") else "--")
         ax.plot(256, native[j], marker="*", color=NATIVE, ls="none", ms=13,
                 mec="white", mew=.6, zorder=5)
@@ -89,7 +109,7 @@ def render(n, out):
             ax.yaxis.set_major_locator(MaxNLocator(nbins=6, integer=True))
         ax.margins(y=.16)
     handles = [Line2D([], [], color=NATIVE, ls="--", marker="*", ms=12, label="Native Q256 (reference)")]
-    for k, (c, marker, label) in STYLES.items():
+    for k, (c, marker, label) in styles.items():
         handles.append(Line2D([], [], color=c, lw=1.9, ls="-" if k in ("00", "10", "11") else "--",
                               marker=marker, mfc=c if k in ("00", "10", "11") else "white", label=label))
     fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(.04, .883), ncol=4,
@@ -99,11 +119,13 @@ def render(n, out):
              fontsize=10, color="#4c5762")
     ax = fig.add_axes([.045, .112, .923, .23])
     ax.axis("off")
-    names = ["Budget", "00", "10", "11", "Optimus IBS", "Optimus OBS", "FlowBlock"]
+    names = ["Budget", "00", "10", "11"] + (["Previous fixed-Q kernel"] if historical
+                                             else ["Optimus IBS", "Optimus OBS", "FlowBlock"])
     table = [[f"Q{q}"] + [(" / ".join((f"{v[0]:.2f}", f"{v[1]:.3f}", str(v[2])))
-                              if (v := data[k].get(q)) else "not measured") for k in STYLES] for q in OFFERS]
+                              if (v := data[k].get(q)) else "not measured") for k in styles] for q in OFFERS]
     tab = ax.table(cellText=table, colLabels=names, loc="center", bbox=[0, 0, 1, 1],
-                   colWidths=[.07, .15, .15, .15, .16, .16, .16], cellLoc="center")
+                   colWidths=[.09,.21,.21,.21,.28] if historical else [.07,.15,.15,.15,.16,.16,.16],
+                   cellLoc="center")
     tab.auto_set_font_size(False)
     tab.set_fontsize(9.4)
     for (i, col), cell in tab.get_celld().items():
@@ -113,7 +135,10 @@ def render(n, out):
             cell.get_text().set_weight("bold")
     fig.text(.045, .078, "Black dashed line = native reference across budgets; star = its only measured budget. "
              "At Q512 the three ablation traces coincide.", fontsize=9.4, color="#47515a")
-    if n == 30:
+    if historical:
+        note = ("Previous Q32/64/128 are nominal: some decoder calls exceed the offer. "
+                "Previous Q256/512 stay within it; the old Q512 uses gated opening.")
+    elif n == 30:
         extra = {r["row"]: r for r in rows(HERE.parents[1] / "baselines/gemma-baselines.csv")}
         r = extra["B3"]
         note = (f"B3 (variable Q, not on fixed-budget axis): {float(r['token_efficiency_pct']):.2f}% / "
@@ -123,7 +148,8 @@ def render(n, out):
     fig.text(.045, .051, note, fontsize=9.4, color="#47515a")
     out.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "svg"):
-        path = out / f"gemma-fixed-q-frozen{n}.{ext}"
+        prefix = "gemma-historical-fixed-q" if historical else "gemma-fixed-q"
+        path = out / f"{prefix}-frozen{n}.{ext}"
         fig.savefig(path, dpi=145, metadata={"Date": None} if ext == "svg" else {})
         if ext == "svg":
             path.write_text("\n".join(line.rstrip() for line in path.read_text().splitlines()) + "\n")
@@ -137,3 +163,4 @@ if __name__ == "__main__":
     plt.rcParams.update({"font.family": "DejaVu Sans", "svg.hashsalt": "gemma-q-v1"})
     for n in (90, 30):
         render(n, args.out)
+        render(n, args.out, historical=True)
