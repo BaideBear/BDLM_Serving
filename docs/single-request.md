@@ -1,5 +1,9 @@
 # Single-request execution at a given Q budget
 
+[How to spend a small, full-block or two-block offer](request-budget-decisions.md):
+mandatory writes, optional prefix rows, when to open the successor, and
+which proposed savings changed outputs in the fixed-budget experiments.
+
 `profile="dense_stop_promotion_fused"` additionally lets a fixed Q512 offer
 consume the first ordinary sample on a promoted head during its complete
 new-epoch rebuild. This requires B genuinely missing rows, no dirty rows,

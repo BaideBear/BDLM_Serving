@@ -45,7 +45,7 @@ def fixed_cross(model, tok, task, prompt, q, law, *, mode, borrow, coverage="spa
 
 
 def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager", cross=None,
-           coverage="sparse",close_policy="unchanged"):
+           coverage="sparse",close_policy="unchanged", admission=.9, audit_admission=False):
     import torch
     from bdlm_serving.methods.t2t.llada_budget_request import LLaDABudgetRequest
 
@@ -79,7 +79,8 @@ def _fixed(model, tok, task, prompt, q, law, *, ablation=None, tail_rule="eager"
         ctx.enter_context(model.model.layers[0].attention.register_forward_pre_hook(at_layer,with_kwargs=True))
         ctx.enter_context(model.lm_head.register_forward_pre_hook(lambda _,args: head_width.append(args[0].shape[1])))
         req = LLaDABudgetRequest(model,x,mask_id=mask,eos_ids=[eos],max_new_tokens=CAP,
-                                seed=task["seed"],law=law,confidence_threshold=.9,editing_threshold=.5,
+                                seed=task["seed"],law=law,confidence_threshold=admission,editing_threshold=.5,
+                                audit_admission=audit_admission,
                                 tail_rule=tail_rule, ablation=ablation, close_policy=close_policy,
                                 **(dict(cross=mode, borrow=borrow, coverage=coverage)
                                    if cross is not None else {}))

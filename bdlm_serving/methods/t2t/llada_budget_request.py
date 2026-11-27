@@ -120,7 +120,11 @@ class LLaDABudgetRequest:
                  max_new_tokens=2048, law=Law(), confidence_threshold=.9, editing_threshold=.5,
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
                  switchable=False, top_gate="quarter", lower_borrow=False,
-                 coverage="sparse", warm_head_sample=False, close_policy="unchanged"):
+                 coverage="sparse", warm_head_sample=False, close_policy="unchanged",
+                 audit_admission=False):
+        if type(audit_admission) is not bool:
+            raise ValueError("Expected a boolean sample receipt option")
+        self.audit_admission = audit_admission
         if close_policy not in ("unchanged","full_write","edit_once") or (
                 close_policy!="unchanged" and (cross!="head" or borrow or switchable or ablation is not None)):
             raise ValueError("Terminal row experiment requires the fixed head-only path")
@@ -557,6 +561,10 @@ class LLaDABudgetRequest:
                 raise RuntimeError("Invalid measured sampler output")
             old = self.x.index_select(1,idx)
             unresolved = old == self.mask_id
+            if self.audit_admission:
+                # Only positions really sent to the sampler, never unsampled logits.
+                e["proposals"] = list(zip(old[0].tolist(), draft[0].tolist(), conf[0].tolist(),
+                                          (conf[0] > .5).tolist(), (conf[0] > .9).tolist()))
             accept = unresolved & (conf > self.threshold)
             # Preserve the per-B32 fallback, but only over measured MASK proposals.
             for block in sorted({p//B for p in sampled}):

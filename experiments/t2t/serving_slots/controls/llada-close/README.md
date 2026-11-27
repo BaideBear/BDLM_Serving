@@ -51,3 +51,6 @@ not a speed or quality recommendation. For full-90 comparisons use the
 5.677, 15.56%; IBS32 71/90, 4.495, 15.23%. Do not compare these scores
 to the qualification. The archived LLaDA native and Flow W2 runner uses
 0.5 M2T and 0.5 T2T; IBS and our strict control use 0.9 M2T and 0.5 T2T.
+
+The [budget decision rules](../../../../../docs/request-budget-decisions.md)
+register the independent cutoff comparison; it uses **unchanged** retirement.
