@@ -155,7 +155,7 @@ class TestPinned(TestCase):
             with self.assertRaisesRegex(ValueError, "unfused"):
                 AblationRequest(None, None, q=512, seed=23, fullstop=enabled, fuse_first_verify=True)
 
-        def run(enabled, q=512, dense_stop=False):
+        def run(enabled, q=512, dense_stop=False, switched=False):
             r = object.__new__(AblationRequest)
             r.origin, r.ordinal, r.cursor, r.tick, r.seed = 13, 0, 0, 0, 23
             r.status, r.tokens, r.eos, r.max_new_tokens = "ready", [], {2}, B*2
@@ -167,6 +167,9 @@ class TestPinned(TestCase):
             if dense_stop:
                 r.fuse_first_verify = r.full_head_at_b = True
                 r.top_gate = 'off'
+            if switched:
+                r.stop_at_single_b_only=True
+                r.max_new_tokens=B
             r.cache = NS(get_seq_length=lambda: r.origin)
             events = []
             def project(states, pos):
@@ -178,10 +181,14 @@ class TestPinned(TestCase):
                 return raw
             r._project = project
             while r.status == "ready" and len(events) < 200:
-                events.append(r.step())
+                if switched:
+                    sequence=(512,256,512,256,256)
+                    events.append(r.step(sequence[len(events)] if len(events)<len(sequence) else 32))
+                else:
+                    events.append(r.step())
             self.assertEqual(r.tokens, [2])  # Not the observer's argmax token 1.
             self.assertEqual(r.status, "done")
-            return events, fullstop_receipt(events, r.origin, enabled, dense_stop=dense_stop)
+            return events, None if switched else fullstop_receipt(events, r.origin, enabled, dense_stop=dense_stop)
 
         control, shadow = run(False)
         trial, active = run(True)
@@ -214,3 +221,12 @@ class TestPinned(TestCase):
         control, obs = run(False, B, True)
         self.assertEqual(obs['applied_hits'],0)
         self.assertGreater(len(control),len(dense))
+        steps,_=run(True,B,True,switched=True)
+        self.assertEqual([e['fullstop']['latched'] for e in steps[:5]],[False]*4+[True])
+        self.assertEqual([e['fullstop']['in_scope'] for e in steps[:5]],[False,True,False,True,True])
+        p=steps[4]['parts'][0]
+        self.assertGreater(steps[4]['head_mask_before']-len(p['admitted'])+len(p['revoked']),0)
+        self.assertLess(p['age_after'],48)
+        self.assertTrue(steps[4]['dirty_after_absolute'])
+        self.assertTrue(all(e['offer']==32 and not e['sampled_absolute'] and e['q']<=32 for e in steps[5:]))
+        self.assertEqual(sum(e['q'] for e in steps[5:] if e['route'].startswith('verify')),B)

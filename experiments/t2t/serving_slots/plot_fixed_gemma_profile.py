@@ -18,7 +18,7 @@ def read(path):
 
 
 def collect():
-    studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity","density")}
+    studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity","density","promotion")}
     baselines = read(ROOT/"block-history90-matrix.csv")
     stops = {r['cohort']:r for r in map(json.loads,(FACTORS/"fullstop"/"dense-summary.jsonl").read_text().splitlines())}
     rows = []
@@ -26,6 +26,8 @@ def collect():
         for c in TIERS:
             file = "profile-close" if c in (128,512) else "close"
             arms = [(file,"fixed90_fused",None)]
+            if c==512:
+                arms.append(("promotion","sample on rebuild","C512-promotion1"))
             if c==256:
                 arms.extend([("capacity","full-head variant",None),
                              ("density","dense at high MASK","C256-density-high"),
@@ -38,6 +40,13 @@ def collect():
                 r, = matches
                 if int(r["n"])!=n or int(r["peak_decoder_Q"])>c or int(r["history_Q"])!=int(r["decoder_Q"]):
                     raise ValueError(f"unqualified {study} {cohort} {c}")
+                if study=="promotion":
+                    ref, = [v for v in studies[study] if v['cohort']==cohort and v['side']=='reference']
+                    if (any(json.loads(r[k]) for k in ("changed_output_indices","changed_encoder_work_indices",
+                            "wrong_F_delta_indices","wrong_Q_delta_indices"))
+                            or int(ref['F'])-int(r['F'])!=int(r['promotion_F'])
+                            or int(ref['decoder_Q'])-int(r['decoder_Q'])!=256*int(r['promotion_F'])):
+                        raise ValueError("promotion is not an exact work reduction")
                 roles = {f"Q_{k}":int(r[f"Q_{k}"]) for k in ROLES}
                 if sum(roles.values())!=int(r["decoder_Q"]):
                     raise ValueError(f"unbalanced decoder ledger at {study} {cohort} {c}")
@@ -79,7 +88,8 @@ def plot(path, rows):
     n, = {r["n"] for r in rows}
     palette={"fixed90_fused":"#087469","Optimus IBS":"#6343a0","Native / Flow W1":"#596779",
              "Flow W2":"#a65216","full-head variant":"#b02c53",
-             "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24"}
+             "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24",
+             "sample on rebuild":"#1670a0"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -99,7 +109,8 @@ def plot(path, rows):
                 ax.scatter(x,y,marker="s",facecolors="none",edgecolors=color,s=40)
             else:
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
-                                       "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*"}[name],
+                                       "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*",
+                                       "sample on rebuild":"P"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))

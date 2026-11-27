@@ -11,6 +11,8 @@ import time
 from bdlm_serving.methods.t2t.serving_profiles import open_strict_gemma
 
 TIERS = (32,64,128,256,512)
+PROMOTION = "dense_stop_promotion_fused"
+STOP_PROFILES = ("dense_b_stop_fused", PROMOTION)
 
 
 def offer_cycle(tiers=TIERS):
@@ -27,14 +29,16 @@ def offer_cycle(tiers=TIERS):
 
 
 def reference_path(root, q, index, profile="fixed90_candidate"):
-    if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused","dense_b_stop_fused"):
+    if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused",*STOP_PROFILES):
+        if q==512 and profile==PROMOTION:
+            return root/"promotion-1128"/f"C512-promotion1-{index:02}.json"
         if q in (128,512):
             return root/"profile-close-1128"/f"C{q}-profile-fuse1-{index:02}.json"
         if q==256 and profile=="fixed90_dense_fused":
             return root/"capacity-head-1128"/f"C256-capacity1-{index:02}.json"
         if q==256 and profile=="phase_high_fused":
             return root/"phase-density-1128"/f"C256-density-high-{index:02}.json"
-        if q==256 and profile=="dense_b_stop_fused":
+        if q==256 and profile in STOP_PROFILES:
             return root/"dense-stop-1128"/f"C256-dense-stop1-{index:02}.json"
         return root/"paid-close-1128"/f"C{q}-fuse1-{index:02}.json"
     if q == 128:
@@ -50,7 +54,7 @@ def check(ok, message):
 
 
 def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
-          dense_shadow=False):
+          drop_after_promotion=False, dense_shadow=False):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -61,6 +65,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
     old, head, verify, encoded, d_q = None, 0, 0, 0, 0
     parked_pay = physical_downshift = 0
     last_full, stopped_head = None, None
+    prev_promoted, prev_rebuild_sample = None, False
     triggers = Counter()
     cfg = dict(seed=task["seed"], initial_offer=schedule[0], profile=profile)
     with ExitStack() as stack:
@@ -81,6 +86,8 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
             q = schedule[tick % len(schedule)]
             if drop_after_stop:
                 q = 32 if stopped_head==head else 256
+            if drop_after_promotion:
+                q = 32 if prev_rebuild_sample else 512
             e = h.step(q)
             if dense_shadow:
                 shadow.after(e,origin)
@@ -92,7 +99,20 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                   and all(t[-1] == len(rows) for t in proj.values()), "unmeasured physical projection")
             check(e["dirty_before_absolute"] == sorted(debt) and set(sorted(debt)[:q]) <= set(rows)
                   and changed <= sampled <= set(rows), "unpaid old or unmeasured new writes")
-            if profile=="dense_b_stop_fused":
+            if profile==PROMOTION:
+                if e["route"]=="rebuild_sample":
+                    check(q==512 and prev_promoted==head and head>0 and not debt
+                          and e["opened"] is None and e["head_initialized_before"]==256
+                          and rows==list(range(origin+256*head,origin+256*(head+1)))
+                          and e["sampled_absolute"]==rows and len(e["parts"])==1
+                          and e["parts"][0]["phase"]=="sample","sampled incomplete or stale rebuild")
+                    triggers["sampled_promotions"]+=1
+                if prev_rebuild_sample and q<512:
+                    triggers["post_promotion_downshifts"]+=1
+                    triggers["post_promotion_downshifts_with_debt"]+=int(bool(debt))
+                prev_promoted = e["promoted"] if e["encoded"] else None
+                prev_rebuild_sample = e["route"]=="rebuild_sample"
+            if profile in STOP_PROFILES:
                 mark=e['fullstop']
                 full=(q==256 and mark['resident']==1 and e['route']=='dense_single'
                       and sampled==set(range(origin+head*256,origin+(head+1)*256)))
@@ -150,7 +170,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                 decoder_Q=d_q, encoder_F=encoded, encoder_Q=256*encoded, routes=dict(routes),
                 directed_pairs={f"{a}>{b}":v for (a,b),v in sorted(transitions.items())},
                 downshifts_with_debt=physical_downshift, parked_rows_paid_on_downshift=parked_pay,
-                decoder_projection_modules=len(proj), **({'stop_checks':dict(triggers)} if profile=="dense_b_stop_fused" else {}),
+                decoder_projection_modules=len(proj), **({'stop_checks':dict(triggers)} if profile in STOP_PROFILES else {}),
                 **({'draft_shadow':shadow.blocks} if dense_shadow else {}), output_digest=sha256(
                     json.dumps(ids,separators=(",",":")).encode()).hexdigest()), ids
 
@@ -163,7 +183,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     for key in ("checkpoint","samples","receipts","out"):
         ap.add_argument("--"+key, type=Path, required=True)
-    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused","phase_high_fused","dense_b_stop_fused"),
+    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused","phase_high_fused",*STOP_PROFILES),
                     default="fixed90_candidate")
     ap.add_argument("--deadline",type=int,required=True)
     ap.add_argument("--dense-shadow",action="store_true",help="Frozen90 observation of fixed Q256 draft vs fresh verify")
@@ -178,8 +198,10 @@ def main(argv=None):
         device_map={"":"cuda:0"}).eval()
     jobs = [(f"fixed{q}",(q,)) for q in TIERS] + [("switch25",offer_cycle()),
                                                     ("park", (512,)*5+(32,)*3+(512,))]
-    if a.profile=="dense_b_stop_fused":
+    if a.profile in STOP_PROFILES:
         jobs.append(('drop_after_stop',(256,32)))
+    if a.profile==PROMOTION:
+        jobs.append(('drop_after_promotion',(512,32)))
     indices=(0,10,20)
     if a.dense_shadow:
         check(a.profile=='dense_b_stop_fused','dense shadow profile')
@@ -198,7 +220,8 @@ def main(argv=None):
                           ('draft_shadow' in previous)==a.dense_shadow, "wrong profile in destination")
                     continue
                 row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile,
-                                  drop_after_stop=name=='drop_after_stop',dense_shadow=a.dense_shadow)
+                                  drop_after_stop=name=='drop_after_stop',drop_after_promotion=name=='drop_after_promotion',
+                                  dense_shadow=a.dense_shadow)
                 if len(schedule)==1:
                     src = reference_path(a.receipts,schedule[0],i,a.profile)
                     blob = src.read_bytes()

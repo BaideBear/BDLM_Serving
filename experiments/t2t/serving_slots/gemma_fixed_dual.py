@@ -292,10 +292,12 @@ class AblationRequest(FixedFamilyRequest):
                 or reuse_paid_masks or fuse_first_verify or fullstop is not None):
             raise ValueError('Rejected-noise experiment requires the fixed head-only 1/8 control')
         self.keep_rejected_noise = keep_rejected_noise
+        fixed_promotion = q==2*B and fullstop is None and law==Law()
+        switching_promotion = stop_at_single_b_only is True and fullstop is True
         if type(sample_full_rebuild) is not bool or sample_full_rebuild and (
-                q!=2*B or ablation!='00' or top_gate!='half' or head_first or fullstop is not None
-                or not fuse_first_verify or law!=Law() or reuse_paid_masks or prefix_order!='right'):
-            raise ValueError('Promotion experiment requires the fixed fused half-gate 2B profile')
+                not (fixed_promotion or switching_promotion) or ablation!='00' or top_gate!='half'
+                or head_first or not fuse_first_verify or reuse_paid_masks or prefix_order!='right'):
+            raise ValueError('Sampled promotion requires a fused half-gate profile')
         self.sample_full_rebuild = sample_full_rebuild
         self.fullstop = fullstop  # None: legacy; False: shadow; True: apply.
         self.stop_at_single_b_only = stop_at_single_b_only

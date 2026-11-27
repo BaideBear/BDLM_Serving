@@ -8,6 +8,7 @@ case $study in
     capacity) profiles=(fixed90_fused fixed90_dense_fused) ;;
     density) profiles=(phase_high_fused) ;;
     dense-stop|draft-shadow) profiles=(dense_b_stop_fused) ;;
+    promotion) profiles=(dense_stop_promotion_fused) ;;
     *) exit 2 ;;
 esac
 [[ $previous =~ ^[0-9]+$ && $deadline =~ ^[0-9]+$ ]]
@@ -15,6 +16,7 @@ if [[ -e /proc/$previous/stat ]]; then
     args=$(tr '\0' ' ' < "/proc/$previous/cmdline")
     controls=/gs/results/paid-close-1128
     if [[ $study == dense-stop ]]; then controls=/gs/results/capacity-head-1128; fi
+    if [[ $study == promotion ]]; then controls=/gs/results/profile-close-1128; fi
     if [[ $study == draft-shadow ]]; then
         [[ $args == *"qualify_gemma_fused_profiles_a800.sh "*" dense-stop" ]]
     else

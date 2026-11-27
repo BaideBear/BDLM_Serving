@@ -268,7 +268,11 @@ def test_gemma_published_fixed_offers_and_denominators():
     data=collect()
     for cohort,_,n in COHORTS:
         part=[r for r in data if r["cohort"]==cohort]
-        assert len(part)==16 and all(r["n"]==n for r in part)
+        assert len(part)==17 and all(r["n"]==n for r in part)
+        promoted, = [r for r in part if r["method"]=="sample on rebuild"]
+        prior, = [r for r in part if r["method"]=="fixed90_fused" and r["budget"]==512]
+        assert (promoted["budget"],promoted["N"],promoted["correct"])==(512,prior["N"],prior["correct"])
+        assert prior["history_Q"]-promoted["history_Q"]==256*(prior["F"]-promoted["F"])>0
         points=[r for r in part if r["method"].startswith("dense at ")]
         assert len(points)==2 and all(r["budget"]==r["peak_decoder_Q"]==256 for r in points)
         if n==90:

@@ -73,3 +73,12 @@ carrying debt and 360 parked rows written at downshifts. The separate
 `drop_after_stop` schedule applied Q32 after a latched Q256 stop: four such
 downshifts with debt and 37 sub-B decoder ticks after a latch. A latch can
 coincide with ordinary termination; these counts do not imply four early exits.
+
+[`dense_stop_promotion_fused`](gemma-dense-stop-promotion-fused.json) reproduced
+15/15 fixed GPU cases against the appropriate controls (including the
+Q512 sampled promotion arm), and exercised all 25 directed pairs. The
+targeted `drop_after_promotion` path observed two actual promotions followed
+by Q32 with outstanding writes; both were accounted for without a state
+reset. The B-only stop was ineligible during sampled promotion, and the
+post-stop Q32 path still executed 37 sub-B ticks. This is an API and cache
+qualification, not a score for either mixed path.

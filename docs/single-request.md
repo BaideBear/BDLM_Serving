@@ -1,5 +1,14 @@
 # Single-request execution at a given Q budget
 
+`profile="dense_stop_promotion_fused"` additionally lets a fixed Q512 offer
+consume the first ordinary sample on a promoted head during its complete
+new-epoch rebuild. This requires B genuinely missing rows, no dirty rows,
+one sampleable head, and no successor that should open this tick. A partial
+rebuild, including after a downshift, never takes the shortcut. Q256 retains
+the guarded dense stop; the three sparse tiers keep their own row choices.
+The [same-device fixed Q512 comparison](../experiments/t2t/serving_slots/controls/gemma-factors/promotion/paired.csv)
+preserved all final IDs and removed exactly 58 decoder forwards on frozen90.
+
 For a switchable Gemma profile with the measured Q256 full-head stop, pass
 `profile="dense_b_stop_fused"` to `open_strict_gemma`. The other fixed offers
 keep their `fixed90_fused` paths. Only two consecutive real, complete,

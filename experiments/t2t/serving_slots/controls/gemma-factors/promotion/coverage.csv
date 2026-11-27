@@ -1,0 +1,4 @@
+cohort,budget,reference,trial,expected,paired,scored,status,reference_only,trial_only,changed_output_indices,changed_encoder_work_indices,wrong_F_delta_indices,wrong_Q_delta_indices
+original30,512,C512-promotion0,C512-promotion1,30,30,30,complete,0,0,[],[],[],[]
+new60,512,C512-promotion0,C512-promotion1,60,60,60,complete,0,0,[],[],[],[]
+frozen90,512,C512-promotion0,C512-promotion1,90,90,90,complete,0,0,[],[],[],[]

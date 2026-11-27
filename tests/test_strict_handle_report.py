@@ -27,6 +27,8 @@ def test_new_profiles_check_their_own_fixed_controls(tmp_path):
         assert phase.name == ("C256-density-high-10.json" if q==256 else expected)
         stop = reference_path(tmp_path,q,10,"dense_b_stop_fused")
         assert stop.name == ("C256-dense-stop1-10.json" if q==256 else expected)
+        combined = reference_path(tmp_path,q,10,"dense_stop_promotion_fused")
+        assert combined == (tmp_path/"promotion-1128"/"C512-promotion1-10.json" if q==512 else stop)
 
 
 @pytest.fixture

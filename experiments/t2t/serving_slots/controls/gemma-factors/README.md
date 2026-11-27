@@ -266,3 +266,27 @@ there is no debt and the ordinary half gate would keep the next canvas
 closed on that tick. Controls replay the existing terminal-fused Q512
 half gate; full output IDs and physical workload are checked per task.
 The intervention never carries decoder KV across an encoder epoch.
+
+| Q512, rebuild only → rebuild + first sample | Correct | Macro TPF | Token efficiency | Total F | Selected decoder Q |
+|---|---:|---:|---:|---:|---:|
+| Original 30 | 28 → 28 | 22.718 → 23.324 | 6.95% → 7.19% | 489 → 470 | 142,931 → 138,067 |
+| Added 60 | 56 → 56 | 23.194 → 23.923 | 7.08% → 7.32% | 1,020 → 981 | 305,853 → 295,869 |
+| Frozen 90 | 84 → 84 | 23.035 → 23.723 | 7.04% → 7.28% | 1,509 → 1,451 | 448,784 → 433,936 |
+
+[All 90 matched pairs](promotion/paired.csv) have identical output IDs, including
+the original 30, and identical encoder work (77 total nonterminal commits).
+There were 58 combined first samples; every one removes exactly one physical
+256-row projection. Paired macro TPF delta +0.689, bootstrap 95% interval
+[+0.519,+0.863]. Native Q256: 85/90, 25.510, 9.31%; IBS nominal 512
+(one-block saturation): 79/90, 23.656, 11.10%; Flow W2: 84/90, 25.390,
+TE unavailable. These are external controls, not matched interventions.
+
+**What not to do on a scarce offer.** The [rank / sampling matrix](rank/paired.csv)
+is now complete for all 90 on all four offers, with right-edge/oldest/uniform
+on the same 1/8 rule. Adding sampling to otherwise write-only calls when all
+the unpaid rows fit was a separate intervention. At Q32 this changed 85/90,
+4.666 TPF to 65/90, 4.166; at Q64, 83/90, 7.842 to 65/90, 6.306; at Q128,
+85/90, 12.209 to 75/90, 10.070. At Q256 it changed 83/90, 17.742 to
+82/90, 19.023. Paying a write need not create a denoising tick. Contrast
+this with the Q512 gain from replacing an *already required*, full-head
+sample at the same state. Neither comparison uses unobserved logits.
