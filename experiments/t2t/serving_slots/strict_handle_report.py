@@ -26,6 +26,9 @@ def summarize(root, model, manifest):
             raise ValueError(f"invalid qualification: {p.name}")
         groups[s].append(r)
     arms = {}
+    profiles = {r.get("profile","fixed90_candidate") for rows in groups.values() for r in rows}
+    if len(profiles)>1:
+        raise ValueError("mixed profiles in qualification")
     for suite, rows in groups.items():
         if {r["index"] for r in rows}!={0,10,20}:
             raise ValueError(f"incomplete qualification: {suite}")
@@ -49,6 +52,7 @@ def summarize(root, model, manifest):
             if model=="gemma":
                 arms[suite]["reference_sha256"]={r["index"]:r["reference_sha256"] for r in rows}
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
+                **({"profile":profiles.pop()} if model=="gemma" else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",
                 gpu=sorted({r["gpu"] for v in groups.values() for r in v}), arms=arms)
 

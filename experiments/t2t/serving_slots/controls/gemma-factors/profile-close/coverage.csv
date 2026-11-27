@@ -1,7 +1,7 @@
 cohort,budget,reference,trial,expected,paired,scored,status,reference_only,trial_only,changed_output_indices,changed_encoder_work_indices,wrong_F_delta_indices,wrong_Q_delta_indices
 original30,128,C128-profile-fuse0,C128-profile-fuse1,30,30,30,complete,0,0,[],[],[],[]
-new60,128,C128-profile-fuse0,C128-profile-fuse1,60,22,22,incomplete,0,0,[],[],[],[]
-frozen90,128,C128-profile-fuse0,C128-profile-fuse1,90,52,52,incomplete,0,0,[],[],[],[]
+new60,128,C128-profile-fuse0,C128-profile-fuse1,60,60,60,complete,0,0,[],[],[],[]
+frozen90,128,C128-profile-fuse0,C128-profile-fuse1,90,90,90,complete,0,0,[],[],[],[]
 original30,512,C512-profile-fuse0,C512-profile-fuse1,30,30,30,complete,0,0,[],[],[],[]
-new60,512,C512-profile-fuse0,C512-profile-fuse1,60,35,35,incomplete,0,1,[],[],[],[]
-frozen90,512,C512-profile-fuse0,C512-profile-fuse1,90,65,65,incomplete,0,1,[],[],[],[]
+new60,512,C512-profile-fuse0,C512-profile-fuse1,60,60,60,complete,0,0,[],[],[],[]
+frozen90,512,C512-profile-fuse0,C512-profile-fuse1,90,90,90,complete,0,0,[],[],[],[]

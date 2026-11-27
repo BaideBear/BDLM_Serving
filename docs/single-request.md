@@ -41,6 +41,16 @@ uses the same 1/8 law at all tiers pending its paired dose results; select
 `top_gate` explicitly for a registered alternative. These are fixed-tier
 candidates, not an assertion that either profile dominates IBS or FlowBlock.
 
+`fixed90_fused` retains the candidate's row plan and combines the last writeback
+with the first verification slice only when the current head alone is resident
+and that slice contains all outstanding writes. Both Q128 and Q512 have now
+shown exact final-ID parity on all 90 at their actual candidate configurations.
+`fixed90_dense_fused` additionally spends a true Q256 on the whole head when
+it fits together with outstanding writes. It cannot displace dirty successor
+positions to do so. This last change can alter output IDs and is experimental;
+the [fixed same-budget controls](../experiments/t2t/serving_slots/controls/gemma-factors/README.md)
+keep it separate from terminal fusion.
+
 The kernel takes one request and a supplied budget. At each fixed budget the two objectives are frozen-task accuracy and tokens per forward (TPF). Do not trade away one in a hidden scalar score: report the observed non-dominated methods when the two objectives disagree. Only compare strict-budget candidates after checking every generation decoder forward, including initialization, verification and commit. Gemma's post-commit encoder is a separate, explicitly billed cost; a decoder cap is not an end-to-end per-forward cap on that encoder. There is no request ordering, admission or load controller in this task.
 
 The handle below is the historical serial reference. Its nominal offers are **not** a strict cap. Keep the same handle if the supplied budget changes; replaying a predetermined sequence tests cache continuity, not how to choose that sequence.

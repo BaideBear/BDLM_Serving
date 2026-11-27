@@ -5,7 +5,7 @@ from itertools import product
 
 import pytest
 
-from experiments.t2t.serving_slots.strict_handle_qualify import offer_cycle
+from experiments.t2t.serving_slots.strict_handle_qualify import offer_cycle, reference_path
 from experiments.t2t.serving_slots.strict_handle_report import summarize
 
 
@@ -14,6 +14,15 @@ def test_wraparound_covers_each_pair_once(tiers):
     path = offer_cycle(tiers)
     assert path[0] == tiers[0]
     assert Counter(zip(path, path[1:] + path[:1])) == Counter(product(tiers, repeat=2))
+
+
+def test_new_profiles_check_their_own_fixed_controls(tmp_path):
+    for q in (32,64,128,256,512):
+        path = reference_path(tmp_path,q,10,"fixed90_fused")
+        expected = f"C{q}-profile-fuse1-10.json" if q in (128,512) else f"C{q}-fuse1-10.json"
+        assert path.name == expected
+        dense = reference_path(tmp_path,q,10,"fixed90_dense_fused")
+        assert dense.name == ("C256-capacity1-10.json" if q==256 else expected)
 
 
 @pytest.fixture

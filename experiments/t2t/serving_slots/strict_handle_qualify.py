@@ -26,7 +26,13 @@ def offer_cycle(tiers=TIERS):
     return tuple(reversed(finished))[:-1]
 
 
-def reference_path(root, q, index):
+def reference_path(root, q, index, profile="fixed90_candidate"):
+    if profile in ("fixed90_fused","fixed90_dense_fused"):
+        if q in (128,512):
+            return root/"profile-close-1128"/f"C{q}-profile-fuse1-{index:02}.json"
+        if q==256 and profile=="fixed90_dense_fused":
+            return root/"capacity-head-1128"/f"C256-capacity1-{index:02}.json"
+        return root/"paid-close-1128"/f"C{q}-fuse1-{index:02}.json"
     if q == 128:
         return root/"cross-race-1128"/f"C128-gateoff-slack0-4-pref1of4-{index:02}.json"
     if q == 512:
@@ -39,7 +45,7 @@ def check(ok, message):
         raise ValueError(message)
 
 
-def drive(model, data, task, schedule, *, deadline):
+def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate"):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -49,7 +55,7 @@ def drive(model, data, task, schedule, *, deadline):
     transitions, routes = Counter(), Counter()
     old, head, verify, encoded, d_q = None, 0, 0, 0, 0
     parked_pay = physical_downshift = 0
-    cfg = dict(seed=task["seed"], initial_offer=schedule[0])
+    cfg = dict(seed=task["seed"], initial_offer=schedule[0], profile=profile)
     with ExitStack() as stack:
         events = stack.enter_context(observe(model))
         proj, positions = stack.enter_context(projectors(model))
@@ -81,7 +87,13 @@ def drive(model, data, task, schedule, *, deadline):
                       p["age_after"] == p["age_before"] + bool(p["sampled"]), "sampler clock reset")
                 ages[ordinal] = p["age_after"]
                 if p["phase"] == "verify":
-                    check(ordinal == head and not sampled and not debt
+                    if e["route"]=="verify_paid":
+                        check(profile!="fixed90_candidate" and verify==0 and len(e["parts"])==1
+                              and debt and debt<=set(rows) and e["head_initialized_before"]==256
+                              and e["promoted"] is None, "unpaid or reordered fused verification")
+                    else:
+                        check(not debt,"pending write on plain verification")
+                    check(ordinal == head and not sampled
                           and p["rows"] == list(range(verify, verify+len(p["rows"]))), "terminal sweep")
                     verify += len(p["rows"])
             debt = (debt - set(rows)) | changed
@@ -119,6 +131,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     for key in ("checkpoint","samples","receipts","out"):
         ap.add_argument("--"+key, type=Path, required=True)
+    ap.add_argument("--profile",choices=("fixed90_candidate","fixed90_fused","fixed90_dense_fused"),
+                    default="fixed90_candidate")
     ap.add_argument("--deadline",type=int,required=True)
     a = ap.parse_args(argv)
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
@@ -139,16 +153,18 @@ def main(argv=None):
             for name, schedule in jobs:
                 dst = a.out/f"{name}-{i:02}.json"
                 if dst.exists():
+                    previous = json.loads(dst.read_bytes())
+                    check(previous.get("profile","fixed90_candidate")==a.profile, "wrong profile in destination")
                     continue
-                row, ids = drive(model,data,t,schedule,deadline=a.deadline)
+                row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile)
                 if len(schedule)==1:
-                    src = reference_path(a.receipts,schedule[0],i)
+                    src = reference_path(a.receipts,schedule[0],i,a.profile)
                     blob = src.read_bytes()
                     ref = json.loads(blob)
                     same = list(ids)==ref["output_ids"] and all(row[k]==ref[k] for k in
                             ("index","seed","task_id","dataset","input_sha256","F","decoder_F","encoder_F","decoder_Q","encoder_Q"))
                     row.update(reference_sha256=sha256(blob).hexdigest(), identical=same)
-                row.update(schema="strict-handle-gemma-qualification-v1", suite=name, samples_sha256=SAMPLES_SHA,
+                row.update(schema="strict-handle-gemma-qualification-v1", suite=name, profile=a.profile, samples_sha256=SAMPLES_SHA,
                            gpu=torch.cuda.get_device_name(), run_pid=os.getpid(), timestamp=time.time())
                 tmp = dst.with_suffix(".tmp")
                 tmp.write_text(json.dumps(row,sort_keys=True)+"\n")

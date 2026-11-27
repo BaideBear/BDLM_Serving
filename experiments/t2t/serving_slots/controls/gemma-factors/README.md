@@ -78,6 +78,14 @@ was 28/30 on both sides, 20.749 to 22.718 (29 F, 260 decoder Q saved).
 All final IDs and encoder work matched on both pairs. These are not 90-case
 estimates and do not establish real-time speed.
 
+All 90 on the two live profiles are now sealed. Q128: **88/90** unchanged,
+TPF **12.588 to 12.794**, TE **11.67% to 11.69%**, saving 43 F and 487
+decoder Q. Q512 half gate: **84/90** unchanged, TPF **21.344 to 23.035**,
+TE **7.02% to 7.04%**, saving 70 F and 931 decoder Q. All 180 pairs had
+identical final IDs and encoder costs and exact per-request conservation
+of the fused work. The gated Q512 endpoint still trails W2 (84/90,
+25.390 TPF). These are paired algorithmic results, not a latency forecast.
+
 ## Spending a full block at the actual one-block offer
 
 `capacity/` compares two runs that **both receive Q256**, with the same
