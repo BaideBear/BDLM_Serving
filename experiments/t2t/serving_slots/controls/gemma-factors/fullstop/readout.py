@@ -146,6 +146,16 @@ for c,indices in target.items():
                             resets={k:sum(s['resets'][k] for s in obs) for k in codes})
             if dense:
                 out[label]['token_efficiency']=out[label]['N']/out[label]['decoder_Q']
+                # A verify_paid call is also the measured final input write. Even an
+                # exact full draft would not by itself make this call redundant.
+                out[label]['plain_verify_F']=sum(r['route_F'].get('verify',0) for r in arm)
+                out[label]['verify_with_writes_F']=sum(r['fused_F'] for r in arm)
+                out[label]['covered_final_writes_Q']=sum(r['fused_dirty_Q'] for r in arm)
+                roles=Counter()
+                for r in arm:
+                    assert sum(r['categories'].values())==r['decoder_Q']
+                    roles.update(r['categories'])
+                out[label].update(roles=dict(roles),encoder_Q=sum(r['encoder_Q'] for r in arm))
         ds=[b['N']/b['F']-a['N']/a['F'] for a,b in pairs]
         fs=[b['F']-a['F'] for a,b in pairs]
         out.update(delta_macro_TPF=round(statistics.mean(ds),4), delta_TPF_ci95=ci(pairs,ds),

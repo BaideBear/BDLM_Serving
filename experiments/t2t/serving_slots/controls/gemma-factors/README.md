@@ -224,3 +224,24 @@ verify. The encoder is charged; no terminal work is hidden. Pairs stay on
 A800 GPU4 in alternating order. On the cluster, `python fullstop/readout.py
 --dense-stop` from this directory audits the receipts; add `--complete` to
 require all 180 scored receipts. A partial readout is not a frozen90 result.
+
+**Result: all 180 scored; same A800 per pair.** Every shadow run reproduced
+the archived physical Q256 control (IDs and F/Q). Switching the native stop
+on only after two consecutive complete measured head samples gave:
+
+| Fixed dense Q256: shadow → apply | Correct | Macro TPF | Selected-Q TE | Total F | Decoder Q |
+|---|---:|---:|---:|---:|---:|
+| Original 30 | 28 → 28 | 22.184 → 23.259 | 7.69% → 8.06% | 540 → 516 | 132,096 → 125,952 |
+| Added 60 | 55 → 55 | 23.318 → 24.749 | 8.48% → 9.01% | 1,064 → 1,004 | 257,792 → 242,432 |
+| Frozen 90 | 83 → 83 | 22.940 → 24.252 | 8.21% → 8.69% | 1,604 → 1,520 | 389,888 → 368,384 |
+
+No question changed correctness; four full ID sequences changed. Final N was
+32,006 in both groups. 51 requests used fewer F, 39 tied, none increased;
+paired macro TPF delta +1.312 (95% stratified bootstrap interval +0.980 to
++1.692). All 171 terminal verify calls in each arm also wrote pending inputs.
+This result is for *fixed* Q256; don't transfer it to a mixed path or to the
+two-canvas Q512 stop. Historical Optimus IBS256 is 79/90, 23.656, 11.10%
+(nominal budget); native Q256 is 85/90, 25.510, 9.31%. The candidate beats
+IBS on the two main metrics but not on selected-row efficiency, and trails
+native on all three. See [cohorts](fullstop/dense-summary.jsonl) and
+[paired counts](fullstop/dense-pairs.csv).

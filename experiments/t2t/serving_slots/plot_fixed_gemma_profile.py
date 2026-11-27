@@ -1,5 +1,6 @@
 """Publish the measured fixed profile against same-cohort external controls."""
 import csv
+import json
 from pathlib import Path
 
 from .factor_tables import write_csv
@@ -19,6 +20,7 @@ def read(path):
 def collect():
     studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity","density")}
     baselines = read(ROOT/"block-history90-matrix.csv")
+    stops = {r['cohort']:r for r in map(json.loads,(FACTORS/"fullstop"/"dense-summary.jsonl").read_text().splitlines())}
     rows = []
     for cohort, external, n in COHORTS:
         for c in TIERS:
@@ -44,6 +46,15 @@ def collect():
                     avg_decoder_Q=int(r["decoder_Q"])/int(r["decoder_F"]),peak_decoder_Q=int(r["peak_decoder_Q"]),
                     F=int(r["F"]),N=int(r["N"]),history_Q=int(r["history_Q"]),physical_Q=int(r["physical_Q"]),
                     source=f"gemma-factors/{study}/paired.csv",**roles))
+        result=stops[cohort]
+        stop=result["on"]
+        if (result["tier"]!=256 or result["matched"]!=n or stop["scored"]!=n or result["prior_control_different"]
+                or stop['ticks']*256!=stop['decoder_Q'] or sum(stop['roles'].values())!=stop['decoder_Q']):
+            raise ValueError("Unqualified dense head stop")
+        rows.append(dict(cohort=cohort,method="dense + native stop",budget=256,n=n,correct=stop["correct"],
+            macro_TPF=stop["macro_TPF"],token_efficiency=stop["token_efficiency"],avg_decoder_Q=256,peak_decoder_Q=256,
+            F=stop["F"],N=stop["N"],history_Q=stop["decoder_Q"],physical_Q=stop["decoder_Q"]+stop["encoder_Q"],
+            source="gemma-factors/fullstop/dense-summary.jsonl",**{f"Q_{k}":stop["roles"][k] for k in ROLES}))
         for method, setting, c, label in [
             *(("ibs",q,q,"Optimus IBS") for q in TIERS), ("native",256,256,"Native / Flow W1"),
             ("flow",2,512,"Flow W2"),
@@ -68,7 +79,7 @@ def plot(path, rows):
     n, = {r["n"] for r in rows}
     palette={"fixed90_fused":"#087469","Optimus IBS":"#6343a0","Native / Flow W1":"#596779",
              "Flow W2":"#a65216","full-head variant":"#b02c53",
-             "dense at high MASK":"#1964ae","dense at low MASK":"#78620d"}
+             "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -88,7 +99,7 @@ def plot(path, rows):
                 ax.scatter(x,y,marker="s",facecolors="none",edgecolors=color,s=40)
             else:
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
-                                       "dense at high MASK":"+","dense at low MASK":"x"}[name],
+                                       "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
