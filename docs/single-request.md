@@ -1,19 +1,19 @@
-# Single-request serving interface
+# Single-request execution at a given Q budget
 
-The outer scheduler owns the offer **every decoder step**. It does not have to follow a recommended cycle. Keep the same handle across offers, including transitions between one and two physical blocks. The handle is a serial batch-one reference implementation, not a new continuous-batching server. Use one owning thread and no overlapping forwards on a shared model.
+The kernel takes one request and a supplied budget. At each fixed budget the two objectives are frozen-task accuracy and tokens per forward (TPF). Do not trade away one in a hidden scalar score: report the observed non-dominated methods when the two objectives disagree. Only compare strict-budget candidates after checking every generation decoder forward, including initialization, verification and commit. Gemma's post-commit encoder is a separate, explicitly billed cost; a decoder cap is not an end-to-end per-forward cap on that encoder. There is no request ordering, admission or load controller in this task.
+
+The handle below is the existing serial reference. Its nominal offers are **not** a strict cap. Keep the same handle if the supplied budget changes; replaying a predetermined sequence tests cache continuity, not how to choose that sequence.
 
 ```python
 from bdlm_serving.methods.t2t import serving_profiles as profiles
 
-def drive(handle, choose):
-    # choose(menu) is supplied by the caller's load policy; it returns an offer.
+def drive(handle, q):
+    # Run one request at the given fixed offer.
     # Keep prompt-only work separate from generation F and Q.
     prefill_q, paid_q, paid_f = handle.opened_prefill_q, 0, 0
     try:
         while handle.status == "ready":
-            menu = handle.menu()     # does not run a decoder forward
-            offer = choose(menu)    # e.g. lambda menu: 64 for a fixed-slot control
-            step = handle.advance(menu[offer])
+            step = handle.advance(handle.menu()[q])
             paid_q += step.paid_q
             paid_f += step.paid_f
             prefill_q += step.prefill_q
@@ -42,6 +42,6 @@ handle = profiles.open_gemma(model, data, dict(block_size=256, cap=2048),
 
 Offers: **32, 64, 128, 256, 512**. `economy` retains causal visibility, admits a second canvas when the head progress threshold is met, and inserts no optional prefix. `q128_prefix_candidate` fills genuine spare Q128 positions with up to 32 random positions from the current block's contiguous decoded prefix. Use it as a fixed-slot comparison, not as the mixed-path default: [paired transfer results](../experiments/t2t/serving_slots/controls/gemma-unified-profile-transfer.csv).
 
-**What a quote buys.** `price.main_q` is the exact projected width of the next decoder; `mandatory_q` is already included in that width. `price.post_q_max` bounds conditional paid encoder work. Mandatory cache writeback can exceed a small nominal offer; warm-up, verification, and commits can also have different widths from the offer. If a current hard limit cannot accommodate any quote, the outer scheduler can defer this request. Do not silently clip rows or count nominal Q as actual usage. Use `step.paid_q` / `step.paid_f` for the actual bill, not the quote maximum. `result()` returns token IDs; the frozen scorer counts non-special output tokens for N. TPF is `mean(N/F)` and efficiency is `sum(N)/sum(paid_Q)` across requests.
+**Measured cost.** `price.main_q` is the projected width of the next decoder; `mandatory_q` is included. Mandatory cache writeback, warm-up, verification or commit can exceed a small nominal offer on this reference path. One such forward disqualifies a run from the strict tier even if mean Q is below the cap. Use `step.paid_q` / `step.paid_f` for actual generation costs, including conditional encoder work. `result()` returns token IDs; the frozen scorer counts non-special output tokens for N. TPF is `mean(N/F)` and efficiency is `sum(N)/sum(paid_Q)` across requests.
 
 **Reproduce and inspect.** [Frozen data and environment](reproduce.md), [slot results, baselines, and limits](../experiments/t2t/serving_slots/EXPANDED.md), [directional mask and paired results](../experiments/t2t/serving_slots/mask-evidence.svg), [tests of the public entry points](../tests/test_request_profiles.py). The single-request wrappers expect this checkout, including `experiments/t2t/serving_slots`, on the Python path.
