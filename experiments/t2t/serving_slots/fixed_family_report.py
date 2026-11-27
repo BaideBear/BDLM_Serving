@@ -34,8 +34,13 @@ def report(root, model, device, num=1):
     suite = root/"samples.json"
     tasks=load_tasks(suite)
     folder=root/name/device/f"law-{num}-8"
-    files=[folder/"run.json"] if model=="llada21" and (folder/"run.json").exists() else list(
-        folder.glob("shard-*-of-*-tiers-*.json"))
+    folders=[folder]
+    if model=="gemma" and device=="cuda":
+        # The Q512 successor has a separate output root so it never modifies
+        # the first 360-case GPU seal. CPU registrations share a root.
+        folders.append(root/"gemma-fixed-dual-v1"/device/f"law-{num}-8")
+    files=[folder/"run.json"] if model=="llada21" and (folder/"run.json").exists() else [
+        p for base in folders for p in base.glob("shard-*-of-*-tiers-*.json")]
     regs, assigned = {}, set()
     for p in files:
         reg=json.loads(p.read_bytes())
@@ -47,10 +52,11 @@ def report(root, model, device, num=1):
         regs[sha(p)]=cells
     cases={q:{} for q in menu}
     inputs={}
-    for p in sorted(folder.glob("[0-9][0-9]-q*.json")):
+    for p in sorted(p for base in folders for p in base.glob("[0-9][0-9]-q*.json")):
         r=json.loads(p.read_bytes())
         i,q=r["index"],r["q"]
-        require((i,q) in regs.get(r["registration_sha256"],set()) and p.name==f"{i:02}-q{q}.json" and
+        require((i,q) in regs.get(r["registration_sha256"],set()) and i not in cases[q] and
+                p.name==f"{i:02}-q{q}.json" and
                 r["law"]==[num,8] and all(tasks[i][k]==r[k] for k in ("seed","dataset","task_id")) and
                 inputs.setdefault(i,r["input_sha256"])==r["input_sha256"],"Wrong item, seed, law or input")
         widths=[e["q"] for e in r["trace"]]

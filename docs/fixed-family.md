@@ -36,3 +36,7 @@ LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位�
 **预先指定的三题端到端检查（真权重 CPU，不是全90成绩）：** [LLaDA 五档](../experiments/t2t/serving_slots/controls/fixed-family-llada21-cpu3.csv) 和 [Gemma 四个单块档](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu3.csv)。两表均只用冻结索引 0、10、20，每数据集一题，列出从头至尾的质量、TPF、效率、真实 decoder 峰值，以及额外前缀刷新/编辑的量。LLaDA Q4/Q8 在这三题均未选择额外前缀：Q4 的配额恒为零，Q8 只要先付至少一个 dirty，剩余配额即不足八行。三题均正常完成，不是超时导致计零；不能从这三题确认低质量的原因。Gemma 四档均为 3/3，宏 TPF 随档上升、效率下降；不据此推断正式质量持平。运行以上 report 时添加 `--smoke-csv` 可复现。
 
 另有[严格旧执行器的三题刷新开销](../experiments/t2t/serving_slots/controls/gemma-strict-drain-grid-cpu3.json)，仅用于识别成本来源，不是统一候选的成绩。Q32/64/128 K0 的纯刷新分别有 2,837/2,929/2,753 个投影行次，其中只因未接受位置重新加噪而计算的分别为 1,581/1,772/1,871；这些数字不是可无损删除的工作量。
+
+对相同三题[逐轮回放前缀资格](../experiments/t2t/serving_slots/controls/fixed-family-prefix-opportunity-cpu3.json)，我们先重建实际选中的位置并逐次对账，再分类未选原因。LLaDA Q4 有 296/707 次、Q8 有 401/627 次 forward 同时有干净的块内前缀和可用余量，但向下取整给出零个前缀名额。这两档三题均无可选前缀投影，并非没有机会。Q16/Q32 分别有 254/161 次 forward 确实选用了前缀。此回放不改变任何生成结果，也不估算改配额后的质量或 TPF。复算：`python -Bm experiments.t2t.serving_slots.fixed_prefix_opportunity`。
+
+Gemma 的 Q512 GPU 档用同一冻结 `gemma_fixed_dual_eval.fixed` 做完整单请求生成。它的输出独立于 GPU0 的 360 份单块档原件；只有前序作业归还唯一 holder、360 份封存记录无更改后，后继才能接卡。GPU0 排队不代表已有 CUDA 结果；报表按实际封存样本计数。

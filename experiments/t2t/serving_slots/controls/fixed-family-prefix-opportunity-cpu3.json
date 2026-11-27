@@ -1,0 +1,44 @@
+{
+  "model": "llada21",
+  "device": "cpu",
+  "law": [
+    1,
+    8
+  ],
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "counts": {
+    "4": {
+      "cold": 312,
+      "rounded_to_zero": 296,
+      "no_spare_row": 12,
+      "no_unresolved": 28,
+      "no_clean_prefix": 59
+    },
+    "8": {
+      "cold": 160,
+      "no_clean_prefix": 33,
+      "rounded_to_zero": 401,
+      "no_unresolved": 30,
+      "no_spare_row": 3
+    },
+    "16": {
+      "cold": 85,
+      "no_clean_prefix": 39,
+      "used": 254,
+      "no_unresolved": 30,
+      "rounded_to_zero": 9,
+      "no_spare_row": 4
+    },
+    "32": {
+      "cold": 29,
+      "no_clean_prefix": 32,
+      "used": 161,
+      "no_unresolved": 29,
+      "rounded_to_zero": 1
+    }
+  }
+}
