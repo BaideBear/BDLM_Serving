@@ -67,6 +67,14 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                         len(e['sampled_absolute'])>0 and
                         set(e['sampled_absolute'])==debt-accepted,
                         'Paid MASK sampling without full warm head / captured physical write')
+            if route == 'verify_paid':
+                base = origin+B*len(sealed)
+                require(req.fuse_first_verify and not partial and bool(debt) and debt.issubset(pos[t]) and
+                        pos[t] == list(range(base,base+min(B,q))) and len(e['parts'])==1 and
+                        e['parts'][0]['phase']=='verify' and not e['sampled_absolute'] and
+                        (e['head_mask_before']==0 or e['parts'][0]['age_before']==48) and
+                        e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
+                        'Ineligible or reordered terminal writeback fusion')
             if q == 2*B:
                 require(not build and route != 'sparse', 'Top tier took a low-tier policy')
                 if route in ('dense_joint','dense_single','dense_head_debt'):
@@ -126,7 +134,8 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                           dirty=len(old_dirty & absrows), rebuild=len(rows) if p['phase']=='rebuild' else 0)
             if p['phase'] == 'verify':
                 require(o == len(sealed) and rows == list(range(len(partial),len(partial)+len(rows))) and not p['sampled']
-                        and not p['dirty_before'] and verified is None, 'Invalid head verify')
+                        and (not p['dirty_before'] or route=='verify_paid') and verified is None,
+                        'Invalid head verify')
                 partial.extend(argmax[start:start+len(rows)])
                 if len(partial)==B:
                     verified, partial = partial, []

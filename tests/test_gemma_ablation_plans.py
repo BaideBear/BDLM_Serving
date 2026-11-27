@@ -51,6 +51,25 @@ def test_downshift_retains_bank_sampler_and_parked_debt():
     assert r.bank is bank and r.tail is tail and r.tail.sampler is tail.sampler
 
 
+@pytest.mark.parametrize("q", (32,64,128,256,512))
+def test_close_fusion_only_for_full_debt_inside_unchanged_first_chunk(q):
+    r = request('00')
+    r.top_gate = 'off'
+    r.rows.initialized = r.rows.accepted = FULL
+    r.rows.dirty = frozenset([0,min(q,B)-1])
+    assert r._advance(q)['route'] == 'drain'
+    r.fuse_first_verify = True
+    e = r._advance(q)
+    assert e['route'] == 'verify_paid' and not e['sample']
+    assert list(e['positions']) == list(range(r.origin,r.origin+min(q,B)))
+    if q < B:
+        r.rows.dirty = frozenset([0,q])
+        assert r._advance(q)['route'] == 'drain'
+    r.rows.dirty = frozenset([0])
+    r.tail = r._spawn()
+    assert r._advance(q)['route'] == 'drain'
+
+
 @pytest.mark.parametrize('q', [32,64,128,256])
 def test_fixed_lower_tiers(q):
     out = {}

@@ -152,7 +152,7 @@ class FixedFamilyRequest(FamilyRequest):
 
     def _apply(self, states, pos, sample, prefix, cold, offer, route):
         head = states[0]
-        verify, rebuild = route == 'verify', route == 'rebuild'
+        verify, rebuild = route in ('verify', 'verify_paid'), route == 'rebuild'
         logits = self._project(states, pos)
         event = dict(tick=self.tick, ordinal=self.ordinal, offer=offer, q=len(pos), route=route,
                      positions=list(pos), parts=[], encoded=False, encoder_Q=0, decoder_F=1,
@@ -172,6 +172,14 @@ class FixedFamilyRequest(FamilyRequest):
                         prefix=list(extra), dirty_before=sorted(rows.dirty),age_before=s.age,
                         admitted=[],edited=[],revoked=[], input_changed=[])
             if phase == 'verify':
+                if route == 'verify_paid':
+                    if (len(states) != 1 or self.cursor or not rows.dirty or
+                            not rows.dirty.issubset(local) or c.can_sample or s.phase != 'sample'):
+                        raise RuntimeError('Cannot combine this writeback with the first terminal chunk')
+                    # _project has already written these exact inputs at every layer.
+                    paid = RowPlan(offer, local, (), (), ())
+                    rows._pending = paid
+                    rows.finish(paid)
                 if (rows.initialized != FULL or rows.dirty or
                         local != tuple(range(self.cursor, self.cursor + len(local)))):
                     raise RuntimeError('Unready head or incomplete terminal sweep')
@@ -225,21 +233,24 @@ class AblationRequest(FixedFamilyRequest):
     receipt_tail_ids = False
     prefix_order = 'right'
     reuse_paid_masks = False
+    fuse_first_verify = False
 
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
-                 prefix_order='right', reuse_paid_masks=False):
+                 prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
             raise ValueError('Unknown opening gate')
         if head_first and ablation != '10':
             raise ValueError('Slack-only selection requires a cross-block arm without dense build')
-        if prefix_order not in ('right', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool:
+        if (prefix_order not in ('right', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool
+                or type(fuse_first_verify) is not bool):
             raise ValueError('Unknown prefix ranking or refresh policy')
         self.top_gate, self.head_first = top_gate, head_first
         self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
         self.prefix_order, self.reuse_paid_masks = prefix_order, reuse_paid_masks
+        self.fuse_first_verify = fuse_first_verify
         self.ablation = ablation
         self.next_side = 0
         super().__init__(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law)
@@ -342,6 +353,11 @@ class AblationRequest(FixedFamilyRequest):
         if not denoising:
             # Terminal sweep and encoder epoch change are head-only barriers.
             if debt:
+                first = range(base, base+min(B,q))
+                if (self.fuse_first_verify and self.tail is None and self.cursor == 0 and
+                        head_initialized == B and head.sampler.phase == 'sample' and
+                        not head.can_sample and debt.issubset(first)):
+                    return run('verify_paid', first)
                 return run('drain', sorted(debt)[:q])
             return run('verify', range(base+self.cursor, base+min(B,self.cursor+q)))
 

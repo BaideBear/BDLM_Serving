@@ -177,6 +177,20 @@ def test_rank_only_and_exposure_reconciled():
         report.normalize(alt | {"prefix":[1,4]})
 
 
+def test_close_requires_exact_work_delta_as_well_as_equal_tokens():
+    base = cross(0, df=3, dq=12) | dict(budget=256,schema="paid-close-v1",fuse=False,
+                                           fused_F=0,fused_dirty_Q=0)
+    alt = cross(0) | dict(budget=256,schema="paid-close-v1",fuse=True,fused_F=1,
+                          fused_dirty_Q=2,route_F={"sample":1,"verify_paid":1})
+    pair = [("C256-fuse0","C256-fuse1")]
+    def parity(other):
+        return report.summarize(map(report.normalize,(base,other)), comparisons=pair,draws=0)[
+            "comparisons"][0]["cohorts"]["original30"]["parity"]
+    assert all(not v for v in parity(alt).values())
+    assert parity(alt | {"output_ids":[312]})["changed_output_indices"] == [0]
+    assert parity(alt | {"fused_dirty_Q":3})["wrong_Q_delta_indices"] == [0]
+
+
 def test_layout_uses_history_cap_not_actual_projection():
     shared = dict(**identity(0), samples_sha256=SNAPSHOT, output_tokens=8,
                   generation_forwards=3, truncated=False, correct=True)

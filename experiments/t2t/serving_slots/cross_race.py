@@ -29,6 +29,11 @@ def cases(suite):
         for item in grid():
             yield (*item, 'right', False)
         return
+    if suite == 'close':
+        for i in [j+k for j in range(10) for k in (0,10,20)] + list(range(30,90)):
+            for c in (256,128,32,64,512):
+                yield i,c,'off',False,4,(1,8),'right',False
+        return
     # One feature at a time. Include both missing endpoint tiers and a right-edge
     # replay in the same software build; comparisons never change the fraction.
     for i in [j+k for j in range(10) for k in (0,10,20)] + list(range(30,90)):
@@ -94,8 +99,11 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
-    ap.add_argument('--suite', choices=('cross','rank'), default='cross')
+    ap.add_argument('--suite', choices=('cross','rank','close'), default='cross')
+    ap.add_argument('--fuse-first-verify', action='store_true')
     a = ap.parse_args()
+    if a.fuse_first_verify and a.suite != 'close':
+        ap.error('Terminal fusion is an independent close-suite intervention')
     from bdlm_serving.evaluation.frozen import sha
     from bdlm_serving.evaluation.frozen90 import load_tasks
     from bdlm_serving.evaluation.scoring import score
@@ -123,6 +131,8 @@ def main():
         key = f"C{c}-gate{gate}-slack{int(slack)}-{den}-pref{dose[0]}of{dose[1]}-{i:02d}"
         if a.suite == 'rank':
             key = f'C{c}-rank{rank}-reuse{int(reuse)}-{i:02d}'
+        if a.suite == 'close':
+            key = f'C{c}-fuse{int(a.fuse_first_verify)}-{i:02d}'
         out = a.output / (key+'.json')
         if out.exists():
             continue
@@ -139,7 +149,8 @@ def main():
                     add_generation_prompt=True, return_dict=True, return_tensors='pt').to(model.device)
             r = audited(model,d,seed=t['seed'],q=c,ablation='10' if slack else '00',law=Law(*dose),
                 policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
-                            prefix_order=rank,reuse_paid_masks=reuse))
+                            prefix_order=rank,reuse_paid_masks=reuse,
+                            fuse_first_verify=a.fuse_first_verify))
             assert r['projection_modules']==85 and r['max_decoder_Q']<=c
             ids = r['output_ids']
             n = sum(tid not in special for tid in ids)
@@ -159,6 +170,13 @@ def main():
                            resample_paid_F=r['route_F'].get('resample_paid',0))
                 if rank == 'right':
                     assert row['prefix_exposure']['differing_prefix_seats'] == 0
+            if a.suite == 'close':
+                row.update(schema='paid-close-v1', fuse=a.fuse_first_verify,
+                           source_sha256=sources, scorer_sha256=scorer_sha,
+                           transformers=str(transformers.__version__),
+                           fused_F=r['route_F'].get('verify_paid',0),
+                           fused_dirty_Q=sum(len(p['dirty_before']) for e in r['trace']
+                                if e['route']=='verify_paid' for p in e['parts']))
             try:
                 row['correct'] = bool(score(text,t)['correct'])
             except (FileNotFoundError, RuntimeError) as err:

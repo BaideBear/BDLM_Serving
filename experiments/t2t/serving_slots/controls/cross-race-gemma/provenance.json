@@ -1,5 +1,5 @@
 {
-  "observed_utc": "2026-11-27T18:11:19+00:00",
+  "observed_utc": "2026-11-27T18:19:36+00:00",
   "receipts": "/gs/results/cross-race-1128",
   "logs": "/gs/runtime/cross-race-1128",
   "log_files": 4,
@@ -16,13 +16,15 @@
       "host": "n1",
       "gpu": "NVIDIA A800-SXM4-80GB",
       "torch": "2.6.0+cu124",
-      "receipts": 1209
+      "receipts": 1620
     }
   ],
   "scorer_sha256": [],
-  "receipts_without_scorer_sha256": 1209,
+  "receipts_without_scorer_sha256": 1620,
   "complete_cohorts": [
-    "original30"
+    "original30",
+    "new60",
+    "frozen90"
   ],
   "control_sha256": {
     "block-history90-matrix.csv": "034a0cf4a7e6320432daafa4072638cdade266510b020a6e687e36b1027ed02a",

@@ -46,3 +46,40 @@ the local reporter to have the same unrelated experiment registrations.
 - **Top gate (C512):** `off` 28/30, macro TPF 19.657; `eager` 29/30, 21.509, +67,163 decoder rows (+50.6%), opens/discards 38/14. Paired TPF +1.852 [0.608, 3.057]; +1 rescue, 0 loss. `half` adds +1.092 TPF at unchanged 28/30; `quarter` is 29/30, +0.131 TPF, with the TPF interval spanning 0. All four trail Native (24.284 TPF), IBS C512 (23.045 H800 / 21.869 A800) and Flow W2 (23.893).
 - **Prefix (C64/C128):** Removing clean-prefix revisits loses 2 scores at each tier and reduces macro TPF by 1.117 / 1.720 versus `1/8`. `1/4` vs `1/8` changes macro TPF by +0.054 / +0.010, with both intervals spanning 0. At C64 the equal correct totals conceal one rescue and one loss. Neither tier's race arm reaches the matched-tier historical IBS macro TPF.
 - **Borrow (C64/C128):** All six borrow arms spend tail Q. C64 has no score changes and TPF drops 0.110–0.179. C128 borrow at `1/4` keeps 30/30 but has an uncertain TPF change (+0.096, 95% interval −0.211 to +0.413); `1/2` and `1/8` each lose one score. These are screening observations, not a winner selection.
+
+## Frozen 90 decision
+
+All 18 arms have 90 scored cases; see `frozen90.svg` and `paired.csv`. The
+percentage below uses real selected decoder rows reading prefix KV. No
+per-case exclusion, pooled TPF or extension from the original 30 is used.
+
+| Fixed Gemma offer | Candidate | Correct / 90 | Macro TPF | Token efficiency |
+|---|---|---:|---:|---:|
+| 64 | No clean prefix | 82 | 6.762 | 11.23% |
+| 64 | 1/8 clean prefix | 83 | 7.842 | 13.42% |
+| 64 | 1/4 clean prefix | 85 | 7.746 | 12.99% |
+| 64 | Historical IBS | 80 | 11.116 | 17.78% |
+| 128 | No clean prefix | 81 | 10.603 | 9.81% |
+| 128 | 1/8 clean prefix | 85 | 12.209 | 11.69% |
+| 128 | 1/4 clean prefix | 88 | 12.588 | 11.67% |
+| 128 | Historical IBS | 79 | 16.418 | 14.66% |
+| 512 | No next canvas | 83 | 20.178 | 8.13% |
+| 512 | Open at half | 84 | 21.344 | 7.02% |
+| 512 | Open immediately | 84 | 21.776 | 5.63% |
+| 512 | Historical IBS (H800) | 79 | 23.656 | 11.10% |
+| 256 | Native | 85 | 25.510 | 9.31% |
+| 2 x 256 | Historical FLowBlock W2 | 84 | 25.390 | Not recorded |
+
+For the right-edge, head-only policy, keep 1/8 (TPF candidate) and 1/4
+(quality candidate) at C64. At C128 keep 1/4: versus 1/8 it rescued three
+cases, lost none, and added 0.379 macro TPF (paired 95% interval 0.034 to
+0.744). This is a screen, not a confidence guarantee on new tasks. Do not
+enable subtop borrowing by default: versus 1/8, C64 borrowing at the quarter
+threshold was 83/90 with -0.144 TPF; at C128 it was 82/90 with -0.119 TPF.
+At C512 opening immediately adds 1.598 TPF (0.696 to 2.534) versus no
+successor, but buys 181,152 additional decoder rows and discards 36 of 117
+opened canvases. The half gate discarded 5 of 81. No tested C512 arm beat
+native or W2 on quality and macro TPF jointly. Do not infer that the W2 work
+was cheaper from its nominal budget, or that a higher offer should start
+every request. New experiments must keep the head path and closure contract
+matched before attributing gains to tail work.

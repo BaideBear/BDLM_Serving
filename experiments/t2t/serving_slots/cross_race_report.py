@@ -5,6 +5,7 @@ loaded. Reports go to stdout; partial coverage is not a full frozen90 result.
 """
 
 import argparse
+from hashlib import sha256
 from collections import defaultdict
 from dataclasses import dataclass
 import json
@@ -16,7 +17,7 @@ from statistics import mean
 
 MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.json"
 COHORTS = {"original30": range(30), "new60": range(30, 90), "frozen90": range(90)}
-KINDS = ("cross", "rank", "layout_sweep", "layout_llada")
+KINDS = ("cross", "rank", "close", "layout_sweep", "layout_llada")
 CATEGORIES = ("rebuild", "verify", "mandatory", "prefix", "unresolved", "clean-other")
 TAIL = ("tail_open", "tail_discard", "tail_touched_positions", "tail_last_candidate",
         "tail_final_matches", "discarded_tail_Q", "tail_Q")
@@ -39,6 +40,7 @@ class Trial:
     correct: bool | None
     truncated: bool
     work: dict
+    output_digest: str | None = None
 
     @property
     def index(self):
@@ -82,11 +84,17 @@ def _rank(budget, order, reuse=False):
     return Arm("rank", budget, f"C{budget}-rank{order}-reuse{int(reuse)}")
 
 
+def _close(budget, fuse):
+    return Arm("close", budget, f"C{budget}-fuse{int(fuse)}")
+
+
 def _llada(budget, cold, den):
     return Arm("layout_llada", budget, f"cold{cold}-pref1of{den}-C{budget}")
 
 
 def _comparisons():
+    for c in (32, 64, 128, 256, 512):
+        yield _close(c, False), _close(c, True)
     for c in (32, 64, 128, 256):
         for rank, reuse in (("oldest", False), ("uniform", False), ("right", True)):
             yield _rank(c, "right"), _rank(c, rank, reuse)
@@ -189,7 +197,8 @@ def normalize(row):
     history = _nat(row["history_query_rows"], "history_query_rows")
     schema = row.get("schema")
     input_sha = None
-    if schema in ("single-factor-cross-v1", "prefix-rank-v1"):
+    output_digest = None
+    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
         dose = tuple(_nat(i, "prefix") for i in row["prefix"])
@@ -199,6 +208,13 @@ def normalize(row):
             _check(type(row["reuse"]) is bool and not row["slack"] and row["gate"] == "off"
                    and den == 4 and dose == (1,8), "rank intervention changed another factor")
             arm = _rank(c, row["rank"], row["reuse"])
+        if schema == "paid-close-v1":
+            _check(type(row["fuse"]) is bool and not row["slack"] and row["gate"] == "off"
+                   and den == 4 and dose == (1,8), "close intervention changed another factor")
+            arm = _close(c, row["fuse"])
+            ids = row["output_ids"]
+            _check(isinstance(ids,list) and all(type(x) is int and x>=0 for x in ids), "invalid token IDs")
+            output_digest = sha256(json.dumps(ids,separators=(",",":")).encode("ascii")).hexdigest()
         n = _nat(row["N"], "N")
         input_sha = _sha(row["input_sha256"], "input_sha256")
     elif schema == "rect-cold-v1":
@@ -210,7 +226,12 @@ def normalize(row):
     else:
         raise ValueError(f"unsupported receipt schema {schema!r}")
     _check(ARMS.get(arm.name) == arm, f"unregistered arm {arm.name}")
-    work = _cross_work(row, c, history) if arm.kind in ("cross","rank") else _layout_work(row, arm, history)
+    work = _cross_work(row, c, history) if arm.kind in ("cross","rank","close") else _layout_work(row, arm, history)
+    if arm.kind == "close":
+        f = work["fused_F"] = _nat(row["fused_F"],"fused_F")
+        d = work["fused_dirty_Q"] = _nat(row["fused_dirty_Q"],"fused_dirty_Q")
+        _check(f == row["route_F"].get("verify_paid",0) and f <= d <= f*min(c,256)
+               and (row["fuse"] or not f), "invalid fused writeback accounting")
     if arm.kind == "rank":
         exp = row["prefix_exposure"]
         keys = ("prefix_seats", "differing_prefix_seats", "prefix_distance_sum", "prefix_edits", "prefix_revoked")
@@ -232,7 +253,7 @@ def normalize(row):
         _check(type(correct) is bool, "expected Boolean correct or score_pending")
     scorer = _sha(row["scorer_sha256"], "scorer_sha256") if "scorer_sha256" in row else None
     return Trial(arm, identity, input_sha, scorer, correct, row["truncated"],
-                 dict(N=n, history_Q=history, **work))
+                 dict(N=n, history_Q=history, **work), output_digest)
 
 
 def _register(manifest):
@@ -334,6 +355,14 @@ def _paired(left, right, indices, draws, seed):
                   paired_score_pending_indices=[a.index for a, b in pairs
                                                  if a.correct is None or b.correct is None])
     if pairs:
+        if pairs[0][0].arm.kind=="close":
+            _check(all(a.arm==_close(a.arm.budget, False) and b.arm==_close(b.arm.budget,True)
+                       for a,b in pairs), "close parity requires off then on")
+            result["parity"] = dict(
+                changed_output_indices=[a.index for a,b in pairs if a.output_digest!=b.output_digest],
+                changed_encoder_work_indices=[a.index for a,b in pairs if a.work["encoder_Q"]!=b.work["encoder_Q"]],
+                wrong_F_delta_indices=[a.index for a,b in pairs if a.work["F"]-b.work["F"]!=b.work["fused_F"]],
+                wrong_Q_delta_indices=[a.index for a,b in pairs if a.work["decoder_Q"]-b.work["decoder_Q"]!=b.work["fused_dirty_Q"]])
         l, r = (_work_summary(rows) for rows in zip(*pairs))
         result["work"] = dict(reference=l, trial=r, delta={
             k: (r[k]-l[k] if r[k] is not None and l[k] is not None else None)
@@ -382,7 +411,7 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
     coverage = {}
     for arm in sorted({arm for pair in pairs for arm in pair}):
         coverage[arm.name] = dict(worker=arm.kind, budget=arm.budget,
-                                  budget_axis="decoder_Q" if arm.kind in ("cross","rank") else "history_Q",
+                                  budget_axis="decoder_Q" if arm.kind in ("cross","rank","close") else "history_Q",
                                   cohorts={k: _coverage(rows[arm], ix) for k, ix in COHORTS.items()})
     comparisons_out = []
     complete = bool(pairs)
