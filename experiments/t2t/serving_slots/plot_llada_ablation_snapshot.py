@@ -6,6 +6,7 @@ import gzip
 import json
 from pathlib import Path
 from statistics import mean
+from math import isclose
 
 
 HERE = Path(__file__).resolve().parent
@@ -78,7 +79,37 @@ def extract(study, dest):
     print("snapshot cases", len(inventory), "common questions", len(ids), flush=True)
 
 
-def render(path, out):
+def optimus30(capped):
+    if capped:
+        filename = HERE/"controls/fixed-family-references.csv"
+    else:
+        filename = HERE.parents[1]/"baselines/summary.csv"
+    points = {}
+    with filename.open(newline="") as f:
+        for r in csv.DictReader(f):
+            if r["model"] != "llada21" or int(r["requests"]) != 30:
+                continue
+            if capped:
+                if r["cohort"] != "original-0-29" or r["method"] not in ("ibs","obs"):
+                    continue
+                m, q = r["method"], int(r["budget"])
+                tpf, eff = float(r["macro_TPF"]), float(r["efficiency"])
+                assert int(r["max_decoder_Q"]) <= q
+            else:
+                if (r["run"],r["role"],r["dataset"]) != ("baselines","baseline","all"):
+                    continue
+                m, _, q = r["policy"].partition("_")
+                if m not in ("ibs","obs"):
+                    continue
+                q = int(q)
+                tpf, eff = float(r["tpf"]), float(r["physical_efficiency"])
+            assert (m,q) not in points and isclose(eff,int(r["N"])/int(r["Q"]))
+            points[m,q] = dict(correct=int(r["correct"]), macro_tpf=tpf, eff_pct=100*eff)
+    assert set(points) == {(m,q) for m in ("ibs","obs") for q in TIERS[:-1]}
+    return points
+
+
+def render(path, out, only30=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -86,25 +117,32 @@ def render(path, out):
     from matplotlib.ticker import MaxNLocator
     with path.open(newline="") as f:
         all_rows = list(csv.DictReader(f))
-    for cohort in ("matched", "original30"):
+    for cohort,capped in (([] if only30 else [("matched",False)]) + [("original30",False),("original30",True)]):
         rows = [r for r in all_rows if r["cohort"] == cohort]
         data = {(r["method"],int(r["q"])):r for r in rows}
         n = int(rows[0]["n"])
-        fig = plt.figure(figsize=(14.1,8.3), facecolor="white")
+        is30 = cohort=="original30"
+        styles = dict(STYLE)
+        if is30:
+            data.update(optimus30(capped))
+            styles.update(ibs=("#227ca9","v","--","Optimus IBS"), obs=("#a83760","X","--","Optimus OBS"))
+        fig = plt.figure(figsize=(16.3 if is30 else 14.1,8.3), facecolor="white")
         top = fig.add_gridspec(1,3,left=.054,right=.972,top=.774,bottom=.435,wspace=.23)
-        title = "Matched snapshot" if cohort == "matched" and n != 90 else "Frozen cohort"
+        title = ("Optimus: hard decoder-Q cap" if capped else "Optimus: original fixed windows") if is30 else (
+                 "Matched snapshot" if cohort == "matched" and n != 90 else "Frozen cohort")
         fig.text(.045,.94,f"LLaDA 2.1   |   {title}: {n} questions",fontsize=24,weight="bold",color="#20292d")
         counts = "   /   ".join(k+" "+rows[0][k] for k in ("gsm8k","math500","humaneval"))
-        fig.text(.046,.901,f"Same questions and seeds across all budgets and methods    |    {counts}",
+        paired = "Same frozen questions across all methods" if is30 else "Same questions and seeds across all budgets and methods"
+        fig.text(.046,.901,f"{paired}    |    {counts}",
                  fontsize=11.3,color="#505b62")
         handles = [Line2D([],[],color=c,marker=mk,ls=ls,lw=1.8,label=label)
-                   for c,mk,ls,label in STYLE.values()]
-        fig.legend(handles=handles,ncol=6,loc="upper left",bbox_to_anchor=(.04,.875),
-                   frameon=False,fontsize=9.5,columnspacing=1.55)
+                   for c,mk,ls,label in styles.values()]
+        fig.legend(handles=handles,ncol=len(styles),loc="upper left",bbox_to_anchor=(.04,.875),
+                   frameon=False,fontsize=9.5,columnspacing=1.45)
         for j,(field,heading) in enumerate((("correct",f"Correct answers (out of {n})"),
                                             ("macro_tpf","Tokens per forward"),("eff_pct","Token efficiency (%)"))):
             ax = fig.add_subplot(top[0,j])
-            for m,(color,mk,ls,_) in STYLE.items():
+            for m,(color,mk,ls,_) in styles.items():
                 xs = sorted(q for method,q in data if method==m)
                 ys = [float(data[m,q][field]) for q in xs]
                 if m in ("native","flow"):
@@ -114,7 +152,7 @@ def render(path, out):
             ax.set_xscale("log",base=2)
             ax.set_xlim(3.45,74)
             ax.set_xticks(TIERS,labels=[str(t) for t in TIERS])
-            ax.set_xlabel("Fixed Q budget")
+            ax.set_xlabel("Q tier / Optimus window" if is30 and not capped else "Fixed Q budget")
             ax.set_title(heading,loc="left",weight="bold",fontsize=13,pad=9)
             ax.grid(axis="y",color="#e1e4e5",lw=.8)
             ax.set_axisbelow(True)
@@ -125,11 +163,12 @@ def render(path, out):
         fig.text(.045,.354,"Measured values",weight="bold",fontsize=13)
         fig.text(.197,.354,f"Each cell: correct / {n}   |   TPF   |   token efficiency",fontsize=10,color="#465058")
         fmt = lambda r: f"{r['correct']}/{n}   |   {float(r['macro_tpf']):.3f}   |   {float(r['eff_pct']):.2f}%"
-        cells = [[f"Q{q}"]+[fmt(data[m,q]) if (m,q) in data else "-" for m in STYLE] for q in TIERS]
+        cells = [[f"Q{q}"]+[fmt(data[m,q]) if (m,q) in data else "-" for m in styles] for q in TIERS]
         ax=fig.add_axes([.044,.128,.923,.20])
         ax.axis("off")
-        tab=ax.table(cellText=cells,colLabels=["Budget","00","10","11","Earlier kernel","Native","FLowBlock W1"],
-                     colWidths=[.06]+[.1567]*6,cellLoc="center",bbox=[0,0,1,1])
+        names = ["Budget","00","10","11","Earlier kernel","Native","FLowBlock W1"] + (["Optimus IBS","Optimus OBS"] if is30 else [])
+        tab=ax.table(cellText=cells,colLabels=names,
+                     colWidths=[.06]+[.94/len(styles)]*len(styles),cellLoc="center",bbox=[0,0,1,1])
         tab.auto_set_font_size(False)
         tab.set_fontsize(8.7)
         for (i,j),cell in tab.get_celld().items():
@@ -138,10 +177,11 @@ def render(path, out):
             if i==0 or j==0:cell.get_text().set_weight("bold")
         fig.text(.045,.084,"Dashed horizontals: Native and FLowBlock W1 are measured at Q32 only. "
                  "Q64 = two full blocks: all three current policies coincide.",fontsize=9.4,color="#45515a")
+        note = ("Optimus: strict cap on real decoder Q." if capped else "Optimus: fixed window, not a hard cap on real Q.") if is30 else "Earlier-kernel points are nominal budgets, not strict-cap controls."
         fig.text(.045,.051,"11 can use 32 real decoder rows for a child-block build at Q4 / Q8 / Q16. "
-                 "Earlier-kernel points are nominal budgets, not strict-cap controls.",fontsize=9.4,color="#45515a")
+                 + note + (" No Q64 Optimus measurement is plotted." if is30 else ""),fontsize=9.4,color="#45515a")
         out.mkdir(parents=True,exist_ok=True)
-        fig.savefig(out/f"llada21-fixed-q-{cohort}{n if cohort=='matched' else ''}.png",dpi=150)
+        fig.savefig(out/f"llada21-fixed-q-{cohort}{n if cohort=='matched' else ''}{'-capped' if capped else ''}.png",dpi=150)
         plt.close(fig)
 
 
@@ -150,6 +190,7 @@ if __name__ == "__main__":
     p.add_argument("--study",type=Path,help="Optional: read GPU receipts to update CSV")
     p.add_argument("--csv",type=Path,required=True)
     p.add_argument("--out",type=Path,default=HERE/"figures")
+    p.add_argument("--only30",action="store_true",help="Redraw only the original-30 Optimus comparisons")
     args=p.parse_args()
     if args.study: extract(args.study,args.csv)
-    render(args.csv,args.out)
+    render(args.csv,args.out,only30=args.only30)
