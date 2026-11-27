@@ -8,8 +8,17 @@ uuid=GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb
 deadline=${1:?deadline}
 left=$((deadline-$(date +%s)-5))
 ((left>0))
-dir=$rt/llada-admission-1128
-exec 9>"$dir/h0.lock"
+case "${2:-admission16}" in
+  admission16) dir=$rt/llada-admission-1128
+    module=experiments.t2t.serving_slots.llada_admission_factor
+    opts=(run --offer 16 --history "$rt/layout-1128-v1/cross/results") ;;
+  frontier4) dir=$rt/llada-frontier-q4-1128
+    module=experiments.t2t.serving_slots.llada_frontier_seat
+    opts=(--offer 4 --limit 90) ;;
+  *) exit 2 ;;
+esac
+[[ ! -e $dir/results ]]
+exec 9>"$rt/llada-admission-1128/h0.lock"
 control=$(mktemp -d "$dir/handoff.XXXXXX")
 observe(){
   "$hold" status 0 | python3 -c 'import json,sys; r,=json.load(sys.stdin); assert r["running"] and r["phase"]=="running" and r["instance"]["gpu_uuid"]==sys.argv[1]; print(r["pid"])' "$uuid"
@@ -30,11 +39,12 @@ cleanup(){
 trap cleanup EXIT
 trap 'exit 143' TERM INT
 export CUDA_VISIBLE_DEVICES="$uuid" PYTHONPATH="$PWD:$rt/fixed-baseline-deps" OMP_NUM_THREADS=2 HF_HUB_OFFLINE=1
+export REQUEST_STUDY="$module"
 timeout -k 4 "$left" "$rt/venv/bin/python" -Bu -c \
-'import os,runpy,sys;sys.path.insert(0,os.getcwd());runpy.run_module("experiments.t2t.serving_slots.llada_admission_factor",run_name="__main__")' \
- run --offer 16 --out "$dir/results" --samples "$rt/t2t-native-1125/prefix90/samples.json" \
+'import os,runpy,sys;sys.path.insert(0,os.getcwd());runpy.run_module(os.environ["REQUEST_STUDY"],run_name="__main__")' \
+ "${opts[@]}" --out "$dir/results" --samples "$rt/t2t-native-1125/prefix90/samples.json" \
  --checkpoint /data0/ysy/models/LLaDA2.1-mini --reference "$rt/t2t-native-1125/frozen90-native/llada21" \
- --history "$rt/layout-1128-v1/cross/results" --handoff "$control" --deadline "$deadline" &
+ --handoff "$control" --deadline "$deadline" &
 worker=$!
 while [[ ! -f $control/ready ]]; do kill -0 "$worker"; sleep .25; done
 [[ $(observe) == "$pid" && $(apps) == "$pid" ]]

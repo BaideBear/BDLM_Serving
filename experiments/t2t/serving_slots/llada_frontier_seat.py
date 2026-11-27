@@ -29,7 +29,21 @@ def exchange(plan, sampled, warm_pending):
                     mask=tuple(sorted((*plan.mask,take)))),swap(sampled),(drop,take))
 
 
-def classes():
+def interior_exchange(plan,sampled,candidates):
+    if plan.drain_only or plan.cold or len(plan.mask)<2:
+        return plan,sampled,None
+    waiting=sorted(set(candidates)-set(plan.rows))
+    if not waiting:
+        return plan,sampled,None
+    drop,take=max(plan.mask),waiting[0]
+    if drop not in sampled:
+        raise ValueError("Cannot displace an unmeasured MASK proposal")
+    return (replace(plan,rows=tuple(sorted(set(plan.rows)-{drop}|{take})),
+                    mask=tuple(p for p in plan.mask if p!=drop)),
+            tuple(p for p in sampled if p!=drop),(drop,take))
+
+
+def classes(factor="frontier"):
     from .llada_hfull_single_factor import request_classes
     _,control,_=request_classes()
     class Exchange(control):
@@ -46,7 +60,32 @@ def classes():
             if self.swap:
                 event["frontier_swap"]=list(self.swap)
             return event
-    return control,Exchange
+    if factor=="frontier":
+        return control,Exchange
+    class InteriorRead(control):
+        edit_interior=False
+        def _cross_plan(self,q):
+            plan,sampled,phase,cap=super()._cross_plan(q)
+            self.swap=None
+            if self.cross=="head" and not self.borrow and q in (4,8) and len(plan.mask)>=2 and not plan.cold:
+                start,end=max(self.head,self.origin),min(self.head+32,self.end)
+                if self.bank.last_end>=end:
+                    masks,_,_=self._inputs(32)
+                    pool=set(range(max(start,min(masks)+1),end))-masks-self.dirty
+                    plan,sampled,self.swap=interior_exchange(plan,sampled,pool)
+                    if self.swap and self.edit_interior:
+                        sampled=tuple(sorted((*sampled,self.swap[1])))
+            return plan,sampled,phase,cap
+
+        def _step(self,q):
+            event=super()._step(q)
+            if self.swap:
+                event["interior_swap"]=list(self.swap)
+            return event
+
+    class InteriorEdit(InteriorRead):
+        edit_interior=True
+    return control,InteriorRead,InteriorEdit
 
 
 def first_difference(a,b):
@@ -75,7 +114,46 @@ def compact(r):
                 output_digest=sha256(json.dumps(r["output_ids"]).encode()).hexdigest(),
                 actions=sum("frontier_swap" in e for e in r["trace"]),
                 swapped_admits=sum(e["frontier_swap"][1] in e["admitted"]
-                                   for e in r["trace"] if "frontier_swap" in e))
+                                   for e in r["trace"] if "frontier_swap" in e),
+                interior_swaps=sum("interior_swap" in e for e in r["trace"]),
+                interior_writes=sum(e["interior_swap"][1] in e["written_absolute"]
+                                    for e in r["trace"] if "interior_swap" in e))
+
+
+def first_interior(old,new,*,compare_sampling):
+    first=None
+    for a,b in zip(old["trace"],new["trace"]):
+        swap=b.get("interior_swap")
+        if swap is None:
+            require(a==b,"trajectory changed before the registered intervention")
+            continue
+        drop,take=swap
+        require(a["pre_state"]==b["pre_state"] and a["q"]==b["q"] and a["q"]>1
+                and a["layer_physical_q"]==b["layer_physical_q"]==[a["q"]]*20
+                and a["dirty"]==b["dirty"] and a["prefix"]==b["prefix"] and
+                not a["cold"] and not b["cold"] and a["phase"]==b["phase"] and
+                a["sample_clock"]==b["sample_clock"] and a["visible_kv"]==b["visible_kv"],
+                "unmatched warm interior exchange")
+        if not compare_sampling:
+            require(take not in a["rows"] and drop in a["mask"] and drop in a["sampled"] and
+                    set(b["rows"])==(set(a["rows"])-{drop}|{take}) and
+                    set(b["sampled"])==set(a["sampled"])-{drop} and
+                    set(b["mask"])==set(a["mask"])-{drop},"not a one-seat read-only exchange")
+            return dict(tick=b["tick"],drop=drop,take=take,width=b["q"])
+        require(a.get("interior_swap")==swap and a["rows"]==b["rows"] and
+                a["mask"]==b["mask"] and take not in a["sampled"] and
+                set(b["sampled"])==set(a["sampled"])|{take} and a["admitted"]==b["admitted"],
+                "edit arm changed another decision")
+        if first is None:
+            first=dict(tick=b["tick"],drop=drop,take=take,width=b["q"],first_write=None)
+        if a["written_absolute"]!=b["written_absolute"]:
+            require(set(b["written_absolute"])==set(a["written_absolute"])|{take} and
+                    take in set(b["edited"]+b["revoked"]),"unexplained write")
+            first["first_write"]=b["tick"]
+            return first
+    require(all(old[k]==new[k] for k in ("failure","F","N","Q","output_ids","score")),
+            "unexplained outcome difference")
+    return first
 
 
 def run(a):
@@ -92,11 +170,18 @@ def run(a):
     order=[i for i in ORDER if i<a.limit]
     a.out.mkdir(parents=True,exist_ok=False)
     (a.out/"rows").mkdir()
-    save(a.out/"run.json",dict(protocol="llada-frontier-one-seat-v1",order=order,q=a.offer,
+    protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1"}[a.factor]
+    save(a.out/"run.json",dict(protocol=protocol,order=order,q=a.offer,
                                device=device,checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
                                planner=sha256(Path(__file__).read_bytes()).hexdigest()))
-    tok,model=load_gpu(a,lambda:None)
-    controls=classes()
+    def ready():
+        if a.handoff is not None:
+            (a.handoff/"ready").touch(exist_ok=False)
+            while not (a.handoff/"go").exists():
+                require(time.time()<a.deadline,"handoff expired")
+                time.sleep(.2)
+    tok,model=load_gpu(a,ready)
+    controls=classes(a.factor)
     counts=Counter()
     for j,i in enumerate(order):
         require(time.time()<a.deadline-60,"deadline")
@@ -104,18 +189,24 @@ def run(a):
         require(i==ref["index"] and ref["generation_cap"]==CAP and ref["prompt_ids"],"wrong prompt")
         arms=[evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.offer,Law(),
                              cross=("head",False),request_cls=cls) for cls in controls]
-        old,new=arms
-        require(all(old[k]==new[k] for k in (*KEYS,"input_sha256")),"unpaired input")
-        first=first_difference(old,new)
+        old,new=arms[:2]
+        require(all(old[k]==r[k] for r in arms[1:] for k in (*KEYS,"input_sha256")),"unpaired input")
+        if a.factor=="frontier":
+            first=first_difference(old,new)
+            extra=dict(exchange=compact(new))
+        else:
+            first=first_interior(old,new,compare_sampling=False)
+            edit=first_interior(new,arms[2],compare_sampling=True)
+            require(bool(first)==bool(edit),"missing matched read/edit opportunity")
+            extra=dict(read=compact(new),edit=compact(arms[2]),edit_first=edit)
         for r in arms:
             require(0<r["max_decoder_Q"]<=a.offer and r["Q"]==sum(e["q"] for e in r["trace"])
                     and all(e["q"]<=a.offer and e["layer_physical_q"]==[e["q"]]*20
                             for e in r["trace"]),"invalid physical bill")
-        row=dict(**{k:old[k] for k in KEYS},input=old["input_sha256"],first=first,
-                 old=compact(old),exchange=compact(new))
+        row=dict(**{k:old[k] for k in KEYS},input=old["input_sha256"],first=first,old=compact(old),**extra)
         save(a.out/"rows"/f"{i:02d}.json",row)
         counts["exposed"]+=bool(first)
-        print(i, bool(first), row["exchange"]["actions"],old["correct"],new["correct"],flush=True)
+        print(i, bool(first),[(v["F"],v["correct"]) for v in arms],flush=True)
         if j+1==len(ANCHORS):
             require(order[:j+1]==list(ANCHORS) and counts["exposed"]==len(ANCHORS),
                     "unqualified pilot; do not expand")
@@ -127,5 +218,7 @@ if __name__=="__main__":
         ap.add_argument("--"+k,type=Path,required=True)
     ap.add_argument("--offer",choices=(4,8),type=int,required=True)
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
+    ap.add_argument("--factor",choices=("frontier","interior"),default="frontier")
+    ap.add_argument("--handoff",type=Path)
     ap.add_argument("--deadline",type=int,required=True)
     run(ap.parse_args())

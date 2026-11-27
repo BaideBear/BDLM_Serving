@@ -1,0 +1,148 @@
+{
+  "offers": {
+    "8": {
+      "cohorts": {
+        "frozen90": {
+          "ibs": {
+            "F": 19692,
+            "Q": 145324
+          },
+          "pairs": 90,
+          "request": {
+            "F": 51296,
+            "Q": 358776,
+            "changed_mask_set_F": 43249,
+            "compared_F": 48619,
+            "different_F": 45492,
+            "ibs_rule_only_rows": 251108,
+            "ours_mask": 217732,
+            "request_only_rows": 217732,
+            "smaller_visible_right_on_actual_Q_F": 31791,
+            "smaller_visible_right_on_shadow_Q_F": 40497,
+            "theirs_mask": 36257,
+            "theirs_settled_interior": 214851
+          }
+        },
+        "new60": {
+          "ibs": {
+            "F": 13040,
+            "Q": 96295
+          },
+          "pairs": 60,
+          "request": {
+            "F": 30550,
+            "Q": 213685,
+            "changed_mask_set_F": 25631,
+            "compared_F": 28975,
+            "different_F": 26971,
+            "ibs_rule_only_rows": 148262,
+            "ours_mask": 128312,
+            "request_only_rows": 128312,
+            "smaller_visible_right_on_actual_Q_F": 18750,
+            "smaller_visible_right_on_shadow_Q_F": 23850,
+            "theirs_mask": 21662,
+            "theirs_settled_interior": 126600
+          }
+        },
+        "original30": {
+          "ibs": {
+            "F": 6652,
+            "Q": 49029
+          },
+          "pairs": 30,
+          "request": {
+            "F": 20746,
+            "Q": 145091,
+            "changed_mask_set_F": 17618,
+            "compared_F": 19644,
+            "different_F": 18521,
+            "ibs_rule_only_rows": 102846,
+            "ours_mask": 89420,
+            "request_only_rows": 89420,
+            "smaller_visible_right_on_actual_Q_F": 13041,
+            "smaller_visible_right_on_shadow_Q_F": 16647,
+            "theirs_mask": 14595,
+            "theirs_settled_interior": 88251
+          }
+        }
+      },
+      "source_sha256": "e92c21c90d383b6908c7eedd2551da47ad7bd5c47a9791f06b14f2ac1bcace76"
+    },
+    "16": {
+      "cohorts": {
+        "frozen90": {
+          "ibs": {
+            "F": 15480,
+            "Q": 206927
+          },
+          "pairs": 90,
+          "request": {
+            "F": 30317,
+            "Q": 360843,
+            "changed_mask_set_F": 19230,
+            "compared_F": 28165,
+            "different_F": 26077,
+            "ibs_rule_only_rows": 182591,
+            "ours_mask": 99684,
+            "ours_optional_prefix": 17065,
+            "ours_settled_interior": 194,
+            "request_only_rows": 116943,
+            "smaller_visible_right_on_actual_Q_F": 20503,
+            "smaller_visible_right_on_shadow_Q_F": 8233,
+            "theirs_mask": 32396,
+            "theirs_settled_interior": 150195
+          }
+        },
+        "new60": {
+          "ibs": {
+            "F": 10202,
+            "Q": 136443
+          },
+          "pairs": 60,
+          "request": {
+            "F": 19142,
+            "Q": 228004,
+            "changed_mask_set_F": 12233,
+            "compared_F": 17787,
+            "different_F": 16394,
+            "ibs_rule_only_rows": 117384,
+            "ours_mask": 64490,
+            "ours_optional_prefix": 10730,
+            "ours_settled_interior": 124,
+            "request_only_rows": 75344,
+            "smaller_visible_right_on_actual_Q_F": 12834,
+            "smaller_visible_right_on_shadow_Q_F": 5279,
+            "theirs_mask": 20453,
+            "theirs_settled_interior": 96931
+          }
+        },
+        "original30": {
+          "ibs": {
+            "F": 5278,
+            "Q": 70484
+          },
+          "pairs": 30,
+          "request": {
+            "F": 11175,
+            "Q": 132839,
+            "changed_mask_set_F": 6997,
+            "compared_F": 10378,
+            "different_F": 9683,
+            "ibs_rule_only_rows": 65207,
+            "ours_mask": 35194,
+            "ours_optional_prefix": 6335,
+            "ours_settled_interior": 70,
+            "request_only_rows": 41599,
+            "smaller_visible_right_on_actual_Q_F": 7669,
+            "smaller_visible_right_on_shadow_Q_F": 2954,
+            "theirs_mask": 11943,
+            "theirs_settled_interior": 53264
+          }
+        }
+      },
+      "source_sha256": "1954929bef13bdb670d83465c5a1727276fef3ed1d9b8692df44e7edbb60d6c0"
+    }
+  },
+  "protocol": "llada-capped-ibs-geometry-v1",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}

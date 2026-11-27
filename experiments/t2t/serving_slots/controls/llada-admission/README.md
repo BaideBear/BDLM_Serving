@@ -57,3 +57,10 @@ These are unweighted per-request N/F means and pooled N/Q efficiencies.
 Do not use the other device's historical head-only row as the paired
 control. The same-device qualification replays indices 0, 10 and 20;
 it is not a cross-device equivalence test on all 30 outputs.
+
+The [completed Q16 run](c16.json) also rejects global relaxation on frozen90.
+At 0.9 vs 0.5, the new60 scored 37 vs 26; all90 **55 vs 42** (8 rescues,
+21 losses). Total F 30,317 vs 29,248, N 48,518 vs 51,632, history Q 360,843 vs
+346,033, macro TPF 2.723 vs 3.181, pooled TE 13.45% vs 14.92%. Zero failures
+in both arms. Unlike the original30 subcohort, the full cohort used fewer total
+forwards under 0.5. The loss of quality is not a result of missing samples.
