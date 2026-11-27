@@ -48,6 +48,30 @@ the encoder. It is easier for the original first verification slice to contain
 all remaining dirty rows at a large offer. The table is a statement about
 these 30 inputs only; a real two-canvas C512 finish has not been tested here.
 
+## Complete 90: keep verification, avoid projecting the same rows twice
+
+Each row has 90 scored pairs. Within each pair the output sequence and encoder
+work matched exactly; the observed F and Q reductions equal the recorded fusions
+and dirty rows on every request. TE below uses selected decoder Q; the reference
+and trial use the same eligible head-only configuration and prefix share 1/8.
+
+| Offer | Correct, both | Macro TPF, off → on | TE, off → on | F saved | Decoder Q saved |
+|---:|---:|---:|---:|---:|---:|
+| 32 | 85/90 | 4.666 → 4.669 | 14.98% → 14.98% | 5 | 32 |
+| 64 | 83/90 | 7.842 → 7.881 | 13.42% → 13.43% | 23 | 264 |
+| 128 | 85/90 | 12.209 → 12.398 | 11.69% → 11.70% | 42 | 361 |
+| 256 | 83/90 | 17.742 → 19.799 | 10.17% → 10.28% | 166 | 3,310 |
+| 512 (head only) | 83/90 | 20.178 → 22.940 | 8.13% → 8.21% | 171 | 3,630 |
+
+At Q256 the improvement still falls short of native 85/90 and macro TPF 25.510.
+`profile-close/` is a separately registered transfer test: Q128 uses the
+candidate 1/4 share and Q512 uses the half gate, comparing fusion off/on on
+the same physical device per pair. No change in tail acceptance, KV epoch,
+termination or order of the verification slices. Even in the Q512 half-gate
+profile fusion is forbidden while the successor is resident. Use the same
+gather command with `profile-close`; qualify transfer from its own evidence,
+never by adding the observed gains to a different fixed profile.
+
 ## Prefix location and sampling on refresh: original 30
 
 Each entry is correct out of 30, then macro TPF. All use 1/8 and the same

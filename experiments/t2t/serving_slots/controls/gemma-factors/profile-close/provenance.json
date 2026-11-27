@@ -1,0 +1,22 @@
+{
+  "bootstrap": {
+    "draws": 1000,
+    "level": 0.95,
+    "method": "paired request percentile; conditional on matched coverage",
+    "seed": 0
+  },
+  "kind": "profile-close",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "schema": "cross-race-report-v1",
+  "scorers": {
+    "profile-close": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "sources": {
+    "profile-close": {
+      "cross_race.py": "368d7ef7b0eb8133fe9cff7891f714039093a5217fbb7764d3021e9ad37b9da3",
+      "gemma_fixed_dual.py": "bb89c0acf64aee5c7c5c1491fcaf7b361912e9340d0bbd32c66f5283023a8697",
+      "gemma_fixed_dual_eval.py": "8f0b13e249d30fae34fd300cab2f0d3bb1c89e506616ba5dd25e4c9a1dad296f"
+    }
+  },
+  "status": "incomplete"
+}

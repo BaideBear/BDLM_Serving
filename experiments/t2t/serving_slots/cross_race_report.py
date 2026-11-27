@@ -17,7 +17,7 @@ from statistics import mean
 
 MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.json"
 COHORTS = {"original30": range(30), "new60": range(30, 90), "frozen90": range(90)}
-KINDS = ("cross", "rank", "close", "layout_sweep", "layout_llada")
+KINDS = ("cross", "rank", "close", "profile-close", "layout_sweep", "layout_llada")
 CATEGORIES = ("rebuild", "verify", "mandatory", "prefix", "unresolved", "clean-other")
 TAIL = ("tail_open", "tail_discard", "tail_touched_positions", "tail_last_candidate",
         "tail_final_matches", "discarded_tail_Q", "tail_Q")
@@ -85,8 +85,9 @@ def _rank(budget, order, reuse=False):
     return Arm("rank", budget, f"C{budget}-rank{order}-reuse{int(reuse)}")
 
 
-def _close(budget, fuse):
-    return Arm("close", budget, f"C{budget}-fuse{int(fuse)}")
+def _close(budget, fuse, kind="close"):
+    tag = "-profile" if kind=="profile-close" else ""
+    return Arm(kind, budget, f"C{budget}{tag}-fuse{int(fuse)}")
 
 
 def _llada(budget, cold, den):
@@ -96,6 +97,8 @@ def _llada(budget, cold, den):
 def _comparisons():
     for c in (32, 64, 128, 256, 512):
         yield _close(c, False), _close(c, True)
+    for c in (128,512):
+        yield _close(c, False, "profile-close"), _close(c, True, "profile-close")
     for c in (32, 64, 128, 256):
         for rank, reuse in (("oldest", False), ("uniform", False), ("right", True)):
             yield _rank(c, "right"), _rank(c, rank, reuse)
@@ -200,7 +203,7 @@ def normalize(row):
     input_sha = None
     output_digest = None
     sources = ()
-    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1"):
+    if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1", "profile-paid-close-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
         dose = tuple(_nat(i, "prefix") for i in row["prefix"])
@@ -214,7 +217,12 @@ def normalize(row):
             _check(type(row["fuse"]) is bool and not row["slack"] and row["gate"] == "off"
                    and den == 4 and dose == (1,8), "close intervention changed another factor")
             arm = _close(c, row["fuse"])
-        if schema in ("paid-close-v1", "prefix-rank-v1"):
+        if schema == "profile-paid-close-v1":
+            expected = {128:("off",(1,4)), 512:("half",(1,8))}
+            _check(type(row["fuse"]) is bool and not row["slack"] and den==4
+                   and expected.get(c)==(row["gate"],dose), "invalid close transfer profile")
+            arm = _close(c, row["fuse"], "profile-close")
+        if schema in ("paid-close-v1", "prefix-rank-v1", "profile-paid-close-v1"):
             hashes = row["source_sha256"]
             _check(isinstance(hashes, dict) and
                    {"cross_race.py", "gemma_fixed_dual.py", "gemma_fixed_dual_eval.py"} <= hashes.keys(),
@@ -235,8 +243,8 @@ def normalize(row):
     else:
         raise ValueError(f"unsupported receipt schema {schema!r}")
     _check(ARMS.get(arm.name) == arm, f"unregistered arm {arm.name}")
-    work = _cross_work(row, c, history) if arm.kind in ("cross","rank","close") else _layout_work(row, arm, history)
-    if arm.kind == "close":
+    work = _cross_work(row, c, history) if arm.kind in ("cross","rank","close","profile-close") else _layout_work(row, arm, history)
+    if arm.kind in ("close","profile-close"):
         f = work["fused_F"] = _nat(row["fused_F"],"fused_F")
         d = work["fused_dirty_Q"] = _nat(row["fused_dirty_Q"],"fused_dirty_Q")
         _check(f == row["route_F"].get("verify_paid",0) and f <= d <= f*min(c,256)
@@ -367,8 +375,9 @@ def _paired(left, right, indices, draws, seed):
         if pairs[0][0].arm.kind == "rank":
             result["output_comparison"] = dict(changed_output_indices=[
                 a.index for a, b in pairs if a.output_digest != b.output_digest])
-        if pairs[0][0].arm.kind=="close":
-            _check(all(a.arm==_close(a.arm.budget, False) and b.arm==_close(b.arm.budget,True)
+        kind = pairs[0][0].arm.kind
+        if kind in ("close", "profile-close"):
+            _check(all(a.arm==_close(a.arm.budget, False, kind) and b.arm==_close(b.arm.budget,True, kind)
                        for a,b in pairs), "close parity requires off then on")
             result["parity"] = dict(
                 changed_output_indices=[a.index for a,b in pairs if a.output_digest!=b.output_digest],
@@ -427,7 +436,7 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
     coverage = {}
     for arm in sorted({arm for pair in pairs for arm in pair}):
         coverage[arm.name] = dict(worker=arm.kind, budget=arm.budget,
-                                  budget_axis="decoder_Q" if arm.kind in ("cross","rank","close") else "history_Q",
+                                  budget_axis="decoder_Q" if arm.kind in ("cross","rank","close","profile-close") else "history_Q",
                                   cohorts={k: _coverage(rows[arm], ix) for k, ix in COHORTS.items()})
     comparisons_out = []
     complete = bool(pairs)

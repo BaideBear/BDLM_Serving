@@ -199,6 +199,22 @@ def test_close_requires_exact_work_delta_as_well_as_equal_tokens():
     assert parity(alt | {"fused_dirty_Q":3})["wrong_Q_delta_indices"] == [0]
 
 
+def test_profile_close_has_distinct_pairs_and_fixed_dose_gate():
+    from experiments.t2t.serving_slots.cross_race import profile_close_cases
+    for c, gate, dose in ((128,"off",(1,4)),(512,"half",(1,8))):
+        items = list(profile_close_cases(c))
+        assert len(items)==len(set(items))==180
+        assert {i for i,*_ in items} == set(range(90))
+        for a, b in zip(items[::2],items[1::2]):
+            assert a[:-1] == b[:-1] and a[-1]!=b[-1]
+            assert a[1:-1]==(c,gate,False,4,dose,"right",False)
+        row = cross(0) | dict(**PROVENANCE,schema="profile-paid-close-v1",
+                              fuse=False, budget=c, gate=gate,prefix=dose,fused_F=0,fused_dirty_Q=0)
+        assert report.normalize(row).arm.name == f"C{c}-profile-fuse0"
+        with pytest.raises(ValueError, match="transfer profile"):
+            report.normalize(row | {"prefix":(0,8)})
+
+
 def test_factor_publication_only_complete_cohorts_includes_negative_parity():
     from experiments.t2t.serving_slots.factor_tables import tables
     origins = [cross(i) | PROVENANCE | dict(budget=256,schema="paid-close-v1",fuse=False,

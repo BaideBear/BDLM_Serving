@@ -12,7 +12,7 @@ from .cross_race_report import COHORTS, MANIFEST
 def tables(report, kind, manifest):
     if (report["schema"] != "cross-race-report-v1" or not report["manifest_verified"]
             or report["samples_sha256"] != manifest["samples_sha256"]
-            or kind not in ("rank", "close")):
+            or kind not in ("rank", "close", "profile-close")):
         raise ValueError("unregistered schema or manifest")
     coverage, results = [], []
     for pair in report["comparisons"]:
@@ -62,7 +62,7 @@ def write_csv(path, rows):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("kind", choices=["rank","close"])
+    ap.add_argument("kind", choices=["rank","close","profile-close"])
     ap.add_argument("destination", type=Path)
     args = ap.parse_args()
     report = json.load(sys.stdin)
