@@ -16,7 +16,7 @@ from statistics import mean
 
 MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.json"
 COHORTS = {"original30": range(30), "new60": range(30, 90), "frozen90": range(90)}
-KINDS = ("cross", "layout_sweep", "layout_llada")
+KINDS = ("cross", "rank", "layout_sweep", "layout_llada")
 CATEGORIES = ("rebuild", "verify", "mandatory", "prefix", "unresolved", "clean-other")
 TAIL = ("tail_open", "tail_discard", "tail_touched_positions", "tail_last_candidate",
         "tail_final_matches", "discarded_tail_Q", "tail_Q")
@@ -78,11 +78,18 @@ def _sweep(budget, layout, cold):
     return Arm("layout_sweep", budget, f"{layout}-cold{cold}-C{budget}")
 
 
+def _rank(budget, order, reuse=False):
+    return Arm("rank", budget, f"C{budget}-rank{order}-reuse{int(reuse)}")
+
+
 def _llada(budget, cold, den):
     return Arm("layout_llada", budget, f"cold{cold}-pref1of{den}-C{budget}")
 
 
 def _comparisons():
+    for c in (32, 64, 128, 256):
+        for rank, reuse in (("oldest", False), ("uniform", False), ("right", True)):
+            yield _rank(c, "right"), _rank(c, rank, reuse)
     for gate in ("eager", "half", "quarter"):
         yield _cross(512, "off"), _cross(512, gate)
     for c in (64, 128):
@@ -182,12 +189,16 @@ def normalize(row):
     history = _nat(row["history_query_rows"], "history_query_rows")
     schema = row.get("schema")
     input_sha = None
-    if schema == "single-factor-cross-v1":
+    if schema in ("single-factor-cross-v1", "prefix-rank-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
         dose = tuple(_nat(i, "prefix") for i in row["prefix"])
         _check(len(dose) == 2, "invalid prefix dose")
         arm = _cross(c, row["gate"], row["slack"], den, dose)
+        if schema == "prefix-rank-v1":
+            _check(type(row["reuse"]) is bool and not row["slack"] and row["gate"] == "off"
+                   and den == 4 and dose == (1,8), "rank intervention changed another factor")
+            arm = _rank(c, row["rank"], row["reuse"])
         n = _nat(row["N"], "N")
         input_sha = _sha(row["input_sha256"], "input_sha256")
     elif schema == "rect-cold-v1":
@@ -199,7 +210,19 @@ def normalize(row):
     else:
         raise ValueError(f"unsupported receipt schema {schema!r}")
     _check(ARMS.get(arm.name) == arm, f"unregistered arm {arm.name}")
-    work = _cross_work(row, c, history) if arm.kind == "cross" else _layout_work(row, arm, history)
+    work = _cross_work(row, c, history) if arm.kind in ("cross","rank") else _layout_work(row, arm, history)
+    if arm.kind == "rank":
+        exp = row["prefix_exposure"]
+        keys = ("prefix_seats", "differing_prefix_seats", "prefix_distance_sum", "prefix_edits", "prefix_revoked")
+        work.update({k: _nat(exp[k], k) for k in keys})
+        seats = work["prefix_seats"]
+        _check(seats == work["categories"]["prefix"] and seats <= work["prefix_distance_sum"] <= 256*seats
+               and (row["rank"] != "right" or work["differing_prefix_seats"] == 0)
+               and max(work[k] for k in ("differing_prefix_seats","prefix_edits","prefix_revoked")) <= seats,
+               "rank exposure mismatch")
+        work["resample_paid_F"] = _nat(row["resample_paid_F"], "resample_paid_F")
+        _check(work["resample_paid_F"] == row["route_F"].get("resample_paid",0) and
+               (row["reuse"] or not work["resample_paid_F"]), "unexpected sampling on drain")
     _check(type(row["truncated"]) is bool, "invalid truncated flag")
     correct = row.get("correct")
     if "score_pending" in row:
@@ -359,7 +382,7 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
     coverage = {}
     for arm in sorted({arm for pair in pairs for arm in pair}):
         coverage[arm.name] = dict(worker=arm.kind, budget=arm.budget,
-                                  budget_axis="decoder_Q" if arm.kind == "cross" else "history_Q",
+                                  budget_axis="decoder_Q" if arm.kind in ("cross","rank") else "history_Q",
                                   cohorts={k: _coverage(rows[arm], ix) for k, ix in COHORTS.items()})
     comparisons_out = []
     complete = bool(pairs)

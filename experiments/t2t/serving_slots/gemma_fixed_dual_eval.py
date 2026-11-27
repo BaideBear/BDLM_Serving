@@ -59,6 +59,14 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
         if ablation is not None:
             require(e['dirty_before_absolute'] == sorted(debt) and
                     set(sorted(debt)[:q]) <= set(pos[t]), 'Missing global refresh')
+            if route == 'resample_paid':
+                base = origin+B*len(sealed)
+                require(req.reuse_paid_masks and q<2*B and e['head_initialized_before']==B
+                        and epoch_rows.issuperset(range(base,base+B))
+                        and set(pos[t])==debt and len(e['parts'])==1 and
+                        len(e['sampled_absolute'])>0 and
+                        set(e['sampled_absolute'])==debt-accepted,
+                        'Paid MASK sampling without full warm head / captured physical write')
             if q == 2*B:
                 require(not build and route != 'sparse', 'Top tier took a low-tier policy')
                 if route in ('dense_joint','dense_single','dense_head_debt'):

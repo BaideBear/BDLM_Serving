@@ -156,6 +156,25 @@ def test_cross_and_gemma_layout_registry_matches_worker_grids():
     sweep_arms = {report._sweep(c, layout, cold) for layout, cold, c, _ in layout_sweep.grid()}
     assert cross_arms == {a for a in report.ARMS.values() if a.kind == "cross"}
     assert sweep_arms == {a for a in report.ARMS.values() if a.kind == "layout_sweep"}
+    ranks = {report._rank(c,r,u) for _,c,_,_,_,_,r,u in cross_race.cases("rank")}
+    assert ranks == {a for a in report.ARMS.values() if a.kind == "rank"}
+
+
+def test_rank_only_and_exposure_reconciled():
+    base = cross(0)
+    base.update(schema="prefix-rank-v1", budget=32, rank="right", reuse=False,
+                resample_paid_F=0, prefix_exposure=dict(prefix_seats=2, prefix_edits=0,
+                prefix_revoked=0, differing_prefix_seats=0, prefix_distance_sum=3))
+    base["categories"].update(unresolved=8,prefix=2)
+    alt = base | {"rank":"oldest", "prefix_exposure":base["prefix_exposure"] | {"differing_prefix_seats":1}}
+    r = report.summarize(map(report.normalize,(base,alt)), draws=0,
+                         comparisons=[("C32-rankright-reuse0","C32-rankoldest-reuse0")])
+    assert r["arms"]["C32-rankright-reuse0"]["budget_axis"] == "decoder_Q"
+    assert r["comparisons"][0]["cohorts"]["original30"]["work"]["trial"]["differing_prefix_seats"] == 1
+    with pytest.raises(ValueError,match="rank exposure"):
+        report.normalize(alt | {"rank":"right"})
+    with pytest.raises(ValueError,match="another factor"):
+        report.normalize(alt | {"prefix":[1,4]})
 
 
 def test_layout_uses_history_cap_not_actual_projection():

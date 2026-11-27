@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="675" viewBox="0 0 940 675" role="img">
+<rect width="100%" height="100%" fill="white"/>
+<g font-family="system-ui, sans-serif"><text x="24" y="31" fill="#192a36" font-size="22" font-weight="bold">DiffusionGemma | Fixed cross race</text>
+<text x="24" y="54" fill="#4e6372" font-size="13" >Frozen request cohorts. Historical controls use separate executors.</text>
+<circle cx="30" cy="72" r="3.3" fill="#2b6690"/>
+<text x="40" y="76" fill="#2b6690" font-size="12" >original30</text>
+<path d="M24 108L916 108" stroke="#d5dfe6"/>
+<text x="24" y="124" fill="#192a36" font-size="13" >C512  gate off</text>
+<text x="24" y="142" fill="#192a36" font-size="13" >C512  gate eager</text>
+<text x="24" y="160" fill="#192a36" font-size="13" >C512  gate half</text>
+<text x="24" y="178" fill="#192a36" font-size="13" >C512  gate quarter</text>
+<path d="M24 188L916 188" stroke="#d5dfe6"/>
+<text x="24" y="204" fill="#192a36" font-size="13" >C64  prefix 1/8 (base)</text>
+<text x="24" y="222" fill="#192a36" font-size="13" >C64  prefix 0/8</text>
+<text x="24" y="240" fill="#192a36" font-size="13" >C64  prefix 1/4</text>
+<text x="24" y="258" fill="#192a36" font-size="13" >C64  prefix 1/2</text>
+<text x="24" y="276" fill="#192a36" font-size="13" >C64  borrow at 1/4</text>
+<text x="24" y="294" fill="#192a36" font-size="13" >C64  borrow at 1/2</text>
+<text x="24" y="312" fill="#192a36" font-size="13" >C64  borrow at 1/8</text>
+<path d="M24 322L916 322" stroke="#d5dfe6"/>
+<text x="24" y="338" fill="#192a36" font-size="13" >C128  prefix 1/8 (base)</text>
+<text x="24" y="356" fill="#192a36" font-size="13" >C128  prefix 0/8</text>
+<text x="24" y="374" fill="#192a36" font-size="13" >C128  prefix 1/4</text>
+<text x="24" y="392" fill="#192a36" font-size="13" >C128  prefix 1/2</text>
+<text x="24" y="410" fill="#192a36" font-size="13" >C128  borrow at 1/4</text>
+<text x="24" y="428" fill="#192a36" font-size="13" >C128  borrow at 1/2</text>
+<text x="24" y="446" fill="#192a36" font-size="13" >C128  borrow at 1/8</text>
+<path d="M24 456L916 456" stroke="#d5dfe6"/>
+<text x="24" y="468" fill="#4e6372" font-size="10" font-weight="bold">HISTORICAL CONTROLS</text>
+<text x="24" y="488" fill="#4e6372" font-size="13" >Native C256 / Flow W1</text>
+<text x="24" y="506" fill="#4e6372" font-size="13" >IBS C64</text>
+<text x="24" y="524" fill="#4e6372" font-size="13" >IBS C128</text>
+<text x="24" y="542" fill="#4e6372" font-size="13" >IBS C512 (H800)</text>
+<text x="24" y="560" fill="#4e6372" font-size="13" >IBS C512 (A800)</text>
+<text x="24" y="578" fill="#4e6372" font-size="13" >Flow W2</text>
+<text x="24" y="596" fill="#4e6372" font-size="13" >Flow W3</text>
+<text x="24" y="614" fill="#4e6372" font-size="13" >Flow W4</text>
+<text x="226.0" y="102" fill="#192a36" font-size="13" font-weight="bold">Correct (%)</text>
+<path d="M230.89 108L230.89 621" stroke="#d5dfe6"/>
+<text x="230.89" y="636" fill="#4e6372" font-size="11" text-anchor="middle">60</text>
+<path d="M279.75 108L279.75 621" stroke="#d5dfe6"/>
+<text x="279.75" y="636" fill="#4e6372" font-size="11" text-anchor="middle">70</text>
+<path d="M328.61 108L328.61 621" stroke="#d5dfe6"/>
+<text x="328.61" y="636" fill="#4e6372" font-size="11" text-anchor="middle">80</text>
+<path d="M377.47 108L377.47 621" stroke="#d5dfe6"/>
+<text x="377.47" y="636" fill="#4e6372" font-size="11" text-anchor="middle">90</text>
+<path d="M426.33 108L426.33 621" stroke="#d5dfe6"/>
+<text x="426.33" y="636" fill="#4e6372" font-size="11" text-anchor="middle">100</text>
+<circle cx="393.76" cy="120.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate off: 93.333</title></circle>
+<circle cx="410.05" cy="138.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate eager: 96.667</title></circle>
+<circle cx="393.76" cy="156.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate half: 93.333</title></circle>
+<circle cx="410.05" cy="174.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate quarter: 96.667</title></circle>
+<circle cx="410.05" cy="200.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/8 (base): 96.667</title></circle>
+<circle cx="377.47" cy="218.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 0/8: 90.000</title></circle>
+<circle cx="410.05" cy="236.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/4: 96.667</title></circle>
+<circle cx="410.05" cy="254.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/2: 96.667</title></circle>
+<circle cx="410.05" cy="272.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/4: 96.667</title></circle>
+<circle cx="410.05" cy="290.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/2: 96.667</title></circle>
+<circle cx="410.05" cy="308.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/8: 96.667</title></circle>
+<circle cx="426.33" cy="334.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/8 (base): 100.000</title></circle>
+<circle cx="393.76" cy="352.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 0/8: 93.333</title></circle>
+<circle cx="426.33" cy="370.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/4: 100.000</title></circle>
+<circle cx="410.05" cy="388.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/2: 96.667</title></circle>
+<circle cx="426.33" cy="406.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/4: 100.000</title></circle>
+<circle cx="410.05" cy="424.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/2: 96.667</title></circle>
+<circle cx="410.05" cy="442.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/8: 96.667</title></circle>
+<circle cx="393.76" cy="484.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Native C256 / Flow W1: 93.333</title></circle>
+<circle cx="410.05" cy="502.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C64: 96.667</title></circle>
+<circle cx="344.9" cy="520.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C128: 83.333</title></circle>
+<circle cx="377.47" cy="538.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (H800): 90.000</title></circle>
+<circle cx="377.47" cy="556.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (A800): 90.000</title></circle>
+<circle cx="410.05" cy="574.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W2: 96.667</title></circle>
+<circle cx="410.05" cy="592.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W3: 96.667</title></circle>
+<circle cx="410.05" cy="610.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W4: 96.667</title></circle>
+<text x="453.33333333333337" y="102" fill="#192a36" font-size="13" font-weight="bold">Macro tokens / forward</text>
+<path d="M453.33 108L453.33 621" stroke="#d5dfe6"/>
+<text x="453.33" y="636" fill="#4e6372" font-size="11" text-anchor="middle">0</text>
+<path d="M503.42 108L503.42 621" stroke="#d5dfe6"/>
+<text x="503.42" y="636" fill="#4e6372" font-size="11" text-anchor="middle">8</text>
+<path d="M553.5 108L553.5 621" stroke="#d5dfe6"/>
+<text x="553.5" y="636" fill="#4e6372" font-size="11" text-anchor="middle">16</text>
+<path d="M603.58 108L603.58 621" stroke="#d5dfe6"/>
+<text x="603.58" y="636" fill="#4e6372" font-size="11" text-anchor="middle">24</text>
+<path d="M653.67 108L653.67 621" stroke="#d5dfe6"/>
+<text x="653.67" y="636" fill="#4e6372" font-size="11" text-anchor="middle">32</text>
+<circle cx="576.39" cy="120.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate off: 19.657</title></circle>
+<circle cx="587.99" cy="138.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate eager: 21.509</title></circle>
+<circle cx="583.23" cy="156.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate half: 20.749</title></circle>
+<circle cx="577.21" cy="174.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate quarter: 19.787</title></circle>
+<circle cx="501.62" cy="200.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/8 (base): 7.713</title></circle>
+<circle cx="494.63" cy="218.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 0/8: 6.597</title></circle>
+<circle cx="501.96" cy="236.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/4: 7.767</title></circle>
+<circle cx="499.02" cy="254.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/2: 7.297</title></circle>
+<circle cx="500.93" cy="272.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/4: 7.603</title></circle>
+<circle cx="500.93" cy="290.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/2: 7.603</title></circle>
+<circle cx="500.5" cy="308.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/8: 7.534</title></circle>
+<circle cx="528.61" cy="334.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/8 (base): 12.024</title></circle>
+<circle cx="517.84" cy="352.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 0/8: 10.304</title></circle>
+<circle cx="528.67" cy="370.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/4: 12.034</title></circle>
+<circle cx="526.81" cy="388.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/2: 11.737</title></circle>
+<circle cx="529.21" cy="406.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/4: 12.120</title></circle>
+<circle cx="527.98" cy="424.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/2: 11.923</title></circle>
+<circle cx="527.2" cy="442.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/8: 11.799</title></circle>
+<circle cx="605.36" cy="484.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Native C256 / Flow W1: 24.284</title></circle>
+<circle cx="522.24" cy="502.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C64: 11.007</title></circle>
+<circle cx="556.45" cy="520.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C128: 16.471</title></circle>
+<circle cx="597.61" cy="538.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (H800): 23.045</title></circle>
+<circle cx="590.24" cy="556.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (A800): 21.869</title></circle>
+<circle cx="602.91" cy="574.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W2: 23.893</title></circle>
+<circle cx="599.14" cy="592.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W3: 23.290</title></circle>
+<circle cx="599.47" cy="610.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W4: 23.342</title></circle>
+<text x="680.6666666666667" y="102" fill="#192a36" font-size="13" font-weight="bold">Tokens / physical Q (%)</text>
+<path d="M680.67 108L680.67 621" stroke="#d5dfe6"/>
+<text x="680.67" y="636" fill="#4e6372" font-size="11" text-anchor="middle">0</text>
+<path d="M730.75 108L730.75 621" stroke="#d5dfe6"/>
+<text x="730.75" y="636" fill="#4e6372" font-size="11" text-anchor="middle">5</text>
+<path d="M780.83 108L780.83 621" stroke="#d5dfe6"/>
+<text x="780.83" y="636" fill="#4e6372" font-size="11" text-anchor="middle">10</text>
+<path d="M830.92 108L830.92 621" stroke="#d5dfe6"/>
+<text x="830.92" y="636" fill="#4e6372" font-size="11" text-anchor="middle">15</text>
+<path d="M881.0 108L881.0 621" stroke="#d5dfe6"/>
+<text x="881.0" y="636" fill="#4e6372" font-size="11" text-anchor="middle">20</text>
+<circle cx="753.88" cy="120.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate off: 7.309</title></circle>
+<circle cx="730.62" cy="138.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate eager: 4.987</title></circle>
+<circle cx="747.5" cy="156.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate half: 6.672</title></circle>
+<circle cx="747.88" cy="174.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C512  gate quarter: 6.710</title></circle>
+<circle cx="801.09" cy="200.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/8 (base): 12.022</title></circle>
+<circle cx="780.31" cy="218.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 0/8: 9.948</title></circle>
+<circle cx="800.98" cy="236.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/4: 12.012</title></circle>
+<circle cx="791.99" cy="254.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  prefix 1/2: 11.114</title></circle>
+<circle cx="797.27" cy="272.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/4: 11.641</title></circle>
+<circle cx="797.27" cy="290.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/2: 11.641</title></circle>
+<circle cx="793.65" cy="308.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C64  borrow at 1/8: 11.280</title></circle>
+<circle cx="786.14" cy="334.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/8 (base): 10.529</title></circle>
+<circle cx="773.63" cy="352.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 0/8: 9.281</title></circle>
+<circle cx="785.99" cy="370.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/4: 10.514</title></circle>
+<circle cx="779.9" cy="388.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  prefix 1/2: 9.907</title></circle>
+<circle cx="783.41" cy="406.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/4: 10.258</title></circle>
+<circle cx="780.86" cy="424.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/2: 10.002</title></circle>
+<circle cx="777.7" cy="442.0" r="3.3" fill="#2b6690" stroke="#2b6690"><title>original30 C128  borrow at 1/8: 9.687</title></circle>
+<circle cx="765.03" cy="484.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Native C256 / Flow W1: 8.423</title></circle>
+<circle cx="835.0" cy="502.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C64: 15.408</title></circle>
+<circle cx="812.34" cy="520.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C128: 13.145</title></circle>
+<circle cx="772.81" cy="538.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (H800): 9.199</title></circle>
+<circle cx="774.69" cy="556.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 IBS C512 (A800): 9.387</title></circle>
+<circle cx="722.8" cy="574.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W2: 4.206</title></circle>
+<circle cx="708.38" cy="592.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W3: 2.766</title></circle>
+<circle cx="701.63" cy="610.0" r="3.3" fill="#fff" stroke="#2b6690"><title>original30 Flow W4: 2.093</title></circle>
+<text x="24" y="660" fill="#4e6372" font-size="12" >Filled: race   Open: external   |   Physical Q includes generation encoder; excludes prefill.</text>
+</g></svg>

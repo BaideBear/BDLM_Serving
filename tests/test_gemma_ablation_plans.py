@@ -146,3 +146,34 @@ def test_slack_lends_only_after_full_head_plan(remaining):
         assert list(a[key]) == [p for p in b[key] if p < split]
     assert len(b['positions']) == 32
     assert (b['opened'] is not None) == (len(a['positions']) < 32)
+
+
+@pytest.mark.parametrize('order', ('right','oldest','uniform'))
+def test_rank_only_changes_the_clean_prefix(order):
+    def choose(order):
+        r = request('00')
+        r.prefix_order = order
+        r.rows.initialized, r.rows.accepted = FULL, frozenset(range(200))
+        r.rows.dirty = frozenset([197])
+        r.rows._stamps = list(range(B))
+        return r._advance(64)
+    a, b = choose('right'), choose(order)
+    assert len(b['prefix']) == len(a['prefix']) == 7
+    assert set(b['positions'])-set(b['prefix']) == set(a['positions'])-set(a['prefix'])
+    assert all(13<=p<213 and p != 210 for p in b['prefix'])
+    assert b['prefix']==choose(order)['prefix']
+    if order != 'right':
+        assert b['prefix'] != a['prefix']
+
+
+@pytest.mark.parametrize('debt, full, expected', [
+    (32,True,'resample_paid'), (33,True,'drain'), (32,False,'drain')])
+def test_only_paid_warm_mask_can_reuse_a_drain(debt, full, expected):
+    r=request('00')
+    r.reuse_paid_masks=True
+    r.rows.initialized=FULL if full else FULL-{B-1}
+    r.rows.accepted=frozenset([0])
+    r.rows.dirty=frozenset(range(debt))
+    e=r._advance(32)
+    assert e['route']==expected
+    assert e['sample'] == (list(range(14,45)) if expected=='resample_paid' else [])

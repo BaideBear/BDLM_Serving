@@ -24,11 +24,25 @@ def grid():
                 yield i, c, 'off', True, den, (1,8)
 
 
+def cases(suite):
+    if suite == 'cross':
+        for item in grid():
+            yield (*item, 'right', False)
+        return
+    # One feature at a time. Include both missing endpoint tiers and a right-edge
+    # replay in the same software build; comparisons never change the fraction.
+    for i in [j+k for j in range(10) for k in (0,10,20)] + list(range(30,90)):
+        for c in (32,256,64,128):
+            for rank, reuse in (('right',False),('oldest',False),('uniform',False),('right',True)):
+                yield i,c,'off',False,4,(1,8),rank,reuse
+
+
 def receipt(r, special):
     ids = r['output_ids']
     last, ever, costs = {}, set(), Counter()
     opened, discarded = set(), set()
-    accepted = set()
+    accepted, initialized = set(), set()
+    exposure = Counter()
     for e in r['trace']:
         if e['opened'] is not None:
             opened.add(e['opened'])
@@ -37,6 +51,15 @@ def receipt(r, special):
             o = p['ordinal']
             tail = o > e['ordinal']
             dirty, pref = set(p['dirty_before']), set(p['prefix'])
+            if pref:
+                edge = next((j for j in range(256) if (o,j) not in accepted), 256)
+                pool = [j for j in reversed(range(edge)) if (o,j) in initialized and j not in dirty]
+                assert pref <= set(pool)
+                exposure['prefix_seats'] += len(pref)
+                exposure['differing_prefix_seats'] += len(pref-set(pool[:len(pref)]))
+                exposure['prefix_distance_sum'] += sum(edge-j for j in pref)
+                exposure['prefix_edits'] += len(pref.intersection(p['edited']))
+                exposure['prefix_revoked'] += len(pref.intersection(p['revoked']))
             for j in p['rows']:
                 k = (o,j)
                 cat = (p['phase'] if p['phase'] in ('rebuild','verify') else
@@ -45,6 +68,7 @@ def receipt(r, special):
                 costs[cat] += 1
             accepted.update((o,j) for j in p['admitted'])
             accepted.difference_update((o,j) for j in p['revoked'])
+            initialized.update((o,j) for j in p['rows'])
             if tail:
                 costs[f'tail-Q-block-{o}'] += len(p['rows'])
                 for j,t in p.get('tail_updates', ()):
@@ -56,7 +80,9 @@ def receipt(r, special):
                    for (o,j),t in last.items())
     cats = ('rebuild','verify','mandatory','prefix','unresolved','clean-other')
     assert sum(costs[k] for k in cats) == r['decoder_Q']
-    return dict(categories={k:costs[k] for k in cats}, tail_open=len(opened),
+    return dict(categories={k:costs[k] for k in cats},
+                prefix_exposure={k:exposure[k] for k in ('prefix_seats','differing_prefix_seats',
+                    'prefix_distance_sum','prefix_edits','prefix_revoked')}, tail_open=len(opened),
                 tail_discard=len(discarded), tail_touched_positions=len(ever),
                 tail_last_candidate=len(last), tail_final_matches=retained,
                 discarded_tail_Q=sum(costs[f'tail-Q-block-{o}'] for o in discarded),
@@ -68,6 +94,7 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
+    ap.add_argument('--suite', choices=('cross','rank'), default='cross')
     a = ap.parse_args()
     from bdlm_serving.evaluation.frozen import sha
     from bdlm_serving.evaluation.frozen90 import load_tasks
@@ -76,6 +103,7 @@ def main():
     from .gemma_fixed_dual_eval import audited
     from .mask_pair_gemma import input_digest, SAMPLES_SHA
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
+    import transformers
     import torch
     assert torch.cuda.device_count() == 1 and sha(a.samples) == SAMPLES_SHA
     tasks = load_tasks(a.samples)
@@ -86,10 +114,15 @@ def main():
         device_map={'':'cuda:0'}).eval()
     eos = model.generation_config.eos_token_id
     special = set(proc.tokenizer.all_special_ids) | set([eos] if isinstance(eos,int) else eos or [])
-    for i,c,gate,slack,den,dose in grid():
+    package = Path(__file__).resolve().parent
+    sources = {p:sha(package/p) for p in ('cross_race.py','gemma_fixed_dual.py','gemma_fixed_dual_eval.py')}
+    scorer_sha = sha(package.parents[2]/'bdlm_serving/evaluation/scoring.py')
+    for i,c,gate,slack,den,dose,rank,reuse in cases(a.suite):
         if time.time() >= a.deadline:
             return
         key = f"C{c}-gate{gate}-slack{int(slack)}-{den}-pref{dose[0]}of{dose[1]}-{i:02d}"
+        if a.suite == 'rank':
+            key = f'C{c}-rank{rank}-reuse{int(reuse)}-{i:02d}'
         out = a.output / (key+'.json')
         if out.exists():
             continue
@@ -105,7 +138,8 @@ def main():
             d = proc.apply_chat_template([{'role':'user','content':t['prompt']}], tokenize=True,
                     add_generation_prompt=True, return_dict=True, return_tensors='pt').to(model.device)
             r = audited(model,d,seed=t['seed'],q=c,ablation='10' if slack else '00',law=Law(*dose),
-                policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True))
+                policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
+                            prefix_order=rank,reuse_paid_masks=reuse))
             assert r['projection_modules']==85 and r['max_decoder_Q']<=c
             ids = r['output_ids']
             n = sum(tid not in special for tid in ids)
@@ -118,6 +152,13 @@ def main():
                 truncated=len(ids)==2048 and ids[-1] not in special, output_text=text, samples_sha256=SAMPLES_SHA,
                 input_sha256=input_digest(d), gpu=torch.cuda.get_device_name(), host=socket.gethostname(),
                 torch=str(torch.__version__), run_pid=os.getpid())
+            if a.suite == 'rank':
+                row.update(schema='prefix-rank-v1', rank=rank, reuse=reuse,
+                           source_sha256=sources, scorer_sha256=scorer_sha,
+                           transformers=str(transformers.__version__),
+                           resample_paid_F=r['route_F'].get('resample_paid',0))
+                if rank == 'right':
+                    assert row['prefix_exposure']['differing_prefix_seats'] == 0
             try:
                 row['correct'] = bool(score(text,t)['correct'])
             except (FileNotFoundError, RuntimeError) as err:

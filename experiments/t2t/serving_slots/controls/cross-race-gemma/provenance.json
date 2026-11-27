@@ -1,0 +1,34 @@
+{
+  "observed_utc": "2026-11-27T18:11:19+00:00",
+  "receipts": "/gs/results/cross-race-1128",
+  "logs": "/gs/runtime/cross-race-1128",
+  "log_files": 4,
+  "log_tracebacks": 0,
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "manifest_sha256": "2e67d12f5045d486d1676a4b9cd35718b0791ad1b2a3c81fdec86a27bd773e62",
+  "report_sha256": "3c3830bd08dfdfabb85d74873737da05219b17e3d762bb94a84a9dd6a42dd499",
+  "worker_sha256": "e397bbb739e4512eb7e1c593319e7cad44db395861cc4698ff2ae6e5adf77dce",
+  "draws": 4000,
+  "seed": 0,
+  "level": 0.95,
+  "runtime": [
+    {
+      "host": "n1",
+      "gpu": "NVIDIA A800-SXM4-80GB",
+      "torch": "2.6.0+cu124",
+      "receipts": 1209
+    }
+  ],
+  "scorer_sha256": [],
+  "receipts_without_scorer_sha256": 1209,
+  "complete_cohorts": [
+    "original30"
+  ],
+  "control_sha256": {
+    "block-history90-matrix.csv": "034a0cf4a7e6320432daafa4072638cdade266510b020a6e687e36b1027ed02a",
+    "block-history90-audited.csv": "550c48f67eb2e80796b21e42c75e6f0ee86c5ec724327b3f611a7a2c7a986d36",
+    "block-history90-gemma-ibs512-h800.csv": "17342efafb43c713fa1847c19fb8b6de6c891e2de3725787d219552efae38f69",
+    "block-history90-gemma-w3-w4-b3.csv": "b2791290e628616af563fb7a28fcd10fd70d3d157902dd86145ada45ad938854"
+  },
+  "render_report_sha256": "0b17f286cdfe9ea7993745b51eaf1f3e49b1b7d6ed1d9292cd0871876204c522"
+}

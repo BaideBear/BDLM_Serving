@@ -1,6 +1,7 @@
 """Fixed-budget extension of FamilyRequest. No pretrained loader or scheduler."""
 from contextlib import ExitStack
 from dataclasses import dataclass
+from hashlib import blake2b
 
 import torch
 
@@ -222,17 +223,23 @@ class AblationRequest(FixedFamilyRequest):
     head_first = False
     late_den = 4
     receipt_tail_ids = False
+    prefix_order = 'right'
+    reuse_paid_masks = False
 
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
-                 top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False):
+                 top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
+                 prefix_order='right', reuse_paid_masks=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
             raise ValueError('Unknown opening gate')
         if head_first and ablation != '10':
             raise ValueError('Slack-only selection requires a cross-block arm without dense build')
+        if prefix_order not in ('right', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool:
+            raise ValueError('Unknown prefix ranking or refresh policy')
         self.top_gate, self.head_first = top_gate, head_first
         self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
+        self.prefix_order, self.reuse_paid_masks = prefix_order, reuse_paid_masks
         self.ablation = ablation
         self.next_side = 0
         super().__init__(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law)
@@ -252,6 +259,18 @@ class AblationRequest(FixedFamilyRequest):
         # Unaccepted rows are re-noised random vocabulary IDs, not EOS decisions.
         ids = head.sampler.ids[0, sorted(head.rows.accepted)].tolist()
         return self.eos.isdisjoint(ids)
+
+    def _clean_prefix(self, c, unresolved, start):
+        rows = c.rows
+        pool = [i for i in reversed(range(min(unresolved, default=B)))
+                if i in rows.initialized and i not in rows.dirty]
+        if self.prefix_order == 'oldest':
+            pool.sort(key=lambda i: (rows._stamps[i], -i))
+        elif self.prefix_order == 'uniform':
+            # A reproducible permutation, separate from the model's sampling RNG.
+            salt = f'{rows.seed}:{c.ordinal}:{rows.tick}:'.encode('ascii')
+            pool.sort(key=lambda i: blake2b(salt + bytes([i]), digest_size=8).digest())
+        return [start+i for i in pool]
 
     @torch.inference_mode()
     def step(self, q=None):
@@ -332,8 +351,7 @@ class AblationRequest(FixedFamilyRequest):
             # Schedule global debt plus the unchanged head plan, then lend only unused seats.
             # A parked tail never loses its debt; a drain does not advance a sampler clock.
             unresolved = FULL-head.rows.accepted
-            prefix = [base+i for i in reversed(range(min(unresolved, default=B)))
-                      if i in head.rows.initialized and base+i not in debt]
+            prefix = self._clean_prefix(head, unresolved, base)
             plan = choose(q, B, debt, {base+i for i in unresolved}, prefix, law=self.law,
                           cold={base+i for i in FULL-head.rows.initialized}-debt)
             pos = plan.rows
@@ -371,8 +389,7 @@ class AblationRequest(FixedFamilyRequest):
             unresolved = FULL-c.rows.accepted
             masks.update(start+i for i in unresolved)
             cold.update(start+i for i in FULL-c.rows.initialized)
-            prefix.extend(start+i for i in reversed(range(min(unresolved)))
-                          if i in c.rows.initialized and i not in c.rows.dirty)
+            prefix.extend(self._clean_prefix(c, unresolved, start))
         if len(active)==2:
             # Rank clean seats within each physical canvas, then alternate. Map
             # back to absolute addresses before projecting; debt always comes first.
@@ -398,6 +415,11 @@ class AblationRequest(FixedFamilyRequest):
             return run('sparse' if sample else 'drain', pos, sample, pref, cold.intersection(pos))
         plan = choose(q, B, debt, masks, prefix, law=self.law, cold=cold)
         eligible = {c.ordinal for c in active if c.can_sample}
+        if (self.reuse_paid_masks and self.tail is None and plan.drain_only and
+                head_initialized == B and debt and debt == set(plan.rows)):
+            sample = tuple(p for p in plan.rows if p in masks)
+            if sample:
+                return run('resample_paid', plan.rows, sample)
         sample = () if plan.drain_only else tuple(p for p in (plan.cold or plan.rows)
                                                   if (p-self.origin)//B in eligible)
         return run('sparse' if sample else 'drain', plan.rows, sample, plan.prefix, plan.cold)
