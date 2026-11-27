@@ -13,6 +13,7 @@ from experiments.t2t.serving_slots.gemma_wave_kv import WaveKV, wave_attention
 
 FULL = frozenset(range(B))
 TIERS = (*OFFERS, 2 * B)
+ABLATIONS = ('00', '10', '11')
 
 
 def measured_rows(logits, offsets):
@@ -145,8 +146,14 @@ class FixedFamilyRequest(FamilyRequest):
         if not 0 < len(pos) <= limit or not mandatory.issubset(pos):
             raise RuntimeError('Empty/over-cap decoder call or unpaid mandatory debt')
         sample = set() if plan.drain_only or verify or rebuild else set(plan.cold or pos)
+        return self._apply(states, pos, sample, plan.prefix, plan.cold, self.fixed_q,
+                           'verify' if verify else 'rebuild' if rebuild else 'sparse')
+
+    def _apply(self, states, pos, sample, prefix, cold, offer, route):
+        head = states[0]
+        verify, rebuild = route == 'verify', route == 'rebuild'
         logits = self._project(states, pos)
-        event = dict(tick=self.tick, ordinal=self.ordinal, offer=self.fixed_q, q=len(pos),
+        event = dict(tick=self.tick, ordinal=self.ordinal, offer=offer, q=len(pos), route=route,
                      positions=list(pos), parts=[], encoded=False, encoder_Q=0, decoder_F=1,
                      decoder_Q=len(pos),encoder_F=0,discarded=[],promoted=None)
         for c in states:
@@ -157,36 +164,43 @@ class FixedFamilyRequest(FamilyRequest):
             local = tuple(pos[j] - base for j in offsets)
             active = [j for j in offsets if pos[j] in sample and c.can_sample]
             sampled = tuple(pos[j] - base for j in active)
-            extra = tuple(i for i in local if base+i in plan.prefix)
+            extra = tuple(i for i in local if base+i in prefix)
             phase = ('verify' if verify and c is head else 'rebuild' if rebuild else
                      'sample' if sampled else 'drain')
             part = dict(ordinal=c.ordinal, phase=phase, rows=list(local), sampled=list(sampled),
                         prefix=list(extra), dirty_before=sorted(rows.dirty),age_before=s.age,
-                        admitted=[],edited=[],revoked=[])
+                        admitted=[],edited=[],revoked=[], input_changed=[])
             if phase == 'verify':
-                if rows.initialized != FULL or rows.dirty or set(local) != FULL:
+                if (rows.initialized != FULL or rows.dirty or
+                        local != tuple(range(self.cursor, self.cursor + len(local)))):
                     raise RuntimeError('Unready head or incomplete terminal sweep')
-                s.begin_close()
+                if self.cursor == 0:
+                    s.begin_close()
                 s.close_chunk(local, lambda *_: measured_rows(logits, offsets))
+                self.cursor += len(local)
             else:
-                rp = RowPlan(self.fixed_q,local,sampled,tuple(i for i in local if base+i in plan.cold),extra)
+                rp = RowPlan(offer,local,sampled,tuple(i for i in local if base+i in cold),extra)
                 rows._pending = rp  # StrictRows.finish validates this exact transaction.
                 if sampled:
                     idx = list(sampled)
                     before = s.ids[0,idx]
                     changes = s.consume(idx, measured_rows(logits, active))
-                    rows.finish(rp, accepted_after=s.accepted[0,idx].tolist(),
-                                input_changed=(before != s.ids[0,idx]).tolist())
+                    changed = (before != s.ids[0,idx]).tolist()
+                    rows.finish(rp, accepted_after=s.accepted[0,idx].tolist(), input_changed=changed)
                     part.update(admitted=list(changes.admitted),edited=list(changes.edited),
-                                revoked=list(changes.revoked))
+                                revoked=list(changes.revoked),
+                                input_changed=[i for i,v in zip(idx,changed,strict=True) if v])
                 else:
                     rows.finish(rp)
             if s.age != rows.age:
                 raise RuntimeError('Block sampler clock mismatch')
             part['age_after'] = s.age
+            part['dirty_after'] = sorted(rows.dirty)
             event['parts'].append(part)
-        self.rebuild = False
-        if verify:
+        if rebuild:
+            base = self.origin + B * head.ordinal
+            self.rebuild = any(base+i not in self.bank.live for i in head.rows.initialized)
+        if verify and self.cursor == B:
             tail = self.tail
             if self._commit():
                 event.update(encoded=True, encoder_F=1, encoder_Q=B,
@@ -196,3 +210,153 @@ class FixedFamilyRequest(FamilyRequest):
                 self.tail = self.bank = None
         self.tick += 1
         return event
+
+
+class AblationRequest(FixedFamilyRequest):
+    """00/10/11 with a common top-tier route. Only encoder epochs replace the bank."""
+
+    def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law()):
+        if ablation not in ABLATIONS:
+            raise ValueError('Unknown Gemma ablation')
+        self.ablation = ablation
+        self.next_side = 0
+        super().__init__(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law)
+
+    def _start_block(self):
+        super()._start_block()
+        if self.lane is not None:
+            self.bank = self.lane.bank
+        elif self.fixed_q <= B:  # Tail promotion in the low-tier legacy base.
+            self.bank = WaveKV(B)
+        self.lane = None
+        self.rebuild = self.rebuild and bool(self.rows.initialized)
+
+    def _no_accepted_eos(self, head):
+        if not self.eos or not head.rows.accepted:
+            return True
+        # Unaccepted rows are re-noised random vocabulary IDs, not EOS decisions.
+        ids = head.sampler.ids[0, sorted(head.rows.accepted)].tolist()
+        return self.eos.isdisjoint(ids)
+
+    @torch.inference_mode()
+    def step(self, q=None):
+        q = self.fixed_q if q is None else q
+        if self.status != 'ready' or type(q) is not int or q not in TIERS:
+            raise ValueError('Expected a ready request and a supported offer')
+        try:
+            return self._advance(q)
+        except BaseException:
+            self.status = 'failed'
+            raise
+
+    def _advance(self, q):
+        head = Canvas(self.ordinal, self.rows, self.sampler)
+        base = self.origin + B * self.ordinal
+        tail_base = base+B
+        if head.rows.status == 'incomplete':
+            raise RuntimeError('Denoising clock exhausted before covering the head canvas')
+        states = [head] + ([self.tail] if self.tail is not None else [])
+        debt = {self.origin+B*c.ordinal+i for c in states for i in c.rows.dirty}
+        head_masks = B-len(head.rows.accepted)
+        head_initialized = len(head.rows.initialized)
+        room_for_tail = self.ordinal+1 < self.max_new_tokens//B
+        opened = None
+
+        def run(route, positions, sampled=(), prefix=(), cold=()):
+            pos = tuple(positions)
+            limit = B if route == 'build_sample' else q
+            if (not 0 < len(pos) <= limit or pos != tuple(sorted(set(pos))) or
+                    not set(sorted(debt)[:q]).issubset(pos) or not set(sampled).issubset(pos)):
+                raise RuntimeError('Unpaid writes, invalid positions or physical width')
+            e = self._apply(states, pos, set(sampled), prefix, cold, q, route)
+            written = {self.origin+B*p['ordinal']+i for p in e['parts']
+                       for key in ('input_changed','admitted','revoked') for i in p[key]}
+            e.update(opened=opened, head_mask_before=head_masks, head_initialized_before=head_initialized,
+                     dirty_before_absolute=sorted(debt),
+                     dirty_after_absolute=sorted(self.origin+B*c.ordinal+i for c in states for i in c.rows.dirty),
+                     written_absolute=sorted(written),
+                     sampled_absolute=[self.origin+B*p['ordinal']+i for p in e['parts'] for i in p['sampled']])
+            return e
+
+        if self.rebuild:
+            # Promoted sampler and clock survive; decoder KV from the old encoder epoch does not.
+            missing = sorted((base+i for i in head.rows.initialized if base+i not in self.bank.live))
+            return run('rebuild', missing[:q])
+
+        def spawn():
+            nonlocal opened
+            self.tail = self._spawn()
+            states.append(self.tail)
+            opened = self.tail.ordinal
+
+        denoising = head.sampler.phase == 'sample' and head.can_sample
+        if q == 2*B and denoising:
+            allowed = room_for_tail and self._no_accepted_eos(head)
+            if self.tail is None and allowed:
+                spawn()
+            # Dense even when the debt fills the offer: the same forward encodes
+            # every old write before consuming either canvas's fresh logits.
+            live = states if allowed else [head]
+            pos = tuple(sorted(set(range(base, base+B*len(live))) | debt))
+            sampled = [self.origin+B*c.ordinal+i for c in live if c.can_sample for i in range(B)]
+            route = ('dense_joint' if len(live)==2 else 'dense_head_debt' if len(pos)>B else 'dense_single')
+            return run(route, pos, sampled)
+
+        if not denoising:
+            # Terminal sweep and encoder epoch change are head-only barriers.
+            if debt:
+                return run('drain', sorted(debt)[:q])
+            return run('verify', range(base+self.cursor, base+min(B,self.cursor+q)))
+
+        late_open = (self.ablation != '00' and self.tail is None and room_for_tail
+                     and head_initialized == B and head_masks <= B//4 and self._no_accepted_eos(head))
+        if late_open:
+            if debt and (self.ablation == '11' or len(debt) >= q):
+                return run('drain', sorted(debt)[:q])
+            spawn()
+            if self.ablation == '11':
+                pos = tuple(range(tail_base, tail_base+B))
+                return run('build_sample', pos, pos, cold=pos)
+
+        # A tail opened at 512 stays resident after a downshift; 00 parks its
+        # discretionary rows, never its outstanding writes.
+        active = (states if len(states)==2 and self.ablation != '00' and q < 2*B
+                  and self._no_accepted_eos(head) else [head])
+        masks, cold, prefix = set(), set(), []
+        for c in active:
+            if not c.can_sample:
+                continue
+            start = self.origin+B*c.ordinal
+            unresolved = FULL-c.rows.accepted
+            masks.update(start+i for i in unresolved)
+            cold.update(start+i for i in FULL-c.rows.initialized)
+            prefix.extend(start+i for i in reversed(range(min(unresolved)))
+                          if i in c.rows.initialized and i not in c.rows.dirty)
+        if len(active)==2:
+            # Rank clean seats within each physical canvas, then alternate. Map
+            # back to absolute addresses before projecting; debt always comes first.
+            def alternate(a, b):
+                sides = (b,a) if self.next_side else (a,b)
+                return [s[i] for i in range(max(len(a),len(b))) for s in sides if i<len(s)]
+            candidates = sorted(masks-debt, key=lambda p:(p not in cold,p))
+            rank_masks = alternate([p for p in candidates if p<tail_base],
+                                   [p for p in candidates if p>=tail_base])
+            rank_prefix = alternate([p for p in prefix if p<tail_base], [p for p in prefix if p>=tail_base])
+            addresses = sorted(debt)+rank_masks+rank_prefix
+            d, m = len(debt), len(rank_masks)
+            unresolved_ranks = [i for i,p in enumerate(addresses[:d+m]) if p in masks]
+            plan = choose(q,B,range(d),unresolved_ranks,range(d+m,len(addresses)),law=self.law)
+            pos = tuple(sorted(addresses[i] for i in plan.rows))
+            pref = tuple(addresses[i] for i in plan.prefix)
+            if plan.mask:
+                self.next_side = int(addresses[plan.mask[-1]]<tail_base)
+            # _project supplies each row's own SC history. Each eligible canvas
+            # consumes its measured slice once, including its editable prefix.
+            eligible = {c.ordinal for c in active if c.can_sample}
+            sample = () if plan.drain_only else tuple(p for p in pos if (p-self.origin)//B in eligible)
+            return run('sparse' if sample else 'drain', pos, sample, pref, cold.intersection(pos))
+        plan = choose(q, B, debt, masks, prefix, law=self.law, cold=cold)
+        eligible = {c.ordinal for c in active if c.can_sample}
+        sample = () if plan.drain_only else tuple(p for p in (plan.cold or plan.rows)
+                                                  if (p-self.origin)//B in eligible)
+        return run('sparse' if sample else 'drain', plan.rows, sample, plan.prefix, plan.cold)
