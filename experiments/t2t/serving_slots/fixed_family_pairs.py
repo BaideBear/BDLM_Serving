@@ -117,15 +117,39 @@ def paired_rows(ledger):
                            baseline=arm["method"],law="1/8",**pair(a,b))
 
 
+def smoke_rows(ledger,model):
+    """A diagnostic on three predeclared items, without inferential intervals."""
+    validate(ledger,load_cases(DATA/"samples.json"))
+    data=report(DATA,model,"cuda",include_items=True)
+    idx=(0,10,20)
+    require(set(data["protocol_smoke3"])==set(MODELS[model][1]),"Three complete cases at all tiers required")
+    for arm_name,arm in ledger["arms"].items():
+        if arm_name.split(":")[0]!=model:
+            continue
+        q=arm["q"]
+        a=[arm["items"][i] for i in idx]
+        b=[data["items"][q][i] for i in idx]
+        require(all(x[k]==y[k] for x,y in zip(a,b,strict=True) for k in ID),"Unpaired smoke item")
+        row=dict(model=model,device="cuda",q=q,baseline=arm["method"],indices="0,10,20",law="1/8")
+        for label,items in (("baseline",a),("candidate",b)):
+            n,f,paid=(sum(x[k] for x in items) for k in ("N","F","Q"))
+            row.update({label+"_"+k:v for k,v in dict(correct=sum(x["correct"] for x in items),
+                       macro_TPF=fmean(x["N"]/x["F"] for x in items),efficiency=n/paid,N=n,F=f,paid_Q=paid).items()})
+        yield row
+
+
 if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--prepare",action="store_true",help="Create the cluster-only per-item reference ledger")
+    op=ap.add_mutually_exclusive_group()
+    op.add_argument("--prepare",action="store_true",help="Create the cluster-only per-item reference ledger")
+    op.add_argument("--smoke3",choices=MODELS,help="Pair all fixed CUDA tiers on the predeclared initial three cases only")
     args=ap.parse_args()
     if args.prepare:
         prepare()
     else:
         require(sha(CACHE)==LEDGER_SHA,"Changed case ledger; refuse to pair")
-        rows=list(paired_rows(json.loads(CACHE.read_bytes())))
+        ledger=json.loads(CACHE.read_bytes())
+        rows=list(smoke_rows(ledger,args.smoke3) if args.smoke3 else paired_rows(ledger))
         if rows:
             writer=csv.DictWriter(sys.stdout,fieldnames=list(rows[0]),lineterminator="\n")
             writer.writeheader()
