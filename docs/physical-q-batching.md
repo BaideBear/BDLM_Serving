@@ -34,6 +34,21 @@ difference, numerical root cause, or speed at equal work. Keep batch 1 for
 this setting pending further qualification. Do not infer other offers or
 models from this pilot.
 
+For LLaDA2.1 Q64 arm 00, all four settings used the same eight requests:
+
+| Resident requests | Decoder rows, mean / max | Wall seconds | Peak reserved GiB | Same final IDs | Exact trajectories |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 60.2 / 64 | 50.55 | 30.88 | 8/8 | 8/8 |
+| 2 | 95.0 / 128 | 32.87 | 31.03 | 0/8 | 0/8 |
+| 4 | 136.2 / 256 | 32.84 | 31.34 | 1/8 | 0/8 |
+| 8 | 302.9 / 512 | 21.33 | 31.95 | 0/8 | 0/8 |
+
+None ran out of memory. Larger batches completed sooner on this pilot but
+did not reproduce the work or outputs. They are not drop-in replacements for
+the sealed single-request measurements. A suitable diagnostic before any
+rollout is to replay identical per-lane inputs through a short fixed trace
+and locate the first changed logit, selection or cache write.
+
 The formal CSV `experiments/t2t/serving_slots/controls/block-ablation-gemma-v1.csv`
 is unrelated to these timings. Regenerate it with:
 
