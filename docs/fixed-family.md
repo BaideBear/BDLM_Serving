@@ -1,6 +1,8 @@
 # 统一单请求方法：先评固定预算
 
-## 当前线上实验合同：00 / 10 / 11
+当前单请求执行规则及其证据见[预算分配与模型差异](../experiments/t2t/serving_slots/design_race/README.md)和[Gemma 固定 90 题对照表](../experiments/t2t/serving_slots/controls/cross-race-gemma/README.md)。以下保留旧协议以便复核历史结果，不是当前默认实现。
+
+## 已停止的实验合同：00 / 10 / 11
 
 该协议替代下面历史草案中的 A/B/C/D、只建不采样以及顶档按组区分的设定。仅运行 00、10、11。LLaDA 2.1 的 B=32、固定 q=4/8/16/32/64；DiffusionGemma 的 B=256、固定 q=32/64/128/256/512。90 题保留原 30，原生解码单列；注册、样本和指标口径可对账的原生结果不重新推理。
 

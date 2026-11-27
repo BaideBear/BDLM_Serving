@@ -10,6 +10,9 @@ from experiments.t2t.serving_slots import cross_race_report as report
 SNAPSHOT = "a" * 64
 BASE = "C512-gateoff-slack0-4-pref1of8"
 TRIAL = "C512-gatequarter-slack0-4-pref1of8"
+PROVENANCE = dict(source_sha256={f: "a"*64 for f in
+                  ("cross_race.py", "gemma_fixed_dual.py", "gemma_fixed_dual_eval.py")},
+                  scorer_sha256="b"*64)
 
 
 def identity(i):
@@ -162,15 +165,20 @@ def test_cross_and_gemma_layout_registry_matches_worker_grids():
 
 def test_rank_only_and_exposure_reconciled():
     base = cross(0)
-    base.update(schema="prefix-rank-v1", budget=32, rank="right", reuse=False,
+    base.update(**PROVENANCE, schema="prefix-rank-v1", budget=32, rank="right", reuse=False,
                 resample_paid_F=0, prefix_exposure=dict(prefix_seats=2, prefix_edits=0,
                 prefix_revoked=0, differing_prefix_seats=0, prefix_distance_sum=3))
     base["categories"].update(unresolved=8,prefix=2)
-    alt = base | {"rank":"oldest", "prefix_exposure":base["prefix_exposure"] | {"differing_prefix_seats":1}}
+    alt = base | {"rank":"oldest", "output_ids":[1001], "prefix_exposure":base["prefix_exposure"] | {"differing_prefix_seats":1}}
     r = report.summarize(map(report.normalize,(base,alt)), draws=0,
                          comparisons=[("C32-rankright-reuse0","C32-rankoldest-reuse0")])
     assert r["arms"]["C32-rankright-reuse0"]["budget_axis"] == "decoder_Q"
     assert r["comparisons"][0]["cohorts"]["original30"]["work"]["trial"]["differing_prefix_seats"] == 1
+    assert r["comparisons"][0]["cohorts"]["frozen90"]["output_comparison"]["changed_output_indices"] == [0]
+    assert r["sources"]["rank"] == PROVENANCE["source_sha256"]
+    with pytest.raises(ValueError, match="source digest mismatch"):
+        report.summarize(map(report.normalize, [base, alt | {"source_sha256":dict(
+            PROVENANCE["source_sha256"], **{"cross_race.py":"c"*64})}]))
     with pytest.raises(ValueError,match="rank exposure"):
         report.normalize(alt | {"rank":"right"})
     with pytest.raises(ValueError,match="another factor"):
@@ -178,9 +186,9 @@ def test_rank_only_and_exposure_reconciled():
 
 
 def test_close_requires_exact_work_delta_as_well_as_equal_tokens():
-    base = cross(0, df=3, dq=12) | dict(budget=256,schema="paid-close-v1",fuse=False,
+    base = cross(0, df=3, dq=12) | dict(**PROVENANCE,budget=256,schema="paid-close-v1",fuse=False,
                                            fused_F=0,fused_dirty_Q=0)
-    alt = cross(0) | dict(budget=256,schema="paid-close-v1",fuse=True,fused_F=1,
+    alt = cross(0) | dict(**PROVENANCE,budget=256,schema="paid-close-v1",fuse=True,fused_F=1,
                           fused_dirty_Q=2,route_F={"sample":1,"verify_paid":1})
     pair = [("C256-fuse0","C256-fuse1")]
     def parity(other):
@@ -189,6 +197,22 @@ def test_close_requires_exact_work_delta_as_well_as_equal_tokens():
     assert all(not v for v in parity(alt).values())
     assert parity(alt | {"output_ids":[312]})["changed_output_indices"] == [0]
     assert parity(alt | {"fused_dirty_Q":3})["wrong_Q_delta_indices"] == [0]
+
+
+def test_factor_publication_only_complete_cohorts_includes_negative_parity():
+    from experiments.t2t.serving_slots.factor_tables import tables
+    origins = [cross(i) | PROVENANCE | dict(budget=256,schema="paid-close-v1",fuse=False,
+                fused_F=0,fused_dirty_Q=0) for i in range(31)]
+    right = [r | {"fuse":True} for r in origins[:30]]
+    right[0]["output_ids"] = [177]
+    r = report.summarize(map(report.normalize, origins+right), manifest=manifest(), draws=0,
+                         comparisons=[("C256-fuse0","C256-fuse1")])
+    cov, data = tables(r, "close", manifest())
+    assert [(t["cohort"], t["n"], t["correct"]) for t in data] == [("original30",30,30)]*2
+    assert [c["status"] for c in cov] == ["complete", "no_common", "incomplete"]
+    assert all(t["changed_output_indices"] == [0] and t["token_efficiency"] == .6 for t in data)
+    with pytest.raises(ValueError, match="manifest"):
+        tables(r, "close", manifest() | {"samples_sha256":"b"*64})
 
 
 def test_layout_uses_history_cap_not_actual_projection():

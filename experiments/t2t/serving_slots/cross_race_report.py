@@ -41,6 +41,7 @@ class Trial:
     truncated: bool
     work: dict
     output_digest: str | None = None
+    sources: tuple = ()
 
     @property
     def index(self):
@@ -198,6 +199,7 @@ def normalize(row):
     schema = row.get("schema")
     input_sha = None
     output_digest = None
+    sources = ()
     if schema in ("single-factor-cross-v1", "prefix-rank-v1", "paid-close-v1"):
         _check(type(row["slack"]) is bool, "invalid slack flag")
         den = _nat(row["late_den"], "late_den", 1)
@@ -212,6 +214,13 @@ def normalize(row):
             _check(type(row["fuse"]) is bool and not row["slack"] and row["gate"] == "off"
                    and den == 4 and dose == (1,8), "close intervention changed another factor")
             arm = _close(c, row["fuse"])
+        if schema in ("paid-close-v1", "prefix-rank-v1"):
+            hashes = row["source_sha256"]
+            _check(isinstance(hashes, dict) and
+                   {"cross_race.py", "gemma_fixed_dual.py", "gemma_fixed_dual_eval.py"} <= hashes.keys(),
+                   "missing experiment source digests")
+            sources = tuple(sorted((k, _sha(v, k)) for k, v in hashes.items()))
+            _sha(row["scorer_sha256"], "scorer_sha256")
             ids = row["output_ids"]
             _check(isinstance(ids,list) and all(type(x) is int and x>=0 for x in ids), "invalid token IDs")
             output_digest = sha256(json.dumps(ids,separators=(",",":")).encode("ascii")).hexdigest()
@@ -253,7 +262,7 @@ def normalize(row):
         _check(type(correct) is bool, "expected Boolean correct or score_pending")
     scorer = _sha(row["scorer_sha256"], "scorer_sha256") if "scorer_sha256" in row else None
     return Trial(arm, identity, input_sha, scorer, correct, row["truncated"],
-                 dict(N=n, history_Q=history, **work), output_digest)
+                 dict(N=n, history_Q=history, **work), output_digest, sources)
 
 
 def _register(manifest):
@@ -355,6 +364,9 @@ def _paired(left, right, indices, draws, seed):
                   paired_score_pending_indices=[a.index for a, b in pairs
                                                  if a.correct is None or b.correct is None])
     if pairs:
+        if pairs[0][0].arm.kind == "rank":
+            result["output_comparison"] = dict(changed_output_indices=[
+                a.index for a, b in pairs if a.output_digest != b.output_digest])
         if pairs[0][0].arm.kind=="close":
             _check(all(a.arm==_close(a.arm.budget, False) and b.arm==_close(b.arm.budget,True)
                        for a,b in pairs), "close parity requires off then on")
@@ -384,6 +396,7 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
     _nat(draws, "bootstrap draws")
     pinned, expected = _register(manifest) if manifest is not None else (None, None)
     rows, inputs, scorers, snapshots, seen = defaultdict(dict), {}, {}, set(), set()
+    sources = {}
     for trial in trials:
         arm, i = trial.arm, trial.index
         snapshots.add(trial.identity[0])
@@ -392,6 +405,9 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
         _check(i not in rows[arm], f"duplicate receipt: {arm.name} index {i}")
         rows[arm][i] = trial
         seen.add(arm.kind)
+        if trial.sources:
+            _check(sources.setdefault(arm.kind, trial.sources) == trial.sources,
+                   f"experiment source digest mismatch: {arm.kind}")
         if trial.input_sha is not None:
             key = (arm.kind, trial.identity)
             _check(inputs.setdefault(key, trial.input_sha) == trial.input_sha,
@@ -432,6 +448,7 @@ def summarize(trials, *, manifest=None, kinds=None, comparisons=None, omit_empty
                                   tail_match_rate="final token matches / last speculative candidates, not causal utility",
                                   work="common generated pairs, including score_pending",
                                   quality="common pairs with two scores"),
+                sources={k: dict(v) for k, v in sources.items()}, scorers=scorers,
                 arms=coverage, comparisons=comparisons_out)
 
 
