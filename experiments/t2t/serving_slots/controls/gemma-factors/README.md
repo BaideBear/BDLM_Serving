@@ -212,3 +212,15 @@ C512 changed 14 complete output sequences, with one additional wrong answer
 (index 65) and no rescues. The paired TPF difference is +0.441, 95% interval
 [0.144, 0.770]. Keep the stop *off* in the public profile. C128 had zero full
 head ticks on the three qualification tasks; it is not a 90-task result.
+
+**Fixed dense Q256, stop only.** `cross_race --suite dense-stop` repeats the
+native stop vs shadow comparison at a physical 256 rows for each denoising
+tick, with no successor and the same guarded terminal writeback fusion on
+both arms. In contrast to the previous sparse Q256 experiment, consecutive
+complete observed head samples are possible throughout denoising. Control
+IDs and F/Q must replay `capacity-head-v1` at actual Q256. A stop may end
+sampling but never substitutes the observer's argmax for the final measured
+verify. The encoder is charged; no terminal work is hidden. Pairs stay on
+A800 GPU4 in alternating order. On the cluster, `python fullstop/readout.py
+--dense-stop` from this directory audits the receipts; add `--complete` to
+require all 180 scored receipts. A partial readout is not a frozen90 result.

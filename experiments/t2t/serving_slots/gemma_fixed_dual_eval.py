@@ -13,7 +13,7 @@ from experiments.t2t.serving_slots.mask_pair_gemma import input_digest
 from .gemma_fixed_dual import ABLATIONS, TIERS, AblationRequest, FixedFamilyRequest
 
 
-def fullstop_receipt(trace, origin, enabled):
+def fullstop_receipt(trace, origin, enabled, *, dense_stop=False):
     """Reconstruct denominators from measured head parts, not decoder offer/width."""
     codes = {'qualified':'F', 'partial':'P', 'drain':'D', 'verify':'V', 'absent':'A', 'rebuild':'R'}
     tape, hits, windows = [], [], 0
@@ -28,14 +28,22 @@ def fullstop_receipt(trace, origin, enabled):
         epoch = origin+B*o
         pair = qualified and previous == (o, epoch)
         windows += int(pair)
-        require(e['tick'] == t and mark['epoch'] == epoch and e['route'] != 'verify_paid'
+        paid = e['route'] == 'verify_paid'
+        require(e['tick'] == t and mark['epoch'] == epoch and (not paid or dense_stop)
                 and (not mark['hit'] or pair) and mark['latched'] == (enabled and mark['hit']),
                 'Bad fullstop hit/epoch or combined close')
         if latched == o:
-            require(e['route'] in ('drain','verify') and not e['sampled_absolute'],
+            require((e['route'] in ('drain','verify') or paid) and not e['sampled_absolute'],
                     'Sample after applied stop')
         if kind == 'verify':
-            require(not e['dirty_before_absolute'], 'Verify before global writes paid')
+            if paid:
+                require(len(e['parts'])==1 and hp['rows']==list(range(B)) and not e['sampled_absolute']
+                        and e['positions']==list(range(epoch,epoch+B)) and not e['dirty_after_absolute']
+                        and bool(e['dirty_before_absolute']) and set(e['dirty_before_absolute'])<=set(e['positions'])
+                        and (latched==o or hp['age_before']==48 or not e['head_mask_before']),
+                        'Fused stop did not pay complete first verify')
+            else:
+                require(not e['dirty_before_absolute'], 'Verify before global writes paid')
         if mark['hit']:
             masks_after = e['head_mask_before'] - len(hp['admitted']) + len(hp['revoked'])
             hits.append(dict(tick=t, ordinal=o, epoch=epoch, age_after=hp['age_after'],
@@ -66,6 +74,9 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
             or q!=B or ablation!='00' or not policy or policy.get('top_gate')!='off'
             or policy.get('fuse_first_verify') is not True):
         raise ValueError('Density experiment requires fixed B, one canvas and identical closure')
+    dense_stop = bool(policy and policy.get('dense_stop'))
+    if dense_stop and (not full_head_at_b or density is not None):
+        raise ValueError('Dense stop audit requires the unchanging full-head B policy')
     prompt = data['input_ids'][0].tolist()
     origin = len(prompt)
     trace, heads, top = [], [], []
@@ -119,10 +130,12 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                         'Paid MASK sampling without full warm head / captured physical write')
             if route == 'verify_paid':
                 base = origin+B*len(sealed)
+                prior_stop = (dense_stop and t>0 and trace[t-1]['ordinal']==e['ordinal']
+                              and trace[t-1]['fullstop']['latched'])
                 require(req.fuse_first_verify and not partial and bool(debt) and debt.issubset(pos[t]) and
                         pos[t] == list(range(base,base+min(B,q))) and len(e['parts'])==1 and
                         e['parts'][0]['phase']=='verify' and not e['sampled_absolute'] and
-                        (e['head_mask_before']==0 or e['parts'][0]['age_before']==48) and
+                        (e['head_mask_before']==0 or e['parts'][0]['age_before']==48 or prior_stop) and
                         e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
                         'Ineligible or reordered terminal writeback fusion')
             dense = full_head_at_b
@@ -231,7 +244,7 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                 route_F=dict(route_F), route_Q=dict(route_Q), over_offer_F=sum(w>q for w in widths),
                 prefill_Q=origin, projection_modules=len(proj), phase_F=dict(phases),row_visits=dict(visits),
                 trace=trace, physical_trace=physical,
-                **({'fullstop_receipt':fullstop_receipt(trace, origin, req.fullstop)}
+                **({'fullstop_receipt':fullstop_receipt(trace, origin, req.fullstop, dense_stop=dense_stop)}
                    if req.stop_observer is not None else {}))
 
 

@@ -7,23 +7,31 @@ import random
 import statistics
 import sys
 
-root = Path('/gs/results/fullstop-1128')
+dense = '--dense-stop' in sys.argv
+run = 'dense-stop-1128' if dense else 'fullstop-1128'
+root = Path('/gs/results')/run
 qual = {0,10,20}
-target = {128:qual,256:set(range(90)),512:set(range(90))}
+target = {256:set(range(90))} if dense else {128:qual,256:set(range(90)),512:set(range(90))}
 rows = {}
 codes = {'partial':'P','drain':'D','verify':'V','absent':'A','rebuild':'R'}
 source = None
 pair_rows = []
-manifest = json.loads(Path('/gs/runtime/fullstop-1128/repo/benchmarks/frozen90/manifest.json').read_text())
+manifest = json.loads((Path('/gs/runtime')/run/'repo/benchmarks/frozen90/manifest.json').read_text())
 for path in root.glob('C*.json'):
     r = json.loads(path.read_text())
     c,i,on = r['budget'],r['index'],r['fullstop']
     gate = 'half' if c==512 else 'off'
-    assert path.name == f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}.json'
+    assert path.name == (f'C256-dense-stop{int(on)}-{i:02d}.json' if dense
+                         else f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}.json')
     assert i in target[c] and type(on) is bool
-    assert r['schema']=='head-fullstop-v1' and not (r['fuse'] or r['reuse'] or r['slack'])
+    assert r['schema']==('dense-fused-stop-v1' if dense else 'head-fullstop-v1')
+    assert r['fuse'] is dense and not (r['reuse'] or r['slack'])
     assert r['rank']=='right' and r['prefix']==[1,8] and r['gate']==gate
-    assert r['max_decoder_Q']<=c and not r['route_F'].get('verify_paid',0)
+    assert r['max_decoder_Q']<=c and (dense or not r['route_F'].get('verify_paid',0))
+    if dense:
+        assert r['full_head_at_b'] and c==256 and r['max_decoder_Q']==c and not r['joint_F']
+        assert set(r['route_F'])<={'dense_single','verify','verify_paid','drain'}
+        assert r['history_query_rows']==r['decoder_Q'] and (on or r['shadow_replay_sha256'])
     assert sum(r['route_F'].values())==r['decoder_F'] and r['F']==r['decoder_F']+r['encoder_F']
     assert r['samples_sha256']==manifest['samples_sha256']
     assert all(r[k]==manifest['samples'][i][k] for k in ('index','seed','dataset','task_id'))
@@ -40,7 +48,7 @@ for path in root.glob('C*.json'):
     assert s['positive_ticks']==len(s['hits']) and s['first_hit']==next(iter(s['hits']),None)
     assert s['applied_hits']==(len(s['hits']) if on else 0)
     assert s['actionable_hits']==sum(h['otherwise_can_sample'] for h in s['hits'])
-    assert tape.count('V')==r['route_F']['verify']
+    assert tape.count('V')==r['route_F'].get('verify',0)+r['route_F'].get('verify_paid',0)
     assert all(tape[h['tick']-1:h['tick']+1]=='FF' and
                h['otherwise_can_sample']==bool(h['remaining_masks'] and h['age_after']<48) and
                h['applied']==on for h in s['hits'])
@@ -96,6 +104,9 @@ for c,indices in target.items():
             prior = (root.parent/'cross-race-1128'/f'C512-gatehalf-slack0-4-pref1of8-{i:02d}.json'
                      if c==512 else root.parent/'cross-race-1128'/f'C128-gateoff-slack0-4-pref1of8-{i:02d}.json'
                      if c==128 else root.parent/'paid-close-1128'/f'C256-fuse0-{i:02d}.json')
+            if dense:
+                prior=root.parent/'capacity-head-1128'/f'C256-capacity1-{i:02d}.json'
+                assert prior.exists()
             if not prior.exists() and c==256:
                 prior=root.parent/'prefix-rank-1128'/f'C256-rankright-reuse0-{i:02d}.json'
             if not prior.exists():
@@ -119,6 +130,8 @@ for c,indices in target.items():
                             actionable=sum(s['actionable_hits'] for s in obs),
                             actionable_cases=sum(bool(s['actionable_hits']) for s in obs),
                             resets={k:sum(s['resets'][k] for s in obs) for k in codes})
+            if dense:
+                out[label]['token_efficiency']=out[label]['N']/out[label]['decoder_Q']
         ds=[b['N']/b['F']-a['N']/a['F'] for a,b in pairs]
         fs=[b['F']-a['F'] for a,b in pairs]
         out.update(delta_macro_TPF=round(statistics.mean(ds),4), delta_TPF_ci95=ci(pairs,ds),
@@ -128,9 +141,9 @@ for c,indices in target.items():
                                if 'correct' in a and 'correct' in b and a['correct']!=b['correct']])
     print(json.dumps(out),flush=True)
 if '--complete' in sys.argv:
-    assert len(rows)==366 and all(type(r.get('correct')) is bool for r in rows.values()), 'incomplete'
+    assert len(rows)==2*sum(map(len,target.values())) and all(type(r.get('correct')) is bool for r in rows.values()), 'incomplete'
     if '--pairs-csv' in sys.argv:
-        target_file=Path(__file__).with_name('pairs.csv')
+        target_file=Path(__file__).with_name('dense-pairs.csv' if dense else 'pairs.csv')
         with target_file.with_suffix('.pending').open('w',newline='') as stream:
             w=csv.DictWriter(stream,fieldnames=pair_rows[0],lineterminator="\n")
             w.writeheader()

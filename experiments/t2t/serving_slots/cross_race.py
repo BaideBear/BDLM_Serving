@@ -96,6 +96,21 @@ def replay_capacity(row, path):
                 different=[k for k in keys if k not in row or k not in ref or row[k]!=ref[k]])
 
 
+def check_dense_shadow(row, path):
+    from hashlib import sha256
+    blob = path.read_bytes()
+    ref = json.loads(blob)
+    if (ref['schema']!='capacity-head-v1' or ref['full_head_at_b'] is not True
+            or ref['replay']['different'] or not ref['fuse'] or ref['budget']!=256
+            or ref['gate']!='off' or ref['slack'] or ref['prefix']!=[1,8] or ref['joint_F']
+            or any(row[k]!=ref[k] for k in ('index','task_id','dataset','seed','samples_sha256',
+                    'input_sha256','scorer_sha256','torch','transformers','gpu','host','output_ids','N','F',
+                    'decoder_F','decoder_Q','encoder_F','encoder_Q','max_decoder_Q','route_F','route_Q',
+                    'fused_F','fused_dirty_Q','truncated'))):
+        raise ValueError('Shadow did not reproduce the registered physical Q256 dense control')
+    return sha256(blob).hexdigest()
+
+
 def receipt(r, special):
     ids = r['output_ids']
     last, ever, costs = {}, set(), Counter()
@@ -153,7 +168,7 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
-    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close','capacity','density'), default='cross')
+    ap.add_argument('--suite', choices=('cross','rank','close','fullstop','profile-close','capacity','density','dense-stop'), default='cross')
     ap.add_argument('--capacity-controls', type=Path)
     ap.add_argument('--profile-close-budget', type=int, choices=(128,512))
     ap.add_argument('--fuse-first-verify', action='store_true')
@@ -162,7 +177,7 @@ def main():
     ap.add_argument('--fullstop-arm', choices=('off','on'), help='off is shadow-observed')
     ap.add_argument('--fullstop-qualify', action='store_true', help='one frozen item per dataset')
     a = ap.parse_args()
-    if (a.suite in ('capacity','density')) != (a.capacity_controls is not None):
+    if (a.suite in ('capacity','density','dense-stop')) != (a.capacity_controls is not None):
         ap.error('Select the registered paid-close controls for the capacity experiment')
     if (a.suite=='profile-close') != (a.profile_close_budget is not None):
         ap.error('Select one profile-close budget for the same-device pair')
@@ -192,7 +207,7 @@ def main():
     package = Path(__file__).resolve().parent
     sources = {p:sha(package/p) for p in ('cross_race.py','gemma_fixed_dual.py','gemma_fixed_dual_eval.py')}
     scorer_sha = sha(package.parents[2]/'bdlm_serving/evaluation/scoring.py')
-    if a.suite == 'fullstop':
+    if a.suite in ('fullstop','dense-stop'):
         from transformers.models.diffusion_gemma import generation_diffusion_gemma as upstream
         native_sha = sha(Path(upstream.__file__))
         if (transformers.__version__ != '5.12.0' or
@@ -202,6 +217,8 @@ def main():
                         'gemma_fullstop.py','gemma_strict_request.py','gemma_budget_family.py','gemma_wave_kv.py')})
         work = fullstop_cases(lane=a.fullstop_lane,budget=a.fullstop_budget,arm=a.fullstop_arm,
                               qualify=a.fullstop_qualify)
+        if a.suite == 'dense-stop':
+            work = capacity_cases()  # Identical balanced order; final bool now selects stop.
     elif a.suite=='profile-close':
         work = profile_close_cases(a.profile_close_budget)
     elif a.suite=='capacity':
@@ -228,6 +245,9 @@ def main():
         elif a.suite=='profile-close':
             fuse, on = on, None
             key = f'C{c}-profile-fuse{int(fuse)}-{i:02d}'
+        elif a.suite=='dense-stop':
+            dense_at_b = fuse = True
+            key = f'C{c}-dense-stop{int(on)}-{i:02d}'
         elif on is not None:
             key = f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}'
         out = a.output / (key+'.json')
@@ -248,7 +268,7 @@ def main():
                 full_head_at_b=dense_at_b, density=density,
                 policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
                             prefix_order=rank,reuse_paid_masks=reuse,
-                            fuse_first_verify=fuse, fullstop=on))
+                            fuse_first_verify=fuse, fullstop=on, dense_stop=a.suite=='dense-stop'))
             assert r['projection_modules']==85 and r['max_decoder_Q']<=c
             ids = r['output_ids']
             n = sum(tid not in special for tid in ids)
@@ -268,9 +288,9 @@ def main():
                            resample_paid_F=r['route_F'].get('resample_paid',0))
                 if rank == 'right':
                     assert row['prefix_exposure']['differing_prefix_seats'] == 0
-            if a.suite in ('close','profile-close','capacity','density'):
+            if a.suite in ('close','profile-close','capacity','density','dense-stop'):
                 schema = {'close':'paid-close-v1','profile-close':'profile-paid-close-v1','capacity':'capacity-head-v1',
-                          'density':'phase-density-v1'}
+                          'density':'phase-density-v1','dense-stop':'dense-fused-stop-v1'}
                 row.update(schema=schema[a.suite], fuse=fuse,
                            source_sha256=sources, scorer_sha256=scorer_sha,
                            transformers=str(transformers.__version__),
@@ -278,11 +298,16 @@ def main():
                            fused_dirty_Q=sum(len(p['dirty_before']) for e in r['trace']
                                 if e['route']=='verify_paid' for p in e['parts']))
             if on is not None:
-                row.update(schema='head-fullstop-v1', fullstop=on, fuse=False, rank=rank, reuse=reuse,
+                row.update(schema='dense-fused-stop-v1' if dense_at_b else 'head-fullstop-v1',
+                           fullstop=on, fuse=fuse, rank=rank, reuse=reuse,
                            observer=r['fullstop_receipt'], source_sha256=sources, scorer_sha256=scorer_sha,
                            transformers=str(transformers.__version__), native_sha256=native_sha,
                            checkpoint=str(a.checkpoint), gpu_visible=os.environ.get('CUDA_VISIBLE_DEVICES'),
                            stability_threshold=1, confidence_threshold=.005)
+            if a.suite=='dense-stop':
+                row['full_head_at_b'] = True
+                if not on:
+                    row['shadow_replay_sha256'] = check_dense_shadow(row,a.capacity_controls/f'C256-capacity1-{i:02}.json')
             try:
                 row['correct'] = bool(score(text,t)['correct'])
             except (FileNotFoundError, RuntimeError) as err:

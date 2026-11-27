@@ -267,7 +267,7 @@ class AblationRequest(FixedFamilyRequest):
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
                  prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None,
-                 keep_rejected_noise=None):
+                 keep_rejected_noise=None, dense_stop=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
@@ -288,9 +288,16 @@ class AblationRequest(FixedFamilyRequest):
             raise ValueError('Rejected-noise experiment requires the fixed head-only 1/8 control')
         self.keep_rejected_noise = keep_rejected_noise
         self.fullstop = fullstop  # None: legacy; False: shadow; True: apply.
+        if type(dense_stop) is not bool or dense_stop and (
+                q != B or ablation != '00' or top_gate != 'off' or head_first or reuse_paid_masks
+                or prefix_order != 'right' or law != Law(1,8) or type(fullstop) is not bool
+                or not fuse_first_verify):
+            raise ValueError('Dense stop requires the registered fused, head-only B control')
+        if dense_stop:
+            self.full_head_at_b = True
         if fullstop is not None:
             from .gemma_fullstop import FullHeadStop
-            if type(fullstop) is not bool or fuse_first_verify:
+            if type(fullstop) is not bool or fuse_first_verify and not dense_stop:
                 raise ValueError('fullstop requires a boolean arm and separate unfused verify')
             cfg, unused = model._prepare_generation_config(None, max_new_tokens=max_new_tokens)
             if unused or (cfg.stability_threshold, cfg.confidence_threshold) != (1, .005):

@@ -155,7 +155,7 @@ class TestPinned(TestCase):
             with self.assertRaisesRegex(ValueError, "unfused"):
                 AblationRequest(None, None, q=512, seed=23, fullstop=enabled, fuse_first_verify=True)
 
-        def run(enabled, q=512):
+        def run(enabled, q=512, dense_stop=False):
             r = object.__new__(AblationRequest)
             r.origin, r.ordinal, r.cursor, r.tick, r.seed = 13, 0, 0, 0, 23
             r.status, r.tokens, r.eos, r.max_new_tokens = "ready", [], {2}, B*2
@@ -164,11 +164,14 @@ class TestPinned(TestCase):
             r.rows = StrictRows(48)
             s = r.sampler = SelectedRowSampler(cap=B, vocab_size=3, seed=r.seed)
             r.stop_observer, r.fullstop = self.observer(), enabled
+            if dense_stop:
+                r.fuse_first_verify = r.full_head_at_b = True
+                r.top_gate = 'off'
             r.cache = NS(get_seq_length=lambda: r.origin)
             events = []
             def project(states, pos):
                 raw = torch.zeros(1, len(pos), 3)
-                if not states[0].can_sample and not any(c.rows.dirty for c in states):
+                if not states[0].can_sample and (dense_stop or not any(c.rows.dirty for c in states)):
                     raw[:, :, 2] = 20.  # EOS only in the real verify.
                 else:
                     raw[:, :, 1] = 9*(.4 + .4*(48-s.age)/48)
@@ -178,7 +181,7 @@ class TestPinned(TestCase):
                 events.append(r.step())
             self.assertEqual(r.tokens, [2])  # Not the observer's argmax token 1.
             self.assertEqual(r.status, "done")
-            return events, fullstop_receipt(events, r.origin, enabled)
+            return events, fullstop_receipt(events, r.origin, enabled, dense_stop=dense_stop)
 
         control, shadow = run(False)
         trial, active = run(True)
@@ -200,3 +203,14 @@ class TestPinned(TestCase):
         self.assertEqual(short0, short1)
         self.assertEqual((off['qualified_full_ticks'],on['positive_ticks']), (0,0))
         self.assertGreater(on['resets']['partial'],0)
+        dense, obs = run(True, B, True)
+        self.assertEqual(obs['head_tick_tape'], 'FFV')
+        self.assertEqual([e['route'] for e in dense], ['dense_single']*2+['verify_paid'])
+        verify = dense[-1]
+        self.assertTrue(verify['dirty_before_absolute'])
+        self.assertFalse(verify['sampled_absolute'] or verify['dirty_after_absolute'])
+        self.assertEqual(verify['parts'][0]['age_before'],verify['parts'][0]['age_after'])
+        self.assertEqual(verify['positions'],list(range(13,13+B)))
+        control, obs = run(False, B, True)
+        self.assertEqual(obs['applied_hits'],0)
+        self.assertGreater(len(control),len(dense))
