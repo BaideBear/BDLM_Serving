@@ -96,15 +96,24 @@ if __name__=="__main__":
     ap.add_argument("model",choices=MODELS)
     ap.add_argument("--device",choices=("cpu","cuda"),required=True)
     ap.add_argument("--num",type=int,choices=(0,1),default=1)
-    ap.add_argument("--smoke-csv",action="store_true",help="Only emit the complete, predeclared three-case check")
+    output=ap.add_mutually_exclusive_group()
+    output.add_argument("--smoke-csv",action="store_true",help="Only emit the complete, predeclared three-case check")
+    output.add_argument("--case-index",type=int,choices=range(90),metavar="0..89",
+                        help="Diagnostic only: one identical request at every target tier")
     a=ap.parse_args()
-    outcome=report(DATA,a.model,a.device,a.num)
-    if not a.smoke_csv:
+    outcome=report(DATA,a.model,a.device,a.num,include_items=a.case_index is not None)
+    if not a.smoke_csv and a.case_index is None:
         print(json.dumps(outcome,indent=2,allow_nan=False))
     else:
-        rows=[dict(model=a.model,device=a.device,budget=q,law=f"{a.num}/8",indices="0,10,20",**v)
-              for q,v in outcome["protocol_smoke3"].items()]
-        require(rows,"Not all registered tiers completed the three cases")
+        if a.case_index is None:
+            rows=[dict(model=a.model,device=a.device,budget=q,law=f"{a.num}/8",indices="0,10,20",**v)
+                  for q,v in outcome["protocol_smoke3"].items()]
+            require(rows,"Not all registered tiers completed the three cases")
+        else:
+            items=outcome["items"]
+            require(all(a.case_index in cells for cells in items.values()),"Missing requested item at some target tier")
+            rows=[dict(model=a.model,device=a.device,budget=q,law=f"{a.num}/8",index=a.case_index,
+                       **measure([cells[a.case_index]])) for q,cells in items.items()]
         w=csv.DictWriter(sys.stdout,fieldnames=list(rows[0]),lineterminator="\n")
         w.writeheader()
         w.writerows(rows)

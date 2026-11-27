@@ -42,3 +42,5 @@ LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位�
 Gemma 的 Q512 GPU 档用同一冻结 `gemma_fixed_dual_eval.fixed` 做完整单请求生成。它的输出独立于 GPU0 的 360 份单块档原件；只有前序作业归还唯一 holder、360 份封存记录无更改后，后继才能接卡。GPU0 排队不代表已有 CUDA 结果；报表按实际封存样本计数。
 
 GPU 同档配对入口：`python -Bm experiments.t2t.serving_slots.fixed_family_pairs`。先用同一模块的 `--prepare` 在集群离线重评 1,800 个基线输出，对照已归档的 60 个单元逐一核验正确数和 N/F/Q，再封存逐题账本（SHA256 `ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce`）。不需要重新生成基线，不把 CPU 候选与 GPU 基线相减。配对输出限完整 cohort，逐题核对 index、dataset、task_id 和 seed，列出救回/丢失、两侧绝对指标和差值。质量按数据集分层用配对 Newcombe 区间，宏 TPF 用分层的配对均值差区间，效率用分层的配对比率差 bootstrap（4,000次）。区间均为逐对的 95% 区间，未校正多重比较。
+
+[Gemma 五个固定档的首题对账](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu-case0.csv) 是 Q512 首次全权重端到端验证，不是总体性能评测。五档均答对冻结 index 0。Q512 有 12 次双块计算，16 次 decoder 共实算 5,114 行，另有 1 次 B256 encoder；380 个交付 token，TPF 22.353，效率 7.08%。Q256 同题为 371 个交付 token、23 次 forward、3,826 行，TPF 16.130，效率 9.70%。两档均从同一 prompt 独立推理。复算：`python -Bm experiments.t2t.serving_slots.fixed_family_report gemma --device cpu --case-index 0`。
