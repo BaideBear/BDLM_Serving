@@ -4,7 +4,7 @@ from types import SimpleNamespace as NS
 import pytest
 
 from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest
-from experiments.t2t.serving_slots.gemma_verified_eos import VerifiedEOSRequest, verified_end
+from experiments.t2t.serving_slots.gemma_verified_eos import SwitchableVerifiedEOSRequest, VerifiedEOSRequest, verified_end
 from experiments.t2t.serving_slots.gemma_verified_eos_report import theory
 
 
@@ -56,3 +56,28 @@ def test_after_normal_seal_only(monkeypatch,case):
             assert e["verified_eos_end"]==8 and r.tokens==[7]*256+[8]*7+[1] and r.status=="done"
         else:
             assert "verified_eos_end" not in e and r.status=="ready" and r.tokens==[7]*256
+
+
+def test_switch_with_parked_tail_keeps_ordinary_close(monkeypatch):
+    r=object.__new__(SwitchableVerifiedEOSRequest)
+    r.cursor,r.tail,r.rebuild=32,NS(dirty={7}),False
+    e={"encoded":False}
+    monkeypatch.setattr(AblationRequest,"_apply",lambda *args:e)
+    assert r._apply([object(),r.tail],range(32,160),set(),(),(),128,"verify") is e
+    assert r.tail.dirty=={7} and "verified_eos_end" not in e
+
+
+@pytest.mark.parametrize("start,q",[(32,128),(128,32)])
+def test_close_does_not_reset_at_a_new_offer(monkeypatch,start,q):
+    r=object.__new__(SwitchableVerifiedEOSRequest)
+    r.cursor,r.ordinal,r.origin,r.tail,r.rebuild=start,0,9,None,False
+    r.cache,r.eos,r.tokens,r.status=NS(get_seq_length=lambda:9),{1},[],"ready"
+    h=NS(ordinal=0,can_sample=False,rows=NS(dirty=set()),
+         sampler=NS(_sealed={i:7 for i in range(start)},phase="closing"))
+    def seal(self,*_):
+        h.sampler._sealed.update({i:1 if i==start+5 else 7 for i in range(start,start+q)})
+        self.cursor+=q
+        return dict(encoded=False,encoder_Q=0,encoder_F=0)
+    monkeypatch.setattr(AblationRequest,"_apply",seal)
+    e=r._apply([h],range(9+start,9+start+q),set(),(),(),q,"verify")
+    assert e["verified_eos_end"]==start+6 and r.tokens==[7]*(start+5)+[1]

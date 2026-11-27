@@ -9,26 +9,20 @@ def verified_end(sealed, start, end, eos):
     return next((i+1 for i in range(start,end) if sealed[i] in eos), None)
 
 
-class VerifiedEOSRequest(AblationRequest):
-    def __init__(self, model, data, *, seed, q, early):
-        if type(q) is not int or q not in (32,64,128) or type(early) is not bool:
-            raise ValueError("Requires a fixed sparse offer and explicit arm")
-        self.early = early
-        super().__init__(model,data,q=q,seed=seed,max_new_tokens=2048,ablation="00",
-                         law=Law(1,4 if q==128 else 8),top_gate="off",
-                         prefix_order="right",fuse_first_verify=True)
-
-    def step(self, q=None):
-        if q is not None and (type(q) is not int or q != self.fixed_q):
-            raise ValueError("No switching in the fixed experiment")
-        return super().step(self.fixed_q)
+class SwitchableVerifiedEOSRequest(AblationRequest):
+    """Only the head-alone close path may shorten. Never unpark or drop a tail."""
+    early = True
+    fixed_fixture = False
 
     def _apply(self, states, pos, sample, prefix, cold, offer, route):
         # Let the unchanged executor physically pay, seal and bill the entire chunk.
         start = self.cursor
+        solo = len(states)==1 and self.tail is None and not self.rebuild
         e = super()._apply(states,pos,sample,prefix,cold,offer,route)
         end = start+len(pos)
         if not self.early or route not in ("verify","verify_paid") or end >= B:
+            return e
+        if not solo and not self.fixed_fixture:
             return e
         h, = states
         base = self.origin+B*h.ordinal
@@ -49,3 +43,20 @@ class VerifiedEOSRequest(AblationRequest):
             self.status = "done"
             self.lane = self.bank = self.rows = self.sampler = None
         return e
+
+
+class VerifiedEOSRequest(SwitchableVerifiedEOSRequest):
+    fixed_fixture = True
+
+    def __init__(self, model, data, *, seed, q, early):
+        if type(q) is not int or q not in (32,64,128) or type(early) is not bool:
+            raise ValueError("Requires a fixed sparse offer and explicit arm")
+        self.early = early
+        super().__init__(model,data,q=q,seed=seed,max_new_tokens=2048,ablation="00",
+                         law=Law(1,4 if q==128 else 8),top_gate="off",
+                         prefix_order="right",fuse_first_verify=True)
+
+    def step(self, q=None):
+        if q is not None and (type(q) is not int or q != self.fixed_q):
+            raise ValueError("No switching in the fixed experiment")
+        return super().step(self.fixed_q)

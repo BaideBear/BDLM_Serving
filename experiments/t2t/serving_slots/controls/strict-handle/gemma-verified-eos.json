@@ -1,0 +1,388 @@
+{
+  "complete_sha256": "0910faa660b10bcb09e8733c67aad2223f08b1eb7fc8d71d3e53d43c4599f4d1",
+  "fixed": 15,
+  "mixed": 12,
+  "profile": "dense_stop_joint_verified_eos",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "source": "/gs/results/eos-handle-1128-v2",
+  "suites": {
+    "down": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 160,
+            "eos_end": 133,
+            "offer": 32,
+            "ordinal": 1,
+            "start": 128,
+            "tick": 31
+          },
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 3,
+          "saved_Q": 96,
+          "top_boundary": {
+            "live_changes": 2
+          }
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 128,
+            "eos_end": 70,
+            "offer": 128,
+            "ordinal": 1,
+            "start": 0,
+            "tick": 30
+          },
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 4,
+          "saved_Q": 128,
+          "top_boundary": {
+            "live_changes": 1
+          }
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 0,
+          "saved_Q": 0,
+          "top_boundary": {
+            "live_changes": 1
+          }
+        }
+      ],
+      "directed_pairs": {
+        "128>128": 62,
+        "128>32": 4,
+        "32>128": 2,
+        "32>32": 9
+      }
+    },
+    "fixed128": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "b472dcf3f47fe236147b37bcc9bf116b2f5fbb94d572487dab735647505d3bbd"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 128,
+            "eos_end": 70,
+            "offer": 128,
+            "ordinal": 1,
+            "start": 0,
+            "tick": 27
+          },
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "e086a3fbb0629a853d4c410f354ead84792ba81924d9f0b83fe86adcc1b868d3"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "85f75842e27fb7bdb6f603a8be083bdb3a1e351a0c250a647d6749a9ecc28972"
+        }
+      ],
+      "directed_pairs": {
+        "128>128": 68
+      }
+    },
+    "fixed256": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "71353a14f22d3efd25c97acd6f92821f4dfe0a796f97ea762f1d6a3c5645ada8"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "de8cbfba9f70f5c3f9bb7b2c5f1ca29e071279cefb46210e295152919f69dc4a"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "3725c3dcdfdc90c23f07a99abaf19a8293a4137f2d5ca3d8c167d8331364b2e8"
+        }
+      ],
+      "directed_pairs": {
+        "256>256": 40
+      }
+    },
+    "fixed32": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 96,
+            "eos_end": 94,
+            "offer": 32,
+            "ordinal": 1,
+            "start": 64,
+            "tick": 77
+          },
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "c136cb364514c08a56499ec080ecb466410c734f891666515cb5acdf9ada4001"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 128,
+            "eos_end": 110,
+            "offer": 32,
+            "ordinal": 1,
+            "start": 96,
+            "tick": 74
+          },
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "851da2b65419b58e29a2818c502ea72974e91a7b2f847a66f202ea784237817d"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "0df0880d57e4c378e36cd7cefd5249bb83074313750528494bcbe736cec52846"
+        }
+      ],
+      "directed_pairs": {
+        "32>32": 185
+      }
+    },
+    "fixed512": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "ce9165cdbd70e20f6a0b4a9950116bb0f5189c0e4b1a6fbb12d50f94d769fd6d"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "62cec880a47f07a7eafa99939525fcd652b921d5976e834cdd2daca23bf7e8cc"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "7201dfffdc635e2b917d0351e19e679c4565e9b57e10b755d3dcc25ed0281f36"
+        }
+      ],
+      "directed_pairs": {
+        "512>512": 39
+      }
+    },
+    "fixed64": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 128,
+            "eos_end": 123,
+            "offer": 64,
+            "ordinal": 1,
+            "start": 64,
+            "tick": 46
+          },
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "cb43ce6a16542da268191e8cbd08a87cbb08fa82b135a4aa7b67a5262caa7a59"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 128,
+            "eos_end": 95,
+            "offer": 64,
+            "ordinal": 1,
+            "start": 64,
+            "tick": 56
+          },
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "4e5ebac17095f54610e6441e18c537294e6a0f313ffb1a14ef0236faad4b3e19"
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "reference_sha256": "e37407641de00a8e2c328c4dd21f5feeae4e38f7f0a6f47cf47ec64e7f52e4a0"
+        }
+      ],
+      "directed_pairs": {
+        "64>64": 121
+      }
+    },
+    "park": {
+      "cases": [
+        {
+          "downshifts_with_debt": 3,
+          "early": null,
+          "index": 0,
+          "parked_rows_paid_on_downshift": 26,
+          "saved_F": 0,
+          "saved_Q": 0
+        },
+        {
+          "downshifts_with_debt": 2,
+          "early": null,
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 0,
+          "saved_Q": 0
+        },
+        {
+          "downshifts_with_debt": 1,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 0,
+          "saved_Q": 0
+        }
+      ],
+      "directed_pairs": {
+        "32>32": 12,
+        "32>512": 6,
+        "512>32": 6,
+        "512>512": 30
+      }
+    },
+    "switch25": {
+      "cases": [
+        {
+          "downshifts_with_debt": 11,
+          "early": null,
+          "index": 0,
+          "parked_rows_paid_on_downshift": 107,
+          "saved_F": 0,
+          "saved_Q": 0
+        },
+        {
+          "downshifts_with_debt": 13,
+          "early": null,
+          "index": 10,
+          "parked_rows_paid_on_downshift": 253,
+          "saved_F": 0,
+          "saved_Q": 0
+        },
+        {
+          "downshifts_with_debt": 5,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 0,
+          "saved_Q": 0
+        }
+      ],
+      "directed_pairs": {
+        "128>128": 2,
+        "128>256": 2,
+        "128>32": 5,
+        "128>512": 2,
+        "128>64": 3,
+        "256>128": 2,
+        "256>256": 2,
+        "256>32": 4,
+        "256>512": 2,
+        "256>64": 2,
+        "32>128": 5,
+        "32>256": 5,
+        "32>32": 5,
+        "32>512": 4,
+        "32>64": 5,
+        "512>128": 2,
+        "512>256": 2,
+        "512>32": 2,
+        "512>512": 2,
+        "512>64": 3,
+        "64>128": 3,
+        "64>256": 3,
+        "64>32": 5,
+        "64>512": 2,
+        "64>64": 3
+      }
+    },
+    "up": {
+      "cases": [
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 160,
+            "eos_end": 92,
+            "offer": 128,
+            "ordinal": 1,
+            "start": 32,
+            "tick": 71
+          },
+          "index": 0,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 1,
+          "saved_Q": 96,
+          "top_boundary": {
+            "live_changes": 2
+          }
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": {
+            "end": 160,
+            "eos_end": 110,
+            "offer": 128,
+            "ordinal": 1,
+            "start": 32,
+            "tick": 67
+          },
+          "index": 10,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 1,
+          "saved_Q": 96,
+          "top_boundary": {
+            "live_changes": 2
+          }
+        },
+        {
+          "downshifts_with_debt": 0,
+          "early": null,
+          "index": 20,
+          "parked_rows_paid_on_downshift": 0,
+          "saved_F": 0,
+          "saved_Q": 0,
+          "top_boundary": {
+            "live_changes": 1
+          }
+        }
+      ],
+      "directed_pairs": {
+        "128>128": 3,
+        "128>32": 2,
+        "32>128": 5,
+        "32>32": 157
+      }
+    }
+  }
+}

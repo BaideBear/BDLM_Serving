@@ -62,7 +62,7 @@ def check(ok, message):
 
 
 def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
-          drop_after_promotion=False, drop_at_joint=False, dense_shadow=False, boundary=None):
+          drop_after_promotion=False, drop_at_joint=False, dense_shadow=False, boundary=None, eos_audit=None):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -77,12 +77,17 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
     held_head = None
     triggers = Counter()
     cfg = dict(seed=task["seed"], initial_offer=schedule[0], profile=profile)
+    if profile=="dense_stop_joint_verified_eos":
+        check(eos_audit is not None, "Need an independent terminal measurement for this profile")
+        profile=single.PROFILE  # Identical routing, stops, writes and rebuilds until terminal EOS.
     with ExitStack() as stack:
         events = stack.enter_context(observe(model))
         proj, positions = stack.enter_context(projectors(model))
         enc = stack.enter_context(encoder_tape(model))
         h = open_strict_gemma(model, data, **cfg)
         stack.callback(h.close)
+        if eos_audit is not None:
+            eos_audit.install(stack,model,h._request.eos,origin)
         if dense_shadow:
             from .gemma_draft_shadow import DraftShadow
             check(profile=='dense_b_stop_fused' and schedule==(256,) and not drop_after_stop, 'wrong shadow policy')
@@ -114,6 +119,8 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
             if dense_shadow:
                 shadow.after(e,origin)
             rows = positions[-1]
+            if eos_audit is not None:
+                eos_audit.observe(e,rows)
             sampled, changed = set(e["sampled_absolute"]), set(e["written_absolute"])
             check(e["tick"] == tick and e["ordinal"] == head and e["positions"] == rows
                   and len(rows) == e["q"] == e["decoder_Q"] == e["history_Q"] <= q
@@ -218,7 +225,8 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
             routes[e["route"]] += 1
             tick, old, d_q = tick+1, q, d_q+len(rows)
         ids = h.result()
-        check(verify == 256 and len(proj) == 85 and events == ledger and len(enc) == encoded+1
+        short_end=eos_audit.finish(ids) if eos_audit is not None else False
+        check((verify == 256 or short_end) and len(proj) == 85 and events == ledger and len(enc) == encoded+1
               and enc[0][0] == data["input_ids"][0].tolist() and not debt
               and len(positions) == tick and all(len(t) == tick for t in proj.values()), "close/accounting")
         for j,(block, pos) in enumerate(enc[1:]):

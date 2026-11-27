@@ -5,7 +5,12 @@ remaining chunks of the **last** canvas without changing any delivered token?
 These fixed offers use the `fixed90_fused` controls (Q32/64: 1/8; Q128: 1/4),
 right-edge prefix selection, no successor, and the existing guarded first
 verification chunk. No sampling threshold, RNG, dirty rule or encoder changed.
-The intervention is experiment-only, not installed in a public profile.
+The fixed experiment is unchanged. A separate opt-in request profile,
+`dense_stop_joint_verified_eos`, adds this same rule to the existing switchable
+`dense_stop_joint_single512` executor and passed the [GPU switching qualification](../../strict-handle/gemma-verified-eos.json).
+A parked successor, a joint verification or an encoder rebuild keeps the
+old behavior, even if discarded rows would appear to be cheap. A new offer never
+resets an in-progress verification cursor. The default profile is unchanged.
 
 The sampler freezes ids and self-conditioning and seals the argmax of each
 actual ordered terminal forward. All positions from zero through the current
@@ -43,6 +48,15 @@ F fell 4,090 to 3,949 and decoder Q 237,671 to 228,647, with the same N=31,925.
 Macro TPF rose from 7.881 to 8.176 and pooled token efficiency from 13.43% to
 13.96%. The number of skipped rows happens to equal Q32's total, but Q64
 skips only 141 forwards. Both physically billed the whole EOS-containing chunk.
+
+Fixed [Q128](q128/cohorts.csv) retained 88/90 (30/30 original, 58/60 new).
+All 90 output sequences, scores and encoder tapes matched. EOS fell in the
+first 128 rows for 46 requests; the 44 remaining requests paid both chunks.
+N=30,351; F fell 2,430 to 2,384 and decoder Q 259,522 to 253,634. Macro TPF
+rose 12.794 to 13.047; pooled token efficiency 11.69% to 11.97%.
+On this cohort IBS128 is 79/90, 16.418 and 14.66%: a quality advantage,
+not a TPF win. The eligibility and exact trajectory checks, not just the
+unchanged aggregate score, are why we recommend this optimization.
 
 Independent per-request prediction from the historical final IDs: if EOS
 is at zero-based block-local position `j`, the number of removable forwards

@@ -125,7 +125,11 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     from experiments.t2t.serving_slots.gemma_fixed_dual import AblationRequest, B, TIERS
     if type(initial_offer) is not int or initial_offer not in TIERS:
         raise ValueError("Invalid initial Gemma offer")
-    single_top = profile=="dense_stop_joint_single512"
+    engine = AblationRequest
+    if profile=="dense_stop_joint_verified_eos":
+        from experiments.t2t.serving_slots.gemma_verified_eos import SwitchableVerifiedEOSRequest
+        engine = SwitchableVerifiedEOSRequest
+    single_top = profile in ("dense_stop_joint_single512","dense_stop_joint_verified_eos")
     joint = single_top or profile=="dense_stop_joint_verify"
     promotion = joint or profile=="dense_stop_promotion_fused"
     stop = promotion or profile=="dense_b_stop_fused"
@@ -135,7 +139,7 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
     # Other sparse tiers retain the reference; dense top calls bypass the quota.
     laws = tuple(Law(1, 4) if profile != "reference" and c == B//2 else Law()
                  for c in TIERS)
-    raw = AblationRequest(model, data, q=initial_offer, seed=seed, ablation="00",
+    raw = engine(model, data, q=initial_offer, seed=seed, ablation="00",
                           max_new_tokens=max_new_tokens, law=laws[TIERS.index(initial_offer)],
                           top_gate="half", prefix_order="right",
                           fuse_first_verify=stop or profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused"),

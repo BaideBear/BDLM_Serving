@@ -6,7 +6,41 @@ from pathlib import Path
 from .strict_handle_qualify import JOINT_PROFILES, PROMOTION_PROFILES, STOP_PROFILES, single
 
 
+def eos_summary(root,manifest):
+    from hashlib import sha256
+    from .gemma_verified_eos_qualify import PROFILE, QUAL, TIERS, check
+    data=json.loads((root/"complete.json").read_bytes())
+    names=[*(f"fixed{q}" for q in TIERS),"up","down","switch25","park"]
+    expected={f"{name}-{i:02}.json" for name in names for i in QUAL}
+    check(set(data["inputs"])==expected and set(p.name for p in root.glob("*.json"))==expected|{"complete.json"}
+          and data["profile"]==PROFILE and data["suites"]==27 and data["fixed"]==15 and data["mixed"]==12,
+          "Incomplete EOS qualification")
+    report=dict(profile=PROFILE,fixed=15,mixed=12,source=str(root),samples_sha256=manifest["samples_sha256"],
+                complete_sha256=sha256((root/"complete.json").read_bytes()).hexdigest(),suites={})
+    for name in names:
+        changes=Counter()
+        cases=[]
+        for i in QUAL:
+            p=root/f"{name}-{i:02}.json"
+            blob=p.read_bytes()
+            r=json.loads(blob)
+            t=manifest["samples"][i]
+            check(sha256(blob).hexdigest()==data["inputs"][p.name] and r["identical"] is True and
+                  r["samples_sha256"]==report["samples_sha256"] and r["profile"]==PROFILE
+                  and r["suite"]==name and all(r[k]==t[k] for k in ("index","seed","dataset","task_id"))
+                  and r["decoder_projection_modules"]==85 and r["F"]==r["decoder_F"]+r["encoder_F"] and
+                  r["encoder_Q"]==256*r["encoder_F"] and sum(r["directed_pairs"].values())==r["decoder_F"]-1,
+                  "Invalid sealed replay")
+            changes.update(r["directed_pairs"])
+            cases.append({k:r[k] for k in ("index","early","parked_rows_paid_on_downshift","downshifts_with_debt",
+                                           "saved_F","saved_Q","top_boundary","reference_sha256") if k in r})
+        report["suites"][name]=dict(directed_pairs=dict(changes),cases=cases)
+    return report
+
+
 def summarize(root, model, manifest):
+    if model=="gemma-eos":
+        return eos_summary(root,manifest)
     if model not in ("gemma", "llada"):
         raise ValueError("unknown model")
     tiers = (32,64,128,256,512) if model == "gemma" else (4,8,16,32,64)
@@ -125,7 +159,7 @@ def summarize(root, model, manifest):
 
 if __name__=="__main__":
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("model",choices=("gemma","llada"))
+    ap.add_argument("model",choices=("gemma","llada","gemma-eos"))
     ap.add_argument("receipts",type=Path)
     ap.add_argument("manifest",type=Path)
     a=ap.parse_args()

@@ -1,5 +1,18 @@
 # Can a single live request consume any of the five offers?
 
+**Verified-EOS profile.** [Qualification receipt](gemma-verified-eos.json).
+Five fixed offers times three requests matched sealed reference outputs and bills.
+Twelve mixed executions matched the no-shortcut public handle on the same offer
+path: every event and measured argmax through EOS, delivered IDs, encoder inputs,
+and exactly the billed post-EOS suffix. On #0 an upward switch paid rows [32,160)
+at Q128; a downward switch paid [128,160) at Q32. Both left 96 rows unneeded,
+saving one and three forwards respectively. These are two different trajectories,
+each compared only to its own control. `switch25` exercised all 25 transitions,
+29 downshifts with pending writes and 360 parked rows paid on downshift.
+The first incomplete deployment had an older dense executor, caught by the Q512
+stop-scope assertion; none of those initial runs are included. Audit the completed
+run with `strict_handle_report gemma-eos /gs/results/eos-handle-1128-v2 benchmarks/frozen90/manifest.json`.
+
 This is a functional GPU test on frozen indices 0, 10 and 20, not a mixed-budget
 quality experiment. Drive the same strict handle to EOS or the registered length
 limit. Never compare scores from these paths to fixed-budget curves.

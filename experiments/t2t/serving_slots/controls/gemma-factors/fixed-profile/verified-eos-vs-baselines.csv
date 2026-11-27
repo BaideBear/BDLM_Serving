@@ -1,0 +1,37 @@
+cohort,method,budget,n,correct,macro_TPF,token_efficiency,avg_decoder_Q,peak_decoder_Q,F,N,history_Q,physical_Q,source,Q_mandatory,Q_prefix,Q_unresolved,Q_clean-other,Q_verify,Q_rebuild
+original30,Verified EOS request,32,30,29,4.832302,0.15340875869730455,30.802341287708238,32,2247,10495,68412,75068,gemma-factors/verified-eos/q32/cohorts.csv,31985,1128,24291,0,11008,0
+original30,Verified EOS request,64,30,29,8.030147,0.13620269825600526,59.032634032634036,64,1314,10348,75975,82887,gemma-factors/verified-eos/q64/cohorts.csv,37312,1655,25552,0,11456,0
+original30,Verified EOS request,128,30,30,12.424388,0.11438055188055188,108.67265725288831,128,801,9683,84656,90288,gemma-factors/verified-eos/q128/cohorts.csv,44326,4436,24246,0,11648,0
+original30,Verified EOS request,256,30,28,23.2585,0.08064977134146341,256,256,516,10158,125952,132096,gemma-factors/fullstop/dense-summary.jsonl,65036,0,13826,33266,13824,0
+original30,Verified EOS request,512,30,28,24.922764,0.07364775162981807,325.67874396135267,512,436,9930,134831,140463,gemma-factors/single512-stop/cohorts.csv,,,,,,
+original30,Optimus IBS,32,30,27,6.871998489811732,0.20057875155022736,,,2064,12130,60475,68667,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+original30,Optimus IBS,64,30,29,11.006986743791607,0.1724335809668564,,,1145,11118,64477,72157,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+original30,Optimus IBS,128,30,25,16.471482505835912,0.14276111251155366,,,699,10194,71406,77550,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+original30,Optimus IBS,256,30,27,23.04530992747327,0.09742632915288144,,,554,10130,103976,110120,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+original30,Optimus IBS,512,30,27,23.04530992747327,0.09742632915288144,,,554,10130,103976,110120,block-history90-matrix.csv:block-history90-gemma-ibs512-h800.csv,,,,,,
+original30,Native / Flow W1,256,30,28,24.283680695475073,0.08871991009280743,,,454,9789,110336,116224,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+original30,Flow W2,512,30,29,23.892728228568217,,,,483,10122,,240640,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Verified EOS request,32,60,56,4.901982,0.15769728972161073,30.893724032363874,32,4627,22279,141277,155101,gemma-factors/verified-eos/q32/cohorts.csv,65694,2329,49766,0,23488,0
+new60,Verified EOS request,64,60,54,8.249138,0.1413291238734018,59.17519379844961,64,2635,21577,152672,166752,gemma-factors/verified-eos/q64/cohorts.csv,74429,3325,51366,0,23552,0
+new60,Verified EOS request,128,60,58,13.358542,0.12231178023174614,110.37099934683214,128,1583,20668,168978,182290,gemma-factors/verified-eos/q128/cohorts.csv,85634,8656,50240,0,24448,0
+new60,Verified EOS request,256,60,55,24.7487,0.090120116156283,256,256,1004,21848,242432,257024,gemma-factors/fullstop/dense-summary.jsonl,115157,0,29952,67371,29952,0
+new60,Verified EOS request,512,60,56,25.931986,0.07441227699506323,341.6443661971831,512,907,21660,291081,305161,gemma-factors/single512-stop/cohorts.csv,,,,,,
+new60,Optimus IBS,32,60,51,6.678212962040352,0.1545936243290357,,,5785,26871,173817,192249,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Optimus IBS,64,60,51,11.169932316158581,0.1804929886571026,,,2326,23439,129861,144965,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Optimus IBS,128,60,54,16.391992298257044,0.14853941576630653,,,1343,20416,137445,151013,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Optimus IBS,256,60,52,23.96119303750905,0.11851569340517079,,,1009,22063,186161,201009,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Optimus IBS,512,60,52,23.96119303750905,0.11851569340517079,,,1009,22063,186161,201009,block-history90-matrix.csv:block-history90-gemma-ibs512-h800.csv,,,,,,
+new60,Native / Flow W1,256,60,57,26.123168471063142,0.0951756709039548,,,943,21563,226560,241408,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+new60,Flow W2,512,60,55,26.138745378584495,,,,1011,22382,,502272,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Verified EOS request,32,90,85,4.878755,0.1562981367644464,30.863850456284958,32,6874,32774,209689,230169,gemma-factors/verified-eos/q32/cohorts.csv,97679,3457,74057,0,34496,0
+frozen90,Verified EOS request,64,90,83,8.176141,0.13962571124921822,59.12774760796483,64,3949,31925,228647,249639,gemma-factors/verified-eos/q64/cohorts.csv,111741,4980,76918,0,35008,0
+frozen90,Verified EOS request,128,90,88,13.047158,0.11966455601378365,109.7982683982684,128,2384,30351,253634,272578,gemma-factors/verified-eos/q128/cohorts.csv,129960,13092,74486,0,36096,0
+frozen90,Verified EOS request,256,90,83,24.252,0.08688216643502432,256,256,1520,32006,368384,389120,gemma-factors/fullstop/dense-summary.jsonl,180193,0,43778,100637,43776,0
+frozen90,Verified EOS request,512,90,84,25.595579,0.07417025113168918,336.42338072669827,512,1343,31590,425912,445624,gemma-factors/single512-stop/cohorts.csv,,,,,,
+frozen90,Optimus IBS,32,90,78,6.742808137964145,0.1664632168405238,,,7849,39001,234292,260916,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Optimus IBS,64,90,80,11.115617125369589,0.17781905751834431,,,3471,34557,194338,217122,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Optimus IBS,128,90,79,16.418489034116664,0.1465638182244758,,,2042,30610,208851,228563,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Optimus IBS,256,90,79,23.655898667497123,0.11095792677252471,,,1563,32193,290137,311129,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Optimus IBS,512,90,79,23.655898667497123,0.11095792677252471,,,1563,32193,290137,311129,block-history90-matrix.csv:block-history90-gemma-ibs512-h800.csv,,,,,,
+frozen90,Native / Flow W1,256,90,85,25.51000587920045,0.09306136018237082,,,1397,31352,336896,357632,block-history90-matrix.csv:block-history90-audited.csv,,,,,,
+frozen90,Flow W2,512,90,84,25.39007299524574,,,,1494,32504,,742912,block-history90-matrix.csv:block-history90-audited.csv,,,,,,

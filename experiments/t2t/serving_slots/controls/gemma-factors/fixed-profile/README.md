@@ -1,5 +1,11 @@
 # Fixed-budget charts
 
+`verified-eos-*` is the current qualified opt-in profile. The Q32/64/128
+terminal shortcut changes only the final ordered sweep, with exact output
+parity on all 90 at each offer. Q256/512 reuse the previous fixed estimates
+after exact three-case replay. Run the plotting module with `--eos-only` for
+these three charts and the numeric comparison table without rewriting history.
+
 `request-*` compares one qualified `dense_stop_joint_single512` request
 profile at all five fixed offers to same-cohort controls. `previous-joint-*`
 is its `dense_stop_joint_verify` predecessor; only Q512 differs. `metrics.csv`

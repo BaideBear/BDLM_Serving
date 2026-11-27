@@ -126,6 +126,35 @@ def public_profile(rows, previous=False):
             if arm[r["budget"]]==r["method"] or r["method"] in ("Native / Flow W1","Optimus IBS","Flow W2")]
 
 
+def verified_profile(rows):
+    qual=json.loads((ROOT/"strict-handle"/"gemma-verified-eos.json").read_bytes())
+    if qual["profile"]!="dense_stop_joint_verified_eos" or (qual["fixed"],qual["mixed"])!=(15,12):
+        raise ValueError("Unqualified EOS profile")
+    result=[]
+    for r in public_profile(rows):
+        if r["method"]!="Request":
+            result.append(r)
+            continue
+        r=dict(r,method="Verified EOS request")
+        c=r["budget"]
+        if c<256:
+            src=f"verified-eos/q{c}/cohorts.csv"
+            x,=[a for a in read(FACTORS/src) if a["cohort"]==r["cohort"]]
+            if (not all(int(x[k])==r["n"] for k in ("pairs","matched_ids","matched_scores","matched_encoder"))
+                    or any(int(x[col])!=r[key] for col,key in (("N","N"),("correct","correct"),("off_F","F"),
+                                       ("off_decoder_Q","history_Q"),("off_total_Q","physical_Q")))):
+                raise ValueError("Unmatched sparse reference")
+            dq=int(x["on_decoder_Q"])
+            r.update(macro_TPF=float(x["on_macro_TPF"]),token_efficiency=r["N"]/dq,
+                     avg_decoder_Q=dq/int(x["on_decoder_F"]),history_Q=dq,F=int(x["on_F"]),
+                     physical_Q=int(x["on_total_Q"]),source="gemma-factors/"+src,
+                     Q_verify=r["Q_verify"]-int(x["saved_Q"]))
+            if sum(r["Q_"+role] for role in ROLES)!=dq or r["Q_verify"]<0:
+                raise ValueError("EOS removed work other than verification")
+        result.append(r)
+    return result
+
+
 def plot(path, rows, compact=False):
     import matplotlib
     matplotlib.use("Agg")
@@ -136,7 +165,7 @@ def plot(path, rows, compact=False):
              "Flow W2":"#a65216","full-head variant":"#b02c53",
              "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24",
              "sample on rebuild":"#1670a0","joint verify":"#ac3860","single-resident stop":"#9b4025",
-             "Request":"#087469","Previous request":"#087469"}
+             "Request":"#087469","Previous request":"#087469","Verified EOS request":"#087469"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -158,7 +187,7 @@ def plot(path, rows, compact=False):
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
                                        "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*",
                                        "sample on rebuild":"P","joint verify":"X","single-resident stop":"*",
-                                       "Request":"o","Previous request":"o"}[name],
+                                       "Request":"o","Previous request":"o","Verified EOS request":"o"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
@@ -190,15 +219,28 @@ def plot(path, rows, compact=False):
           if compact else "High/low MASK: dense head when unresolved count is at least/below 128.")
     if "Request" in handles:
         note="Fixed offers: Q512 uses joint verification or guarded stopping with one resident head. Not a mixed-budget ranking."
+    if "Verified EOS request" in handles:
+        note="Fixed offers: sparse terminal verification stops at measured EOS. Q256/512 policies unchanged."
     fig.text(.05,.02,note+" Native runs at Q256; IBS 512 saturates. Missing values are not zero.",fontsize=9)
     fig.savefig(path,dpi=160,facecolor="white")
     plt.close(fig)
 
 
 if __name__=="__main__":
+    import argparse
+    ap=argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--eos-only",action="store_true")
+    args=ap.parse_args()
     dst=FACTORS/"fixed-profile"
     dst.mkdir(exist_ok=True)
     data=collect()
+    if args.eos_only or (ROOT/"strict-handle"/"gemma-verified-eos.json").is_file():
+        rows=verified_profile(data)
+        write_csv(dst/"verified-eos-vs-baselines.csv",rows)
+        for cohort,_,_ in COHORTS:
+            plot(dst/f"verified-eos-{cohort}.png",[r for r in rows if r["cohort"]==cohort],compact=True)
+    if args.eos_only:
+        raise SystemExit(0)
     write_csv(dst/"metrics.csv",data)
     write_csv(dst/"request-vs-baselines.csv",public_profile(data))
     write_csv(dst/"previous-joint-vs-baselines.csv",public_profile(data,previous=True))
