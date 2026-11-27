@@ -58,3 +58,5 @@ GPU 同档配对入口：`python -Bm experiments.t2t.serving_slots.fixed_family_
 | `credit` | 保持立即采样。只有暖轮存在严格块内干净前缀且付完欠账仍有至少两行余量时，累计余量的 `1/8`；满一行才给最靠右的一个前缀，可 T2T，至少留一行给 MASK。未用余额不跨物理块。 |
 
 `python -Bm experiments.t2t.serving_slots.llada_low_start_pilot` 用独立的 CPU 40–43 号核、BF16 跑真权重；复用正式评测器逐层核对实际 Q、掩码、写欠账与退休条件。`python -Bm experiments.t2t.serving_slots.llada_low_start_report --case 0` 仅列同题同档三组均已封存的结果；不加 `--case` 须 18 份原件及最终封存哈希齐全才出三题汇总。首个 Q4 `resident` 请求答对，N/F/Q 为 294/286/1103；历史同题 Q4 候选答错，249/234/872。该例中质量恢复，但付费投影更多，不能据此推广到其余题目或升级主算法。
+
+[同题 Q4/Q8 三臂明细](../experiments/t2t/serving_slots/controls/llada21-low-start-cpu-case0.csv)：Q4 累计前缀 60 行次，无前缀 T2T，仍错；Q8 累计 59 行次，发生 3 次前缀 T2T，答对。这不是这 3 次编辑导致答对的证据，因为 MASK 选位也改变了。Q8 建齐再采样也答对：计入 40 次建块后共 155 次 forward，TPF 1.916；立即采样 288 次，TPF 1.069。两个档位的 `eager` 都已逐轮复现历史候选。Q8 时这题首块仅剩 6 行，首次 forward 就可见完整首块，因此 `resident` 的干预来自**后续物理块**。这六行只描述一题，不给出总体胜率。作为外部参照，同一题同一 CPU 的严格 Optimus IBS Q8（M2T 0.9、K0）答对，TPF 2.504、效率 34.35%；两个新 Q8 实验组都未超过它。
