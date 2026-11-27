@@ -44,3 +44,17 @@ Gemma 的 Q512 GPU 档用同一冻结 `gemma_fixed_dual_eval.fixed` 做完整单
 GPU 同档配对入口：`python -Bm experiments.t2t.serving_slots.fixed_family_pairs`。先用同一模块的 `--prepare` 在集群离线重评 1,800 个基线输出，对照已归档的 60 个单元逐一核验正确数和 N/F/Q，再封存逐题账本（SHA256 `ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce`）。不需要重新生成基线，不把 CPU 候选与 GPU 基线相减。配对输出限完整 cohort，逐题核对 index、dataset、task_id 和 seed，列出救回/丢失、两侧绝对指标和差值。质量按数据集分层用配对 Newcombe 区间，宏 TPF 用分层的配对均值差区间，效率用分层的配对比率差 bootstrap（4,000次）。区间均为逐对的 95% 区间，未校正多重比较。
 
 [Gemma 五个固定档的首题对账](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu-case0.csv) 是 Q512 首次全权重端到端验证，不是总体性能评测。五档均答对冻结 index 0。Q512 有 12 次双块计算，16 次 decoder 共实算 5,114 行，另有 1 次 B256 encoder；380 个交付 token，TPF 22.353，效率 7.08%。Q256 同题为 371 个交付 token、23 次 forward、3,826 行，TPF 16.130，效率 9.70%。两档均从同一 prompt 独立推理。复算：`python -Bm experiments.t2t.serving_slots.fixed_family_report gemma --device cpu --case-index 0`。
+
+### 低档：先看全本块，还是重新计算已解码的行？
+
+[CPU 三题的实际输出位置](../experiments/t2t/serving_slots/controls/fixed-family-cold-exposure-cpu3.csv) 按绝对位置追踪首次 M2T，计交付序列直至并包括 EOS，不计 EOS 后丢弃的位置。Q4 有 368/781 个输出位置在当前物理块的 KV 尚未建齐时就首次解码；Q8 为 279/853。等到本块的 key 都可见后，其中分别有 22、27 个位置再次进入模型，但**两档都没有一个重新进入采样器**。单纯刷新 KV 不能纠正 token。Q16 有 213/826 个位置提前解码，其中 20 个后来重新进入采样器、2 个发生 token 变化或撤销。Q32/Q64 没有这种提前解码。这是观测到的机制，不是错误归因。重算：`python -Bm experiments.t2t.serving_slots.fixed_cold_exposure`。
+
+固定 Q4、Q8 各用同一组 index 0/10/20、同一模型和评分器，从头完整生成。三个独立实验组共 18 个请求，不改正式 CUDA 候选：
+
+| 组 | 唯一改变 |
+|---|---|
+| `eager` | 原执行器冷起立即采样、零可选前缀。对这六个输入，原 `1/8` 也从未实际选到可选前缀；要求重跑的逐轮轨迹、输出、得分、F/Q 与原封存记录完全一致。 |
+| `resident` | 新块首次投影不能一轮覆盖时，先按该档真实预算分片建 KV，保持全 MASK，不沿用旧 logits。随后从左侧重新投影开始采样。首轮能装下整个块时沿用原逻辑。建齐表示 key 地址均已驻留，不等于每层缓存与 dense B32 完全相同。 |
+| `credit` | 保持立即采样。只有暖轮存在严格块内干净前缀且付完欠账仍有至少两行余量时，累计余量的 `1/8`；满一行才给最靠右的一个前缀，可 T2T，至少留一行给 MASK。未用余额不跨物理块。 |
+
+`python -Bm experiments.t2t.serving_slots.llada_low_start_pilot` 用独立的 CPU 40–43 号核、BF16 跑真权重；复用正式评测器逐层核对实际 Q、掩码、写欠账与退休条件。`python -Bm experiments.t2t.serving_slots.llada_low_start_report --case 0` 仅列同题同档三组均已封存的结果；不加 `--case` 须 18 份原件及最终封存哈希齐全才出三题汇总。首个 Q4 `resident` 请求答对，N/F/Q 为 294/286/1103；历史同题 Q4 候选答错，249/234/872。该例中质量恢复，但付费投影更多，不能据此推广到其余题目或升级主算法。
