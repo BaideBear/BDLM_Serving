@@ -155,7 +155,11 @@ class FixedFamilyRequest(FamilyRequest):
 
     def _apply(self, states, pos, sample, prefix, cold, offer, route):
         head = states[0]
-        verify, rebuild = route in ('verify', 'verify_paid'), route == 'rebuild'
+        joint_verify = route == 'verify_joint_paid'
+        verify, rebuild = route in ('verify', 'verify_paid') or joint_verify, route == 'rebuild'
+        if joint_verify:
+            from .gemma_joint_verify import validate_plan
+            validate_plan(self, states, pos, sample, offer)
         obs = self.stop_observer
         scoped = getattr(self, 'stop_at_single_b_only', False)
         in_scope = not scoped or (offer==B and len(states)==1 and route=='dense_single')
@@ -190,8 +194,8 @@ class FixedFamilyRequest(FamilyRequest):
                         prefix=list(extra), dirty_before=sorted(rows.dirty),age_before=s.age,
                         admitted=[],edited=[],revoked=[], input_changed=[])
             if phase == 'verify':
-                if route == 'verify_paid':
-                    if (len(states) != 1 or self.cursor or not rows.dirty or
+                if route == 'verify_paid' or (joint_verify and rows.dirty):
+                    if ((not joint_verify and len(states) != 1) or self.cursor or not rows.dirty or
                             not rows.dirty.issubset(local) or c.can_sample or s.phase != 'sample'):
                         raise RuntimeError('Cannot combine this writeback with the first terminal chunk')
                     # _project has already written these exact inputs at every layer.
@@ -437,6 +441,9 @@ class AblationRequest(FixedFamilyRequest):
             # Terminal sweep and encoder epoch change are head-only barriers.
             if debt:
                 first = range(base, base+min(B,q))
+                if (getattr(self,'joint_verify',False) and q==2*B and self.tail is not None
+                        and not self.cursor and head_initialized==B and head.sampler.phase=='sample'):
+                    return run('verify_joint_paid', sorted(set(first) | debt))
                 if (self.fuse_first_verify and self.tail is None and self.cursor == 0 and
                         head_initialized == B and head.sampler.phase == 'sample' and
                         not head.can_sample and debt.issubset(first)):

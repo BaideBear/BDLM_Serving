@@ -4,6 +4,16 @@
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.
 
+`open_strict_gemma(..., profile="dense_stop_joint_verify")` keeps the same
+five offers and the previous guarded stop/promotion rules. Only an offer of
+512 with a fully initialized terminal head, resident successor and outstanding
+writes can combine the full head verification and the successor's required KV
+writes. No tail sampling or encoder work is skipped. A smaller offer drains the
+writes within its own physical limit, then verifies in chunks. See the
+[fixed frozen90 comparison](../experiments/t2t/serving_slots/controls/gemma-factors/joint-verify/README.md),
+[current five-tier chart](../experiments/t2t/serving_slots/controls/gemma-factors/fixed-profile/request-frozen90.png)
+and [public API GPU qualification](../experiments/t2t/serving_slots/controls/strict-handle/gemma-joint-verify.json).
+
 `profile="dense_stop_promotion_fused"` additionally lets a fixed Q512 offer
 consume the first ordinary sample on a promoted head during its complete
 new-epoch rebuild. This requires B genuinely missing rows, no dirty rows,

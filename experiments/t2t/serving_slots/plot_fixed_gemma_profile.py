@@ -21,6 +21,8 @@ def collect():
     studies = {k:read(FACTORS/k/"paired.csv") for k in ("close","profile-close","capacity","density","promotion")}
     baselines = read(ROOT/"block-history90-matrix.csv")
     stops = {r['cohort']:r for r in map(json.loads,(FACTORS/"fullstop"/"dense-summary.jsonl").read_text().splitlines())}
+    joint_cohorts={r["cohort"]:r for r in read(FACTORS/"joint-verify"/"cohorts.csv")}
+    joint_pairs=read(FACTORS/"joint-verify"/"pairs.csv")
     rows = []
     for cohort, external, n in COHORTS:
         for c in TIERS:
@@ -64,6 +66,24 @@ def collect():
             macro_TPF=stop["macro_TPF"],token_efficiency=stop["token_efficiency"],avg_decoder_Q=256,peak_decoder_Q=256,
             F=stop["F"],N=stop["N"],history_Q=stop["decoder_Q"],physical_Q=stop["decoder_Q"]+stop["encoder_Q"],
             source="gemma-factors/fullstop/dense-summary.jsonl",**{f"Q_{k}":stop["roles"][k] for k in ROLES}))
+        joint=joint_cohorts[cohort]
+        idx=set(range(30) if cohort=="original30" else range(30,90) if cohort=="new60" else range(90))
+        pairs=[r for r in joint_pairs if int(r["index"]) in idx]
+        reference,=(r for r in rows if r["cohort"]==cohort and r["method"]=="sample on rebuild")
+        if (len(pairs)!=n or {int(r["index"]) for r in pairs}!=idx or int(joint["matched"])!=n or
+                any(r["same_output"]!="True" or r["history_exact"]!="1" or int(r["F_residual"])
+                    or int(r["decoder_Q_residual"]) or int(r["on_max_decoder_Q"])>512 for r in pairs) or
+                any(int(joint["off_"+key])!=reference[col] for key,col in (
+                    ("N","N"),("F","F"),("correct","correct"),("decoder_Q","history_Q"))) or
+                int(joint["on_F"])+int(joint["on_events"])!=reference["F"] or
+                int(joint["on_decoder_Q"])+int(joint["on_head_dirty_Q"])!=reference["history_Q"]):
+            raise ValueError("Incomplete or unbalanced joint verification")
+        decoder=int(joint["on_decoder_Q"])
+        rows.append(dict(cohort=cohort,method="joint verify",budget=512,n=n,correct=int(joint["on_correct"]),
+            macro_TPF=float(joint["on_macro_TPF"]),token_efficiency=int(joint["on_N"])/decoder,
+            avg_decoder_Q=decoder/int(joint["on_decoder_F"]),peak_decoder_Q=max(int(r["on_max_decoder_Q"]) for r in pairs),
+            F=int(joint["on_F"]),N=int(joint["on_N"]),history_Q=decoder,
+            physical_Q=decoder+int(joint["on_encoder_Q"]),source="gemma-factors/joint-verify/cohorts.csv"))
         for method, setting, c, label in [
             *(("ibs",q,q,"Optimus IBS") for q in TIERS), ("native",256,256,"Native / Flow W1"),
             ("flow",2,512,"Flow W2"),
@@ -80,7 +100,14 @@ def collect():
     return rows
 
 
-def plot(path, rows):
+def public_profile(rows):
+    """Whole-request endpoints of one runtime profile, not maxima per metric."""
+    arm={32:"fixed90_fused",64:"fixed90_fused",128:"fixed90_fused",256:"dense + native stop",512:"joint verify"}
+    return [dict(r,method="Request") if arm[r["budget"]]==r["method"] else r for r in rows
+            if arm[r["budget"]]==r["method"] or r["method"] in ("Native / Flow W1","Optimus IBS","Flow W2")]
+
+
+def plot(path, rows, compact=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -89,7 +116,7 @@ def plot(path, rows):
     palette={"fixed90_fused":"#087469","Optimus IBS":"#6343a0","Native / Flow W1":"#596779",
              "Flow W2":"#a65216","full-head variant":"#b02c53",
              "dense at high MASK":"#1964ae","dense at low MASK":"#78620d","dense + native stop":"#191e24",
-             "sample on rebuild":"#1670a0"}
+             "sample on rebuild":"#1670a0","joint verify":"#ac3860","Request":"#087469"}
     fig, axes = plt.subplots(1,3,figsize=(16,6.4))
     handles = {}
     for ax, (col,title,scale) in zip(axes, (("correct",f"Correct / {n}",1),
@@ -110,7 +137,7 @@ def plot(path, rows):
             else:
                 h,=ax.plot(x,y,marker={"fixed90_fused":"o","Optimus IBS":"^","full-head variant":"D",
                                        "dense at high MASK":"+","dense at low MASK":"x","dense + native stop":"*",
-                                       "sample on rebuild":"P"}[name],
+                                       "sample on rebuild":"P","joint verify":"X","Request":"o"}[name],
                            ls="--" if name=="Optimus IBS" else "-",color=color,lw=2,ms=8)
             handles[name]=h
         ax.set(xticks=range(len(TIERS)),xticklabels=TIERS,xlabel="Offered decoder Q",title=title,xlim=(-.28,4.28))
@@ -137,8 +164,10 @@ def plot(path, rows):
             if i==0: cell.set_facecolor("#f2f3f5")
             elif k==0: cell.get_text().set_color(palette[entries[i-1][0]])
     fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.94),
-               ncol=len(handles),frameon=False,fontsize=8)
-    fig.text(.05,.02,"High/low MASK: dense head when unresolved count is at least/below 128. Native runs at Q256; IBS 512 saturates at one block. Missing values are not zero.",fontsize=9)
+               ncol=min(6,len(handles)),frameon=False,fontsize=8)
+    note=("Request: strict fixed decoder offer, sparse through 128, dense stop at 256, two-block joint verification at 512."
+          if compact else "High/low MASK: dense head when unresolved count is at least/below 128.")
+    fig.text(.05,.02,note+" Native runs at Q256; IBS 512 saturates. Missing values are not zero.",fontsize=9)
     fig.savefig(path,dpi=160,facecolor="white")
     plt.close(fig)
 
@@ -148,5 +177,8 @@ if __name__=="__main__":
     dst.mkdir(exist_ok=True)
     data=collect()
     write_csv(dst/"metrics.csv",data)
+    write_csv(dst/"request-vs-baselines.csv",public_profile(data))
     for cohort,_,_ in COHORTS:
-        plot(dst/f"{cohort}.png",[r for r in data if r["cohort"]==cohort])
+        cohort_rows=[r for r in data if r["cohort"]==cohort]
+        plot(dst/f"{cohort}.png",cohort_rows)
+        plot(dst/f"request-{cohort}.png",public_profile(cohort_rows),compact=True)

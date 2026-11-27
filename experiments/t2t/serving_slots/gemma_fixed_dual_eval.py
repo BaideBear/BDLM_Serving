@@ -138,6 +138,9 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                         (e['head_mask_before']==0 or e['parts'][0]['age_before']==48 or prior_stop) and
                         e['head_initialized_before']==B and epoch_rows.issuperset(range(base,base+B)),
                         'Ineligible or reordered terminal writeback fusion')
+            if route == 'verify_joint_paid':
+                from .gemma_joint_verify import validate_tick
+                validate_tick(e, origin, partial, debt, epoch_rows, pos[t], req)
             dense = full_head_at_b
             if density is not None:
                 start = origin+B*len(sealed)
@@ -216,7 +219,7 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                           dirty=len(old_dirty & absrows), rebuild=len(rows) if p['phase']=='rebuild' else 0)
             if p['phase'] == 'verify':
                 require(o == len(sealed) and rows == list(range(len(partial),len(partial)+len(rows))) and not p['sampled']
-                        and (not p['dirty_before'] or route=='verify_paid') and verified is None,
+                        and (not p['dirty_before'] or route in ('verify_paid','verify_joint_paid')) and verified is None,
                         'Invalid head verify')
                 partial.extend(argmax[start:start+len(rows)])
                 if len(partial)==B:

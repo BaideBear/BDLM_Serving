@@ -12,7 +12,9 @@ from bdlm_serving.methods.t2t.serving_profiles import open_strict_gemma
 
 TIERS = (32,64,128,256,512)
 PROMOTION = "dense_stop_promotion_fused"
-STOP_PROFILES = ("dense_b_stop_fused", PROMOTION)
+JOINT = "dense_stop_joint_verify"
+PROMOTION_PROFILES = (PROMOTION,JOINT)
+STOP_PROFILES = ("dense_b_stop_fused", *PROMOTION_PROFILES)
 
 
 def offer_cycle(tiers=TIERS):
@@ -30,6 +32,8 @@ def offer_cycle(tiers=TIERS):
 
 def reference_path(root, q, index, profile="fixed90_candidate"):
     if profile in ("fixed90_fused","fixed90_dense_fused","phase_high_fused",*STOP_PROFILES):
+        if q==512 and profile==JOINT:
+            return root/"joint-verify-1128"/f"C512-joint1-{index:02}.json"
         if q==512 and profile==PROMOTION:
             return root/"promotion-1128"/f"C512-promotion1-{index:02}.json"
         if q in (128,512):
@@ -54,7 +58,7 @@ def check(ok, message):
 
 
 def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
-          drop_after_promotion=False, dense_shadow=False):
+          drop_after_promotion=False, drop_at_joint=False, dense_shadow=False):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -66,6 +70,7 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
     parked_pay = physical_downshift = 0
     last_full, stopped_head = None, None
     prev_promoted, prev_rebuild_sample = None, False
+    held_head = None
     triggers = Counter()
     cfg = dict(seed=task["seed"], initial_offer=schedule[0], profile=profile)
     with ExitStack() as stack:
@@ -88,6 +93,16 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                 q = 32 if stopped_head==head else 256
             if drop_after_promotion:
                 q = 32 if prev_rebuild_sample else 512
+            joint_opportunity = False
+            if profile==JOINT:
+                raw=h._request
+                joint_opportunity=(raw.tail is not None and not raw.rebuild and not raw.cursor
+                      and len(raw.rows.initialized)==256 and raw.sampler.phase=="sample" and bool(debt)
+                      and (raw.rows._native_stop or raw.rows.age>=raw.rows.max_steps or len(raw.rows.accepted)==256))
+                if drop_at_joint:
+                    if joint_opportunity:
+                        held_head=head
+                    q=32 if held_head==head else 512
             e = h.step(q)
             if dense_shadow:
                 shadow.after(e,origin)
@@ -99,7 +114,29 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                   and all(t[-1] == len(rows) for t in proj.values()), "unmeasured physical projection")
             check(e["dirty_before_absolute"] == sorted(debt) and set(sorted(debt)[:q]) <= set(rows)
                   and changed <= sampled <= set(rows), "unpaid old or unmeasured new writes")
-            if profile==PROMOTION:
+            if profile==JOINT:
+                joint=e["route"]=="verify_joint_paid"
+                check(joint==(q==512 and joint_opportunity),"joint verification not gated by current offer/state")
+                if joint:
+                    full=set(range(origin+256*head,origin+256*(head+1)))
+                    tail=debt-full
+                    check(set(rows)==full|tail and not verify and not changed and not sampled
+                          and not e['dirty_after_absolute'] and e['head_initialized_before']==256
+                          and all(p['phase']=='drain' and p['rows']==p['dirty_before']
+                                  and not p['sampled'] and p['age_before']==p['age_after']
+                                  for p in e['parts'][1:]),"wrong terminal projection, write or tail sampling")
+                    triggers['joint_calls']+=1
+                    triggers['tail_dirty_Q_in_joint']+=len(tail)
+                if joint_opportunity and q<512:
+                    check(e['route']=='drain' and not sampled and set(rows)==set(sorted(debt)[:q]),
+                          "small offer must drain in-cap on parked joint close")
+                    triggers['joint_deferred']+=1
+                    if old==512:
+                        triggers['top_to_small_at_joint']+=1
+                if drop_at_joint and held_head==head and e['route']=='verify':
+                    check(not debt and q==32 and len(rows)<=q,"unpaid verification after a downshift")
+                    triggers['small_verify_chunks']+=1
+            if profile in PROMOTION_PROFILES:
                 if e["route"]=="rebuild_sample":
                     check(q==512 and prev_promoted==head and head>0 and not debt
                           and e["opened"] is None and e["head_initialized_before"]==256
@@ -142,6 +179,9 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
                         check(profile!="fixed90_candidate" and verify==0 and len(e["parts"])==1
                               and debt and debt<=set(rows) and e["head_initialized_before"]==256
                               and e["promoted"] is None, "unpaid or reordered fused verification")
+                    elif e["route"]=="verify_joint_paid":
+                        check(profile==JOINT and q==512 and verify==0 and bool(debt)
+                              and debt<=set(rows),"missing write on joint verify")
                     else:
                         check(not debt,"pending write on plain verification")
                     check(ordinal == head and not sampled
@@ -200,8 +240,10 @@ def main(argv=None):
                                                     ("park", (512,)*5+(32,)*3+(512,))]
     if a.profile in STOP_PROFILES:
         jobs.append(('drop_after_stop',(256,32)))
-    if a.profile==PROMOTION:
+    if a.profile in PROMOTION_PROFILES:
         jobs.append(('drop_after_promotion',(512,32)))
+    if a.profile==JOINT:
+        jobs.append(('drop_at_joint',(512,32)))
     indices=(0,10,20)
     if a.dense_shadow:
         check(a.profile=='dense_b_stop_fused','dense shadow profile')
@@ -221,12 +263,17 @@ def main(argv=None):
                     continue
                 row, ids = drive(model,data,t,schedule,deadline=a.deadline,profile=a.profile,
                                   drop_after_stop=name=='drop_after_stop',drop_after_promotion=name=='drop_after_promotion',
-                                  dense_shadow=a.dense_shadow)
+                                  drop_at_joint=name=='drop_at_joint',dense_shadow=a.dense_shadow)
                 if len(schedule)==1:
                     src = reference_path(a.receipts,schedule[0],i,a.profile)
                     blob = src.read_bytes()
                     ref = json.loads(blob)
-                    same = list(ids)==ref["output_ids"] and all(row[k]==ref[k] for k in
+                    joint_ref = a.profile==JOINT and schedule==(512,)
+                    if joint_ref:
+                        check(ref["schema"]=="joint-verify-v1" and ref["on"] is True and
+                              ref["samples_sha256"]==SAMPLES_SHA,"wrong joint reference")
+                    ids_match = row["output_digest"]==ref["ids"] if joint_ref else list(ids)==ref["output_ids"]
+                    same = ids_match and all(row[k]==ref[k] for k in
                             ("index","seed","task_id","dataset","input_sha256","F","decoder_F","encoder_F","decoder_Q","encoder_Q"))
                     row.update(reference_sha256=sha256(blob).hexdigest(), identical=same)
                 row.update(schema="strict-handle-gemma-qualification-v1", suite=name, profile=a.profile, samples_sha256=SAMPLES_SHA,

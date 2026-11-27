@@ -3,7 +3,7 @@ import argparse
 from collections import Counter
 import json
 from pathlib import Path
-from .strict_handle_qualify import PROMOTION, STOP_PROFILES
+from .strict_handle_qualify import JOINT, PROMOTION_PROFILES, STOP_PROFILES
 
 
 def summarize(root, model, manifest):
@@ -17,8 +17,10 @@ def summarize(root, model, manifest):
         s, i = r["suite"], r["index"]
         if model=='gemma' and r.get('profile') in STOP_PROFILES:
             groups.setdefault('drop_after_stop',[])
-            if r['profile']==PROMOTION:
+            if r['profile'] in PROMOTION_PROFILES:
                 groups.setdefault('drop_after_promotion',[])
+            if r['profile']==JOINT:
+                groups.setdefault('drop_at_joint',[])
         if (s not in groups or i not in (0,10,20) or p.name!=f"{s}-{i:02}.json"
                 or r["schema"]!=f"strict-handle-{model}-qualification-v1"
                 or r["samples_sha256"]!=manifest["samples_sha256"]
@@ -64,12 +66,17 @@ def summarize(root, model, manifest):
                     fixed and suite!='fixed256' and (counts['eligible_pairs'] or counts['latches']) or
                     suite=='drop_after_stop' and not (counts['latches'] and counts['post_stop_sub_B_ticks'] and changes['256>32'])):
                 raise ValueError('unqualified native stop scope or missing post-latch downshift')
-            if profiles=={PROMOTION} and (
+            if profiles <= set(PROMOTION_PROFILES) and (
                     fixed and suite!='fixed512' and counts['sampled_promotions']
                     or suite=='fixed512' and not counts['sampled_promotions']
                     or suite=='drop_after_promotion' and not (
                         counts['post_promotion_downshifts_with_debt'] and changes['512>32'])):
                 raise ValueError('unqualified promotion scope or missing debt-carrying downshift')
+            if profiles=={JOINT} and (fixed and suite!='fixed512' and counts['joint_calls'] or
+                    suite=='fixed512' and not (counts['joint_calls'] and counts['tail_dirty_Q_in_joint']) or
+                    suite=='drop_at_joint' and not (counts['top_to_small_at_joint'] and counts['small_verify_chunks']
+                                                   and not counts['joint_calls'] and changes['512>32'])):
+                raise ValueError('unqualified joint verification or missing fallback')
             arms[suite]['stop_checks']=dict(counts)
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
                 **({"profile":profiles.pop()} if model=="gemma" else {}),

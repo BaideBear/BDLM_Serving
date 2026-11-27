@@ -82,3 +82,11 @@ by Q32 with outstanding writes; both were accounted for without a state
 reset. The B-only stop was ineligible during sampled promotion, and the
 post-stop Q32 path still executed 37 sub-B ticks. This is an API and cache
 qualification, not a score for either mixed path.
+
+[`dense_stop_joint_verify`](gemma-joint-verify.json) passed 15/15 fixed
+replays on the same indices, using the independently measured joint1 output
+digest and physical ledger at Q512. `switch25` saw all 25 directed pairs.
+The dedicated fallback offered 32 instead of 512 at **two actual resident-tail
+close opportunities**: it did not take the joint shortcut, paid 26 parked
+rows at the downshift and verified the two heads in 16 small chunks.
+This proves the measured functional paths, not their comparative quality.
