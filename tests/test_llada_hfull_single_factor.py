@@ -85,6 +85,15 @@ def test_summary_counts_old_new_failures_and_first_checks():
     assert summary["per_index"][2]["new_failure"] == "cuda"
 
 
+def test_cap_claim_needs_an_observed_nonempty_history_projection_on_every_layer():
+    e=dict(q=2,physical_q=2,rows=[32,33],absolute_positions=[32,33],
+           layer_physical_q=[2]*20,prefix_kv_length=32)
+    assert mod._strict_cap(dict(F=1,Q=2,trace=[e]))
+    for patch in (dict(layer_physical_q=[]),dict(rows=[]),dict(prefix_kv_length=0),dict(physical_q=32)):
+        assert not mod._strict_cap(dict(F=1,Q=2,trace=[dict(e,**patch)]))
+    assert not mod._strict_cap(dict(F=1,Q=2))
+
+
 def test_state_digest_tracks_x_head_and_dirty():
     req = SimpleNamespace(
         x=torch.tensor([[1, 2, 3, 0]]), head=0, end=4, origin=3,

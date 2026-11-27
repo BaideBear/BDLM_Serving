@@ -62,6 +62,23 @@ def test_count_only_consecutive_steps_in_each_request(cohort):
     assert sum(result["switch25"]["directed_pairs"].values()) == 75
 
 
+def test_quarter_profile_requires_action_exposure_at_the_correct_offer(cohort):
+    path, manifest=cohort
+    for p in path.glob("*.json"):
+        r=json.loads(p.read_text())
+        r["policy_checks"]={"fixed16":{"borrow_Q":3},"fixed32":{"full_write_F":1},
+                            "fixed64":{"quarter_open_F":1}}.get(r["suite"],{})
+        r.update(profile="quarter_fullwrite",downshifts_with_debt=int(r["suite"]=="switch25"))
+        p.write_text(json.dumps(r))
+    assert summarize(path,"llada",manifest)["profile"]=="quarter_fullwrite"
+    p=path/"fixed4-00.json"
+    r=json.loads(p.read_text())
+    r["policy_checks"]={"borrow_Q":4}
+    p.write_text(json.dumps(r))
+    with pytest.raises(ValueError,match="wrong fixed action exposure"):
+        summarize(path,"llada",manifest)
+
+
 def test_verified_draft_compares_through_eos_and_requires_complete_canvas():
     from experiments.t2t.serving_slots.gemma_draft_shadow import compare_block
     full=[10]*256

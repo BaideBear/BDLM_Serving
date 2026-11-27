@@ -2,11 +2,71 @@
   "cohorts": {
     "frozen90": {
       "expected": 90,
-      "paired": 60
+      "first_extra_admissions": 494,
+      "high": {
+        "F": 10020,
+        "N": 41634,
+        "Q": 455344,
+        "TE": 0.09143416845286201,
+        "correct": 70,
+        "edit": 2076,
+        "failed": 0,
+        "fallback": 7036,
+        "macro_TPF": 6.2785957038071825,
+        "natural": 36041,
+        "revoke": 0
+      },
+      "intervened": 88,
+      "losses": 17,
+      "low": {
+        "F": 7182,
+        "N": 41709,
+        "Q": 337542,
+        "TE": 0.1235668450148426,
+        "correct": 59,
+        "edit": 2836,
+        "failed": 0,
+        "fallback": 3702,
+        "macro_TPF": 9.31737597161222,
+        "natural": 39451,
+        "revoke": 0
+      },
+      "paired": 90,
+      "rescues": 6
     },
     "new60": {
       "expected": 60,
-      "paired": 30
+      "first_extra_admissions": 330,
+      "high": {
+        "F": 6422,
+        "N": 27539,
+        "Q": 292229,
+        "TE": 0.09423773821215553,
+        "correct": 46,
+        "edit": 1443,
+        "failed": 0,
+        "fallback": 4492,
+        "macro_TPF": 6.596263895687152,
+        "natural": 23960,
+        "revoke": 0
+      },
+      "intervened": 58,
+      "losses": 9,
+      "low": {
+        "F": 4743,
+        "N": 28025,
+        "Q": 223520,
+        "TE": 0.12538027916964925,
+        "correct": 40,
+        "edit": 1835,
+        "failed": 0,
+        "fallback": 2521,
+        "macro_TPF": 9.721207786359033,
+        "natural": 26455,
+        "revoke": 0
+      },
+      "paired": 60,
+      "rescues": 3
     },
     "original30": {
       "expected": 30,

@@ -72,3 +72,20 @@ Full_write to edit_once changed 14 sequences, rescued one and lost one; the
 61 terminal edits were all token-to-token, with zero revocations. Do not label
 the difference a mechanical reduction in F; output N also changes. None of
 these 30-case candidate scores may be labeled as new60 or frozen90.
+
+## Completed fixed Q32 comparison
+
+| Arm | New60 correct | Frozen90 correct | Frozen90 macro TPF | Pooled TE | F | History Q |
+|---|---:|---:|---:|---:|---:|---:|
+| Dirty-only | 49 | 72 | 4.513 | 16.62% | 13,870 | 265,204 |
+| Full write, no sampling | 47 | 73 | 4.812 | 14.90% | 13,011 | 280,341 |
+| Full write + one edit opportunity | 48 | 74 | 4.937 | 16.25% | 11,576 | 252,493 |
+| Historical IBS32 | 46 | 71 | 4.495 | 15.23% | 12,694 | 268,170 |
+| Native B32 | 49 | 75 | 5.677 | 15.56% | 8,182 | 261,824 |
+
+Zero failures among the 270 executions. The extra terminal edit made
+196 T2T changes. Against full write without sampling, 4 answers were
+rescued and 3 were lost. Counts split 26/26 on the original 30 and
+47/48 on the new 60. On frozen90 the edit arm exceeds IBS on all three
+point estimates but not native on quality or TPF. The `quarter_fullwrite`
+switch qualification used **full write without sampling**, not the edit arm.

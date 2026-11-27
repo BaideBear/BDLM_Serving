@@ -90,6 +90,38 @@ All 90 are present with zero failures. The gate change flips 14 false→true and
 diverge at all (the gate never opened in either arm). This is a **gate
 single-factor paired cohort**, not a frozen90 quality/TPF qualification.
 
+## Quarter gate + warm-head sampling (Q64, full-head)
+
+Inputs:
+
+* old quarter exact replay: `/gs/results/llada-hfull-quarter-old-rows`
+  (0–67 control `c64-full-quarter`; 68–89 the gate run's new quarter)
+* new quarter + warm-head: `/gs/results/llada-hfull-quarter-warm-single-factor-20261128-053736`
+* reference prompts: `/gs/work/llada-refs/llada21`
+
+Original-encoding verification: all 90 old-quarter `output_ids` and traces match
+the source receipts; all 90 old/new `input_sha256` match the reference
+`prompt_ids`; all 90 old/new use the same prompt; `samples_sha256` is the
+registered `bc9e457d…ab65aed`. 77/90 new output IDs differ; 13 are identical
+(including non-intervened 75 and 76), which is not a failure. Zero failures in
+the included 90.
+
+| Cohort | Coverage | Old correct | New correct | Old F | New F | Old Q | New Q | Old macro TPF | New macro TPF | Old macro TE | New macro TE | Old pooled TPF | New pooled TPF | Old pooled TE | New pooled TE | Strict cap | Intervened / first |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|
+| original30 | 30/30 | 24 | 25 | 3598 | 3223 | 163115 | 145807 | 5.643 | 6.387 | 0.1228 | 0.1347 | 3.917 | 4.110 | 0.0864 | 0.0909 | yes | 30 / 30 |
+| new60 | 60/60 | 46 | 47 | 6422 | 6024 | 292229 | 271209 | 6.596 | 7.275 | 0.1469 | 0.1603 | 4.288 | 4.680 | 0.0942 | 0.1040 | yes | 58 / 58 |
+| all90 | 90/90 | 70 | 72 | 10020 | 9247 | 455344 | 417016 | 6.279 | 6.979 | 0.1388 | 0.1517 | 4.155 | 4.482 | 0.0914 | 0.0994 | yes | 88 / 88 |
+
+Net +2 correct (7 false→true, 5 true→false), executor F -7.7%, physical Q
+-8.4%, macro TPF +0.700, macro TE +0.0129. The two non-intervened requests 75
+and 76 are both correct with identical F and Q. This is a **single-factor
+interaction** on all 90 frozen requests, not a mixed-budget policy ranking.
+The same-cohort historical IBS64 is 72/90, macro TPF 4.397 and pooled TE
+14.56%; Flow W2 is 74/90 and 10.006, without a verified selected-history-row
+efficiency denominator. Each of the 180 raw trajectories also passed a direct
+20-layer width, position, cap and F/Q reconciliation (the absence of a trace
+or layer widths cannot qualify).
+
 ### Where Q64 is spent
 
 [row-bill.csv](row-bill.csv) partitions all physical decoder rows into old

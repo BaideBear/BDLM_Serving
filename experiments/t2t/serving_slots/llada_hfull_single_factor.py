@@ -103,6 +103,18 @@ def compare_first(old_row, new_row, q=64):
     return dict(intervened=False, passed=False, checks={})
 
 
+def _strict_cap(arm, q=64):
+    trace = arm.get("trace") or []
+    return (bool(trace) and len(trace) == arm.get("F")
+            and all(type(e.get("q")) is int and 0 < e["q"] <= q
+                    and e.get("layer_physical_q") == [e["q"]] * 20
+                    and e.get("physical_q") == e["q"]
+                    and e.get("rows") == e.get("absolute_positions")
+                    and len(set(e.get("rows") or [])) == len(e.get("rows") or []) == e["q"]
+                    and e.get("prefix_kv_length", 0) > 0 for e in trace)
+            and sum(e["q"] for e in trace) == arm.get("Q"))
+
+
 def summarize(rows):
     out = dict(requests=0, intervened=0, first_checks_passed=0,
                old_failures=0, new_failures=0, old_correct=0, new_correct=0,
@@ -125,14 +137,47 @@ def summarize(rows):
         intervened = bool(compared.get("intervened"))
         out["intervened"] += int(intervened)
         out["first_checks_passed"] += int(intervened and bool(compared.get("passed")))
+        old_n, new_n = int(old.get("N", 0)), int(new.get("N", 0))
+        old_f, new_f = int(old.get("F", 0)), int(new.get("F", 0))
+        old_q, new_q = int(old.get("Q", 0)), int(new.get("Q", 0))
         out["per_index"].append(dict(
             index=row.get("index"), old_correct=bool(old.get("correct")),
             new_correct=bool(new.get("correct")), intervened=intervened,
             first_passed=bool(compared.get("passed")),
             old_failure=row.get("old_failure"), new_failure=row.get("new_failure"),
-            old_F=old.get("F"), new_F=new.get("F"),
-            old_Q=old.get("Q"), new_Q=new.get("Q"),
+            old_N=old_n, new_N=new_n, old_F=old_f, new_F=new_f,
+            old_Q=old_q, new_Q=new_q,
+            old_executor_F=old_f, new_executor_F=new_f,
+            old_TPF=(old_n / old_f) if old_f else None,
+            new_TPF=(new_n / new_f) if new_f else None,
+            old_TE=(old_n / old_q) if old_q else None,
+            new_TE=(new_n / new_q) if new_q else None,
+            old_strict_cap=_strict_cap(old), new_strict_cap=_strict_cap(new),
             first_tick=compared.get("tick"), added=compared.get("added")))
+    old_tpf = [row["old_TPF"] for row in out["per_index"] if row["old_TPF"] is not None]
+    new_tpf = [row["new_TPF"] for row in out["per_index"] if row["new_TPF"] is not None]
+    old_te = [row["old_TE"] for row in out["per_index"] if row["old_TE"] is not None]
+    new_te = [row["new_TE"] for row in out["per_index"] if row["new_TE"] is not None]
+    out["old_macro_TPF"] = sum(old_tpf) / len(old_tpf) if old_tpf else None
+    out["new_macro_TPF"] = sum(new_tpf) / len(new_tpf) if new_tpf else None
+    out["delta_macro_TPF"] = (
+        out["new_macro_TPF"] - out["old_macro_TPF"]
+        if out["old_macro_TPF"] is not None and out["new_macro_TPF"] is not None else None)
+    out["old_macro_TE"] = sum(old_te) / len(old_te) if old_te else None
+    out["new_macro_TE"] = sum(new_te) / len(new_te) if new_te else None
+    out["delta_macro_TE"] = (
+        out["new_macro_TE"] - out["old_macro_TE"]
+        if out["old_macro_TE"] is not None and out["new_macro_TE"] is not None else None)
+    out["old_executor_F"] = out["old_F"]
+    out["new_executor_F"] = out["new_F"]
+    out["old_strict_cap"] = all(row["old_strict_cap"] for row in out["per_index"])
+    out["new_strict_cap"] = all(row["new_strict_cap"] for row in out["per_index"])
+    out["old_max_Q_per_forward"] = max(
+        (int(event.get("q", 0)) for row in rows for event in (row.get("old") or {}).get("trace") or []),
+        default=0)
+    out["new_max_Q_per_forward"] = max(
+        (int(event.get("q", 0)) for row in rows for event in (row.get("new") or {}).get("trace") or []),
+        default=0)
     return out
 
 
@@ -189,6 +234,8 @@ def main(argv=None):
     parser.add_argument("--law", default="1,8")
     parser.add_argument("--old-source", choices=("run", "reuse"), default="run")
     parser.add_argument("--reuse-rows", type=Path, default=None)
+    parser.add_argument("--reuse-arm", default="c64-full-half",
+                        help="single-arm receipt prefix used by --old-source reuse")
     parser.add_argument("--force", action="store_true",
                         help="replace an existing index receipt; default never replaces")
     parser.add_argument("--check-deps", action="store_true",
@@ -228,7 +275,8 @@ def main(argv=None):
         samples_sha256=hashlib.sha256(args.samples.read_bytes()).hexdigest(),
         reference=str(args.reference), deadline=args.deadline, indices=indices,
         q=args.q, mode=args.mode, coverage=args.coverage, law=args.law,
-        old_source=args.old_source, batch=1, warm_head_sample_default=False,
+        old_source=args.old_source, reuse_arm=args.reuse_arm,
+        batch=1, warm_head_sample_default=False,
         gpu=torch.cuda.get_device_name(), host=socket.gethostname(),
         torch=str(torch.__version__), transformers=transformers.__version__,
         device_uuid=os.environ.get("CUDA_VISIBLE_DEVICES", ""), started=time.time())
@@ -250,7 +298,7 @@ def main(argv=None):
             if args.old_source == "reuse":
                 if args.reuse_rows is None:
                     raise ValueError("--reuse-rows is required with --old-source reuse")
-                src = args.reuse_rows / f"c64-full-half-{i:02d}.json"
+                src = args.reuse_rows / f"{args.reuse_arm}-{i:02d}.json"
                 if not src.exists():
                     raise RuntimeError(f"Missing trusted old control {src}")
                 old_row = json.loads(src.read_text())

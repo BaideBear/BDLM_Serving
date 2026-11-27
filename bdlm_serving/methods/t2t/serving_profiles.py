@@ -148,12 +148,18 @@ def open_strict_gemma(model, data, *, seed, initial_offer, max_new_tokens=2048,
 
 
 def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_tokens=2048,
-                      coverage="sparse", top_gate="half"):
-    """Hard-cap LLaDA family with no subtop borrow and one explicit 2B gate."""
+                      coverage="sparse", top_gate="half", profile=None):
+    """Hard-cap LLaDA family; explicit profiles bind the fixed arms across tiers."""
     from .llada_budget_request import B, LLaDABudgetRequest
     offers = (4, 8, 16, 32, 64)
+    opts = {}
+    if profile is not None:
+        if profile != "quarter_fullwrite" or (coverage, top_gate) != ("sparse", "half"):
+            raise ValueError("Unknown LLaDA profile or conflicting explicit settings")
+        coverage, top_gate = "head", "quarter"
+        opts = dict(close_policy="full_write", borrow_at_half=True)
     raw = LLaDABudgetRequest(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids,
                              max_new_tokens=max_new_tokens, law=Law(), confidence_threshold=.9,
                              editing_threshold=.5, switchable=True, top_gate=top_gate,
-                             coverage=coverage, lower_borrow=False)
+                             coverage=coverage, lower_borrow=False, **opts)
     return StrictHandle(raw, offers, (Law(),)*len(offers), B)

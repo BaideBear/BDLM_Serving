@@ -4,6 +4,19 @@
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.
 
+`open_strict_llada(..., profile="quarter_fullwrite")` accepts every registered
+B32 offer on one persistent request. Q4/Q8 keep the head-only planner; Q16
+may lend real slack to contiguous successor rows without sampling them; Q32
+can spend a mask-free write on every valid head row, once, with **no** new
+sampling. It does so only if the head is already initialized and all
+outstanding writes are in this head. Q64 projects the full current head and
+opens a successor once at most a quarter of valid head positions remain
+masked. This profile does not enable the separate Q32 edit or Q64 warm-head
+sampling factors. The [functional GPU qualification](../experiments/t2t/serving_slots/controls/strict-handle/llada-quarter-fullwrite.json)
+includes 15 fixed-arm exact replays (all positions, IDs, F and Q) and all
+25 directed offer transitions. The latter are state-machine tests; they do
+not score a mixed policy. Omit the profile to retain legacy behavior.
+
 `open_strict_gemma(..., profile="dense_stop_joint_single512")` opts into
 the joint-verify profile below plus single-head stopping at Q512. A pair
 requires consecutive `dense_single` samples of all 256 positions, exactly

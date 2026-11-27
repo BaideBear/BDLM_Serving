@@ -329,7 +329,7 @@ def llada_main(argv=None):
     """Separate pinned environment. Admission/edits and changed inputs stay on GPU."""
     import torch
     from .cross_race_llada import load_gpu
-    from .llada_fixed_family_eval import fixed_cross, TIERS as slots
+    from .llada_fixed_family_eval import evaluate_fixed, fixed_cross, TIERS as slots
     from .mask_pair_gemma import SAMPLES_SHA
     from bdlm_serving.evaluation.frozen90 import load_tasks
     from bdlm_serving.methods.t2t.serving_profiles import open_strict_llada
@@ -338,7 +338,9 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite"), default="legacy")
     a = ap.parse_args(argv)
+    candidate = a.profile == "quarter_fullwrite"
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tok, model = load_gpu(a, lambda:None)
@@ -355,10 +357,15 @@ def llada_main(argv=None):
             for name, schedule in jobs:
                 dst = a.out/f"{name}-{i:02}.json"
                 if dst.exists():
+                    prior = json.loads(dst.read_bytes())
+                    check(prior.get("profile","legacy")==a.profile and prior.get("identical",True),
+                          "wrong existing LLaDA receipt; use an isolated output directory")
                     continue
                 kwargs = dict(seed=t["seed"], mask_id=tok.convert_tokens_to_ids("<|mask|>"),
-                              eos_ids=[tok.eos_token_id], coverage="head",top_gate="half")
+                              eos_ids=[tok.eos_token_id])
+                kwargs.update(dict(profile=a.profile) if candidate else dict(coverage="head",top_gate="half"))
                 debt, widths, pos, directed = set(), [], [], Counter()
+                checks = Counter()
                 parked, switches, clock, d_q, tick, old = 0, 0, 0, 0, 0, None
                 def hook(_m, _args, kw):
                     p=kw["position_ids"][0]
@@ -377,12 +384,35 @@ def llada_main(argv=None):
                     while h.status=="ready":
                         check(time.time()<a.deadline, "deadline")
                         q=schedule[tick % len(schedule)]
+                        if candidate:
+                            req = h._request
+                            lo, split = max(req.origin,req.head), min(req.end,req.head+32)
+                            head_rows = set(range(lo,split))
+                            close_due = (q==32 and not req.stopping and debt and debt<=head_rows
+                                 and head_rows<=req.bank.initialized and req.close_attempted!=req.head
+                                 and not (req.x[0,lo:split]==kwargs["mask_id"]).any().item())
                         e=h.step(q)
                         rows=set(e["rows"])
                         check(e["rows"]==pos[-1] and e["q"]==len(rows)==widths[-1]<=q
                               and e["layer_physical_q"]==[len(rows)]*20 and e["encoder_F"]==0
                               and e["dirty_before"]==sorted(debt) and set(sorted(debt)[:q])<=rows,
                               "wrong projection or debt")
+                        if candidate:
+                            closed = e["phase"]=="close_full_write"
+                            check(closed==bool(close_due), "missed or premature full-head close")
+                            if closed:
+                                check(rows==head_rows and not e["sampled"] and not e["written_absolute"],
+                                      "terminal write must pay every valid head row without sampling")
+                                checks["full_write_F"]+=1
+                            if e["borrowed_rows"]:
+                                check(q==16 and e["borrowed_rows"]==len(e["tail_read_only"])
+                                      and not debt.intersection(e["tail_read_only"]),
+                                      "borrowing displaced a pending write or sampled a successor")
+                                checks["borrow_Q"]+=e["borrowed_rows"]
+                            if e["tail_opened"] and not e["tail_resident"]:
+                                check(q==64 and 4*e["head_mask_at_plan"]<=len(head_rows),
+                                      "new successor admitted before the quarter gate")
+                                checks["quarter_open_F"]+=1
                         if old is not None:
                             directed[old,q]+=1
                             if old>q:
@@ -406,10 +436,17 @@ def llada_main(argv=None):
                            output_digest=sha256(json.dumps(ids,separators=(",",":")).encode()).hexdigest())
                 if len(schedule)==1:
                     q=schedule[0]
-                    fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
-                                      borrow=False,coverage="head" if q==64 else "sparse")
+                    if candidate:
+                        fixed=evaluate_fixed(model,tok,t,ref["prompt_ids"],q,Law(),
+                              cross=("quarter" if q==64 else "head", q==16),coverage="head" if q==64 else "sparse",
+                              close_policy="full_write" if q==32 else "unchanged")
+                    else:
+                        fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
+                                          borrow=False,coverage="head" if q==64 else "sparse")
                     row["identical"]=(list(ids)==fixed["output_ids"] and fixed["F"]==tick
                                       and fixed["Q"]==d_q and pos[1:]==[e["rows"] for e in fixed["trace"]])
+                if candidate:
+                    row.update(profile=a.profile, policy_checks=dict(checks))
                 tmp=dst.with_suffix(".tmp")
                 tmp.write_text(json.dumps(row,sort_keys=True)+"\n")
                 tmp.replace(dst)

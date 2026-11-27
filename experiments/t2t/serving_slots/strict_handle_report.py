@@ -65,6 +65,21 @@ def summarize(root, model, manifest):
             arms[suite]["exact_replays"] = len(rows)
             if model=="gemma":
                 arms[suite]["reference_sha256"]={r["index"]:r["reference_sha256"] for r in rows}
+        if model=="llada" and profiles=={"quarter_fullwrite"}:
+            counts=Counter()
+            allowed={"borrow_Q", "full_write_F", "quarter_open_F"}
+            for r in rows:
+                c=r["policy_checks"]
+                if set(c)-allowed or any(type(v) is not int or v<0 for v in c.values()):
+                    raise ValueError("invalid LLaDA action counters")
+                counts.update(c)
+            if fixed:
+                expected={"fixed16":{"borrow_Q"},"fixed32":{"full_write_F"},"fixed64":{"quarter_open_F"}}.get(suite,set())
+                if {k for k in allowed if counts[k]} != expected:
+                    raise ValueError(f"wrong fixed action exposure: {suite}")
+            if suite=="switch25" and not arms[suite]["downshifts_with_debt"]:
+                raise ValueError("no real debt on budget transitions")
+            arms[suite]["policy_checks"]=dict(counts)
         if profiles and profiles <= set(STOP_PROFILES):
             counts=Counter()
             for r in rows:
@@ -99,7 +114,7 @@ def summarize(root, model, manifest):
             arms[suite]["by_index"]={r["index"]:dict(**r["top_boundary"],stop_checks=r["stop_checks"])
                                      for r in rows}
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
-                **({"profile":profiles.pop()} if model=="gemma" else {}),
+                **({"profile":profiles.pop()} if model=="gemma" or profiles=={"quarter_fullwrite"} else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",
                 gpu=sorted({r["gpu"] for v in groups.values() for r in v}), arms=arms)
 

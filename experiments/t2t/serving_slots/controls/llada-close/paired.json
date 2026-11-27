@@ -1,12 +1,120 @@
 {
   "cohorts": {
     "frozen90": {
+      "arms": {
+        "edit_once": {
+          "F": 11576,
+          "N": 41029,
+          "Q": 252493,
+          "blocks": 1377,
+          "correct": 74,
+          "drain_F": 95,
+          "failures": 0,
+          "macro_TPF": 4.936736713656729,
+          "terminal_Q": 42422,
+          "terminal_edits": 196,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.16249559393725765
+        },
+        "full_write": {
+          "F": 13011,
+          "N": 41772,
+          "Q": 280341,
+          "blocks": 1399,
+          "correct": 73,
+          "drain_F": 1399,
+          "failures": 0,
+          "macro_TPF": 4.8116437635980756,
+          "terminal_Q": 43135,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.14900424839748735
+        },
+        "unchanged": {
+          "F": 13870,
+          "N": 44068,
+          "Q": 265204,
+          "blocks": 0,
+          "correct": 72,
+          "drain_F": 1465,
+          "failures": 0,
+          "macro_TPF": 4.5129605089247935,
+          "terminal_Q": 0,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.16616642282921826
+        }
+      },
       "expected": 90,
-      "paired": 30
+      "full_write_to_edit_once": {
+        "changed_ids": 44,
+        "losses": 3,
+        "rescues": 4
+      },
+      "paired": 90,
+      "unchanged_to_full_write": {
+        "changed_ids": 80,
+        "losses": 6,
+        "rescues": 7
+      }
     },
     "new60": {
+      "arms": {
+        "edit_once": {
+          "F": 7406,
+          "N": 27212,
+          "Q": 162268,
+          "blocks": 914,
+          "correct": 48,
+          "drain_F": 64,
+          "failures": 0,
+          "macro_TPF": 4.9994948639552685,
+          "terminal_Q": 28117,
+          "terminal_edits": 135,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.16769788251534498
+        },
+        "full_write": {
+          "F": 9017,
+          "N": 28513,
+          "Q": 193888,
+          "blocks": 954,
+          "correct": 47,
+          "drain_F": 954,
+          "failures": 0,
+          "macro_TPF": 4.847104797647703,
+          "terminal_Q": 29397,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.14705912691863343
+        },
+        "unchanged": {
+          "F": 8696,
+          "N": 29236,
+          "Q": 165909,
+          "blocks": 0,
+          "correct": 49,
+          "drain_F": 972,
+          "failures": 0,
+          "macro_TPF": 4.797035095606922,
+          "terminal_Q": 0,
+          "terminal_edits": 0,
+          "terminal_revokes": 0,
+          "token_efficiency": 0.17621708285867554
+        }
+      },
       "expected": 60,
-      "paired": 0
+      "full_write_to_edit_once": {
+        "changed_ids": 30,
+        "losses": 2,
+        "rescues": 3
+      },
+      "paired": 60,
+      "unchanged_to_full_write": {
+        "changed_ids": 51,
+        "losses": 5,
+        "rescues": 3
+      }
     },
     "original30": {
       "arms": {

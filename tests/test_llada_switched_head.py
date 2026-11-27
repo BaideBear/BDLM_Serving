@@ -238,6 +238,32 @@ def test_switched_head_covers_a_mid_block_prompt_and_a_short_tail():
     assert e["q"] <= 64 and e["head_full"] is True
 
 
+@pytest.mark.parametrize("q", TIERS)
+@pytest.mark.parametrize("parked", [False, True])
+def test_full_write_at_b_never_displaces_parked_debt(q, parked):
+    # Mid-block prompt; every generated head token is resolved and resident.
+    rows = tuple(range(45,64))
+    debt = {50,62} | ({66} if parked else set())
+    r = planner(origin=45,end=100,switchable=True,coverage="head",resident=range(45,68),
+                resolved=range(45,68),dirty=debt)
+    r.close_policy, r.close_attempted, r.borrow_at_half = "full_write", None, True
+    plan, sampled, phase, cap = r._switch_plan(q)
+    assert bool(set(plan.rows) >= debt) and len(plan.rows) <= cap == q
+    assert (phase=="close_full_write") == (q==32 and not parked)
+    if phase=="close_full_write":
+        assert plan.rows==rows and not sampled and plan.drain_only
+        assert r._switch_plan(q)[2]!="close_full_write"
+
+
+@pytest.mark.parametrize("q", [4,8,16,32])
+def test_half_block_borrow_after_switch_has_a_single_eligible_offer(q):
+    r = planner(switchable=True,coverage="head",resident=range(32,64),resolved=range(32,63))
+    r.borrow_at_half, r.close_policy, r.close_attempted = True, "full_write", None
+    plan, sampled, _, _ = r._switch_plan(q)
+    tail = {p for p in plan.rows if p>=64}
+    assert bool(tail)==(q==16) and tail.isdisjoint(sampled)
+
+
 def test_switched_head_default_coverage_is_sparse_and_unchanged():
     """The new combination is opt-in; old switch defaults keep their old plan."""
     sig = inspect.signature(LLaDABudgetRequest.__init__)

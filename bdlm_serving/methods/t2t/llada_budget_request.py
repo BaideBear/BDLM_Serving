@@ -121,7 +121,7 @@ class LLaDABudgetRequest:
                  tail_rule="eager", ablation=None, cross=None, borrow=False,
                  switchable=False, top_gate="quarter", lower_borrow=False,
                  coverage="sparse", warm_head_sample=False, close_policy="unchanged",
-                 audit_admission=False, admission_scope="global"):
+                 audit_admission=False, admission_scope="global", borrow_at_half=False):
         if type(audit_admission) is not bool:
             raise ValueError("Expected a boolean sample receipt option")
         self.audit_admission = audit_admission
@@ -129,9 +129,13 @@ class LLaDABudgetRequest:
                 (confidence_threshold!=.9 or editing_threshold!=.5)):
             raise ValueError("Warm-head admission requires the registered 0.9/0.5 control")
         self.admission_scope = admission_scope
-        if close_policy not in ("unchanged","full_write","edit_once") or (
-                close_policy!="unchanged" and (cross!="head" or borrow or switchable or ablation is not None)):
-            raise ValueError("Terminal row experiment requires the fixed head-only path")
+        if type(borrow_at_half) is not bool or (borrow_at_half and (not switchable or lower_borrow)):
+            raise ValueError("Half-block borrowing is a distinct switchable policy")
+        self.borrow_at_half = borrow_at_half
+        if close_policy not in ("unchanged","full_write","edit_once") or (close_policy!="unchanged" and not (
+                (cross=="head" and not borrow and not switchable and ablation is None)
+                or (switchable and close_policy=="full_write" and ablation is None))):
+            raise ValueError("Unsupported terminal policy for this request")
         self.close_policy, self.close_attempted = close_policy, None
         if (model.training or input_ids.ndim != 2 or input_ids.shape[0] != 1 or input_ids.shape[1] < 1
                 or input_ids.dtype != torch.long or input_ids.device != model.get_input_embeddings().weight.device
@@ -284,6 +288,17 @@ class LLaDABudgetRequest:
             return 4 * remaining <= width
         raise RuntimeError("Unknown registered cross mode")
 
+    def _terminal_head_plan(self, q, head_rows, head_masks):
+        if (q != B or getattr(self, "close_policy", "unchanged") == "unchanged" or head_masks
+                or not self.dirty or self.close_attempted == self.head):
+            return None
+        if not (self.dirty <= set(head_rows) <= self.bank.initialized):
+            return None
+        self.close_attempted = self.head
+        edit = self.close_policy == "edit_once"
+        plan = Plan(head_rows, tuple(sorted(self.dirty)), (), (), (), not edit)
+        return plan, head_rows if edit else (), "close_edit_once" if edit else "close_full_write", q
+
     def _cross_plan(self, q):
         """One physical call for the registered cross-block race; never over-offer."""
         split = self.head + B
@@ -300,14 +315,10 @@ class LLaDABudgetRequest:
         if getattr(self,"close_policy","unchanged")!="unchanged":
             if q!=B:
                 raise ValueError("Terminal row experiment is registered only for fixed B")
-            head_rows = tuple(range(lo, lo+len(head_ids)))
-            if (not head_masks and dirty and self.close_attempted!=self.head and
-                    set(head_rows)<=self.bank.initialized and dirty<=set(head_rows)):
-                self.close_attempted = self.head
-                edit = self.close_policy=="edit_once"
+            close = self._terminal_head_plan(q, tuple(range(lo, lo+len(head_ids))), head_masks)
+            if close is not None:
                 self._cross_evidence = dict(head_masks=0,opened=False,borrowed=0)
-                plan = Plan(head_rows,tuple(sorted(dirty)),(),(),(),not edit)
-                return plan,head_rows if edit else (),"close_edit_once" if edit else "close_full_write",q
+                return close
 
         if q == 2 * B:
             opened = has_next and self._tail_open(split, head_ids, head_masks)
@@ -414,6 +425,12 @@ class LLaDABudgetRequest:
         head_masks = {lo + i for i, t in enumerate(head_ids) if t == self.mask_id}
         evidence = dict(head_masks=len(head_masks), tail_resident=max(0, before_end - split))
 
+        if q == B and getattr(self, "close_policy", "unchanged") != "unchanged":
+            close = self._terminal_head_plan(q, tuple(range(lo, lo+len(head_ids))), head_masks)
+            if close is not None:
+                self._switch_evidence = dict(evidence, opened=False, borrowed=0, parked=0, head_full=True)
+                return close
+
         if q == 2 * B:
             opened = has_next and self._tail_open(split, head_ids, head_masks, gate=self.top_gate)
             if getattr(self, "coverage", "sparse") == "head":
@@ -439,7 +456,8 @@ class LLaDABudgetRequest:
         plan = choose(q, B, dirty, masks, prefix, cold=cold, law=self.law)
         sampled = () if plan.drain_only else (plan.cold or tuple(r for r in plan.rows if r in eligible))
         rows, borrowed = plan.rows, ()
-        if self.lower_borrow and has_next and len(rows) < q and not any(r >= split for r in dirty):
+        borrow = self.lower_borrow or (getattr(self, "borrow_at_half", False) and q == B//2)
+        if borrow and has_next and len(rows) < q and not any(r >= split for r in dirty):
             start, limit = self.bank.last_end, min(split + B, self.end)
             if start >= split and start < limit:
                 borrowed = tuple(range(start, min(start + (q - len(rows)), limit)))

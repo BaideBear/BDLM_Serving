@@ -32,6 +32,15 @@ control must replay the prior high-cutoff result on the same device (including
 the complete output digest, F and Q). This variant is not the published
 0.5 result and is not enabled in the default policy.
 
+## Completed Q64 comparison
+
+The [receipt](c64.json) now includes all 90 pairs. High vs low cutoff on
+the new 60: 46 vs 40 correct, 6.596 vs 9.721 macro TPF, 9.42% vs 12.54%
+pooled TE. Across all 90: **70 vs 59 correct**, 6.279 vs 9.317 macro TPF,
+9.14% vs 12.36% pooled TE. Six rescues, 17 losses and zero failures. Low
+cutoff reduces total forwards from 10,020 to 7,182 but changes the decoding
+trajectory and is rejected as a quality-preserving optimization.
+
 ## Head-only Q16
 
 At fixed Q16 on n164, the [same-device registered comparison](c16.json)
