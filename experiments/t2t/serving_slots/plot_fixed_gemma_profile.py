@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent / "controls"
 FACTORS = ROOT / "gemma-factors"
 TIERS = (32,64,128,256,512)
 COHORTS = (("original30","original30",30),("new60","added60",60),("frozen90","all90",90))
+ROLES = ("mandatory","prefix","unresolved","clean-other","verify","rebuild")
 
 
 def read(path):
@@ -33,11 +34,14 @@ def collect():
                 r, = matches
                 if int(r["n"])!=n or int(r["peak_decoder_Q"])>c or int(r["history_Q"])!=int(r["decoder_Q"]):
                     raise ValueError(f"unqualified {study} {cohort} {c}")
+                roles = {f"Q_{k}":int(r[f"Q_{k}"]) for k in ROLES}
+                if sum(roles.values())!=int(r["decoder_Q"]):
+                    raise ValueError(f"unbalanced decoder ledger at {study} {cohort} {c}")
                 rows.append(dict(cohort=cohort,method=label,budget=c,n=n,correct=int(r["correct"]),
                     macro_TPF=float(r["macro_TPF"]),token_efficiency=float(r["token_efficiency"]),
                     avg_decoder_Q=int(r["decoder_Q"])/int(r["decoder_F"]),peak_decoder_Q=int(r["peak_decoder_Q"]),
                     F=int(r["F"]),N=int(r["N"]),history_Q=int(r["history_Q"]),physical_Q=int(r["physical_Q"]),
-                    source=f"gemma-factors/{study}/paired.csv"))
+                    source=f"gemma-factors/{study}/paired.csv",**roles))
         for method, setting, c, label in [
             *(("ibs",q,q,"Optimus IBS") for q in TIERS), ("native",256,256,"Native / Flow W1"),
             ("flow",2,512,"Flow W2"),

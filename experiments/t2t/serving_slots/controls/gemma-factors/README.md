@@ -119,6 +119,15 @@ strict fused profile, not best-of; the diamond shows the full-head alternative
 at the same cap. Dashed lines are external controls rather than matched
 interventions. Rebuild with `python -m experiments.t2t.serving_slots.plot_fixed_gemma_profile`.
 
+Each strict profile row in `metrics.csv` has six mutually exclusive decoder-Q
+counts. For the actual fused Q128 1/4 candidate, the shares of **all selected
+decoder Q** are 50.08% ordinary dirty refresh, 5.04% discretionary clean
+prefix, 28.70% unresolved and 16.18% verification. A row paid during fused
+verification is counted under verification, not twice. For the dense Q256
+alternative 30.73% are other clean rows and there is no *explicit* ranked
+prefix selection; dense projections still cover clean prefixes. The six-way
+breakdown for external baselines is not known and remains empty.
+
 `density/` isolates whole-head selection **within** a fixed Q256 offer.
 Compare never, only when at least half of the head remains unresolved, only
 when fewer than half remain, and always. Each head uses its *pre-forward* state
@@ -127,6 +136,19 @@ way. All four arms retain the same sparse law, verify fusion, no successor and
 no early-stop experiment. Endpoints must reproduce the previous local controls
 (IDs and F/Q) per task. `gather_gemma_factors.sh density` exports totals only on
 complete frozen cohorts; high/low dense F counts are physical route counts.
+
+| Q256 fixed, original 30 only | Correct | Macro TPF | Selected-Q efficiency | Decoder Q | Total F |
+|---|---:|---:|---:|---:|---:|
+| Sparse throughout | 29/30 | 19.072 | 9.90% | 102,864 | 606 |
+| Dense only with at least 128 unresolved | 29/30 | 21.039 | 10.69% | 93,587 | 527 |
+| Dense only with fewer than 128 unresolved | 29/30 | 20.155 | 7.36% | 137,005 | 577 |
+| Dense throughout | 28/30 | 22.184 | 7.69% | 132,096 | 540 |
+
+The dense-early rule saved aggregate rows as well as forwards on these tasks:
+doing more work on one tick does not imply spending more over the request.
+Do not confuse *head unresolved density* with the remaining request length,
+or infer equal per-task outputs from the equal score totals. Check the added
+60 separately before changing the recommended profile.
 
 ## Prefix location and sampling on refresh: original 30
 
