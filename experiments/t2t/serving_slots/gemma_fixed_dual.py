@@ -33,7 +33,7 @@ class Canvas:
     @property
     def can_sample(self):
         # Independent of mandatory writes, which are always paid first.
-        return self.rows.age < self.rows.max_steps and self.rows.accepted != FULL
+        return not self.rows._native_stop and self.rows.age < self.rows.max_steps and self.rows.accepted != FULL
 
 
 class FixedFamilyRequest(FamilyRequest):
@@ -43,6 +43,8 @@ class FixedFamilyRequest(FamilyRequest):
     trace instead has a single physical receipt with absolute positions, and
     block-local actions under `parts`. Only a verified head may commit.
     """
+    stop_observer = None
+
     def __init__(self, model, data, *, q, seed, max_new_tokens=2048, law=Law()):
         if type(q) is not int or q not in TIERS or not isinstance(law, Law):
             raise ValueError('Invalid fixed tier or law')
@@ -153,6 +155,19 @@ class FixedFamilyRequest(FamilyRequest):
     def _apply(self, states, pos, sample, prefix, cold, offer, route):
         head = states[0]
         verify, rebuild = route in ('verify', 'verify_paid'), route == 'rebuild'
+        obs = self.stop_observer
+        if obs is not None:
+            from .gemma_fullstop import HeadSample, HeadTick
+            source = HeadTick(self.tick, head.ordinal, int(self.cache.get_seq_length()))
+            current = HeadTick(self.tick, self.ordinal, self.origin + B * self.ordinal)
+            if source != current:
+                raise RuntimeError('Wrong fullstop source head or epoch')
+            hit = False
+
+            def observe_head(rows, scores):
+                nonlocal hit
+                hit = obs.observe(current, phase='sample', sample=HeadSample(source, rows, scores))
+
         logits = self._project(states, pos)
         event = dict(tick=self.tick, ordinal=self.ordinal, offer=offer, q=len(pos), route=route,
                      positions=list(pos), parts=[], encoded=False, encoder_Q=0, decoder_F=1,
@@ -193,9 +208,12 @@ class FixedFamilyRequest(FamilyRequest):
                 if sampled:
                     idx = list(sampled)
                     before = s.ids[0,idx]
-                    changes = s.consume(idx, measured_rows(logits, active))
+                    tap = obs is not None and c is head
+                    changes = s.consume(idx, measured_rows(logits, active),
+                                        **({'on_scores': observe_head} if tap else {}))
                     changed = (before != s.ids[0,idx]).tolist()
-                    rows.finish(rp, accepted_after=s.accepted[0,idx].tolist(), input_changed=changed)
+                    rows.finish(rp, accepted_after=s.accepted[0,idx].tolist(), input_changed=changed,
+                                native_stop=bool(tap and hit and self.fullstop))
                     part.update(admitted=list(changes.admitted),edited=list(changes.edited),
                                 revoked=list(changes.revoked),
                                 input_changed=[i for i,v in zip(idx,changed,strict=True) if v])
@@ -209,6 +227,12 @@ class FixedFamilyRequest(FamilyRequest):
             part['age_after'] = s.age
             part['dirty_after'] = sorted(rows.dirty)
             event['parts'].append(part)
+        if obs is not None:
+            hp = next((p for p in event['parts'] if p['ordinal'] == current.ordinal), None)
+            phase = hp['phase'] if hp else 'absent'
+            if phase != 'sample':
+                obs.observe(current, phase=phase)
+            event['fullstop'] = dict(epoch=current.epoch, hit=hit, latched=bool(hit and self.fullstop))
         if rebuild:
             base = self.origin + B * head.ordinal
             self.rebuild = any(base+i not in self.bank.live for i in head.rows.initialized)
@@ -237,7 +261,7 @@ class AblationRequest(FixedFamilyRequest):
 
     def __init__(self, model, data, *, q, seed, ablation='00', max_new_tokens=2048, law=Law(),
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
-                 prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False):
+                 prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
@@ -251,6 +275,17 @@ class AblationRequest(FixedFamilyRequest):
         self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
         self.prefix_order, self.reuse_paid_masks = prefix_order, reuse_paid_masks
         self.fuse_first_verify = fuse_first_verify
+        self.fullstop = fullstop  # None: legacy; False: shadow; True: apply.
+        if fullstop is not None:
+            from .gemma_fullstop import FullHeadStop
+            if type(fullstop) is not bool or fuse_first_verify:
+                raise ValueError('fullstop requires a boolean arm and separate unfused verify')
+            cfg, unused = model._prepare_generation_config(None, max_new_tokens=max_new_tokens)
+            if unused or (cfg.stability_threshold, cfg.confidence_threshold) != (1, .005):
+                raise ValueError('Unregistered Gemma stopping criterion')
+            self.stop_observer = FullHeadStop.from_model(model, cfg)
+            if self.stop_observer.criterion is None:
+                raise ValueError('Missing native criterion')
         self.ablation = ablation
         self.next_side = 0
         super().__init__(model, data, q=q, seed=seed, max_new_tokens=max_new_tokens, law=law)

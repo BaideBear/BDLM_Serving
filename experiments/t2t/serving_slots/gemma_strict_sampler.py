@@ -91,7 +91,7 @@ class SelectedRowSampler:
         return self._consume(rows, idx, ids, logits)
 
     @torch.inference_mode()
-    def consume(self, rows, logits):
+    def consume(self, rows, logits, *, on_scores=None):
         """Sample measured rows from an already executed joint refresh/sample call."""
         if self.phase != "sample" or self.age >= self.steps:
             raise RuntimeError("Sampling closed or reverse clock exhausted")
@@ -102,9 +102,9 @@ class SelectedRowSampler:
                 or logits.device != self.ids.device):
             raise ValueError("Invalid selected rows or measured logits")
         idx = torch.tensor(rows, device=self.ids.device)
-        return self._consume(rows, idx, self.ids.index_select(1,idx), logits)
+        return self._consume(rows, idx, self.ids.index_select(1,idx), logits, on_scores)
 
-    def _consume(self, rows, idx, ids, logits):
+    def _consume(self, rows, idx, ids, logits, on_scores=None):
         clock = self.steps - self.age
         t = torch.tensor(clock, device=ids.device, dtype=torch.int32)
         scores = self.temp(ids, logits, cur_step=t)
@@ -128,6 +128,8 @@ class SelectedRowSampler:
             self.sc[row] = signal.clone()
         self.age += 1
         self.sample_q += len(rows)
+        if on_scores is not None:
+            on_scores(rows, scores)  # This measurement, not the quantized SC cache.
         return changes
 
     def begin_close(self):

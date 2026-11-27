@@ -13,6 +13,46 @@ from experiments.t2t.serving_slots.mask_pair_gemma import input_digest
 from .gemma_fixed_dual import ABLATIONS, TIERS, AblationRequest, FixedFamilyRequest
 
 
+def fullstop_receipt(trace, origin, enabled):
+    """Reconstruct denominators from measured head parts, not decoder offer/width."""
+    codes = {'qualified':'F', 'partial':'P', 'drain':'D', 'verify':'V', 'absent':'A', 'rebuild':'R'}
+    tape, hits, windows = [], [], 0
+    previous = latched = None
+    for t, e in enumerate(trace):
+        o, mark = e['ordinal'], e['fullstop']
+        hp = next((p for p in e['parts'] if p['ordinal'] == o), None)
+        kind = hp['phase'] if hp else 'absent'
+        if kind == 'sample':
+            kind = 'qualified' if hp['sampled'] == list(range(B)) else 'partial'
+        qualified = kind == 'qualified'
+        epoch = origin+B*o
+        pair = qualified and previous == (o, epoch)
+        windows += int(pair)
+        require(e['tick'] == t and mark['epoch'] == epoch and e['route'] != 'verify_paid'
+                and (not mark['hit'] or pair) and mark['latched'] == (enabled and mark['hit']),
+                'Bad fullstop hit/epoch or combined close')
+        if latched == o:
+            require(e['route'] in ('drain','verify') and not e['sampled_absolute'],
+                    'Sample after applied stop')
+        if kind == 'verify':
+            require(not e['dirty_before_absolute'], 'Verify before global writes paid')
+        if mark['hit']:
+            masks_after = e['head_mask_before'] - len(hp['admitted']) + len(hp['revoked'])
+            hits.append(dict(tick=t, ordinal=o, epoch=epoch, age_after=hp['age_after'],
+                             remaining_masks=masks_after, otherwise_can_sample=bool(
+                                 masks_after and hp['age_after'] < 48), applied=mark['latched']))
+        if mark['latched']:
+            latched = o
+        tape.append(codes[kind])
+        previous = (o,epoch) if qualified else None
+    return dict(decoder_ticks=len(tape), qualified_full_ticks=tape.count('F'),
+                consecutive_full_pairs=windows, positive_ticks=len(hits),
+                actionable_hits=sum(h['otherwise_can_sample'] for h in hits),
+                applied_hits=sum(h['applied'] for h in hits),
+                first_hit=hits[0] if hits else None, hits=hits, head_tick_tape=''.join(tape),
+                resets={k:tape.count(v) for k,v in codes.items() if k!='qualified'})
+
+
 @torch.inference_mode()
 def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation=None,
             policy=None):
@@ -168,7 +208,9 @@ def audited(model, data, *, seed, max_new_tokens=CAP, law=Law(), q=512, ablation
                 max_decoder_Q=max(widths), joint_F=sum(len(e['parts'])==2 for e in trace),
                 route_F=dict(route_F), route_Q=dict(route_Q), over_offer_F=sum(w>q for w in widths),
                 prefill_Q=origin, projection_modules=len(proj), phase_F=dict(phases),row_visits=dict(visits),
-                trace=trace, physical_trace=physical)
+                trace=trace, physical_trace=physical,
+                **({'fullstop_receipt':fullstop_receipt(trace, origin, req.fullstop)}
+                   if req.stop_observer is not None else {}))
 
 
 def _scored(model, proc, task, q, ablation):

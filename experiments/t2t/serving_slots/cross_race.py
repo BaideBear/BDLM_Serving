@@ -42,6 +42,19 @@ def cases(suite):
                 yield i,c,'off',False,4,(1,8),rank,reuse
 
 
+def fullstop_cases(*, lane=None, budget=None, arm=None, qualify=False):
+    order = [j+k for j in range(10) for k in (0,10,20)] + list(range(30,90))
+    for j,i in enumerate(order):
+        if (lane is not None and j%2 != lane) or (qualify and j>=3):
+            continue
+        for c in ((512,256,128) if j<3 else (512,256)):
+            if budget is not None and c!=budget:
+                continue
+            for on in ((False,True) if j%2 == 0 else (True,False)):
+                if arm is None or on == (arm=='on'):
+                    yield i,c,'half' if c==512 else 'off',False,4,(1,8),'right',False,on
+
+
 def receipt(r, special):
     ids = r['output_ids']
     last, ever, costs = {}, set(), Counter()
@@ -99,11 +112,18 @@ def main():
     for name in ('samples','checkpoint','output'):
         ap.add_argument('--'+name, type=Path, required=True)
     ap.add_argument('--deadline', type=int, required=True)
-    ap.add_argument('--suite', choices=('cross','rank','close'), default='cross')
+    ap.add_argument('--suite', choices=('cross','rank','close','fullstop'), default='cross')
     ap.add_argument('--fuse-first-verify', action='store_true')
+    ap.add_argument('--fullstop-lane', type=int, choices=(0,1), help='disjoint same-device pairs')
+    ap.add_argument('--fullstop-budget', type=int, choices=(128,256,512))
+    ap.add_argument('--fullstop-arm', choices=('off','on'), help='off is shadow-observed')
+    ap.add_argument('--fullstop-qualify', action='store_true', help='one frozen item per dataset')
     a = ap.parse_args()
     if a.fuse_first_verify and a.suite != 'close':
         ap.error('Terminal fusion is an independent close-suite intervention')
+    if a.suite != 'fullstop' and (a.fullstop_qualify or any(x is not None for x in
+            (a.fullstop_lane,a.fullstop_budget,a.fullstop_arm))):
+        ap.error('fullstop selectors require --suite fullstop')
     from bdlm_serving.evaluation.frozen import sha
     from bdlm_serving.evaluation.frozen90 import load_tasks
     from bdlm_serving.evaluation.scoring import score
@@ -125,7 +145,19 @@ def main():
     package = Path(__file__).resolve().parent
     sources = {p:sha(package/p) for p in ('cross_race.py','gemma_fixed_dual.py','gemma_fixed_dual_eval.py')}
     scorer_sha = sha(package.parents[2]/'bdlm_serving/evaluation/scoring.py')
-    for i,c,gate,slack,den,dose,rank,reuse in cases(a.suite):
+    if a.suite == 'fullstop':
+        from transformers.models.diffusion_gemma import generation_diffusion_gemma as upstream
+        native_sha = sha(Path(upstream.__file__))
+        if (transformers.__version__ != '5.12.0' or
+                native_sha != 'cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc'):
+            raise RuntimeError('Unregistered native Gemma stopping implementation')
+        sources.update({p:sha(package/p) for p in ('gemma_strict_sampler.py','gemma_strict_rows.py',
+                        'gemma_fullstop.py','gemma_strict_request.py','gemma_budget_family.py','gemma_wave_kv.py')})
+        work = fullstop_cases(lane=a.fullstop_lane,budget=a.fullstop_budget,arm=a.fullstop_arm,
+                              qualify=a.fullstop_qualify)
+    else:
+        work = ((*case,None) for case in cases(a.suite))
+    for i,c,gate,slack,den,dose,rank,reuse,on in work:
         if time.time() >= a.deadline:
             return
         key = f"C{c}-gate{gate}-slack{int(slack)}-{den}-pref{dose[0]}of{dose[1]}-{i:02d}"
@@ -133,6 +165,8 @@ def main():
             key = f'C{c}-rank{rank}-reuse{int(reuse)}-{i:02d}'
         if a.suite == 'close':
             key = f'C{c}-fuse{int(a.fuse_first_verify)}-{i:02d}'
+        if on is not None:
+            key = f'C{c}-gate{gate}-fullstop{int(on)}-{i:02d}'
         out = a.output / (key+'.json')
         if out.exists():
             continue
@@ -150,7 +184,7 @@ def main():
             r = audited(model,d,seed=t['seed'],q=c,ablation='10' if slack else '00',law=Law(*dose),
                 policy=dict(top_gate=gate,head_first=slack,late_den=den,receipt_tail_ids=True,
                             prefix_order=rank,reuse_paid_masks=reuse,
-                            fuse_first_verify=a.fuse_first_verify))
+                            fuse_first_verify=a.fuse_first_verify, fullstop=on))
             assert r['projection_modules']==85 and r['max_decoder_Q']<=c
             ids = r['output_ids']
             n = sum(tid not in special for tid in ids)
@@ -177,6 +211,12 @@ def main():
                            fused_F=r['route_F'].get('verify_paid',0),
                            fused_dirty_Q=sum(len(p['dirty_before']) for e in r['trace']
                                 if e['route']=='verify_paid' for p in e['parts']))
+            if on is not None:
+                row.update(schema='head-fullstop-v1', fullstop=on, fuse=False, rank=rank, reuse=reuse,
+                           observer=r['fullstop_receipt'], source_sha256=sources, scorer_sha256=scorer_sha,
+                           transformers=str(transformers.__version__), native_sha256=native_sha,
+                           checkpoint=str(a.checkpoint), gpu_visible=os.environ.get('CUDA_VISIBLE_DEVICES'),
+                           stability_threshold=1, confidence_threshold=.005)
             try:
                 row['correct'] = bool(score(text,t)['correct'])
             except (FileNotFoundError, RuntimeError) as err:
