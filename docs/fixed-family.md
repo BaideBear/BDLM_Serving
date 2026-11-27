@@ -31,4 +31,6 @@ LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位�
 
 [固定预算 GPU 基线表](../experiments/t2t/serving_slots/controls/fixed-family-references.csv) 含两模型 20 个配置的原30、新60、全90三组统计。正确数来自归档评分，TPF、总行数、每次真实 decoder 峰值从 1,800 个请求的原始调用记录交叉核对；没有重新跑模型。Gemma Optimus 适配沿用归档的 M2T-only 更新规则，不声称与带 T2T 的候选是同一个采样器。Optimus 最大可比原生窗口至一块；两块档保留实算可比的 FlowBlock W2，不把一块档重命名为两块。复算：`python -Bm experiments.t2t.serving_slots.fixed_family_references`。
 
+**预先指定的三题端到端检查（真权重 CPU，不是全90成绩）：** [LLaDA 五档](../experiments/t2t/serving_slots/controls/fixed-family-llada21-cpu3.csv) 和 [Gemma 四个单块档](../experiments/t2t/serving_slots/controls/fixed-family-gemma-cpu3.csv)。两表均只用冻结索引 0、10、20，每数据集一题，列出从头至尾的质量、TPF、效率、真实 decoder 峰值，以及额外前缀刷新/编辑的量。LLaDA Q4/Q8 在这三题均未选择额外前缀：Q4 的配额恒为零，Q8 只要先付至少一个 dirty，剩余配额即不足八行。三题均正常完成，不是超时导致计零；不能从这三题确认低质量的原因。Gemma 四档均为 3/3，宏 TPF 随档上升、效率下降；不据此推断正式质量持平。运行以上 report 时添加 `--smoke-csv` 可复现。
+
 另有[严格旧执行器的三题刷新开销](../experiments/t2t/serving_slots/controls/gemma-strict-drain-grid-cpu3.json)，仅用于识别成本来源，不是统一候选的成绩。Q32/64/128 K0 的纯刷新分别有 2,837/2,929/2,753 个投影行次，其中只因未接受位置重新加噪而计算的分别为 1,581/1,772/1,871；这些数字不是可无损删除的工作量。

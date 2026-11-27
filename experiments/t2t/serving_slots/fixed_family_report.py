@@ -1,9 +1,11 @@
 """Read-only fixed-family report; never pool different devices, laws or item sets."""
 import argparse
 from collections import Counter
+import csv
 import json
 from pathlib import Path
 from statistics import fmean
+import sys
 
 from bdlm_serving.evaluation.frozen import sha
 from bdlm_serving.evaluation.frozen90 import load_tasks
@@ -72,7 +74,10 @@ def report(root, model, device, num=1):
     # formal cell. Empty if all assigned arms are complete.
     if common and len(common)<90:
         preview=dict(indices=sorted(common),metrics={q:measure([cases[q][i] for i in sorted(common)]) for q in tiers})
+    pilots={0,10,20}
+    smoke={q:measure([cases[q][i] for i in sorted(pilots)]) for q in tiers} if pilots<=common else {}
     return dict(model=model,device=device,law=[num,8],coverage=coverage,cohorts=tables,
+                protocol_smoke3=smoke,
                 incomplete_matched_preview=preview)
 
 
@@ -81,5 +86,15 @@ if __name__=="__main__":
     ap.add_argument("model",choices=MODELS)
     ap.add_argument("--device",choices=("cpu","cuda"),required=True)
     ap.add_argument("--num",type=int,choices=(0,1),default=1)
+    ap.add_argument("--smoke-csv",action="store_true",help="Only emit the complete, predeclared three-case check")
     a=ap.parse_args()
-    print(json.dumps(report(DATA,a.model,a.device,a.num),indent=2,allow_nan=False))
+    outcome=report(DATA,a.model,a.device,a.num)
+    if not a.smoke_csv:
+        print(json.dumps(outcome,indent=2,allow_nan=False))
+    else:
+        rows=[dict(model=a.model,device=a.device,budget=q,law=f"{a.num}/8",indices="0,10,20",**v)
+              for q,v in outcome["protocol_smoke3"].items()]
+        require(rows,"Not all registered tiers completed the three cases")
+        w=csv.DictWriter(sys.stdout,fieldnames=list(rows[0]),lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
