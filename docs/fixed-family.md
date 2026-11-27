@@ -40,3 +40,5 @@ LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位�
 对相同三题[逐轮回放前缀资格](../experiments/t2t/serving_slots/controls/fixed-family-prefix-opportunity-cpu3.json)，我们先重建实际选中的位置并逐次对账，再分类未选原因。LLaDA Q4 有 296/707 次、Q8 有 401/627 次 forward 同时有干净的块内前缀和可用余量，但向下取整给出零个前缀名额。这两档三题均无可选前缀投影，并非没有机会。Q16/Q32 分别有 254/161 次 forward 确实选用了前缀。此回放不改变任何生成结果，也不估算改配额后的质量或 TPF。复算：`python -Bm experiments.t2t.serving_slots.fixed_prefix_opportunity`。
 
 Gemma 的 Q512 GPU 档用同一冻结 `gemma_fixed_dual_eval.fixed` 做完整单请求生成。它的输出独立于 GPU0 的 360 份单块档原件；只有前序作业归还唯一 holder、360 份封存记录无更改后，后继才能接卡。GPU0 排队不代表已有 CUDA 结果；报表按实际封存样本计数。
+
+GPU 同档配对入口：`python -Bm experiments.t2t.serving_slots.fixed_family_pairs`。先用同一模块的 `--prepare` 在集群离线重评 1,800 个基线输出，对照已归档的 60 个单元逐一核验正确数和 N/F/Q，再封存逐题账本（SHA256 `ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce`）。不需要重新生成基线，不把 CPU 候选与 GPU 基线相减。配对输出限完整 cohort，逐题核对 index、dataset、task_id 和 seed，列出救回/丢失、两侧绝对指标和差值。质量按数据集分层用配对 Newcombe 区间，宏 TPF 用分层的配对均值差区间，效率用分层的配对比率差 bootstrap（4,000次）。区间均为逐对的 95% 区间，未校正多重比较。

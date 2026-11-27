@@ -18,7 +18,7 @@ COHORTS = {"original30":set(range(30)),"added60":set(range(30,90)),"full90":set(
 
 def measure(rows):
     n, f, q, dec = (sum(x[k] for x in rows) for k in ("N","F","Q","decoder_Q"))
-    df = sum(len(x["trace"]) for x in rows)
+    df = sum(x["decoder_F"] for x in rows)
     visits = sum((Counter(x["row_visits"]) for x in rows),Counter())
     return dict(requests=len(rows), correct=sum(x["correct"] for x in rows),
                 quality=fmean(x["correct"] for x in rows),macro_TPF=fmean(x["N"]/x["F"] for x in rows),
@@ -29,7 +29,7 @@ def measure(rows):
                 failures=sum(bool(x.get("failure")) for x in rows))
 
 
-def report(root, model, device, num=1):
+def report(root, model, device, num=1, *, include_items=False):
     name, menu, layers = MODELS[model]
     suite = root/"samples.json"
     tasks=load_tasks(suite)
@@ -69,7 +69,9 @@ def report(root, model, device, num=1):
                 r["projection_modules"]==layers and type(r["correct"]) is bool and
                 r["correct"] is bool(r["score"]["correct"]) and 0<=r["N"]<=len(r["output_ids"])<=2048
                 and r["TPF"]==r["N"]/r["F"] and r["efficiency"]==r["N"]/r["Q"],"Unverified work")
-        cases[q][i]=r
+        cases[q][i]={k:r[k] for k in ("index","seed","dataset","task_id","correct","N","F","Q",
+                                     "decoder_Q","max_decoder_Q","row_visits","input_sha256")}
+        cases[q][i].update(decoder_F=len(widths),failure=bool(r.get("failure")))
     coverage={q:dict(assigned=sum(t==q for _,t in assigned),sealed=len(cases[q])) for q in menu}
     tables={}
     for cohort,idx in COHORTS.items():
@@ -84,6 +86,7 @@ def report(root, model, device, num=1):
     pilots={0,10,20}
     smoke={q:measure([cases[q][i] for i in sorted(pilots)]) for q in tiers} if pilots<=common else {}
     return dict(model=model,device=device,law=[num,8],coverage=coverage,cohorts=tables,
+                **({"items":cases} if include_items else {}),
                 protocol_smoke3=smoke,
                 incomplete_matched_preview=preview)
 
