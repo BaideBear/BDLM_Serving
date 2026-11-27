@@ -23,4 +23,10 @@
 
 在 n164 对应 checkout 的 Gemma 环境下运行 `python -Bm experiments.t2t.serving_slots.fixed_family_eval --device cpu --tiers 128 256 64 32`，需隐藏 GPU 并限制四个 CPU 核。它将同一组 90 题对四个档位分别完整生成；实际原件留在集群 `prefix90/gemma-fixed-family-v1`。正式上卡须走受保护交接，不直接运行占卡命令。未收齐 90 条不可写入正式结果表。
 
+LLaDA 对应入口为 `python -Bm experiments.t2t.serving_slots.llada_fixed_family_eval --tiers 32 64 16 8 4`（LLaDA 环境、隐藏 GPU、CPU 36–39）。五档共用固定 M2T/T2T 阈值 0.9/0.5 和 `1/8` 选位公式。因此 Q4 的可选前缀名额按向下取整为零，强制刷新不受这项取整影响。保留原生绝对 B32 分界。单次纯 prompt prefill 包含最后不足一块的 prompt，之后不再计算其位置；与先仅 prefill 整块、在生成时再计算余下 prompt 的基线相比，这是明确的缓存策略差异。
+
+LLaDA 本候选采用**写后刷新再提交**：一块已无 MASK、所有位置都已建过 KV 且没有未刷的 token 写入时才退休；产生写入后的实际 forward 全部计费。这里没有额外整块 dense commit，也不声称其深层 KV 或 T2T 收敛状态与原生整块重算等价。在完整样本上判断这种取舍，而非把减少 dense commit 说成无损。Q64 记录真双块调用；二层随机权重 checkpoint 代码的方向性测试分别扰动前/后块，真权重逐轮另核第一层有效加性 mask 与 20 层物理宽度。
+
+以 `python -Bm experiments.t2t.serving_slots.fixed_family_report MODEL --device cpu`（`MODEL=llada21` 或 `gemma`）从集群原件重算。报告显式区分已登记任务、已封存题数、完整 cohort 和同一批题的早期检查；没有实现的档位不计入早期比较，正式原30/新60/全90只填齐全的档位。CPU 行不得与历史 GPU 行直接组成配对结论。
+
 另有[严格旧执行器的三题刷新开销](../experiments/t2t/serving_slots/controls/gemma-strict-drain-grid-cpu3.json)，仅用于识别成本来源，不是统一候选的成绩。Q32/64/128 K0 的纯刷新分别有 2,837/2,929/2,753 个投影行次，其中只因未接受位置重新加噪而计算的分别为 1,581/1,772/1,871；这些数字不是可无损删除的工作量。
