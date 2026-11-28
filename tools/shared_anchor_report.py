@@ -5,8 +5,8 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from experiments.t2t.serving_slots.shared_fixed_shard import identity
-from experiments.t2t.serving_slots.shared_point_metrics import _receipt, summarize
+from experiments.t2t.serving_slots.shared_fixed_shard import identity, shard_cases
+from experiments.t2t.serving_slots.shared_point_metrics import _cohort, _receipt, summarize
 from tools.frozen90_six_shards import BOARDS, MANIFEST, OFFERS, split
 
 
@@ -76,6 +76,9 @@ def audit(root, samples, registration):
                             raise ValueError(f"{path}:{n}: {exc}") from exc
     points = []
     boards = Counter(r["board"] for r in seen.values())
+    calibration = {r["index"] for b in BOARDS for r in shard_cases(samples, b, "screen18")}
+    if len(calibration) != 18:
+        raise ValueError("invalid calibration set")
     for model, offers in OFFERS.items():
         for q in offers:
             rows = [r for (m, offer, _), r in seen.items() if (m, offer) == (model, q)]
@@ -83,6 +86,9 @@ def audit(root, samples, registration):
             if len(rows) == 90:
                 summary = summarize(samples, rows, model, q, version)
                 p["cohorts"] = summary["cohorts"]
+                p["selection_split"] = {
+                    "screen18": _cohort([r for r in rows if r["index"] in calibration]),
+                    "remaining72": _cohort([r for r in rows if r["index"] not in calibration])}
                 charge = Counter()
                 for r in rows:
                     charge.update(costs(r))

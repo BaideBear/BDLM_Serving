@@ -34,6 +34,9 @@ def test_closed_point_with_disjoint_charge(tmp_path):
     assert report["seen"] == 90
     point, = [p for p in report["points"] if "cohorts" in p]
     assert point["cohorts"]["all90"]["correct"] == 90
+    assert [point["selection_split"][k]["requests"] for k in ("screen18","remaining72")] == [18,72]
+    for key in ("correct", "N", "F", "Q"):
+        assert sum(c[key] for c in point["selection_split"].values()) == point["cohorts"]["all90"][key]
     assert point["physical_Q_by_role"] == dict(dirty=180, cold_mask=720, warm_mask=360, prefix=180,
                                                terminal_verification=720, rebuild=0)
 
