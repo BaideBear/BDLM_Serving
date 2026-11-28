@@ -118,7 +118,7 @@ def run_candidate(model, data, task, *, deadline):
             profile='fixed90_candidate')
     finally:
         setattr(qualify, 'open_strict_gemma', old_open)
-    return row, ids, request
+    return row, ids, handle._request
 
 
 def _physical_summary(row, request):
