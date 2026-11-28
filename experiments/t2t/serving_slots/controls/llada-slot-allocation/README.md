@@ -230,3 +230,21 @@ once; the extra candidate can compete in the per-block fallback. Register
 three anchors with all 20 physical widths and the pre-state equal. Unexposed
 anchors must be identical, never replaced. Use `tools/run_llada_admission_n164.sh
 DEADLINE paid8`; wait for the complete paired report before claiming an effect.
+
+**Idle interior read, fixed Q8/Q16 (A6/A5).** Preregistered after the
+same-device full-window controls. At an ordinary sampling step only, keep
+every incumbent Q and every sampler position. Spend otherwise unused seats
+on already resident, clean, decoded positions strictly after the first MASK
+in the current physical head, lowest absolute position first. They cannot
+edit and cannot expand the visible KV boundary. A read may change the
+incumbents' logits through attention. No clean-prefix dose change, row
+exchange, successor opening, auxiliary forward or mandatory-only drain.
+Compare against an unchanged fixed window on all 90 cases; exactly reproduce
+the original device's control output digest and cost for every case and check
+the identical pre-state at the first actual change. Report only complete
+original30/new60/frozen90 cohorts. If 0/10/20 have no eligible read,
+stop that tier without replacing any case. An improvement only in macro TPF
+with worse quality or a large increase in total work is not an automatic
+promotion. `bash tools/run_llada_window_spare_a800.sh Q DEADLINE` waits for
+the known window job, checks the sealed parent, and exits on unrelated GPU
+occupants; no holder or retry. Full requests and next-step budgets are fixed.
