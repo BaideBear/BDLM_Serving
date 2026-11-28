@@ -41,3 +41,10 @@ the prefix-seat reducer must require complete matched rows. Do not retry the
 failed six solely to recover lost tickets. Any follow-up remains a fixed-budget,
 one-physical-row selection exchange; do not modify confidence or acceptance
 thresholds.
+
+The six-case worker writes full physical arm records (delivery IDs, ordered
+trace, decoder samples, encoder inputs, states and projection tape) into each
+case receipt. Stock and observer are compared with these raw records, not only
+compact bills. If control/no-op/treatment validation fails, the worker seals the
+partial physical receipt, writes the exact failure, and stops at that case; it
+does not continue blind or restart the six.

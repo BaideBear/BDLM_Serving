@@ -207,7 +207,8 @@ def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring,
         observations=agreement.observations,
         first_extra=agreement.first_extra, applied=agreement.apply)
     return dict(ids=ids, trace=trace, decoder=decoder, encoder=encoder, events=events,
-                states=states, projections=sorted(projections), rng_after=after, bill=bill,
+                states=states, projections=sorted(projections),
+                projection_tape=dict(projections), rng_after=after, bill=bill,
                 **certs, correct=bool(score["correct"]), scoring=score["metric"],
                 N=sum(i not in extras for i in ids), agreement=agreement_record, seat=seat)
 
@@ -248,18 +249,11 @@ def run_one(handle, task, position):
         out[mode] = run_arm(handle["rt"], handle["torch"], handle["model"], data,
                             handle["proc"], handle["controls"], handle["unmask"], task,
                             mode, handle["scoring"], handle["special"])
-    require(stable(out["stock"]) == stable(out["observer"]),
-            "Stock and observer-only paid-close diverged")
     seat = out["seat"]["seat"].record if out["seat"]["seat"] is not None else None
-    if seat is None or not seat["exchanges"]:
-        require(stable(out["observer"]) == stable(out["seat"]),
-                "Seat arm with no planned exchange diverged")
     fork = first_fork(out["observer"], out["seat"])
-    if seat and seat["exchanges"]:
-        require(fork is not None and fork["kind"] == "trace" and
-                fork["tick"] == seat["exchanges"][0]["tick"],
-                "First trace fork is not the audited seat exchange")
     arms = {}
+    physical_keys = ("ids", "trace", "decoder", "encoder", "events", "states",
+                     "projection_tape")
     for mode, v in out.items():
         record = v["seat"].record if v["seat"] is not None else None
         arms[mode] = dict(
@@ -269,12 +263,28 @@ def run_one(handle, task, position):
             agreement=None if v["agreement"] is None else dict(
                 first_extra=v["agreement"]["first_extra"], applied=v["agreement"]["applied"],
                 extra_events=[o for o in v["agreement"]["observations"] if o["extra"]]),
-            seat=record)
+            seat=record, physical={key: v[key] for key in physical_keys})
+    error = None
+    try:
+        require(stable(out["stock"]) == stable(out["observer"]),
+                "Stock and observer-only paid-close diverged")
+        if seat is None or not seat["exchanges"]:
+            require(stable(out["observer"]) == stable(out["seat"]),
+                    "Seat arm with no planned exchange diverged")
+        if seat and seat["exchanges"]:
+            require(fork is not None and fork["kind"] == "trace" and
+                    fork["tick"] == seat["exchanges"][0]["tick"],
+                    "First trace fork is not the audited seat exchange")
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        error = repr(exc)
     prompt_sha = hashlib.sha256(json.dumps(
         data["input_ids"][0].tolist(), separators=(",", ":")).encode()).hexdigest()
     return dict(index=task["index"], task_id=task["task_id"], dataset=task["dataset"],
                 seed=task["seed"], order=order, prompt_sha256=prompt_sha,
-                stock_observer_identical=True, first_fork=fork, arms=arms)
+                stock_observer_identical=error is None, first_fork=fork, arms=arms,
+                error=error)
 
 
 def load_runtime():
@@ -347,6 +357,7 @@ def main() -> int:
         error = None
         try:
             row = run_one(handle, task, pos)
+            error = row.get("error")
         except Exception as exc:  # keep each case independent
             import traceback
             traceback.print_exc()
@@ -354,7 +365,6 @@ def main() -> int:
             row = dict(index=index, task_id=task["task_id"], dataset=task["dataset"],
                        seed=task["seed"], order=list(ARMS),
                        stock_observer_identical=False, arms={}, error=error)
-        row["error"] = error
         rows.append(row)
         gate_rows.append(error is None and row.get("stock_observer_identical") is True)
         (a.root / f"case-{index:02}.json").write_text(
@@ -364,13 +374,18 @@ def main() -> int:
             identical=row.get("stock_observer_identical"),
             first_fork=row.get("first_fork"), arms=row.get("arms", {})),
             separators=(",", ":"), allow_nan=False), flush=True)
+        if not gate_rows[-1]:
+            print("STOP " + json.dumps(dict(reason="first_invalid_case", index=index,
+                                            error=error), separators=(",", ":")),
+                  flush=True)
+            break
     gate = "passed" if all(gate_rows) else "failed"
     summary = dict(schema="gemma-paid-ibs-q64-a0-prefix-seat-six-v1",
                    gpu=a.gpu_uuid, q=Q64, cases=list(cases), arms=list(ARMS),
                    gate=gate, failed=[rows[i]["index"] for i, ok in enumerate(gate_rows) if not ok],
                    per_case=[dict(index=r["index"], error=r.get("error"),
                                   first_fork=r.get("first_fork"),
-                                  seat=(r.get("arms", {}).get("seat", {}) or {}).get("seat"))
+                                  seat=r.get("arms", {}).get("seat"))
                              for r in rows],
                    transformers=handle["transformers"])
     (a.root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
