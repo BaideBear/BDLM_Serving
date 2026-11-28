@@ -2,6 +2,7 @@
 
 [Method and comparison protocol](../../../../../docs/shared-request-planner.md) |
 [Per-checkpoint search space](search-space.json) |
+[First formal anchor registration (not results)](formal90-anchor.json) |
 [Frozen control measurements](../fixed-request-comparison/README.md).
 
 These are **engineering smoke tests only** on the same `gsm8k/167`, index 0,

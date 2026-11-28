@@ -54,5 +54,6 @@
 | 2026-11-28 15:30 | 已封存，旧方案 | LLaDA `covered` 在 Q4/8/16/32/64 的质量相对 Live 为 `72→64、72→65、75→67、75→63、75→63`（各 90 题）。虽然 TPF 上升，质量失败，不替换 Live。[完整记录](../experiments/t2t/serving_slots/controls/coverage-span/README.md) |
 | 2026-11-28 15:30 | 资格复验，新方案 | H4 同一题 `gsm8k/167`、seed 17000：EOS 修复后 Q32 答对（N/F/Q=265/45/1181），Q4 跑完但答错（233/199/785）。n164 `runtime/h4-q32-dcaa10b/results-qualify/`。不能当成正式点。 |
 | 2026-11-28 15:30 | 参数筛选，新方案 | H0 Gemma 有 60 条回执：3 道题 × 5 档 × 4 个前缀份额，固定 `τ=1/4`。n164 `results/shared-h0-screen-1128-1521/receipts.ndjson` 及 `returned`；是筛选，**不是 60 道独立题**。此时新候选没有已封存的 90 题档。 |
+| 2026-11-28 15:38 | 正式参照已启动，尚无封存点 | 冻结[双模型参照配置与源码指纹](../experiments/t2t/serving_slots/controls/shared-request/formal90-anchor.json)，执行源码 `7a38ffc`，注册号 `a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3`。n164 `results/formal90-7a38ffc/H0/gemma.ndjson` 已有 4 条，第一条为 Q32、`complete`。源目录 `runtime/formal90-7a38ffc/src`，A800 代码在 `/gs/code/formal90-7a38ffc/src`。继续按同一注册号核对两边回执。 |
 
 当前计算授权窗口为 **2026-11-28 15:20 至 2026-11-29 09:20（UTC+8）**，是本轮资源保护时间，不是宣布研究完成的期限。恢复时：先读本页和设计协议，核对远端分支、注册 ID 与 n164 账本，再查两边实际进程，按缺失的 `(版本, 模型, Q, task_id)` 续跑。后续登记、资源变化和封存点要附时间与证据，不覆盖旧的否决结论。
