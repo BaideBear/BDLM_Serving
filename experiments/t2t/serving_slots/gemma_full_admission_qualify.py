@@ -57,7 +57,8 @@ def guard(stage):
             raise RuntimeError(f"A3 not idle before launch: {memory} MiB / {util}%, apps={apps!r}")
     else:
         rows = [line.split(", ") for line in apps.splitlines() if line]
-        if rows != [[str(os.getpid())]] or not rows or not rows[0][1].isdigit() or int(rows[0][1]) <= 0:
+        if (len(rows) != 1 or rows[0][0] != str(os.getpid()) or
+                not rows[0][1].isdigit() or int(rows[0][1]) <= 0):
             raise RuntimeError(f"A3 occupancy drift at {stage}: apps={apps!r}, memory={memory}")
 
 
