@@ -1,0 +1,74 @@
+{
+  "active_w2": {
+    "frozen90": {
+      "F": 1345,
+      "N": 31714,
+      "decoder_F": 1263,
+      "decoder_Q": 363008,
+      "efficiency": 0.08736446579689704,
+      "encoder_F": 82,
+      "encoder_Q": 20992,
+      "macro_TPF": 26.250394820564857,
+      "requests": 90
+    },
+    "new60": {
+      "F": 901,
+      "N": 21982,
+      "decoder_F": 842,
+      "decoder_Q": 243968,
+      "efficiency": 0.09010198058761805,
+      "encoder_F": 59,
+      "encoder_Q": 15104,
+      "macro_TPF": 26.96748067881769,
+      "requests": 60
+    },
+    "ordered_source_sha256": "84fd383f7d9b05b91c2014c4acdf9fa3863f6a8a0690015d0ecf7d10e366732d",
+    "original30": {
+      "F": 444,
+      "N": 9732,
+      "decoder_F": 421,
+      "decoder_Q": 119040,
+      "efficiency": 0.08175403225806452,
+      "encoder_F": 23,
+      "encoder_Q": 5888,
+      "macro_TPF": 24.816223104059187,
+      "requests": 30
+    }
+  },
+  "flow_w2": {
+    "frozen90": {
+      "F": 1494,
+      "N": 32504,
+      "decoder_F": 1408,
+      "decoder_Q": 720896,
+      "efficiency": 0.045088334517045456,
+      "encoder_F": 86,
+      "encoder_Q": 22016,
+      "macro_TPF": 25.390072995245735,
+      "requests": 90
+    },
+    "new60": {
+      "F": 1011,
+      "N": 22382,
+      "decoder_F": 951,
+      "decoder_Q": 486912,
+      "efficiency": 0.04596723843322818,
+      "encoder_F": 60,
+      "encoder_Q": 15360,
+      "macro_TPF": 26.138745378584495,
+      "requests": 60
+    },
+    "ordered_source_sha256": "cbf117abab137ca09135078298dcb0d5516954ef13b92e6aac5192243d330ab7",
+    "original30": {
+      "F": 483,
+      "N": 10122,
+      "decoder_F": 457,
+      "decoder_Q": 233984,
+      "efficiency": 0.043259368161925604,
+      "encoder_F": 26,
+      "encoder_Q": 6656,
+      "macro_TPF": 23.892728228568217,
+      "requests": 30
+    }
+  }
+}

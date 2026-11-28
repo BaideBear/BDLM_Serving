@@ -4,6 +4,17 @@ Single-request reference experiment, not a unified planner, policy promotion,
 or official fused-backend speed benchmark. B=32, offer=64 throughout. No
 changes to the default FlowBlock control or public endpoint.
 
+![Original and compact W2, both models](both-models.png)
+
+The Gemma panel is a corrected **accounting replay**, not a new model run.
+Across 90 requests original/compact W2 used 720,896/363,008 history-reading
+decoder Q, plus 22,016/20,992 generation encoder rows. These encoder rows
+count toward total work but not the token-efficiency denominator. Hence
+current TE is **4.51%/8.74%**, not the older all-model-row 4.38%/8.26%.
+[Decoder and encoder bills](gemma-decoder-bills.json).
+Recompute using `tools/w2_decoder_bills.py PREFIX90` on the raw evidence
+host and `tools/plot_w2_compaction.py` on the compact archive.
+
 ## Sealed result
 
 All 90 fresh dense generations exactly reproduced the frozen references.
