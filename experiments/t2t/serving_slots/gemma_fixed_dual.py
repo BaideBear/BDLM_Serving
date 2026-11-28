@@ -297,7 +297,7 @@ class AblationRequest(FixedFamilyRequest):
             raise ValueError('Unknown prefix ranking or refresh policy')
         if type(frontier_gate) is not bool or frontier_gate and (
                 q > B or ablation != '00' or top_gate != 'off' or head_first or prefix_order != 'right'
-                or law != Law(1, 8) or reuse_paid_masks or fuse_first_verify or dense_stop
+                or law != Law(1, 8) or reuse_paid_masks or dense_stop
                 or stop_at_single_b_only or sample_full_rebuild or fullstop is not None
                 or keep_rejected_noise is not None):
             raise ValueError('Frontier gate requires the solo fixed Live 1/8 right-edge profile')
