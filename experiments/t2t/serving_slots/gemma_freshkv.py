@@ -186,6 +186,7 @@ class FreshKV:
 
 class PaidPrefixProbe:
     """Change K/V freshness of omitted, paid prefix rows only at equal kernel width."""
+    transplant = False
 
     def __init__(self, hold):
         self.hold = hold
@@ -215,13 +216,19 @@ class PaidPrefixProbe:
         args = dict(decoder_input_ids=ids[:, full], self_conditioning_logits=sc,
                     decoder_attention_mask=masks, decoder_position_ids=pos, past_key_values=cache, **kw)
 
-        def scratch(keep):
+        prefix_rows = np.flatnonzero(prefix)
+        pi = torch.as_tensor(prefix_rows, device=device)
+        fresh_kv = {}
+
+        def scratch(keep, capture=False):
             layers = set()
             keep_indices = torch.as_tensor(np.flatnonzero(keep), device=device)
             def clamp(layer, q, k, v):
                 require(q.shape[-2] == w and layer not in layers, "Unexpected scratch layer or width")
                 layers.add(layer)
                 result = []
+                if capture:
+                    fresh_kv[layer] = tuple(x[..., -w:, :].index_select(-2, pi) for x in (k, v))
                 for x, saved in zip((k, v), bank.buffers[layer], strict=True):
                     # Do not modify a shared/caller-owned K/V tensor or the resident bank.
                     z = x.clone()
@@ -245,12 +252,51 @@ class PaidPrefixProbe:
                 prior.copy(), device=device), srows, row_width=width)
             return prop, p, updated[srows].bool()
 
+        def transplant_call(use_fresh):
+            # Same input width, original index, dtype, self-conditioning and attention extent.
+            # Only the *omitted* prefix K/V are substituted. No write to production state.
+            layers = set()
+            indices = bank.index
+            def assemble(layer, q, k, v):
+                require(q.shape[-2] == len(local) and layer not in layers, "Wrong live width")
+                layers.add(layer)
+                result = []
+                for j, (x, saved) in enumerate(zip((k, v), bank.buffers[layer], strict=True)):
+                    tmp = saved[..., start:start+w, :].clone()
+                    tmp.index_copy_(-2, indices-start, x[..., -len(local):, :])
+                    if use_fresh:
+                        tmp.index_copy_(-2, pi, fresh_kv[layer][j])
+                    result.append(torch.cat((x[..., :-len(local), :], tmp), dim=-2))
+                return result
+            from unittest.mock import patch
+            ri = torch.as_tensor(prior[local] == 0, device=device)
+            with ExitStack() as stack:
+                stack.enter_context(patch.object(bank, "extend", assemble))
+                if seen.any() and not seen.all():
+                    flag = torch.as_tensor(seen, device=device)[None, :, None]
+                    stack.enter_context(model.model.decoder.self_conditioning.register_forward_pre_hook(
+                        lambda _, a: (a[0], a[1]*flag)))
+                out = model(**dict(args, decoder_input_ids=ids[:,indices],
+                                   decoder_position_ids=(indices+plen).to(torch.int32)[None],
+                                   self_conditioning_logits=sc_bank[indices%(2*B)][None] if seen.any() else None)).logits[0][ri]
+            require(len(layers) == len(model.model.decoder.layers), "Incomplete live-width replay")
+            return out
+
         self.hold["suppress"] = True
         try:
-            old = scratch(~take)
-            replay = scratch(~take)
+            if self.transplant:
+                scratch(~(take | prefix), capture=True)
+                old = transplant_call(False)
+                replay = transplant_call(False)
+                require(torch.equal(old, resident), "Native-width control differs from real selected logits")
+                changed = transplant_call(True)
+                extra_f, extra_q = 4, w + 3*len(local)
+            else:
+                old = scratch(~take)
+                replay = scratch(~take)
+                changed = scratch(~(take | prefix))
+                extra_f, extra_q = 3, 3*w
             require(torch.equal(old, replay), "Equal-width clamped scratch did not replay")
-            changed = scratch(~(take | prefix))
             a, ap, ac = decisions(old)
             b, bp, bc = decisions(changed)
             r, rp, rc = decisions(resident)
@@ -261,12 +307,16 @@ class PaidPrefixProbe:
             return (srows[mask]+start).tolist()
         self.record = dict(block=start//B, tick=tick, selected=len(local), visible_width=w,
                            ready=int(ready), refreshed_prefix=np.flatnonzero(prefix).tolist(),
-                           measured_mask=(srows+start).tolist(), extra_F=3, extra_Q=3*w,
+                           measured_mask=(srows+start).tolist(), extra_F=extra_f, extra_Q=extra_q,
                            identical_replay=True, control_vs_resident_top1=indices(r != a),
                            control_vs_resident_accept=indices(rc != ac),
                            top1_flips=indices(a != b), p9_flips=indices((ap>=.9) != (bp>=.9)),
                            take_flips=indices(ac != bc), stock_take=indices(rc), clamped_take=indices(ac),
                            fresh_take=indices(bc), resident_p=rp.tolist(), old_p=ap.tolist(), fresh_p=bp.tolist())
+
+
+class NativeWidthPaidPrefixProbe(PaidPrefixProbe):
+    transplant = True
 
 
 @lru_cache(maxsize=2)

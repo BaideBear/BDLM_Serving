@@ -7,7 +7,7 @@ deadline=${2:?deadline epoch}
 root=${3:?/dev/shm output directory}
 cases=${4:-7,13,25,33,55,71}
 probe=${5:-full}
-[[ $probe == full || $probe == paid-prefix ]]
+[[ $probe == full || $probe == paid-prefix || $probe == native-prefix ]]
 [[ $src =~ ^/gs/work/gemma-q64-a0-freshkv-[0-9A-Za-z-]+$ && $(hostname -s) == n1 ]]
 [[ $deadline =~ ^[0-9]+$ && $(date +%s) -lt $deadline && $root == /dev/shm/* ]]
 gpu=GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1

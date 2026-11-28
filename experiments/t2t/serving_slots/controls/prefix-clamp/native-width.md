@@ -1,0 +1,7 @@
+# Native-width replication
+
+Register after the Q64 wide-clamp result, before this replication. Use the same six inputs, same trigger, same sampler and same A0. No replacement cases. In the earlier comparison even the untreated wide control changed the real admission on 3/6 requests. Do not use the wide query path to claim an effect on the actual Q64 step.
+
+Use the wide scope **only to prepare** fresh layer-by-layer K/V for the omitted, already-paid generated prefix, with the stored self-conditioning and all other omitted rows clamped. Transplant only those K/V rows back into an isolated copy of the native visible bank. Execute the real sparse input with its original physical Q width, positions, attention extent, IDs and SC three times: real-bank copy, identical copy, fresh-prefix copy. Per-layer assemblies touch scratch space only. Require both controls to reproduce the real selected MASK logits **bit for bit**; failure invalidates that request, not evidence for the factor. All six must retain unchanged production outputs, RNG, scores and F/Q.
+
+Charge `1 + 3 = 4` diagnostic F and `visible_width + 3 × actual_selected_Q` rows per eligible state. This is a counterfactual about the substituted K/V, not a deployable way to compute them for free. Record the direction of admissions, including native fallback; only full matched production trajectories could measure TPF or quality. Zero action changes ends this particular trigger. No expansion to 90 for diagnostics.

@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 from .gemma_ibs_certified_eos import B, OFFERS, Stop, require, generate as certified_generate
 from .gemma_paid_agreement import Agreement, generate as agreement_generate
-from .gemma_freshkv import FreshKV, PaidPrefixProbe, probe_generate
+from .gemma_freshkv import FreshKV, PaidPrefixProbe, NativeWidthPaidPrefixProbe, probe_generate
 from tools.run_gemma_ibs_certified_eos import reconcile
 
 Q64 = 64
@@ -245,7 +245,8 @@ def main() -> int:
     ap.add_argument("--deadline", type=int, required=True)
     ap.add_argument("--gpu-uuid", default=A0_UUID)
     ap.add_argument("--cases", default=",".join(map(str, SIX)))
-    ap.add_argument("--probe", choices=("full", "paid-prefix"), default="full")
+    probes = {"full": FreshKV, "paid-prefix": PaidPrefixProbe, "native-prefix": NativeWidthPaidPrefixProbe}
+    ap.add_argument("--probe", choices=probes, default="full")
     a = ap.parse_args()
     if not str(a.root).startswith("/dev/shm/"):
         print("A0 freshkv root must be under /dev/shm", file=sys.stderr)
@@ -269,7 +270,7 @@ def main() -> int:
         task = next(t for t in handle["tasks"] if t["index"] == index)
         error = None
         try:
-            row = run_one(handle, task, pos, PaidPrefixProbe if a.probe == "paid-prefix" else FreshKV)
+            row = run_one(handle, task, pos, probes[a.probe])
         except Exception as exc:  # keep each case independent
             import traceback
             traceback.print_exc()
