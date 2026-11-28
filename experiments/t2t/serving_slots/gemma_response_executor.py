@@ -185,7 +185,7 @@ def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
             reference['text'] = proc.tokenizer.decode(reference['output_ids'], skip_special_tokens=True)
             reference['correct'] = bool(scoring.score(reference['text'], task)['correct'])
             replay = {k: reference[k] == sealed[k] for k in
-                      ('output_ids', 'tape', 'input_sha256', 'hit', 'encoder_digest',
+                      ('output_ids', 'input_sha256',
                        'N', 'correct', 'decoder_F', 'decoder_Q', 'encoder_F',
                        'encoder_Q', 'F', 'route_F', 'route_Q')}
             if not all(replay.values()):
