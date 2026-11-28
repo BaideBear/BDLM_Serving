@@ -36,6 +36,14 @@ tokens. #20 had four qualifying windows but zero positives, both arms 6 F.
 Only a nonzero actionable count permitted expansion. The run is bounded
 to these 90 tasks; order alternates between the two arms.
 
+`row-roles.json` is a retrospective bill on the 90 pinned **on** tapes,
+not another model run. From a checkout containing `gemma_top_roles.py`, run
+`python -m experiments.t2t.serving_slots.gemma_top_roles /gs/results/single512-stop-1128 experiments/t2t/serving_slots/controls/gemma-factors/single512-stop/pairs.csv benchmarks/frozen90/manifest.json`.
+The six exclusive roles sum to the measured decoder bill. Actual debt paid,
+successor rows, and rows on a sampled rebuild are overlapping diagnostics,
+not additional cost. The nonzero `edit_positions` count is T2T, excluding
+first admissions and remasks.
+
 Every off must replay its archived `C512-joint1-*` output hash, scorer,
 full route and physical encoder/decoder bills, and the recorded close
 opportunities/rows/seals. Before the first actionable stop, the measured

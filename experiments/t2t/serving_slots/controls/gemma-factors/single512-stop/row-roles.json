@@ -1,0 +1,107 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "decoder_F": 1266,
+      "decoder_Q": 425912,
+      "dirty_positions": {
+        "clean-other": 0,
+        "mandatory": 195711,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 2565
+      },
+      "edit_positions": {
+        "clean-other": 4,
+        "mandatory": 19,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 0
+      },
+      "n": 90,
+      "placement": {
+        "head_Q": 324096,
+        "sampled_rebuild_Q": 14848,
+        "successor_Q": 101816
+      },
+      "roles": {
+        "clean-other": 130226,
+        "mandatory": 195711,
+        "prefix": 0,
+        "rebuild": 4608,
+        "unresolved": 52615,
+        "verify": 42752
+      }
+    },
+    "new60": {
+      "decoder_F": 852,
+      "decoder_Q": 291081,
+      "dirty_positions": {
+        "clean-other": 0,
+        "mandatory": 128311,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 1971
+      },
+      "edit_positions": {
+        "clean-other": 2,
+        "mandatory": 10,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 0
+      },
+      "n": 60,
+      "placement": {
+        "head_Q": 218112,
+        "sampled_rebuild_Q": 9984,
+        "successor_Q": 72969
+      },
+      "roles": {
+        "clean-other": 92924,
+        "mandatory": 128311,
+        "prefix": 0,
+        "rebuild": 4096,
+        "unresolved": 36310,
+        "verify": 29440
+      }
+    },
+    "original30": {
+      "decoder_F": 414,
+      "decoder_Q": 134831,
+      "dirty_positions": {
+        "clean-other": 0,
+        "mandatory": 67400,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 594
+      },
+      "edit_positions": {
+        "clean-other": 2,
+        "mandatory": 9,
+        "prefix": 0,
+        "rebuild": 0,
+        "unresolved": 0,
+        "verify": 0
+      },
+      "n": 30,
+      "placement": {
+        "head_Q": 105984,
+        "sampled_rebuild_Q": 4864,
+        "successor_Q": 28847
+      },
+      "roles": {
+        "clean-other": 37302,
+        "mandatory": 67400,
+        "prefix": 0,
+        "rebuild": 512,
+        "unresolved": 16305,
+        "verify": 13312
+      }
+    }
+  },
+  "source_pair_csv_sha256": "8b064cfe3ebc8c94c5e31e8abf42a3d91a39bf4d37db1b965506ee4028f53b59"
+}

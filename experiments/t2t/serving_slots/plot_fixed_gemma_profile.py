@@ -1,5 +1,6 @@
 """Publish the measured fixed profile against same-cohort external controls."""
 import csv
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -130,6 +131,11 @@ def verified_profile(rows):
     qual=json.loads((ROOT/"strict-handle"/"gemma-verified-eos.json").read_bytes())
     if qual["profile"]!="dense_stop_joint_verified_eos" or (qual["fixed"],qual["mixed"])!=(15,12):
         raise ValueError("Unqualified EOS profile")
+    top = FACTORS/"single512-stop"
+    audited = json.loads((top/"row-roles.json").read_bytes())
+    if audited["source_pair_csv_sha256"] != sha256((top/"pairs.csv").read_bytes()).hexdigest():
+        raise ValueError("Q512 roles do not match archived receipt hashes")
+    top_bills = {x["cohort"]:x for x in read(top/"cohorts.csv")}
     result=[]
     for r in public_profile(rows):
         if r["method"]!="Request":
@@ -151,6 +157,14 @@ def verified_profile(rows):
                      Q_verify=r["Q_verify"]-int(x["saved_Q"]))
             if sum(r["Q_"+role] for role in ROLES)!=dq or r["Q_verify"]<0:
                 raise ValueError("EOS removed work other than verification")
+        elif c == 512:
+            x = audited["cohorts"][r["cohort"]]
+            if (x["n"] != r["n"] or x["decoder_Q"] != r["history_Q"] or
+                    x["decoder_F"] != int(top_bills[r["cohort"]]["on_decoder_F"]) or
+                    set(x["roles"]) != set(ROLES) or min(x["roles"].values()) < 0 or
+                    sum(x["roles"].values()) != r["history_Q"]):
+                raise ValueError("Unbalanced Q512 role summary")
+            r.update({"Q_"+k:x["roles"][k] for k in ROLES})
         result.append(r)
     return result
 
