@@ -6,6 +6,8 @@ src=${1:?source overlay}
 deadline=${2:?deadline epoch}
 root=${3:?/dev/shm output directory}
 cases=${4:-7,13,25,33,55,71}
+probe=${5:-full}
+[[ $probe == full || $probe == paid-prefix ]]
 [[ $src =~ ^/gs/work/gemma-q64-a0-freshkv-[0-9A-Za-z-]+$ && $(hostname -s) == n1 ]]
 [[ $deadline =~ ^[0-9]+$ && $(date +%s) -lt $deadline && $root == /dev/shm/* ]]
 gpu=GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1
@@ -56,4 +58,4 @@ printf 'LOCKED host=%s launcher=%s gpu=%s cases=%s date=%s\n' \
     "$(hostname -s)" "$$" "$gpu" "$cases" "$(date -Is)"
 timeout -k 15s "$((deadline - $(date +%s)))" /root/miniconda3/envs/rl/bin/python -u -B \
     -m experiments.t2t.serving_slots.gemma_paid_agreement_q64_a0_freshkv \
-    --root "$root" --deadline "$deadline" --gpu-uuid "$gpu" --cases "$cases"
+    --root "$root" --deadline "$deadline" --gpu-uuid "$gpu" --cases "$cases" --probe "$probe"

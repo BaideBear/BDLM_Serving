@@ -25,6 +25,7 @@ Boundaries (do not over-read):
   * A warm row's stale K also feeds every other query in the interval, so any
     disagreement here is not by itself proof of pure cache error.
 """
+from contextlib import ExitStack
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -183,8 +184,93 @@ class FreshKV:
             same_width=True)
 
 
-@lru_cache(maxsize=1)
-def _loop(rt):
+class PaidPrefixProbe:
+    """Change K/V freshness of omitted, paid prefix rows only at equal kernel width."""
+
+    def __init__(self, hold):
+        self.hold = hold
+        self.record = None
+
+    def observe(self, *, logits, prior, local, width, start, ids, cache, masks, plen,
+                kw, sc_bank, seen, bank, device, tick, model, unmask, ready, dirty):
+        if self.record or start != 0 or ready <= 0 or not (prior[local] == 0).any():
+            return
+        w = int(bank.end) - start
+        take = np.zeros(w, dtype=bool)
+        take[local] = True
+        prefix = (np.arange(w) < ready) & ~take
+        require((prior[:ready] != 0).all() and not dirty[start:start+ready].any(),
+                "Not an immutable paid prefix")
+        if not prefix.any():
+            return
+        initialized = bank.initialized[start:start+w].copy()
+        initialized[local] = seen
+        require(initialized[~take].all(), "A clamped position has no resident KV")
+        full = torch.arange(start, start+w, device=device)
+        pos = (full+plen).to(torch.int32)[None]
+        srows = torch.as_tensor(local[prior[local] == 0], device=device)
+        resident = logits[torch.as_tensor(prior[local] == 0, device=device)]
+        valid = torch.as_tensor(initialized, device=device)[None, :, None]
+        sc = sc_bank[full % (2*B)][None] if initialized.any() else None
+        args = dict(decoder_input_ids=ids[:, full], self_conditioning_logits=sc,
+                    decoder_attention_mask=masks, decoder_position_ids=pos, past_key_values=cache, **kw)
+
+        def scratch(keep):
+            layers = set()
+            keep_indices = torch.as_tensor(np.flatnonzero(keep), device=device)
+            def clamp(layer, q, k, v):
+                require(q.shape[-2] == w and layer not in layers, "Unexpected scratch layer or width")
+                layers.add(layer)
+                result = []
+                for x, saved in zip((k, v), bank.buffers[layer], strict=True):
+                    # Do not modify a shared/caller-owned K/V tensor or the resident bank.
+                    z = x.clone()
+                    z[..., -w:, :].index_copy_(-2, keep_indices, saved.index_select(-2, keep_indices + start))
+                    result.append(z)
+                return result
+            from unittest.mock import patch
+            with ExitStack() as stack:
+                stack.enter_context(patch.object(bank, "extend", clamp))
+                if sc is not None and not initialized.all():
+                    stack.enter_context(model.model.decoder.self_conditioning.register_forward_pre_hook(
+                        lambda _, a: (a[0], a[1]*valid)))
+                out = model(**args).logits[0].index_select(0, srows)
+            require(len(layers) == len(model.model.decoder.layers), "Not all decoder layers exercised")
+            return out
+
+        def decisions(x):
+            prop = x.argmax(-1)
+            p = x.float().softmax(-1).gather(-1, prop[:, None])[:, 0]
+            updated = unmask.low_confidence_dynamic_sparse(x, prop, torch.as_tensor(
+                prior.copy(), device=device), srows, row_width=width)
+            return prop, p, updated[srows].bool()
+
+        self.hold["suppress"] = True
+        try:
+            old = scratch(~take)
+            replay = scratch(~take)
+            require(torch.equal(old, replay), "Equal-width clamped scratch did not replay")
+            changed = scratch(~(take | prefix))
+            a, ap, ac = decisions(old)
+            b, bp, bc = decisions(changed)
+            r, rp, rc = decisions(resident)
+        finally:
+            self.hold["suppress"] = False
+
+        def indices(mask):
+            return (srows[mask]+start).tolist()
+        self.record = dict(block=start//B, tick=tick, selected=len(local), visible_width=w,
+                           ready=int(ready), refreshed_prefix=np.flatnonzero(prefix).tolist(),
+                           measured_mask=(srows+start).tolist(), extra_F=3, extra_Q=3*w,
+                           identical_replay=True, control_vs_resident_top1=indices(r != a),
+                           control_vs_resident_accept=indices(rc != ac),
+                           top1_flips=indices(a != b), p9_flips=indices((ap>=.9) != (bp>=.9)),
+                           take_flips=indices(ac != bc), stock_take=indices(rc), clamped_take=indices(ac),
+                           fresh_take=indices(bc), resident_p=rp.tolist(), old_p=ap.tolist(), fresh_p=bp.tolist())
+
+
+@lru_cache(maxsize=2)
+def _loop(rt, prefix=False):
     raw = Path(rt.__file__).read_bytes()
     require(sha256(raw).hexdigest() == BASELINE_SHA, "Unqualified IBS runtime source")
     src = raw.decode().split(rep._SIG)
@@ -207,7 +293,8 @@ def _loop(rt):
         "                _ibs_fresh.observe(logits=logits, prior=prior, local=local, width=width,\n"
         "                    start=start, ids=ids, cache=cache, masks=masks, plen=plen, kw=kw,\n"
         "                    sc_bank=sc_bank, seen=seen, bank=bank, device=device, tick=tick,\n"
-        "                    model=model, unmask=unmask)\n"))
+        "                    model=model, unmask=unmask" +
+        (", ready=ctl.cached_prefix_len, dirty=dirty" if prefix else "") + ")\n"))
     namespace = {}
     source = "\n" * src[0].count("\n") + rep._SIG[:-2] + ", _ibs_eos, _ibs_agreement, _ibs_fresh):" + body
     exec(compile(source, f"<freshkv {Path(rt.__file__)}>", "exec"), vars(rt), namespace)
@@ -215,7 +302,7 @@ def _loop(rt):
 
 
 def probe_generate(rt, model, data, controls, unmask, stop, agreement, fresh):
-    loop = _loop(rt)
+    loop = _loop(rt, isinstance(fresh, PaidPrefixProbe))
     bank = rt.Resident()
     bank.bypass = False
     with rt.resident_attention(model, bank):

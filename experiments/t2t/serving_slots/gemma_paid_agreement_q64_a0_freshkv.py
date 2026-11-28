@@ -26,7 +26,7 @@ from types import SimpleNamespace
 
 from .gemma_ibs_certified_eos import B, OFFERS, Stop, require, generate as certified_generate
 from .gemma_paid_agreement import Agreement, generate as agreement_generate
-from .gemma_freshkv import FreshKV, probe_generate
+from .gemma_freshkv import FreshKV, PaidPrefixProbe, probe_generate
 from tools.run_gemma_ibs_certified_eos import reconcile
 
 Q64 = 64
@@ -125,12 +125,12 @@ def observe(model, unmask, stack, torch, hold):
     return decoder, encoder, projections, events, rng
 
 
-def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring, special):
+def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring, special, probe_cls):
     hold = {'suppress': False}
     stop = Stop("paid", Q64)
     agreement = None if mode == "stock" else Agreement(
         apply=False, excluded_ids=special, floor=0.5)
-    fresh = FreshKV(hold) if mode == "probe" else None
+    fresh = probe_cls(hold) if mode == "probe" else None
     prompt = data["input_ids"][0].tolist()
     eos = set(model.generation_config.eos_token_id)
     extras = set(proc.tokenizer.all_special_ids) | eos | {model.generation_config.pad_token_id}
@@ -209,7 +209,7 @@ def load_runtime():
                 transformers=str(transformers.__version__))
 
 
-def run_one(handle, task, position):
+def run_one(handle, task, position, probe_cls=FreshKV):
     data = handle["proc"].apply_chat_template(
         [{"role": "user", "content": task["prompt"]}], tokenize=True,
         add_generation_prompt=True, return_dict=True, return_tensors="pt").to("cuda:0")
@@ -218,7 +218,7 @@ def run_one(handle, task, position):
     for mode in order:
         out[mode] = run_arm(handle["rt"], handle["torch"], handle["model"], data,
                             handle["proc"], handle["controls"], handle["unmask"], task,
-                            mode, handle["scoring"], handle["special"])
+                            mode, handle["scoring"], handle["special"], probe_cls)
     require(stable(out["stock"]) == stable(out["observer"]),
             "Stock and observer-only paid-close diverged")
     require(stable(out["observer"]) == stable(out["probe"]),
@@ -245,6 +245,7 @@ def main() -> int:
     ap.add_argument("--deadline", type=int, required=True)
     ap.add_argument("--gpu-uuid", default=A0_UUID)
     ap.add_argument("--cases", default=",".join(map(str, SIX)))
+    ap.add_argument("--probe", choices=("full", "paid-prefix"), default="full")
     a = ap.parse_args()
     if not str(a.root).startswith("/dev/shm/"):
         print("A0 freshkv root must be under /dev/shm", file=sys.stderr)
@@ -268,7 +269,7 @@ def main() -> int:
         task = next(t for t in handle["tasks"] if t["index"] == index)
         error = None
         try:
-            row = run_one(handle, task, pos)
+            row = run_one(handle, task, pos, PaidPrefixProbe if a.probe == "paid-prefix" else FreshKV)
         except Exception as exc:  # keep each case independent
             import traceback
             traceback.print_exc()
@@ -288,7 +289,7 @@ def main() -> int:
             fresh=fresh, bill=row.get("arms", {}).get("probe", {}).get("bill")),
             separators=(",", ":"), allow_nan=False), flush=True)
     gate = "passed" if all(gate_rows) else "failed"
-    summary = dict(schema="gemma-paid-agreement-q64-a0-freshkv-six-v1",
+    summary = dict(schema="gemma-paid-agreement-q64-a0-freshkv-six-v1", probe=a.probe,
                    gpu=a.gpu_uuid, q=Q64, cases=list(cases), arms=list(ARMS),
                    gate=gate, failed=[rows[i]["index"] for i, ok in enumerate(gate_rows) if not ok],
                    per_case=[dict(index=r["index"], error=r.get("error"),
