@@ -69,9 +69,13 @@ def source_manifest(manifest, core, script):
         if not p.is_file() or sha_file(p) != item_sha:
             raise RuntimeError(f"Qualification source drift: {name}")
         files[name] = item_sha
-    for p in (core, script):
-        if p.as_posix() not in files or sha_file(p) != files[p.as_posix()]:
-            raise RuntimeError(f"Qualification harness missing from manifest: {p}")
+    # A module entered by -m supplies absolute __file__; bind it to the staged
+    # relative source identity that is recorded in the manifest.
+    pinned = tuple(Path(p).resolve().relative_to(Path.cwd()) for p in (core, script))
+    for p in pinned:
+        key = p.as_posix()
+        if key not in files or sha_file(p) != files[key]:
+            raise RuntimeError(f"Qualification harness missing from manifest: {key}")
     Path("source.sha256").write_text(
         "".join(f"{sha}  {name}\n" for name, sha in sorted(files.items())))
     return sha_file("source.sha256"), files
