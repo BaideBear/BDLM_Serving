@@ -1,0 +1,272 @@
+{
+  "cohorts": {
+    "fixed_six": {
+      "counts": {
+        "binding_dropped_mask_calls": {
+          "requests": 1,
+          "total": 1
+        },
+        "binding_dropped_measured_calls": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_full_dirty_calls": {
+          "requests": 1,
+          "total": 1
+        },
+        "binding_has_clean_pair_before_rank_or_neighbor": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_no_mask_calls": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_resident_donor_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_resident_omitted_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "decoder_calls": {
+          "requests": 6,
+          "total": 159
+        },
+        "decoder_rows": {
+          "requests": 6,
+          "total": 8900
+        },
+        "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": {
+          "requests": 0,
+          "total": 0
+        },
+        "full_width_resident_omitted_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "hardcap_binding_calls": {
+          "requests": 3,
+          "total": 4
+        },
+        "ordinary_calls": {
+          "requests": 6,
+          "total": 155
+        },
+        "ordinary_full_width_calls": {
+          "requests": 6,
+          "total": 122
+        },
+        "terminal_payments": {
+          "requests": 4,
+          "total": 4
+        }
+      },
+      "historical_paid_baseline": {
+        "D": 159,
+        "E": 3,
+        "F": 162,
+        "N": 1439,
+        "Q": 8900,
+        "correct": 6,
+        "requests": 6
+      }
+    },
+    "frozen90": {
+      "counts": {
+        "binding_dropped_mask_calls": {
+          "requests": 7,
+          "total": 7
+        },
+        "binding_dropped_measured_calls": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_full_dirty_calls": {
+          "requests": 7,
+          "total": 7
+        },
+        "binding_has_clean_pair_before_rank_or_neighbor": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_no_mask_calls": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_resident_donor_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "binding_resident_omitted_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "decoder_calls": {
+          "requests": 90,
+          "total": 2835
+        },
+        "decoder_rows": {
+          "requests": 90,
+          "total": 160484
+        },
+        "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": {
+          "requests": 0,
+          "total": 0
+        },
+        "full_width_resident_omitted_calls_ignoring_upstream": {
+          "requests": 0,
+          "total": 0
+        },
+        "hardcap_binding_calls": {
+          "requests": 58,
+          "total": 91
+        },
+        "ordinary_calls": {
+          "requests": 90,
+          "total": 2765
+        },
+        "ordinary_full_width_calls": {
+          "requests": 90,
+          "total": 2252
+        },
+        "terminal_payments": {
+          "requests": 70,
+          "total": 70
+        }
+      },
+      "historical_paid_baseline": {
+        "D": 2835,
+        "E": 85,
+        "F": 2920,
+        "N": 32782,
+        "Q": 160484,
+        "correct": 76,
+        "requests": 90
+      }
+    }
+  },
+  "fixed_indices": [
+    7,
+    13,
+    25,
+    33,
+    55,
+    71
+  ],
+  "per_fixed_case": {
+    "7": {
+      "binding_dropped_mask_calls": 0,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 0,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 18,
+      "decoder_rows": 1088,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 0,
+      "ordinary_calls": 17,
+      "ordinary_full_width_calls": 16,
+      "terminal_payments": 1
+    },
+    "13": {
+      "binding_dropped_mask_calls": 1,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 1,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 19,
+      "decoder_rows": 1148,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 1,
+      "ordinary_calls": 19,
+      "ordinary_full_width_calls": 15,
+      "terminal_payments": 0
+    },
+    "25": {
+      "binding_dropped_mask_calls": 0,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 0,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 13,
+      "decoder_rows": 765,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 0,
+      "ordinary_calls": 13,
+      "ordinary_full_width_calls": 9,
+      "terminal_payments": 0
+    },
+    "33": {
+      "binding_dropped_mask_calls": 0,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 0,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 71,
+      "decoder_rows": 3660,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 2,
+      "ordinary_calls": 70,
+      "ordinary_full_width_calls": 49,
+      "terminal_payments": 1
+    },
+    "55": {
+      "binding_dropped_mask_calls": 0,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 0,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 29,
+      "decoder_rows": 1720,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 1,
+      "ordinary_calls": 28,
+      "ordinary_full_width_calls": 25,
+      "terminal_payments": 1
+    },
+    "71": {
+      "binding_dropped_mask_calls": 0,
+      "binding_dropped_measured_calls": 0,
+      "binding_full_dirty_calls": 0,
+      "binding_has_clean_pair_before_rank_or_neighbor": 0,
+      "binding_no_mask_calls": 0,
+      "binding_resident_donor_calls_ignoring_upstream": 0,
+      "binding_resident_omitted_calls_ignoring_upstream": 0,
+      "decoder_calls": 9,
+      "decoder_rows": 519,
+      "full_width_neighbor_pairs_ignoring_upstream_rank_and_special": 0,
+      "full_width_resident_omitted_calls_ignoring_upstream": 0,
+      "hardcap_binding_calls": 0,
+      "ordinary_calls": 8,
+      "ordinary_full_width_calls": 8,
+      "terminal_payments": 1
+    }
+  },
+  "pins": {
+    "limits": "842f078e06b5f79b336165b060d1212e947e01182e167379a1d1dbb9f62b5376",
+    "raw": "2741ef9c07b95145f49378f35a53ccd317abf35ae582735169eef4d7ac30657c",
+    "runtime": "a09d04477361cb2a260dac85ce2195c0bfee9218306b7cfb96d7ddf4f1dba9af",
+    "sequence": "99c80047d517113579e04fd57443471a759a738dc30b206ba1342e0d4f9b3da2",
+    "summary": "d3bdd6dd97235973752df513ef2e3c4832fac41cb1cf54d9115e1e0f75e0344e"
+  },
+  "reference_gpu": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+  "reference_pid": 710090,
+  "schema": "gemma-ibs-q64-neighbor-seat-audit-v1"
+}
