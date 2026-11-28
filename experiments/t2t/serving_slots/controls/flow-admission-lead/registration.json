@@ -1,0 +1,15 @@
+{
+  "study":"llada-flow-admission-lead-h4-v1",
+  "board":"n164:H4",
+  "deadline":1795915200,
+  "pilot":[7,13,25,33,55,71],
+  "parent_registration":"a2561d031948307b04f29b95ed9893d7f8fb309c26ba538d8d4dbe03698eb97b",
+  "parent_adapter":"d870a7eb759ca44dee3c66c2321c53ea36f8e2c210239fb7292e3edddb166c31",
+  "parent_collector":"fed510e7d2dc65af5009613099c0adc5c0e459418c04cb05c12d92e0fe4f1696",
+  "offline_gate":{"source":"main thread, blind frozen active90, confirmed before deployment","distinct_requests":50,"minimum":10,"distinct_heads":194,"eligible_ticks":216,"native_reached_following_forward":103,"terminal_heads":3},
+  "arms":["control","noop","lead"],
+  "order":"rotate C/N/L, N/L/C, L/C/N by pair ordinal; six first, then unused indices ascending, without replacement",
+  "factor":"Only override a native below-.8 deferral after two successive measured single-open samples of the same unfinished head, with a real successor, when f + max(0,f-prev_f) >= .8. Widen only the next forward. Reset history on head change or any dual slot. No-op executes instrumentation but never overrides.",
+  "gate":"No selection by correctness. Six controls exactly match the sealed compact trajectories; six no-ops match controls including decisions, layer widths and output. At least one real new admission in six. Identical paid history through the deciding tick; next forward differs only by admitting its successor (same head tokens). All 20 layers match 32/64 projected rows, prefill separate, all requests terminate under upstream accounting. Fail closed before extension if gate fails. Same checks across the 90. Keep ineligible identities.",
+  "metrics":"Per-request N/F/Q/score, actual admission count/first admission, final IDs, macro TPF, pooled TE, original30/new60/full90. Additional admissions are not saved calls."
+}

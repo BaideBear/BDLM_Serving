@@ -1,0 +1,230 @@
+{
+  "frozen90": {
+    "calls_with_second_slot_delta": 360,
+    "control": {
+      "F": 5558,
+      "N": 40479,
+      "Q": 241952,
+      "correct": 78,
+      "eos": 86,
+      "macro_TPF": 9.988482408203241,
+      "one": 3555,
+      "pooled_TE": 0.16730177886522946,
+      "prefill_Q": 9280,
+      "two": 2003
+    },
+    "count": 90,
+    "delta_F": 669,
+    "delta_Q": 32928,
+    "exposed": 50,
+    "fewer_F": 27,
+    "fewer_Q": 24,
+    "gains": [
+      15,
+      50
+    ],
+    "ids_equal": 49,
+    "lead": {
+      "F": 6227,
+      "N": 42196,
+      "Q": 274880,
+      "correct": 75,
+      "eos": 86,
+      "macro_TPF": 10.15522308086617,
+      "one": 3864,
+      "pooled_TE": 0.1535069848661234,
+      "prefill_Q": 9280,
+      "two": 2363
+    },
+    "lead_admissions": 208,
+    "losses": [
+      3,
+      16,
+      60,
+      61,
+      63
+    ],
+    "more_F": 17,
+    "more_Q": 25,
+    "noop": {
+      "F": 5558,
+      "N": 40479,
+      "Q": 241952,
+      "correct": 78,
+      "eos": 86,
+      "macro_TPF": 9.988482408203241,
+      "one": 3555,
+      "pooled_TE": 0.16730177886522946,
+      "prefill_Q": 9280,
+      "two": 2003
+    },
+    "noop_eligible_ticks": 216
+  },
+  "new60": {
+    "calls_with_second_slot_delta": 271,
+    "control": {
+      "F": 3854,
+      "N": 27701,
+      "Q": 166080,
+      "correct": 51,
+      "eos": 57,
+      "macro_TPF": 10.074987128105056,
+      "one": 2518,
+      "pooled_TE": 0.16679311175337186,
+      "prefill_Q": 6272,
+      "two": 1336
+    },
+    "count": 60,
+    "delta_F": 353,
+    "delta_Q": 19968,
+    "exposed": 30,
+    "fewer_F": 15,
+    "fewer_Q": 14,
+    "gains": [
+      50
+    ],
+    "ids_equal": 36,
+    "lead": {
+      "F": 4207,
+      "N": 28948,
+      "Q": 186048,
+      "correct": 49,
+      "eos": 57,
+      "macro_TPF": 10.084162589690592,
+      "one": 2600,
+      "pooled_TE": 0.15559425524595802,
+      "prefill_Q": 6272,
+      "two": 1607
+    },
+    "lead_admissions": 129,
+    "losses": [
+      60,
+      61,
+      63
+    ],
+    "more_F": 10,
+    "more_Q": 15,
+    "noop": {
+      "F": 3854,
+      "N": 27701,
+      "Q": 166080,
+      "correct": 51,
+      "eos": 57,
+      "macro_TPF": 10.074987128105056,
+      "one": 2518,
+      "pooled_TE": 0.16679311175337186,
+      "prefill_Q": 6272,
+      "two": 1336
+    },
+    "noop_eligible_ticks": 139
+  },
+  "original30": {
+    "calls_with_second_slot_delta": 89,
+    "control": {
+      "F": 1704,
+      "N": 12778,
+      "Q": 75872,
+      "correct": 27,
+      "eos": 29,
+      "macro_TPF": 9.815472968399611,
+      "one": 1037,
+      "pooled_TE": 0.16841522564318853,
+      "prefill_Q": 3008,
+      "two": 667
+    },
+    "count": 30,
+    "delta_F": 316,
+    "delta_Q": 12960,
+    "exposed": 20,
+    "fewer_F": 12,
+    "fewer_Q": 10,
+    "gains": [
+      15
+    ],
+    "ids_equal": 13,
+    "lead": {
+      "F": 2020,
+      "N": 13248,
+      "Q": 88832,
+      "correct": 26,
+      "eos": 29,
+      "macro_TPF": 10.297344063217324,
+      "one": 1264,
+      "pooled_TE": 0.14913544668587897,
+      "prefill_Q": 3008,
+      "two": 756
+    },
+    "lead_admissions": 79,
+    "losses": [
+      3,
+      16
+    ],
+    "more_F": 7,
+    "more_Q": 10,
+    "noop": {
+      "F": 1704,
+      "N": 12778,
+      "Q": 75872,
+      "correct": 27,
+      "eos": 29,
+      "macro_TPF": 9.815472968399611,
+      "one": 1037,
+      "pooled_TE": 0.16841522564318853,
+      "prefill_Q": 3008,
+      "two": 667
+    },
+    "noop_eligible_ticks": 77
+  },
+  "pilot": {
+    "calls_with_second_slot_delta": 14,
+    "control": {
+      "F": 121,
+      "N": 1306,
+      "Q": 5952,
+      "correct": 6,
+      "eos": 6,
+      "macro_TPF": 11.937481962481963,
+      "one": 56,
+      "pooled_TE": 0.2194220430107527,
+      "prefill_Q": 448,
+      "two": 65
+    },
+    "count": 6,
+    "delta_F": 4,
+    "delta_Q": 576,
+    "exposed": 3,
+    "fewer_F": 0,
+    "fewer_Q": 0,
+    "gains": [],
+    "ids_equal": 4,
+    "lead": {
+      "F": 125,
+      "N": 1317,
+      "Q": 6528,
+      "correct": 6,
+      "eos": 6,
+      "macro_TPF": 11.66456043956044,
+      "one": 46,
+      "pooled_TE": 0.20174632352941177,
+      "prefill_Q": 448,
+      "two": 79
+    },
+    "lead_admissions": 3,
+    "losses": [],
+    "more_F": 1,
+    "more_Q": 3,
+    "noop": {
+      "F": 121,
+      "N": 1306,
+      "Q": 5952,
+      "correct": 6,
+      "eos": 6,
+      "macro_TPF": 11.937481962481963,
+      "one": 56,
+      "pooled_TE": 0.2194220430107527,
+      "prefill_Q": 448,
+      "two": 65
+    },
+    "noop_eligible_ticks": 3
+  }
+}
