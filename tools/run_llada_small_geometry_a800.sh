@@ -17,6 +17,24 @@ case "$mode/$q" in
     out="/gs/results/llada-window-q$q-1128"
     extra=(--factor window --limit 30)
     ;;
+  window90/8|window90/16)
+    if [[ $q == 16 ]]; then gpu=5; else gpu=6; fi
+    module=llada_frontier_seat
+    parent="/gs/results/llada-window-q$q-1128"
+    /usr/bin/python3 -B -m experiments.t2t.serving_slots.llada_seat_report \
+      "$parent" benchmarks/frozen90/manifest.json >/dev/null
+    out="/gs/results/llada-window-q$q-extend-1128"
+    extra=(--factor window --limit 90 --extend-from "$parent")
+    ;;
+  window90/4)
+    gpu=0
+    module=llada_frontier_seat
+    # A0 is assigned to the 90-pair Q8 frontier extension first.
+    /usr/bin/python3 -B -m experiments.t2t.serving_slots.llada_seat_report \
+      /gs/results/llada-frontier-q8-extend-1128 benchmarks/frozen90/manifest.json >/dev/null
+    out=/gs/results/llada-window-q4-1128
+    extra=(--factor window --limit 90)
+    ;;
   successor/64)
     gpu=1
     module=llada_frontier_seat

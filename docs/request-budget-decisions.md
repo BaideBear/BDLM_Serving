@@ -31,6 +31,13 @@ Gemma 的 Q64 以 1/8 为 TPF 对照、1/4 为质量对照，Q128 优先 1/4。
 [完整数表、曲线及口径](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)
 把真实测过的接口和建议分开陈列。
 
+[LLaDA 的原30窗口实验](../experiments/t2t/serving_slots/controls/llada-slot-allocation/README.md)
+已经能区分两种做法。Q8 保留普通选行数、必刷和前缀规则，把活动范围拉回首个未解 MASK 附近，
+11→24/30、TPF 1.635→2.210，仍略低于严格 IBS 的 25/30、2.265；Q16 是
+14→21/30、2.495→2.799，对照 IBS 为 23/30、3.189。反之，在旧 Q8 上每次只拿一个 MASK
+换块内已解行，只读时为 8/30，允许编辑为 13/30。先验证窗口结构，不默认强制为某个已解行让位。
+这些都是各自同卡的结果；新60尚需验证，窗口没有替换当前公开接口。
+
 在最新 verified-EOS 上，[Gemma Q64 等宽交换一个等待 MASK](../experiments/t2t/serving_slots/controls/gemma-factors/waiting-seat-q64/README.md)
 只在7/90题真正触发：83→84/90，宏TPF 8.1761→8.1793，TPF 配对区间横跨零，新增60的
 宏TPF略降。保持为实验选项，不把这个细粒度优先级升级为默认。

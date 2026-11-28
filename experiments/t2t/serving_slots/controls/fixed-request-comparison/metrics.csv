@@ -2,6 +2,8 @@ model,cohort,budget,method,n,correct,macro_TPF,token_efficiency,N,F,history_Q,pe
 llada21,frozen90,16,Request,90,62,2.886971312771468,0.17663444653374566,45465,18418,257396,16,fixed-request-comparison/llada-lower.json
 llada21,new60,16,Request,60,42,2.9459560855949287,0.17842969190306218,30393,12179,170336,16,fixed-request-comparison/llada-lower.json
 llada21,original30,16,Request,30,20,2.7690017671245455,0.17312198483804273,15072,6239,87060,16,fixed-request-comparison/llada-lower.json
+llada21,frozen90,4,Request,90,18,1.1822641897785249,0.27216530226173136,65029,63523,238932,4,fixed-request-comparison/llada-lower.json
+llada21,new60,4,Request,60,10,1.1755561155868757,0.2723054504550568,42606,41592,156464,4,fixed-request-comparison/llada-lower.json
 llada21,original30,4,Request,30,8,1.1956803381618237,0.27189940340495705,22423,21931,82468,4,fixed-request-comparison/llada-lower.json
 llada21,frozen90,8,Request,90,29,1.6765373694760866,0.16224329386581043,58209,51296,358776,8,fixed-request-comparison/llada-lower.json
 llada21,new60,8,Request,60,20,1.7505720132511262,0.1657767274258839,35424,30550,213685,8,fixed-request-comparison/llada-lower.json

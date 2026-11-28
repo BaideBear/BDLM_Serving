@@ -33,7 +33,7 @@ def window_class(control):
         def _cross_plan(self,q):
             p,s,phase,cap=super()._cross_plan(q)
             self.geometry=None
-            if self.cross=="head" and not self.borrow and q in (8,16) and s:
+            if self.cross=="head" and not self.borrow and q in (4,8,16) and s:
                 masks,_,_=self._inputs(32)
                 p,s,self.geometry=window(p,s,masks,self.bank.initialized,min(self.head+32,self.end))
             return p,s,phase,cap

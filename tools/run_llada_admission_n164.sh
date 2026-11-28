@@ -15,6 +15,9 @@ case "${2:-admission16}" in
   frontier4) dir=$rt/llada-frontier-q4-1128
     module=experiments.t2t.serving_slots.llada_frontier_seat
     opts=(--offer 4 --limit 90) ;;
+  paid8) dir=$rt/llada-window-paid-q8-1128
+    module=experiments.t2t.serving_slots.llada_frontier_seat
+    opts=(--offer 8 --factor paid --limit 90) ;;
   *) exit 2 ;;
 esac
 [[ ! -e $dir/results ]]

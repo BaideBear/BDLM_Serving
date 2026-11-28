@@ -1,0 +1,241 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "arms": {
+        "exchange": {
+          "F": 43667,
+          "N": 50908,
+          "Q": 163359,
+          "TE": 0.31163266180620597,
+          "actions": 17766,
+          "correct": 47,
+          "failed": 0,
+          "macro_TPF": 1.2989870757334887,
+          "swapped_admits": 13682
+        },
+        "old": {
+          "F": 63523,
+          "N": 65029,
+          "Q": 238932,
+          "TE": 0.27216530226173136,
+          "actions": 0,
+          "correct": 18,
+          "failed": 0,
+          "macro_TPF": 1.1822641897785249,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 85,
+          "losses": 3,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.21111,
+              0.43333
+            ],
+            "macro_TPF": [
+              0.0762,
+              0.15549
+            ]
+          },
+          "rescues": 32
+        }
+      },
+      "exposed": 89,
+      "pairs": 90
+    },
+    "new60": {
+      "arms": {
+        "exchange": {
+          "F": 29061,
+          "N": 34256,
+          "Q": 108768,
+          "TE": 0.3149455722271256,
+          "actions": 11689,
+          "correct": 30,
+          "failed": 0,
+          "macro_TPF": 1.3078853248950728,
+          "swapped_admits": 8948
+        },
+        "old": {
+          "F": 41592,
+          "N": 42606,
+          "Q": 156464,
+          "TE": 0.2723054504550568,
+          "actions": 0,
+          "correct": 10,
+          "failed": 0,
+          "macro_TPF": 1.1755561155868757,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 55,
+          "losses": 2,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.2,
+              0.46667
+            ],
+            "macro_TPF": [
+              0.07938,
+              0.18211
+            ]
+          },
+          "rescues": 22
+        }
+      },
+      "exposed": 59,
+      "pairs": 60
+    },
+    "original30": {
+      "arms": {
+        "exchange": {
+          "F": 14606,
+          "N": 16652,
+          "Q": 54591,
+          "TE": 0.3050319649759118,
+          "actions": 6077,
+          "correct": 17,
+          "failed": 0,
+          "macro_TPF": 1.2811905774103207,
+          "swapped_admits": 4734
+        },
+        "old": {
+          "F": 21931,
+          "N": 22423,
+          "Q": 82468,
+          "TE": 0.27189940340495705,
+          "actions": 0,
+          "correct": 8,
+          "failed": 0,
+          "macro_TPF": 1.1956803381618237,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 30,
+          "losses": 1,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.1,
+              0.5
+            ],
+            "macro_TPF": [
+              0.02613,
+              0.13983
+            ]
+          },
+          "rescues": 10
+        }
+      },
+      "exposed": 30,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/data0/ysy/models/LLaDA2.1-mini",
+    "device": "GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "planner": "4883c47d2e8e036f76d386e16c299ea49d05ba646dc387da39c3dbc925bb9833",
+    "protocol": "llada-frontier-one-seat-v1",
+    "q": 4,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "b2ef3f461c93dba986e80771f7de0a53576b4b5156a5f72f710d70992ae7fc7f"
+}

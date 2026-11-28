@@ -70,3 +70,27 @@ def test_successor_only_revisits_an_already_built_unfinished_tail():
     assert not extra_rows(p,p.rows,32,36,masks,set(range(35)))
     assert not extra_rows(p,(),32,36,masks,set(range(36)))
     assert not extra_rows(replace(p,cold=(34,)),(34,),32,36,masks,set(range(36)))
+
+
+def test_window_extension_requires_registered_geometry_and_same_gpu():
+    import pytest
+    from experiments.t2t.serving_slots.llada_frontier_seat import qualify_extension
+    params=dict(protocol="llada-fixed-width-window-v1",device="GPU-test",q=16,
+                checkpoint="ckpt",samples="s",scorer="c",geometry_sha256=
+                "258c9a8be716798a0728e2dc0adbd1b1bc159d83b3a16eca13db63774040fde1")
+    old=dict(params,order=list(range(30)),planner=
+             "5a986abee4a9461c07c4811014d978ece7fa6575a48fbe26c015e88d9fbf1254")
+    new=dict(params,order=list(range(90)),planner="new")
+    assert qualify_extension("window",old,new)=="window"
+    for k in ("geometry_sha256","device","q","samples"):
+        with pytest.raises(ValueError):
+            qualify_extension("window",old,dict(new,**{k:"changed"}))
+
+
+def test_paid_warm_mask_does_not_sample_prefix_dirty_or_insert_new_queries():
+    from experiments.t2t.serving_slots.llada_window_sample import extra_mask
+    p=Plan((2,3,4,5,6),(3,),(6,),(4,5),(2,),False)
+    assert extra_mask(p,p.cold)==(4,5)
+    assert extra_mask(replace(p,drain_only=True),p.cold)==()
+    assert extra_mask(p,p.rows)==()
+    assert extra_mask(replace(p,cold=()),())==()

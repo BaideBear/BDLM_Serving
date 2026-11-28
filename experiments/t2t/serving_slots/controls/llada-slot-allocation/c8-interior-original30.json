@@ -1,0 +1,117 @@
+{
+  "cohorts": {
+    "original30": {
+      "arms": {
+        "edit": {
+          "F": 14974,
+          "N": 17512,
+          "Q": 104604,
+          "TE": 0.16741233604833466,
+          "correct": 13,
+          "failed": 0,
+          "interior_swaps": 10762,
+          "interior_writes": 91,
+          "macro_TPF": 1.628699273836602
+        },
+        "old": {
+          "F": 16220,
+          "N": 18468,
+          "Q": 113469,
+          "TE": 0.162758110144621,
+          "correct": 11,
+          "failed": 0,
+          "interior_swaps": 0,
+          "interior_writes": 0,
+          "macro_TPF": 1.6346012323238144
+        },
+        "read": {
+          "F": 19660,
+          "N": 21158,
+          "Q": 137748,
+          "TE": 0.15359932630600806,
+          "correct": 8,
+          "failed": 0,
+          "interior_swaps": 14670,
+          "interior_writes": 0,
+          "macro_TPF": 1.497686505075421
+        }
+      },
+      "changes": {
+        "old_to_read": {
+          "different_ids": 29,
+          "losses": 6,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.3,
+              0.1
+            ],
+            "macro_TPF": [
+              -0.29244,
+              0.03623
+            ]
+          },
+          "rescues": 3
+        },
+        "read_to_edit": {
+          "different_ids": 22,
+          "losses": 0,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.06667,
+              0.3
+            ],
+            "macro_TPF": [
+              0.03634,
+              0.24308
+            ]
+          },
+          "rescues": 5
+        }
+      },
+      "exposed": 30,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "planner": "480d00d9cc3eb63c094071336986a9e8dbbbbca7092c8bb3e41c812b83d38f70",
+    "protocol": "llada-interior-one-seat-v1",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "0c195c17c4fe884c9975ab49027bec19e82fa8ecc3543f1773c23163bcb50617"
+}

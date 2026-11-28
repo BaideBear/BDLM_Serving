@@ -99,6 +99,13 @@ its own control, not over [strict IBS8](../llada21-q8-ibs-original-vs-capped.csv
 Extend unchanged to added60 on the same physical A0, with exact replays of
 both arms on 0/10/20 before accepting the inherited original30.
 
+At [fixed Q4 on H0, full90](c4-frontier-frozen90.json), exchanging that
+single seat improved 8 to 17 correct on original30 and 10 to 30 on new60.
+Overall: **18 to 47/90**, macro TPF **1.182 to 1.299**, TE **27.22% to
+31.16%**, with 32 rescues/3 losses, 89 exposed, and zero failures. Strict
+IBS4 is still ahead at **69/90, 1.395, 35.66%**. The Q4 result is for the
+one-seat variant, not for the active-window experiment below.
+
 ### Fixed-width active-window experiment
 
 Separate fixed Q8 and Q16 studies on the original30. Reuse the head-only
@@ -116,3 +123,72 @@ resident history, prompt prefill and block retirement are still ours.
 First intervention must match input state, width, phase, dirty and prefix,
 with physical width checked on every layer on **every** step. Run via
 `tools/run_llada_small_geometry_a800.sh window DEADLINE 8` or `16`.
+
+### Original30: active window versus one interior seat
+
+These are fixed decoder offers. Every row covers the same 30 cases. The
+strict IBS rows are external references, not the within-device controls.
+
+| Fixed offer and policy | Correct / 30 | Macro TPF | TE | Paid F | Paid Q |
+|---|---:|---:|---:|---:|---:|
+| Q8 head-only control, A6 | 11 | 1.635 | 16.28% | 16,220 | 113,469 |
+| Q8 active window, A6 | 24 | 2.210 | 29.32% | 7,700 | 52,116 |
+| Q8 strict IBS | 25 | 2.265 | 28.36% | 6,652 | 49,029 |
+| Q16 head-only control, A5 | 14 | 2.495 | 12.06% | 12,229 | 146,300 |
+| Q16 active window, A5 | 21 | 2.799 | 20.47% | 6,974 | 71,813 |
+| Q16 strict IBS | 23 | 3.189 | 19.32% | 5,278 | 70,484 |
+
+[Q8 pair and row breakdown](c8-window-original30.json);
+[Q16 pair and row breakdown](c16-window-original30.json);
+[external Q16 reference](../llada21-q16-ibs-original-vs-capped.csv).
+Q8 rescued 13/lost 0; Q16 rescued 9/lost 2. Within-pair macro TPF changes
+and descriptive 95% intervals were +0.576 [0.413,0.738] and +0.304
+[0.009,0.598]. Intervals condition on these tasks, with 4,000 within-dataset
+paired bootstrap draws, seed 1128. Original30 triggered extension and is not
+independent confirmation. The Q16 control is head-only; the published Q16
+handle borrows tail seats and is not the matched control here.
+
+We also paired the window against strict IBS by exact prompt-token digest,
+index, dataset, seed and task ID on the sealed reference ledger. At Q8 the
+window rescued 2/lost 3, with macro TPF difference -0.055 [-0.206,+0.101].
+At Q16 it rescued 2/lost 4, macro TPF difference -0.389 [-0.574,-0.185].
+Q8 is not established equivalent; Q16 still trails IBS in TPF on this
+cohort. No same-device causal attribution between different executors.
+Generate the compact IBS reference using `llada_seat_report.py PREFIX90
+--export-reference`, then supply the JSON to the same reporter on A800 via
+`--ibs`; input hashes and per-task scores/bills travel, not prompt/output IDs.
+
+At Q8, waiting-MASK projections over complete trajectories fell from 75,765
+to 14,725. The window also paid for 5,944 clean interior rows, with 15 edits
+or revocations on these rows. At Q16 it paid for 12,630 interior rows with
+53 edits or revocations. Changing the window changes subsequent cache
+visibility, MASKs, lengths and debt. These counts do not isolate an editing
+effect, and a decoded row after the first MASK is not a decoded prefix.
+
+The [Q8 single-seat study](c8-interior-original30.json) tests a different
+question. On A1, unchanged / exchange a MASK for one read-only interior row /
+allow the same interior row to edit scored **11 / 8 / 13**, macro TPF
+**1.635 / 1.498 / 1.629**, TE **16.28% / 15.36% / 16.74%**. Editing
+vs read-only rescued 5/lost 0, with 91 actual interior writes. No extension
+of the single-seat factor on this evidence.
+
+**Follow-up:** Q8 and Q16 each extend on their original GPU. Both original
+arms must exactly replay the input, first change, outputs and bills on
+0/10/20 before inheriting the 27 other original pairs. Use
+`tools/run_llada_small_geometry_a800.sh window90 DEADLINE 8` or `16`.
+Q4 is a separate 90-pair run without inherited cases, unchanged 1/8 law
+(flooring to zero optional prefix seats), same window algorithm and three
+exercised anchors before continuing. A0 must first finish the Q8 frontier
+extension and be free. Failures count; retain separate original30 and
+new60 results. No claim about wall time or mixed-offer quality.
+
+**Paid warm MASK test (n164 H0, Q8).** Both arms use the window above. Only
+when a single ordinary call already projects cold and resident unresolved
+non-dirty rows does the treatment add those resident MASK rows to the
+sampler. No extra projections, clean decoded rows, prefix or second block
+are added at the matched intervention. Both arms advance the sampling clock
+once; the extra candidate can compete in the per-block fallback. Register
+0/10/20 then 90, requiring at least one genuine first exchange across the
+three anchors with all 20 physical widths and the pre-state equal. Unexposed
+anchors must be identical, never replaced. Use `tools/run_llada_admission_n164.sh
+DEADLINE paid8`; wait for the complete paired report before claiming an effect.

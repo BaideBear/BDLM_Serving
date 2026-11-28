@@ -44,6 +44,28 @@
     "4": {
       "arm": "old",
       "cohorts": {
+        "frozen90": {
+          "F": 63523,
+          "N": 65029,
+          "Q": 238932,
+          "correct": 18,
+          "failures": 0,
+          "macro_TPF": 1.1822641897785249,
+          "n": 90,
+          "peak": 4,
+          "receipts_sha256": "b2ef3f461c93dba986e80771f7de0a53576b4b5156a5f72f710d70992ae7fc7f"
+        },
+        "new60": {
+          "F": 41592,
+          "N": 42606,
+          "Q": 156464,
+          "correct": 10,
+          "failures": 0,
+          "macro_TPF": 1.1755561155868757,
+          "n": 60,
+          "peak": 4,
+          "receipts_sha256": "25ae577e7d56c161670c4a074fbf3959b8c856f28f1bb579f7ff6af3557f33e4"
+        },
         "original30": {
           "F": 21931,
           "N": 22423,

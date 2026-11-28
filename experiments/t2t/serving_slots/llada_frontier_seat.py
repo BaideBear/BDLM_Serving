@@ -52,6 +52,9 @@ def classes(factor="frontier"):
     if factor=="window":
         from .llada_window_geometry import window_class
         return control,window_class(control)
+    if factor=="paid":
+        from .llada_window_sample import variants
+        return variants(control)
     class Exchange(control):
         def _cross_plan(self,q):
             plan,sampled,phase,cap=super()._cross_plan(q)
@@ -128,6 +131,10 @@ def compact(r):
                     window_interior=sum(len(e["window_geometry"]["interior"]) for e in interventions),
                     window_edits=sum(len(set(e["window_geometry"]["interior"]) & set(e["edited"]+e["revoked"]))
                                      for e in interventions))
+    paid=[e for e in r["trace"] if e.get("paid_waiting_mask")]
+    if paid:
+        extras.update(paid_waiting_calls=len(paid),paid_waiting_rows=sum(len(e["paid_waiting_mask"]) for e in paid),
+                      paid_waiting_admits=sum(len(set(e["paid_waiting_mask"]) & set(e["admitted"])) for e in paid))
     return dict(**extras,**{k:r[k] for k in ("N","F","Q","failure","correct","row_visits","max_decoder_Q")},
                 output_digest=sha256(json.dumps(r["output_ids"]).encode()).hexdigest(),
                 actions=sum("frontier_swap" in e for e in r["trace"]),
@@ -174,10 +181,27 @@ def first_interior(old,new,*,compare_sampling):
     return first
 
 
+def qualify_extension(factor, old, new):
+    sources={"frontier":"04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9",
+             "window":"5a986abee4a9461c07c4811014d978ece7fa6575a48fbe26c015e88d9fbf1254"}
+    require(factor in sources and old["planner"]==sources[factor]
+            and new["q"] in ((8,) if factor=="frontier" else (8,16))
+            and len(new["order"])==90 and old["order"]==new["order"][:30]
+            and all(old[k]==new[k] for k in ("protocol","q","device","checkpoint","samples","scorer")),
+            "extension must inherit the registered original30 on the same device")
+    if factor=="window":
+        legacy="258c9a8be716798a0728e2dc0adbd1b1bc159d83b3a16eca13db63774040fde1"
+        # The second digest only enables offer 4 in the dispatch condition.
+        require(old["geometry_sha256"]==legacy and new["geometry_sha256"] in
+                (legacy,"c3fe36a6fe092dc63bac8a22d5c7dfacdf0f93d64ac06d6cf09221c9ed53bcd9"),
+                "changed window selection since original30")
+    return "exchange" if factor=="frontier" else "window"
+
+
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(64,) if a.factor=="successor" else (8,16) if a.factor=="window" else (4,8)
+    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor=="window" else (8,) if a.factor=="paid" else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES
@@ -189,21 +213,21 @@ def run(a):
     a.out.mkdir(parents=True,exist_ok=False)
     (a.out/"rows").mkdir()
     protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1",
-              "window":"llada-fixed-width-window-v1","successor":"llada-warm-successor-q64-v1"}[a.factor]
+              "window":"llada-fixed-width-window-v1","successor":"llada-warm-successor-q64-v1",
+              "paid":"llada-window-paid-mask-v1"}[a.factor]
     registration=dict(protocol=protocol,order=order,q=a.offer,device=device,
                       checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
                       planner=sha256(Path(__file__).read_bytes()).hexdigest())
     prior={}
-    if a.factor=="window":
+    if a.factor in ("window","paid"):
         registration["geometry_sha256"]=sha256(Path(__file__).with_name("llada_window_geometry.py").read_bytes()).hexdigest()
+    if a.factor=="paid":
+        registration["sampling_sha256"]=sha256(Path(__file__).with_name("llada_window_sample.py").read_bytes()).hexdigest()
     if a.factor=="successor":
         registration["successor_sha256"]=sha256(Path(__file__).with_name("llada_successor_seats.py").read_bytes()).hexdigest()
     if a.extend_from:
-        require(a.factor=="frontier" and a.offer==8 and a.limit==90,"unsupported extension")
         old_reg=json.loads((a.extend_from/"run.json").read_bytes())
-        require(old_reg["planner"]=="04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9"
-                and old_reg["order"]==order[:30] and all(old_reg[k]==registration[k] for k in
-                     ("protocol","q","device","checkpoint","samples","scorer")),"not the registered A0 original30")
+        inherited_arm=qualify_extension(a.factor,old_reg,registration)
         prior={i:json.loads((a.extend_from/"rows"/f"{i:02}.json").read_bytes()) for i in range(30)}
         require(all(all(r[k]==tasks[i][k] for k in KEYS) for i,r in prior.items()),"wrong inherited identity")
         registration.update(inherited=str(a.extend_from),inherited_planner=old_reg["planner"],
@@ -238,6 +262,10 @@ def run(a):
             from .llada_window_geometry import first_geometry
             first=first_geometry(old,new)
             extra=dict(window=compact(new))
+        elif a.factor=="paid":
+            from .llada_window_sample import first as first_paid
+            first=first_paid(old,new)
+            extra=dict(paid=compact(new))
         elif a.factor=="successor":
             from .llada_successor_seats import first as first_tail
             first=first_tail(old,new,edit=False)
@@ -257,13 +285,13 @@ def run(a):
         if i in prior:
             refrow=prior[i]
             require(row["input"]==refrow["input"] and row["first"]==refrow["first"] and
-                    all(all(row[arm][k]==v for k,v in refrow[arm].items()) for arm in ("old","exchange")),
+                    all(all(row[arm][k]==v for k,v in refrow[arm].items()) for arm in ("old",inherited_arm)),
                     "original control/treatment anchor replay differs, do not extend")
         save(a.out/"rows"/f"{i:02d}.json",row)
         counts["exposed"]+=bool(first)
         print(i, bool(first),[(v["F"],v["correct"]) for v in arms],flush=True)
         if j+1==len(ANCHORS):
-            require(order[:j+1]==list(ANCHORS) and counts["exposed"]==len(ANCHORS),
+            require(order[:j+1]==list(ANCHORS) and counts["exposed"]>=(1 if a.factor=="paid" else len(ANCHORS)),
                     "unqualified pilot; do not expand")
 
 
@@ -273,7 +301,7 @@ if __name__=="__main__":
         ap.add_argument("--"+k,type=Path,required=True)
     ap.add_argument("--offer",choices=(4,8,16,64),type=int,required=True)
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
-    ap.add_argument("--factor",choices=("frontier","interior","window","successor"),default="frontier")
+    ap.add_argument("--factor",choices=("frontier","interior","window","successor","paid"),default="frontier")
     ap.add_argument("--extend-from",type=Path)
     ap.add_argument("--handoff",type=Path)
     ap.add_argument("--deadline",type=int,required=True)
