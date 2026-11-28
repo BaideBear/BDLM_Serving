@@ -17,3 +17,11 @@ Both candidates use the same Q selection: pay outstanding writes, reserve at mos
 **Confirmation protocol:** run the same selected candidate and Live v1 on the other 81 frozen requests at every offer. Alternate arm order and use the pilot board at each offer. Report the 81 not used for this selection separately from the combined 90; the 81 are not an unseen benchmark for earlier research. Use the original30 and new60 splits on the complete cohort. Incomplete tiers are not frozen90 results. Do not select different arms by offer.
 
 [Registration](registration.md) · [Audited screen and decision](pilot.json) · [Physical selection](../../coverage_span.py) · [Receipt audit and confirmation runner](../../coverage_span_report.py).
+
+Audit confirmation receipts in place on the GPU host without inference:
+
+```sh
+python -m experiments.t2t.serving_slots.coverage_confirmation /gs/results benchmarks/frozen90/manifest.json --reference /gs/work/llada-refs/llada21
+```
+
+By default this rejects any unsealed tier. An explicit `--interim` returns only the identical subset of confirmation IDs finished by **all** offers; it does not extrapolate missing cases or mix the nine screening cases into an interim line. With all five tiers sealed, the report includes the separate 81, original30, new60 and frozen90, paired rescues/losses, and descriptive paired intervals stratified by dataset. The macro TPF change is also split exactly into the output-length term `mean(delta N * mean(1/F))` and the forward-count term `mean(mean(N) * delta(1/F))`, with inner means taken over the two arms of the same case. This arithmetic describes the observed trajectories; it is not a causal experiment that holds output length fixed.

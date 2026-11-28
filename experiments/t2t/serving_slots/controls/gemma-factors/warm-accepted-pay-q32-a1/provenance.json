@@ -1,0 +1,39 @@
+{
+  "TE": "sum(N)/sum(selected history-reading decoder Q)",
+  "cohort_selection": "qualification cases are included; not an independent holdout",
+  "gates": {
+    "lower_cost": true,
+    "macro_TPF": true,
+    "new_exposure": true,
+    "old_exposure": true,
+    "quality": true
+  },
+  "historical_control": "/gs/results/verified-eos-1128",
+  "macro_TPF": "mean_i(N_i/(decoder_F_i+post-prefill encoder_F_i))",
+  "marker": {
+    "pairs": 90,
+    "reg": "10eca06df259c24a9c355feac6ebcc33eec4cff280fba2631aa2daf491563c15"
+  },
+  "pair_hashes_digest": "50693b5eeef64186a740fe2d3dff196d0928971dd0c75bb3178bc8c642dc191a",
+  "pairs": 90,
+  "pin_path": "/gs/results/gemma-first-tile-kv-q32-a1-1128/registration.json",
+  "raw_root": "/gs/results/warm-accepted-pay-q32-a1-1128",
+  "registration": {
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "deadline": 1795849200,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "launcher": "d61928f74ec804bf7a307d6f6565761ca032d6f6f47dc5b8103b9f614c2a183e",
+    "pid": 382341,
+    "pin": "65a36ed251dd9436f70d05e173b16def0df06b6a4cc6f732814b6fc722c8a41d",
+    "policy": "d372b4a0e362b52a50e60ccc649d43d095f7aa90c453bcca22d4c232f80f5972",
+    "refs": "8dd583e84cd52073041ac7be17320940d71307fb5e9659046e5a5959ca233362",
+    "sources": {
+      "gemma_warm_accepted_pay": "e822add8b73666a34c7064f156d2cc0ae6cc9eaef44a1fd3838c8d4f4a9be291",
+      "gemma_warm_accepted_pay_eval": "ecd7851ce75deb3825dd909bc403944c082809af81bf1034efe6a261de36ba04"
+    },
+    "start_ticks": "36368157"
+  },
+  "report_sha256": "7673c35898a1be3ae4921ea4fea12cabaa79a4427fa33da152e55270dec907a0",
+  "status": "complete",
+  "unrun": []
+}

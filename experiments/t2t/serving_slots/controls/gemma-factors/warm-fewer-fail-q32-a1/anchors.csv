@@ -1,0 +1,4 @@
+index,task_id,seed,pid,replayed,identical_full_receipts,identical_event_notes,warm,contested,swaps,N,F,decoder_F,decoder_Q,encoder_F,encoder_Q,correct,ref_sha256,pair_sha256
+0,gsm8k/167,17000,356967,True,True,True,33,29,0,347,79,78,2407,1,256,True,c136cb364514c08a56499ec080ecb466410c734f891666515cb5acdf9ada4001,377941108043c7c4e7c5c5937469d7e2cbd068430f9d7913a1308fd32edc713c
+10,test/precalculus/807.json,17010,356967,True,True,True,29,27,0,363,76,75,2316,1,256,True,851da2b65419b58e29a2818c502ea72974e91a7b2f847a66f202ea784237817d,8578039ff2a22e328f71c6b0deabd2fee52ee1b972e28f6bc89b70486d22f0ba
+20,HumanEval/6,17020,356967,True,True,True,10,9,0,238,35,35,1099,0,0,True,0df0880d57e4c378e36cd7cefd5249bb83074313750528494bcbe736cec52846,cf4517afcfdbe84c4e2866d4c02dbfc91491e305043f6efa65b672d73584a0ca

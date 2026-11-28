@@ -1,0 +1,41 @@
+{
+  "decision": {
+    "pairs": 3,
+    "reason": "zero anchor exposure",
+    "reg": "a8294f5ee64932b1714bacfc718ff07f57be1dab387b43164720feb69abf2fef"
+  },
+  "not_run": 87,
+  "pairs": 3,
+  "raw_root": "/gs/results/warm-fewer-fail-q32-a1-1128",
+  "registration": {
+    "base": {
+      "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+      "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+      "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_verified_eos": "1469ba441c9075ae92f90f71d9cf8eb459344fb2a2beab22e6ee8eccc2133177",
+      "gemma_verified_eos_eval": "df658f981898afad9adcf94fd8dab6703be12d02e3f87c0b22053629785b1aa1"
+    },
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "deadline": 1795843443,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "launcher": "50a60801717107dc556e6ada769fb83289dd85437f6e67b7c55f5452972e9b8e",
+    "manifest": "2e67d12f5045d486d1676a4b9cd35718b0791ad1b2a3c81fdec86a27bd773e62",
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 356967,
+    "policy": "990600eb5ed184fce76a70beba326c0f326336b0dfa0724ff79788ffbd71436f",
+    "refs": "8dd583e84cd52073041ac7be17320940d71307fb5e9659046e5a5959ca233362",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "gemma_warm_fewer_fail": "6777af7ab077a310ebfd49457f7fe06819099e9d8f56a89445dffe5c95d396f8",
+      "gemma_warm_fewer_fail_eval": "b3e34c48a4e31e583f2c48009712cb73cf9ed7a96fa038aed23206acd3759540"
+    },
+    "start_ticks": "36128182",
+    "tf": "5.12.0",
+    "torch": "2.6.0+cu124"
+  },
+  "report_sha256": "d00a5c4d9e5c4a642e35f962f34358df12571800261dd81865b0340b57f54f8a"
+}

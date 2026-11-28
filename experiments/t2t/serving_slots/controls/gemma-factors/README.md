@@ -1,5 +1,18 @@
 # Gemma: fixed-budget prefix selection and terminal verification
 
+### When to sample dirty rows
+
+At fixed Q32, two distinct matched 90-case interventions failed to improve both quality and TPF over the verified-EOS control. Keep the frozen live policy: previously resolved dirty rows may participate in an ordinary warm sampling call, but paying a pure debt does not automatically advance the sampler. These interventions are not opposites on the same calls.
+
+| Single change | Correct (control → factor) | Macro TPF | Pooled token efficiency |
+|---|---:|---:|---:|
+| [Remove already-accepted debt rows from sampling on mixed warm calls](warm-accepted-pay-q32-a1/README.md) | 85 → 83 | 4.879 → 4.919 | 15.63% → 15.82% |
+| [Sample resolved debt at the first eligible pure warm drain per head](warm-debt-resample-q32/README.md) | 85 → 83 | 4.879 → 4.921 | 15.63% → 15.81% |
+
+The second change produced 58 T2T edits but no new MASK admissions at those calls; total F rose from 6,874 to 6,955. [Preferring a warm row with fewer previous failed samples](warm-fewer-fail-q32-a1/README.md) was a different, **three-case** screen: 65 contested calls, zero changes to the rows selected. No frozen90 estimate for that rule.
+
+### Prefix ranking and terminal verification
+
 Two separate single-factor studies. Do not pair receipts across the two
 source snapshots. `coverage.csv` reports each registered contrast in original
 30, added 60 and all 90, including missing coverage. `paired.csv` publishes
