@@ -1,0 +1,274 @@
+--- a/experiments/t2t/serving_slots/gemma_ibs_certified_eos.py
++++ b/experiments/t2t/serving_slots/gemma_ibs_certified_eos.py
+@@ -4,8 +4,7 @@
+ from pathlib import Path
+ 
+ BASELINE_SHA = "a09d04477361cb2a260dac85ce2195c0bfee9218306b7cfb96d7ddf4f1dba9af"
+-B, CAP = 256, 2048
+-OFFERS = (32, 64, 128)
++B, CAP, OFFER = 256, 2048, 32
+ 
+ 
+ def require(condition, message):
+@@ -25,25 +24,22 @@
+ 
+ 
+ class Stop:
+-    def __init__(self, arm, offer):
++    def __init__(self, arm):
+         require(arm in {"control", "strict", "paid"}, "Unknown EOS arm")
+-        require(type(offer) is int and offer in OFFERS, "Explicit registered offer required")
+         self.arm = arm
+-        self.offer = offer
+         self.first_clean = self.first_paid = self.trigger = self.payment = None
+         self.head = None
+         self.ready = 0
+         self.eos_index = self.eos_id = None
+ 
+     def rows(self, normal, prior, dirty, start, offer):
+-        require(offer == self.offer, "IBS planner offer differs from the registered offer")
+         if self.trigger is None or self.trigger["kind"] != "suffix_debt":
+             return normal
+         import numpy as np
+         debt = self.trigger["debt"]
+         local = np.asarray(debt, dtype=np.int64) - start
+         require(self.payment is None and self.trigger["block"] * B == start
+-                and 0 < len(local) <= offer
++                and 0 < len(local) <= offer == OFFER
+                 and np.flatnonzero(dirty).tolist() == debt
+                 and prior[local].all() and np.isin(local, normal).all(),
+                 "Not the single registered suffix-only payment")
+@@ -53,7 +49,6 @@
+         """Invoked after the real update_from_mask and physical trace append."""
+         import numpy as np
+         turn = trace[-1]
+-        require(turn["offer"] == self.offer, "IBS trace offer differs from the registered offer")
+         debt = np.flatnonzero(dirty).tolist()
+         if self.trigger is not None:
+             hit = self.trigger
+@@ -125,4 +120,4 @@
+     bank = rt.Resident()
+     bank.bypass = False
+     with rt.resident_attention(model, bank):
+-        return loop(bank, model, data, controls, unmask, "ibs", stop.offer, False, (stop.offer,), stop)
++        return loop(bank, model, data, controls, unmask, "ibs", OFFER, False, (OFFER,), stop)
+--- a/tools/launch_gemma_ibs_certified_eos.sh
++++ b/tools/launch_gemma_ibs_certified_eos.sh
+@@ -3,8 +3,6 @@
+ umask 077
+ src=${1:?source directory under /gs/work}
+ head=${2:?source base SHA}
+-q=${3:?fixed physical decoder offer}
+-[[ $q == 32 || $q == 64 || $q == 128 ]]
+ gpu=GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1
+ [[ $src == /gs/work/gemma-ibs-certified-eos-* && $head =~ ^[0-9a-f]{40}$ ]]
+ [[ $(hostname -s) == n1 ]]
+@@ -54,8 +52,7 @@
+ export TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=2
+ export PYTHONDONTWRITEBYTECODE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ export PYTHONPATH="$src:$root:$root/search-r1-deps:/gs/env/deps:/gs/env/fixed-baseline-deps"
+-printf 'LOCKED host=%s pid=%s gpu=%s scratch=%s q=%s date=%s\n' \
+-    "$(hostname)" "$$" "$gpu" "$scratch" "$q" "$(date -Is)"
++printf 'LOCKED host=%s pid=%s gpu=%s scratch=%s date=%s\n' "$(hostname)" "$$" "$gpu" "$scratch" "$(date -Is)"
+ timeout -k 15s 2h unshare --mount --propagation private bash -c '
+     set -euo pipefail
+     scratch=$1
+@@ -66,7 +63,7 @@
+     mkdir "$TMPDIR" "$HF_HOME" "$TRITON_CACHE_DIR" "$XDG_CACHE_HOME" "$TORCHINDUCTOR_CACHE_DIR" "$CUDA_CACHE_PATH"
+     cd "$IBS_SOURCE"
+     "$2" -B -m unittest discover -s tests -p test_gemma_ibs_certified_eos.py >&2
+-    exec "$2" -Bu -m tools.run_gemma_ibs_certified_eos --q "$3"
+-' bash "$scratch" "$python" "$q" < /dev/null &
++    exec "$2" -Bu -m tools.run_gemma_ibs_certified_eos
++' bash "$scratch" "$python" < /dev/null &
+ child=$!
+ wait "$child"
+--- a/tools/run_gemma_ibs_certified_eos.py
++++ b/tools/run_gemma_ibs_certified_eos.py
+@@ -1,5 +1,4 @@
+-"""Fixed-Q frozen90: stream sealed raw case receipts, with a six-case launch gate."""
+-import argparse
++"""Q32 frozen90: stream sealed raw case receipts, with a six-case launch gate."""
+ from collections import Counter
+ from contextlib import ExitStack
+ from hashlib import sha256
+@@ -12,7 +11,7 @@
+ from unittest.mock import patch
+ 
+ from experiments.t2t.serving_slots.gemma_ibs_certified_eos import (
+-    BASELINE_SHA, B, CAP, OFFERS, Stop, generate, require,
++    BASELINE_SHA, B, CAP, OFFER, Stop, generate, require,
+ )
+ 
+ SIX = (0, 10, 20, 30, 40, 50)
+@@ -98,15 +97,14 @@
+     return decoder, encoder, projections, events, rng
+ 
+ 
+-def reconcile(trace, decoder, encoder, events, output, prompt, eos, trigger, payment, q):
++def reconcile(trace, decoder, encoder, events, output, prompt, eos, trigger, payment):
+     origin = len(prompt)
+     expected_enc = [[prompt, list(range(origin))]]
+     expected_events = [["E", origin]]
+     delivery, states = [], []
+     head, ready, tokens, dirty, seen = -1, 0, {}, set(), set()
+     admissions = paid_rows = 0
+-    require(trace and len(trace) == len(decoder) and trace[0]["q"] == q,
+-            "Missing true opening projection at registered Q")
++    require(trace and len(trace) == len(decoder), "Trace/decoder length")
+     for i, (t, d) in enumerate(zip(trace, decoder, strict=True)):
+         if t["block"] != head:
+             require(t["block"] == head + 1 and (head < 0 or ready == B and not dirty),
+@@ -116,8 +114,8 @@
+         rows = t["positions"]
+         picked = {x-start for x in rows}
+         width = len(rows)
+-        require(t["tick"] == i and t["offer"] == q and t["cross"] == 0
+-                and 0 < width == t["q"] == len(picked) <= q
++        require(t["tick"] == i and t["offer"] == OFFER and t["cross"] == 0
++                and 0 < width == t["q"] == len(picked) <= OFFER
+                 and rows == sorted(rows) and 0 <= min(picked) <= max(picked) < B
+                 and d["pos"] == [origin+x for x in rows] and t["visible_end"] == max(rows)+1,
+                 f"Physical row mismatch at {i}")
+@@ -174,8 +172,8 @@
+                 peak_decoder_Q=max(t["q"] for t in trace), admissions=admissions, paid_rows=paid_rows), states
+ 
+ 
+-def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring, q):
+-    stop = None if mode == "stock" else Stop(mode, q)
++def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring):
++    stop = None if mode == "stock" else Stop(mode)
+     prompt = data["input_ids"][0].tolist()
+     eos = set(model.generation_config.eos_token_id)
+     extras = set(proc.tokenizer.all_special_ids) | eos | {model.generation_config.pad_token_id}
+@@ -183,21 +181,21 @@
+     with torch.inference_mode(), ExitStack() as stack:
+         decoder, encoder, projections, events, rng = observe(model, unmask, stack, torch)
+         if stop is None:
+-            ids, trace = rt.generate(model, data, controls, unmask, "ibs", q, caps=(q,))
++            ids, trace = rt.generate(model, data, controls, unmask, "ibs", OFFER, caps=(OFFER,))
+         else:
+             ids, trace = generate(rt, model, data, controls, unmask, stop)
+         after = rng()
+     widths = [t["q"] for t in trace]
+     require(len(projections) == 85 and all(v == widths for v in projections.values()), "Real Q/K/V widths")
+     certs = {k: getattr(stop, k, None) for k in ("first_clean", "first_paid", "trigger", "payment")}
+-    bill, states = reconcile(trace, decoder, encoder, events, ids, prompt, eos, certs["trigger"], certs["payment"], q)
++    bill, states = reconcile(trace, decoder, encoder, events, ids, prompt, eos, certs["trigger"], certs["payment"])
+     score = scoring.score(proc.tokenizer.decode(ids, skip_special_tokens=True), task)
+     return dict(ids=ids, trace=trace, decoder=decoder, encoder=encoder, events=events, states=states,
+                 projections=sorted(projections), rng_after=after, bill=bill, **certs,
+                 correct=bool(score["correct"]), scoring=score["metric"], N=sum(i not in extras for i in ids))
+ 
+ 
+-def match(arms, q):
++def match(arms):
+     stock, control = (arms[k] for k in ("stock", "control"))
+     cert_keys = {"first_clean", "first_paid", "trigger", "payment"}
+     def stable(a):
+@@ -209,7 +207,7 @@
+             continue
+         start = t["block"]*B
+         debt = s["debt"]
+-        if not debt or (len(debt) <= q and all(start+s["eos_index"] < x < start+B for x in debt)):
++        if not debt or (len(debt) <= OFFER and all(start+s["eos_index"] < x < start+B for x in debt)):
+             cert = dict(kind="suffix_debt" if debt else "clean", tick=t["tick"], block=t["block"], **s)
+             first_paid = first_paid or cert
+             if not debt:
+@@ -236,7 +234,7 @@
+             require(arm["decoder"][-1]["rng"] == arm["rng_after"], "Payment modified RNG")
+ 
+ 
+-def main(q):
++def main():
+     guard("before")
+     import torch
+     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
+@@ -263,7 +261,7 @@
+     require(hashes == OPTIMUS_FILES and upstream.COMMIT == OPTIMUS, "Wrong Optimus source")
+     manifest = (reg/"sources.sha256").read_text()
+     subprocess.run(["sha256sum", "-c", "sources.sha256"], cwd=reg, check=True)
+-    emit("registration", pid=os.getpid(), gpu=GPU, q=q, arms=ARMS, six=SIX, snapshot=snapshot,
++    emit("registration", pid=os.getpid(), gpu=GPU, q=OFFER, arms=ARMS, six=SIX, snapshot=snapshot,
+          local_head=os.environ["IBS_LOCAL_HEAD"], sources_sha256=manifest, versions=versions, pins=pins,
+          optimus=OPTIMUS, optimus_files=hashes, boot=Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+          start_ticks=Path("/proc/self/stat").read_text().rsplit(") ", 1)[1].split()[19])
+@@ -289,9 +287,9 @@
+         data = proc.apply_chat_template([{"role": "user", "content": t["prompt"]}], tokenize=True,
+                     add_generation_prompt=True, return_dict=True, return_tensors="pt").to("cuda:0")
+         order = ARMS if j % 2 == 0 else ARMS[::-1]
+-        arms = {m: run_arm(rt, torch, model, data, proc, controls, unmask, t, m, scoring, q) for m in order}
++        arms = {m: run_arm(rt, torch, model, data, proc, controls, unmask, t, m, scoring) for m in order}
+         try:
+-            match(arms, q)
++            match(arms)
+         except Exception:
+             emit("failed_pair", index=i, arms=arms)
+             raise
+@@ -313,6 +311,4 @@
+ 
+ 
+ if __name__ == "__main__":
+-    parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument("--q", required=True, type=int, choices=OFFERS)
+-    main(parser.parse_args().q)
++    main()
+--- a/tests/test_gemma_ibs_certified_eos.py
++++ b/tests/test_gemma_ibs_certified_eos.py
+@@ -5,12 +5,10 @@
+ import numpy as np
+ 
+ from experiments.t2t.serving_slots.gemma_ibs_certified_eos import (
+-    B, CAP, OFFERS, Stop, _instrumented_loop, eligible,
++    B, CAP, OFFER, Stop, _instrumented_loop, eligible,
+ )
+ 
+-OFFER = 32
+ 
+-
+ class CertifiedEos(unittest.TestCase):
+     def test_eligibility(self):
+         self.assertIsNone(eligible(7, 7, [], OFFER))
+@@ -26,7 +24,7 @@
+     def test_paid_only_projects_debt_and_returns_through_first_eos(self):
+         for arm in ("strict", "control", "paid"):
+             with self.subTest(arm=arm):
+-                stop = Stop(arm, OFFER)
++                stop = Stop(arm)
+                 ids = np.arange(CAP)[None, :]
+                 resolved = np.zeros(CAP, bool)
+                 dirty = np.zeros(CAP, bool)
+@@ -41,7 +39,7 @@
+                 if arm == "paid":
+                     with self.assertRaises(RuntimeError):
+                         stop.after_update(ids, resolved, dirty, start, 8, {start+2}, trace)
+-                    sparse = dict(tick=13, positions=[start+11], q=1, offer=OFFER, admitted=[], accepted=0)
++                    sparse = dict(tick=13, positions=[start+11], q=1, admitted=[], accepted=0)
+                     trace.append(sparse)
+                 else:
+                     trace.append(dict(tick=13, offer=OFFER))
+@@ -51,24 +49,6 @@
+                 self.assertEqual(stop.trigger and stop.trigger["tick"],
+                                  {"control": None, "strict": 13, "paid": 12}[arm])
+ 
+-    def test_offer_is_explicit_and_bound_to_real_payment(self):
+-        with self.assertRaises(RuntimeError):
+-            Stop("paid", 256)
+-        for offer in OFFERS:
+-            with self.subTest(offer=offer):
+-                stop = Stop("paid", offer)
+-                ids = np.arange(CAP)[None, :]
+-                dirty = np.zeros(CAP, bool)
+-                dirty[8:8+offer] = True
+-                resolved = np.zeros(CAP, bool)
+-                resolved[:8+offer] = True
+-                t = [dict(tick=0, offer=offer)]
+-                self.assertIsNone(stop.after_update(ids, resolved, dirty, 0, 8, {2}, t))
+-                picked = np.arange(8, 8+offer)
+-                self.assertTrue(np.array_equal(stop.rows(picked, resolved[:B], dirty, 0, offer), picked))
+-                with self.assertRaises(RuntimeError):
+-                    stop.rows(picked, resolved[:B], dirty, 0, 32 if offer != 32 else 64)
+-
+     def test_compiles_only_pinned_source(self):
+         import os
+         source = Path(os.environ.get("IBS_TEST_BASE",

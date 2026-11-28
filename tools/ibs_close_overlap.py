@@ -18,7 +18,7 @@ def trace(r, model):
             for e in r["trace"]]
 
 
-def count(r, model, q):
+def count(r, model, q, verify_plan=None):
     b, p = (32,len(r["prompt_ids"])) if model == "llada21" else (256,0)
     cap = r.get("generation_cap", 2048)
     require(cap == 2048, "wrong cap")
@@ -42,8 +42,16 @@ def count(r, model, q):
             require(not (w-e) & resolved and e <= resolved, "unexpected write or edit")
             c["decoder_Q"] += len(pos)
             slack = q-len(pos)
-            if (first is None and active == resolved and end < p+cap and
-                    active == resident|projected and slack > 0):
+            eligible = (first is None and active == resolved and end < p+cap and
+                        active == resident|projected and slack > 0)
+            if verify_plan is not None:
+                proposal = verify_plan(offer=q,head_start=lo,width=b,generated_end=p+cap,
+                                       selected_head=pos,dirty_head=pending,resident_head=resident,
+                                       unresolved_head=active-resolved,generated_eos=False,
+                                       already_tried=first is not None)
+                expected = tuple(range(end,end+min(slack,p+cap-end))) if eligible else ()
+                require(proposal == expected, "shared rule differs from independent tape replay")
+            if eligible:
                 # Historical IBS does not store the token ID of each edit.
                 # Record the pre-step geometry; classify EOS separately below.
                 first = t
@@ -74,7 +82,7 @@ def count(r, model, q):
     return c
 
 
-def audit(root, model, q):
+def audit(root, model, q, verify_plan=None):
     if model=="llada21":
         source = root/("llada21-optimus-hardcap-"+{4:"low",8:"endpoints",16:"endpoints",32:"anchor"}[q])
         name=f"optcap_ibs_{q}"
@@ -95,7 +103,7 @@ def audit(root, model, q):
         require(r["model"]==model and r["policy"]==name and
                 all(r[k]==refs[i][k] for k in ("index","seed","task_id","dataset")) and
                 r["index"]==i and r["status"] in ("success","generation_failed"), "identity")
-        c=count(r,model,q)
+        c=count(r,model,q,verify_plan)
         events_q=(sum(x[1] for x in r["events"] if x[0]=="decoder") if model=="gemma" else
                   r["generation_query_rows"])
         require((c["F"],c["decoder_Q"],r["output_tokens"])==(refs[i]["F"],events_q,refs[i]["N"]),
@@ -110,6 +118,10 @@ def audit(root, model, q):
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root",type=Path)
-    root=parser.parse_args().root
-    print(json.dumps([audit(root,model,q) for model,tiers in
+    parser.add_argument("--verify-rule",action="store_true",help="Import shared rule from PYTHONPATH")
+    args=parser.parse_args()
+    rule=None
+    if args.verify_rule:
+        from bdlm_serving.methods.t2t.close_overlap import spare_successor_rows as rule
+    print(json.dumps([audit(args.root,model,q,rule) for model,tiers in
           (("llada21",(4,8,16,32)),("gemma",(32,64,128,256))) for q in tiers],indent=2,sort_keys=True))

@@ -57,3 +57,29 @@ first trigger and any physical payment against the treatment arm. [Compact
 output with raw-tape hashes](pilot-replay.json). The pilot replay is **not**
 a second inference run or evidence that the Q-selection policy beats IBS.
 The in-flight registered GPU executors were not modified.
+
+## Same-device frozen90 result: Gemma Q32
+
+All four arms ran each of the 90 requests on the same A800, with prompt,
+seed, weights, scoring and ceiling fixed. The observation-only arm matched
+stock; all 90 sets of final IDs and generation encoder input records match
+across arms. The intervention changes the work after the delivered EOS is
+irrevocable, not the answer or the number of final tokens.
+
+| IBS stop rule | Correct | Macro TPF | Pooled TE | F (includes 101 generation encoders) | Actual decoder Q |
+|---|---:|---:|---:|---:|---:|
+| Stock / observation only | 78/90 | 6.466 | 18.64% | 6,549 | 193,583 |
+| Wait for zero debt | 78/90 | 6.812 | 19.00% | 6,434 | 189,914 |
+| Pay live suffix debt and stop | 78/90 | 8.168 | 22.41% | 5,482 | 160,966 |
+
+The last arm saves real forwards on 84 cases, ties on six and loses none
+(median 9 fewer). Its 75 additional suffix payments cost 470 real decoder
+Q and are included above. Output N remains 36,080. Original30 is 27/30 in
+both arms, TPF 6.439 to 7.989; additional60 is 51/60, 6.479 to 8.258.
+The historical IBS row of 79/90, 6.840, 19.33% was not the control on this
+device. Do not attribute that one-answer difference to stopping. This is
+a stronger *IBS baseline*, not candidate Q selection beating IBS.
+
+[Figure](measured/frozen90.png) · [Plot data by cohort](measured/cohorts.csv)
+· [Paired compact receipt](../gemma-factors/ibs-certified-eos/q32-frozen90-summary.json)
+· [Plot script](../../../../../tools/plot_certified_ibs.py).

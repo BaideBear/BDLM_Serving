@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import pytest
 
+from bdlm_serving.methods.t2t.close_overlap import may_promote_successor, spare_successor_rows
 
 TOOLS = Path(__file__).resolve().parents[1]/"tools"
 CONTROL = TOOLS.parent/"experiments/t2t/serving_slots/controls/llada-flow-active-w2"
@@ -34,13 +35,33 @@ def example(edit=False):
 
 def test_first_closing_slack_is_not_a_free_forward(monkeypatch):
     m = load("ibs_close_overlap",TOOLS,monkeypatch)
-    c = m.count(example(), "llada21", 8)
+    c = m.count(example(), "llada21", 8, spare_successor_rows)
     assert c["geometry_seats"] == c["positions_also_used_by_next_first_call"] == 7
     assert c["entire_next_first_call_covered"] == 0
     assert c["immediate_clean_promotion"] == c["geometry_blocks"] == 1
     changed = m.count(example(edit=True), "llada21", 8)
     assert changed["geometry_blocks"] == changed["head_edited_before_promotion"] == 1
     assert changed["promoted_no_later_edit"] == 0
+
+
+def test_guards_and_physical_origin():
+    args = dict(offer=4,head_start=5,width=4,generated_end=10,selected_head=[8],
+                dirty_head={8},resident_head={5,6,7},unresolved_head=set(),generated_eos=False,
+                already_tried=False)
+    assert spare_successor_rows(**args) == (9,)
+    for change in (dict(generated_eos=True), dict(already_tried=True), dict(resident_head={5,7}),
+                   dict(dirty_head={7,8}), dict(unresolved_head={8}),dict(generated_end=9)):
+        assert spare_successor_rows(**(args|change)) == ()
+    with pytest.raises(ValueError):
+        spare_successor_rows(**(args|dict(selected_head=[8,8])))
+
+
+def test_same_context_is_necessary_but_not_sufficient():
+    args = dict(head_sealed=True,head_changed=False,request_ended=False,projection_context=2,promotion_context=2)
+    assert may_promote_successor(**args)
+    for change in (dict(head_sealed=False),dict(head_changed=True),dict(request_ended=True),
+                   dict(promotion_context=3),dict(projection_context=None,promotion_context=None)):
+        assert not may_promote_successor(**(args|change))
 
 
 def test_missing_debt_raises(monkeypatch):
