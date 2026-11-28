@@ -80,7 +80,7 @@ class FullAdmissionRequest(SwitchableVerifiedEOSRequest):
         certificate = admission_certificate(
             rows.initialized, rows.dirty, rows.accepted,
             ordinal=canvas.ordinal, nominal_q=self.nominal_offer,
-            parent_rows=[p - base for p in parent], full_rows=full)
+            parent_rows=[p - base for p in parent])
         if not certificate["explainable"]:
             raise RuntimeError("Invalid full-admission geometry: " + json.dumps(
                 certificate, separators=(",", ":"), sort_keys=True))
@@ -113,6 +113,7 @@ class FullAdmissionHandle(StrictHandle):
         if type(q) is not int or q not in self.offers:
             raise ValueError(f"Unsupported offer {q}")
         request = self._request
+        ordinal_before = request.ordinal
         request.law = self._laws[self.offers.index(q)]
         self._status = "advancing"
         try:
@@ -123,9 +124,9 @@ class FullAdmissionHandle(StrictHandle):
             explainable = bool(certificate and certificate.get("explainable") and
                                certificate.get("nominal_q") == q and
                                certificate.get("physical_q") == width)
-            # _apply may promote and advance request.ordinal before this check;
-            # the returned event binds to the canvas that was actually paid.
-            if (event["offer"] != q or
+            # _apply may promote and advance request.ordinal; the event still
+            # belongs to the canvas ordinal observed before the physical step.
+            if (event["offer"] != q or event["ordinal"] != ordinal_before or
                     not 0 < width <= 2 * B or
                     width != event.get("decoder_Q", width) or
                     event.get("decoder_F", 1) != 1 or
