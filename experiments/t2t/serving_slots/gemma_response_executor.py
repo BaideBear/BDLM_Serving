@@ -99,13 +99,15 @@ def run_candidate(model, data, task, *, deadline):
     from types import SimpleNamespace
     from experiments.t2t.serving_slots import strict_handle_qualify as qualify
     from bdlm_serving.evaluation import scoring
-    request = GemmaResponseRequest(
-        model, data, seed=task['seed'], admission_offer=64,
-        response_offer=512, early=True)
-    handle = _ResponseHandle(request)
+    handle = None
     old_open = qualify.open_strict_gemma
 
     def open_response(model, data, **_kwargs):
+        nonlocal handle
+        request = GemmaResponseRequest(
+            model, data, seed=task['seed'], admission_offer=64,
+            response_offer=512, early=True)
+        handle = _ResponseHandle(request)
         return handle
 
     setattr(qualify, 'open_strict_gemma', open_response)
