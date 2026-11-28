@@ -31,7 +31,17 @@ assert i["boot_id"]==open("/proc/sys/kernel/random/boot_id").read().strip()
 assert i["start_ticks"]==int(open("/proc/%d/stat"%p).read().split(") ")[1].split()[19])
 print(p)'
 }
-args=(--board n164:H0 --registration "$reg" --version "$version" --samples "$rt/t2t-native-1125/prefix90/samples.json")
+args=(--board n164:H0 --version "$version" --samples "$rt/t2t-native-1125/prefix90/samples.json")
+expected=75
+if [[ $# == 6 ]]; then
+    module=tools.shared_screen_sweep
+    args+=(--base "$reg" --panel "$(realpath "$6")")
+    expected=60
+elif [[ $# == 5 ]]; then
+    args+=(--registration "$reg")
+else
+    exit 2
+fi
 config() {
     export PYTHONPATH="$src:$rt/fixed-baseline-deps"
     ckpt=/data0/ysy/models/LLaDA2.1-mini
@@ -78,5 +88,5 @@ for model in gemma llada21; do
     printf '%s\n' "$worker" >"$out/$model.supervisor.pid"
     wait "$worker"
     worker=
-    [[ $(wc -l <"$out/$model.ndjson") -eq 75 ]]
+    [[ $(wc -l <"$out/$model.ndjson") -eq $expected ]]
 done

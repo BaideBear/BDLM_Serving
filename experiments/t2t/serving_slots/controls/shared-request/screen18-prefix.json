@@ -1,0 +1,46 @@
+{
+  "arms": {
+    "gemma": {
+      "0": {
+        "open_at": "1/4",
+        "prefix_share": "0"
+      },
+      "1/2": {
+        "open_at": "1/4",
+        "prefix_share": "1/2"
+      },
+      "1/4": {
+        "open_at": "1/4",
+        "prefix_share": "1/4"
+      },
+      "1/8": {
+        "open_at": "1/4",
+        "prefix_share": "1/8"
+      }
+    },
+    "llada21": {
+      "0": {
+        "open_at": "1/4",
+        "prefix_share": "0"
+      },
+      "1/2": {
+        "open_at": "1/4",
+        "prefix_share": "1/2"
+      },
+      "1/4": {
+        "open_at": "1/4",
+        "prefix_share": "1/4"
+      },
+      "1/8": {
+        "open_at": "1/4",
+        "prefix_share": "1/8"
+      }
+    }
+  },
+  "axis": "prefix",
+  "cap": 2048,
+  "format": "paired-parameter-screen-v1",
+  "source": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "stage": "screen18",
+  "wrapper": "7b58c819ca46514207abfe6457a52f9b1bac6c6b1e85f72be07261e73e6c9b4b"
+}

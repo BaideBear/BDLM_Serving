@@ -47,3 +47,32 @@ registration differs from `formal90`; do not stitch its outcomes into the formal
 table. Checkpoint comparisons use the manifest in `benchmarks/checkpoints/`;
 the supplemental LLaDA SHA-256 list was verified byte-for-byte independently
 on n164 and A800. No generated text is stored in these registrations.
+
+### Paired calibration (separate from formal90)
+
+`python -m tools.shared_screen_sweep register --base formal90-anchor.json --axis prefix`
+pins the base workers and the sweep wrapper. Each board runs three specified
+inputs from its 15-case shard, at all five fixed offers and four prefix fractions.
+The order rotates; a request never changes offer, arm or seed. There are 18
+distinct inputs and 360 requests per model (720 across both). The earlier
+three-input H0 pilot is exploratory and is not appended to this ledger.
+Run the `open` axis only after locking each model's own prefix choice. The
+inputs used to choose a fraction must be identified separately from the
+remaining 72 of the frozen90 comparison.
+
+Selection, fixed before opening the 18-case results: compare against `1/8`
+on the prefix axis, or `1/4` on the opening axis. A new constant qualifies
+only if no offer loses correct answers or macro TPF on this paired screen,
+and some offer improves one of them. If more than one qualifies, maximize
+the worst offer's TPF ratio to the control, then the geometric mean of the
+five ratios, then total correct, then use the smaller fraction. If none
+qualifies, retain the current value; publish per-offer tradeoffs rather
+than switching rules by tier. This is a conservative promotion rule for
+an exploratory screen, not a statistical non-inferiority test. Physical Q
+roles and pooled TE are reported alongside; they do not mask losses.
+
+`python -m tools.shared_anchor_report RESULTS formal90-anchor.json` audits
+every complete receipt, including the history-Q partition and measured peak.
+It emits only counts for unfinished points and exposes 90/30/60 scores for
+complete points. Add `--baselines <fixed-request-comparison/metrics.csv>` for
+matched reference differences and `--require-complete` for the final release.

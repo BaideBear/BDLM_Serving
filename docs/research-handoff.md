@@ -55,5 +55,7 @@
 | 2026-11-28 15:30 | 资格复验，新方案 | H4 同一题 `gsm8k/167`、seed 17000：EOS 修复后 Q32 答对（N/F/Q=265/45/1181），Q4 跑完但答错（233/199/785）。n164 `runtime/h4-q32-dcaa10b/results-qualify/`。不能当成正式点。 |
 | 2026-11-28 15:30 | 参数筛选，新方案 | H0 Gemma 有 60 条回执：3 道题 × 5 档 × 4 个前缀份额，固定 `τ=1/4`。n164 `results/shared-h0-screen-1128-1521/receipts.ndjson` 及 `returned`；是筛选，**不是 60 道独立题**。此时新候选没有已封存的 90 题档。 |
 | 2026-11-28 15:38 | 正式参照已启动，尚无封存点 | 冻结[双模型参照配置与源码指纹](../experiments/t2t/serving_slots/controls/shared-request/formal90-anchor.json)，执行源码 `7a38ffc`，注册号 `a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3`。n164 `results/formal90-7a38ffc/H0/gemma.ndjson` 已有 4 条，第一条为 Q32、`complete`。源目录 `runtime/formal90-7a38ffc/src`，A800 代码在 `/gs/code/formal90-7a38ffc/src`。继续按同一注册号核对两边回执。 |
+| 2026-11-28 15:45 | 六卡实际出数 | `tools.shared_anchor_report` 核验同一注册的 224/900 条，当时六卡分别为 H0 79、H4 15、A0 57、A1 11、A2 50、A3 12。H0 的 Gemma 15 题 × 5 档全部落盘，不等于 Gemma 全 90 完成。 |
+| 2026-11-28 | 下一步：独立筛选 `α` | H0 三题小样本 Q32：`α=0→1/8`，质量均 3/3，TPF `3.60→4.46`，TE `11.17%→14.24%`，纯还账 forward 占 decoder 轮次 `41.1%→4.2%`。改变前缀份额也会改变 MASK 接受的节奏，因此不能把差异全归因于新鲜 KV。冻结[18题四份额面板](../experiments/t2t/serving_slots/controls/shared-request/screen18-prefix.json)，同模型跨五档比较，参照构建不变，单独存至 n164 `results/screen18-prefix-2404af23`；不得将旧三题账本拼入本轮。 |
 
 当前计算授权窗口为 **2026-11-28 15:20 至 2026-11-29 09:20（UTC+8）**，是本轮资源保护时间，不是宣布研究完成的期限。恢复时：先读本页和设计协议，核对远端分支、注册 ID 与 n164 账本，再查两边实际进程，按缺失的 `(版本, 模型, Q, task_id)` 续跑。后续登记、资源变化和封存点要附时间与证据，不覆盖旧的否决结论。
