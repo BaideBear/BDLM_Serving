@@ -56,7 +56,7 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         offer = self.response_offer_for(self.tick)
         before_tail = self.tail
         before_ordinal = self.ordinal
-        event = super(AblationRequest, self).step(offer)
+        event = AblationRequest.step(self, offer)
         if before_tail is None and self.tail is not None and self.response_admission_tick is None:
             self.response_admission_tick = self.tick - 1
             self.response_admission_ordinal = self.tail.ordinal
