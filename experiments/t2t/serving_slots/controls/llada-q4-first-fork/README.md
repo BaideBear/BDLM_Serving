@@ -71,11 +71,51 @@ PYTHONPATH="$PWD:$R/runtime/fixed-baseline-deps" \
   "$R/runtime/venv/bin/python" -B "$D/llada_q4_first_fork.py" report "$D" | cmp - "$D/compact.ndjson"
 ```
 
-Next discriminating test, not launched: start at #67 tick 3 with identical
-state and three paid writes. Exchange only cold 136 for resident 135 on that
-one call; keep edits, thresholds, KV visibility policy, terminal handling
-and later planner code fixed. Audit the common prefix through tick 2, the
-measured write at the fork, survival of that write, then output and bills.
-If selecting 135 does not restore its immediate IBS admission, ranking
-alone is insufficient on that state. If it does but the score remains wrong,
-one locally restored admission was insufficient to rescue the request.
+## Follow-up: existing single-factor evidence; no new H4 inference
+
+Row 135 is a diagnostic example, not a policy. The registered [MASK-order
+probe](../shared-request/mask-order18.json) already tests earliest unresolved
+row first, irrespective of residency, at unchanged within-block counts and
+unchanged edit eligibility. [H0 Q4](../shared-request/mask-order-h0.json):
+2/3 to 3/3 correct, macro TPF 1.4895 to 1.6036, F 464 to 527. This is not
+a guaranteed saving. A different [one-seat Q4 intervention on 90
+pairs](../llada-slot-allocation/c4-frontier-frozen90.json) improved 18 to
+47 correct, but requires at least two selected cold MASKs: it does **not**
+fire at the one-spare-seat fork in #67.
+
+The other candidate already has actual A800 pairs: on a current-head call
+already sampling a cold MASK with all debt payable, enable native T2T only on
+paid, resident, decoded dirty rows. Keep the same selected rows and tick at
+the intervention, use real current logits, and bill writes as new debt.
+The following are separate historical head-only controls, not the H4 unified
+policy or replications on held-out inputs. Both arms passed physical widths
+at 20 layers, the write/debt ledger and the matched-state first-exposure checks.
+
+| Historical pairs | Exposed calls / eligible row visits | Actual edits / revokes there | Equal output IDs | Correct off/on | Macro TPF off/on | Total F off/on | Decoder Q off/on |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Q4, 0/10/20 | 236 / 276 | 0 / 0 | 3/3 | 0/0 out of 3 | 1.14346 / 1.14346 | 782 / 782 | 2946 / 2946 |
+| Q8, original30 | 2164 / 2681 | 7 / 0 | 26/30 | 11/11 out of 30 | 1.63460 / 1.63413 | 16220 / 16267 | 113469 / 113797 |
+
+At Q8 there was one rescue and one loss. No request failed in either pair
+set. Q4 used zero prefix share and Q8 used 1/8. Neither tested T2T during
+a pure drain or on warm-MASK-only calls. In the independent, capped IBS4
+frozen90 trace, 441 of 455 edits touched paid debt. Of those 441, **66**
+occurred with a cold MASK, **33** with warm MASKs only, and **342** with
+no selected MASK. Only **17** of the latter 342 were on calls where every
+physical row was debt; the other 325 also projected non-debt rows. Counts
+include completed calls for the six failed IBS requests. These are facts
+about where IBS edits, not evidence that applying them rescues the unified
+output. The no-MASK calls are not all interchangeable with unified drains:
+the latter do not advance the sampler clock. No drain intervention is claimed.
+
+Readback on n164, stdlib only (no inference or raw transfer):
+
+```bash
+ssh n164 /data1/project_data/gx-erqw-20261123/runtime/venv/bin/python -B - \
+  < tools/llada_q4_paid_edit_readback.py
+```
+
+Archived source: `archive/a800-gs-20261128/snapshot/results/` under the
+n164 root above. Paired row-set SHA-256 (hash of concatenated per-file digests
+in index order): Q4 `4b39818bdae84f77646014354faed945c56d867517fcafab5e456929fbd660df`;
+Q8 `6f9bf699a8c0e194b6dddd3a785e5ba0e9c5f0a1992c43e402748f4ca1e2a9da`.
