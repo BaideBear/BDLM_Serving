@@ -71,6 +71,13 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         self.route_F[event['route']] = self.route_F.get(event['route'], 0) + 1
         self.route_Q[event['route']] = self.route_Q.get(event['route'], 0) + event['decoder_Q']
         event['response_block_opened'] = (before_tail is None and self.tail is not None)
+        if self.tail is not None and self.response_admission_ordinal is not None:
+            event['response_full_mask_certificate'] = [
+                dict(ordinal=p['ordinal'], rows=list(p['rows']), sampled=list(p['sampled']),
+                     complete_new_block=(p['rows'] == list(range(B))),
+                     sampled_rows_match=(p['sampled'] == p['rows']))
+                for p in event['parts'] if p['ordinal'] == self.response_admission_ordinal
+            ]
         self.response_schedule.append(offer)
         return event
 

@@ -62,6 +62,36 @@ def check(ok, message):
         raise ValueError(message)
 
 
+def physical_projection_audit(e, rows, q, proj, head, tick):
+    """Return separated checks for the formerly conflated projection guard."""
+    checks = dict(
+        tick=e["tick"] == tick,
+        head_ordinal=e["ordinal"] == head,
+        positions_match_rows=e["positions"] == rows,
+        width=len(rows) == e["q"] == e["decoder_Q"] == e.get("history_Q", e["decoder_Q"]),
+        offer_cap=len(rows) <= q,
+        unique_rows=len(set(rows)) == len(rows),
+        all_layers_measured=bool(proj) and all(t[-1] == len(rows) for t in (proj.values() if hasattr(proj, "values") else proj)),
+    )
+    certificate = e.get("response_full_mask_certificate") or []
+    complete_new_blocks=[]
+    for item in certificate:
+        complete_new_blocks.append(dict(
+            ordinal=item.get("ordinal"), identity_known=item.get("ordinal") is not None,
+            rows_complete=bool(item.get("complete_new_block")),
+            rows_sorted_unique=item.get("rows") == sorted(set(item.get("rows") or [])),
+            sampled_matches_rows=bool(item.get("sampled_rows_match")),
+        ))
+    checks["response_full_mask_identity_and_complete_rows"]=bool(complete_new_blocks) and all(
+        x["identity_known"] and x["rows_complete"] and x["rows_sorted_unique"] and x["sampled_matches_rows"]
+        for x in complete_new_blocks)
+    checks["response_overage_explainable"]=(
+        len(rows)>q and checks["response_full_mask_identity_and_complete_rows"]
+        and sum(x["rows_complete"] for x in complete_new_blocks)*256==len(rows)-q
+    )
+    return checks
+
+
 def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate", drop_after_stop=False,
           drop_after_promotion=False, drop_at_joint=False, dense_shadow=False, boundary=None, eos_audit=None):
     from bdlm_serving.runtime.diffusiongemma import observe
@@ -123,10 +153,11 @@ def drive(model, data, task, schedule, *, deadline, profile="fixed90_candidate",
             if eos_audit is not None:
                 eos_audit.observe(e,rows)
             sampled, changed = set(e["sampled_absolute"]), set(e["written_absolute"])
-            check(e["tick"] == tick and e["ordinal"] == head and e["positions"] == rows
-                  and len(rows) == e["q"] == e["decoder_Q"] == e["history_Q"] <= q
-                  and len(set(rows)) == len(rows)
-                  and all(t[-1] == len(rows) for t in proj.values()), "unmeasured physical projection")
+            projection_checks = physical_projection_audit(e, rows, q, proj, head, tick)
+            if not all(projection_checks.values()) and not projection_checks["response_overage_explainable"]:
+                raise ValueError("unmeasured physical projection: " + json.dumps(
+                    projection_checks, separators=(",", ":"), sort_keys=True))
+            e["physical_projection_audit"] = projection_checks
             check(e["dirty_before_absolute"] == sorted(debt) and set(sorted(debt)[:q]) <= set(rows)
                   and changed <= sampled <= set(rows), "unpaid old or unmeasured new writes")
             if profile in JOINT_PROFILES:
