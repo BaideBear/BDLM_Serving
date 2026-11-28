@@ -1,0 +1,25 @@
+{
+  "arms": [
+    "all_mask",
+    "reserve_idle",
+    "prefix"
+  ],
+  "cap": 2048,
+  "cases": "screen18",
+  "format": "shared-prefix-mechanism-v1",
+  "offers": {
+    "gemma": [
+      32,
+      64
+    ],
+    "llada21": [
+      4,
+      8
+    ]
+  },
+  "open": "1/4",
+  "prefix": "1/8",
+  "source": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "stage": "mechanism18",
+  "wrapper": "967b8cfad98e46deaa25ecc7cc45af1dfd2460ef45e615df539ca0b6d3e5709b"
+}

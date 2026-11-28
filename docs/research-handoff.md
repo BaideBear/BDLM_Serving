@@ -57,5 +57,18 @@
 | 2026-11-28 15:38 | 正式参照已启动，尚无封存点 | 冻结[双模型参照配置与源码指纹](../experiments/t2t/serving_slots/controls/shared-request/formal90-anchor.json)，执行源码 `7a38ffc`，注册号 `a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3`。n164 `results/formal90-7a38ffc/H0/gemma.ndjson` 已有 4 条，第一条为 Q32、`complete`。源目录 `runtime/formal90-7a38ffc/src`，A800 代码在 `/gs/code/formal90-7a38ffc/src`。继续按同一注册号核对两边回执。 |
 | 2026-11-28 15:45 | 六卡实际出数 | `tools.shared_anchor_report` 核验同一注册的 224/900 条，当时六卡分别为 H0 79、H4 15、A0 57、A1 11、A2 50、A3 12。H0 的 Gemma 15 题 × 5 档全部落盘，不等于 Gemma 全 90 完成。 |
 | 2026-11-28 | 下一步：独立筛选 `α` | H0 三题小样本 Q32：`α=0→1/8`，质量均 3/3，TPF `3.60→4.46`，TE `11.17%→14.24%`，纯还账 forward 占 decoder 轮次 `41.1%→4.2%`。改变前缀份额也会改变 MASK 接受的节奏，因此不能把差异全归因于新鲜 KV。冻结[18题四份额面板](../experiments/t2t/serving_slots/controls/shared-request/screen18-prefix.json)，同模型跨五档比较，参照构建不变，单独存至 n164 `results/screen18-prefix-2404af23`；不得将旧三题账本拼入本轮。 |
+| 2026-11-28 16:02 | 正式参照进行中 | n164 逐条审计 **460/900**：H0/H4/A0/A1/A2/A3 分别 `127/53/96/42/89/53`。LLaDA Q4/8/16/32/64 为 `48/47/47/46/47` 条；Gemma 五档各 45 条。没有完成的 90 题档位，不能给出胜负。 |
 
 当前计算授权窗口为 **2026-11-28 15:20 至 2026-11-29 09:20（UTC+8）**，是本轮资源保护时间，不是宣布研究完成的期限。恢复时：先读本页和设计协议，核对远端分支、注册 ID 与 n164 账本，再查两边实际进程，按缺失的 `(版本, 模型, Q, task_id)` 续跑。后续登记、资源变化和封存点要附时间与证据，不覆盖旧的否决结论。
+
+## 6. 压缩上下文后怎样接手
+
+1. **先查账本，不从零启动。** 仓库首页链接本页，`T2T_experiments` 是项目分支；聊天所在的 `BlockKernel` 不是实验源码。下面是本轮参照的只读核验命令，不会领取 GPU。若更换注册，先查该注册对应的源码和账本，不混用。最终比较还需提供同版本的[基线 CSV](../experiments/t2t/serving_slots/controls/fixed-request-comparison/metrics.csv)；不得因干净部署缺少 CSV 而省略对照。
+
+   ```bash
+   ssh n164 'cd /data1/project_data/gx-erqw-20261123/runtime/formal90-7a38ffc && env PYTHONPATH=$PWD/src ../venv/bin/python shared_anchor_report.py ../../results/formal90-7a38ffc registration.json'
+   ```
+
+2. **再查逐卡交接。** 这轮主任务核对 H0 和总账；H4、A0/A1、A2/A3 分别有独立负责人。正式分片每卡两模型各 75 条，接续筛选须核验这 150 条身份齐全。进程可能正在等待同卡锁；不能因某模型一段时间计数不动就再派一份。先确认谁在运行或排队、账本是否增长、是否仍在授权窗口，再做逐卡交接。H800 结束时恢复 holder，A800 结束时必须释放。
+3. **按顺序推进，不让探索回执混入正式结果。** `screen18-prefix` 注册号 `2404af2390fb2fc96e6348f584691c071c77be8c4ee18da3016beec46e51d602`。每模型须收齐 18 题 × 5 档 × 4 份额 = 360 个唯一身份，核对物理 Q 计费后按[预先写定的规则](../experiments/t2t/serving_slots/controls/shared-request/README.md#paired-calibration-separate-from-formal90)选一个跨档 `α`，再登记 `τ` 筛选。筛选用的 18 题与其余 72 题分开报告；其余 72 题也不能自动视为从未参与过历史选模的盲测集。
+4. **待验证的机制，不是已证实的结论。** 紧预算先分清两件事：是少选 MASK、减少下一轮还账有用，还是将腾出的座位真的用于计算前缀有用？[三组配对消融协议](../experiments/t2t/serving_slots/controls/shared-request/prefix-mechanism.md)只改变这一项；LLaDA Q4 因取整应完全不受干预，是负对照。协议归档不等于已部署或已取得成绩，不抢占正式参照和已登记筛选。后续再单独验证尾部跨块以及 2B 后块计算的有效产出；固定档结论具备后才开展预算切换和响应曲线实验。
