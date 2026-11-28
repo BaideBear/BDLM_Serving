@@ -4,6 +4,8 @@
 
 最新封存：[固定 Q 下的块内前缀刷新与后块首次构建](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)，标签 `fixed-q-prefix-and-tail-20261128`。内含五组同卡六题、三项指标、实际账单及对照，不把历史 90 题轨迹的选位回放计为处理组成绩。上一版[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)仍由 `paid-agreement-admission-20261128` 独立定位。两者均非十档默认策略。
 
+标签之后：[按前缀进展调整可选刷新配额](../experiments/t2t/serving_slots/controls/frontier-dose/README.md)。Gemma Live Q128 原算法 90 题的全部 1,567 个普通采样计划复现；在同一输入状态改用新规则，86 题、507 步改变行，多数被移出的前缀名额留空而非变成 MASK。仅是可执行机会，未作处理组 90 题收益。
+
 **归档后的独立试验：[固定刷新数量时如何选前缀位置](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)。** 历史 LLaDA Q8 右端策略 90 题中，分散选择会在 88 题、2,486 步改变行，尚不是新策略的 90 题结果；此前 Gemma Q512 用当轮 EOS 推测可省 1,280 Q 不成立，改用上轮已知信号后六题零机会。另外，[Gemma Q64 满额时用一个前缀换出暖 MASK](../experiments/t2t/serving_slots/controls/prefix-clamp/fixed-budget-checkpoint.md)六题均真实换位，仍 5/6，TPF 14.455→11.586，TE 24.18%→12.86%，不扩 90。[LLaDA Flow W1 完整基线图表](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)已从逐调用账单补上 17.30% TE。
 
 **2026-11-28 22:42，新决定：不采用两个额外采纳限制。** [LLaDA Q16 同卡 90 题](../experiments/t2t/serving_slots/controls/paid-agreement/allowance.md)：IBS / 不限额连续两票 / 每步限额分别 72 / 72 / 67；TPF 3.406 / 3.833 / 3.644，TE 20.65% / 23.39% / 23.06%。限额又少用 489 F，却新增 2 道不收敛，六题正例在其余 84 题上翻转。另一项[不越过本轮实测缺口的四组六题实跑](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)在 LLaDA Q8 少对 1 题；Gemma Q64（IBS 父算法）、Q128（保留原生 T2T 的 Live 父算法）均不提速。本轮不据此转混合预算。
