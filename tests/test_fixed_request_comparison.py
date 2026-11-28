@@ -27,3 +27,6 @@ def test_active_window_is_its_own_sealed_arm_never_a_cherry_picked_composite():
     assert at["llada21","frozen90",8,"Active window"]["correct"]==72
     assert at["llada21","new60",16,"Active window"]["correct"]==49
     assert not any(r["method"]=="Active window" and (r["model"]!="llada21" or r["budget"]>16) for r in rows)
+    repeat=at["llada21","frozen90",64,"Paid repeat"]
+    assert repeat["correct"]==75 and repeat["token_efficiency"]==pytest.approx(43387/399051)
+    assert len([r for r in rows if r["method"]=="Paid repeat"])==3

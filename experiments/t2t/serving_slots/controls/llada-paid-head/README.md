@@ -252,3 +252,26 @@ anchors differ or have no actual intervention. Report exposed requests,
 admissions and complete paired results. This is not a mixed-budget test.
 `bash tools/run_llada_repeat_transfer_a800.sh DEADLINE` will not claim or
 hold a GPU when the qualification fails.
+
+**Final fixed Q64, all 90.** [Paired receipt](q64-agreement-frozen90.json);
+all original-30 reference bills and token IDs replayed, no failed requests.
+
+| Cohort | Correct | Macro TPF | Pooled TE | F | Selected Q |
+|---|---:|---:|---:|---:|---:|
+| Original 30 | 25 → 28 | 6.387 → 7.271 | 9.09% → 10.83% | 3,223 → 2,675 | 145,807 → 120,244 |
+| New 60 | 47 → 47 | 7.275 → 7.873 | 10.40% → 10.89% | 6,024 → 6,153 | 271,209 → 278,807 |
+| Frozen 90 | 72 → 75 | 6.979 → 7.672 | 9.94% → 10.87% | 9,247 → 8,828 | 417,016 → 399,051 |
+
+79 exposed, 4,504 extra admissions on already paid Q, 7 rescued / 4 lost.
+All three net quality gains came from the original30. On new60, 4 gained and
+4 lost; F and Q rose along with output length. Do not equate a higher macro
+TPF with fewer total calls on that cohort. Whole-cohort paired 95% intervals
+are [−3.33,+10.00] pp and [+0.386,+1.005] TPF. The Q16 transfer gate passed.
+Flow W2 is 74/90 and 10.006 TPF; the remaining TPF gap is 2.334.
+
+The opt-in `quarter_window_repeat64` keeps the qualified low-tier window
+and Q32 close; only Q64 adds the measured admission rule. A lower offer,
+cold head, missed row, intervening drain or head change breaks the pair.
+The qualification checks fixed equality on all five offers, all 25
+directed transitions, a live discarded vote, and payment of parked writes.
+Implementation alone is not evidence of switching performance or quality.

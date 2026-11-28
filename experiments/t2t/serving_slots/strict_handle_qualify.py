@@ -346,15 +346,21 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
-    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window"), default="legacy")
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window","quarter_window_repeat64"), default="legacy")
     a = ap.parse_args(argv)
     candidate = a.profile != "legacy"
-    window = a.profile == "quarter_edit_window"
+    repeat = a.profile == "quarter_window_repeat64"
+    window = repeat or a.profile == "quarter_edit_window"
     editable = window or a.profile == "quarter_edit_warm"
     window_fixed = None
     if window:
         from .llada_frontier_seat import classes
         window_fixed = classes("window")[1]
+    if repeat:
+        from .llada_agreement import request_class
+        from .llada_hfull_single_factor import request_classes
+        from .llada_switch_votes import audit as audit_votes
+        repeat_fixed = request_class(request_classes()[1])
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tok, model = load_gpu(a, lambda:None)
@@ -395,6 +401,9 @@ def llada_main(argv=None):
                         lambda _,args:widths.append(args[0].shape[1])))
                     h = open_strict_llada(model,x,**kwargs)
                     hooks.callback(h.close)
+                    if repeat:
+                        h._request.audit_admission=True
+                        previous_votes={}
                     check(pos==[list(range(x.shape[1]))], "wrong prompt prefill")
                     while h.status=="ready":
                         check(time.time()<a.deadline, "deadline")
@@ -413,7 +422,17 @@ def llada_main(argv=None):
                             close_due = (q==32 and not req.stopping and debt and debt<=head_rows
                                  and head_rows<=req.bank.initialized and req.close_attempted!=req.head
                                  and not (req.x[0,lo:split]==kwargs["mask_id"]).any().item())
+                        if repeat:
+                            vote_head=req.head
+                            vote_warm=req.bank.last_end>=min(req.head+32,req.end)
                         e=h.step(q)
+                        if repeat:
+                            prior=previous_votes
+                            previous_votes,extras=audit_votes(q,vote_head,vote_warm,e,kwargs["mask_id"],prior)
+                            if extras:
+                                checks["repeat_Q"]+=len(extras)
+                            if prior and old==64 and q<64:
+                                checks["discard_on_downshift"]+=len(prior)
                         rows=set(e["rows"])
                         check(e["rows"]==pos[-1] and e["q"]==len(rows)==widths[-1]<=q
                               and e["layer_physical_q"]==[len(rows)]*20 and e["encoder_F"]==0
@@ -487,7 +506,8 @@ def llada_main(argv=None):
                         fixed=evaluate_fixed(model,tok,t,ref["prompt_ids"],q,Law(),
                               cross=("quarter" if q==64 else "head", q==16 and not window),coverage="head" if q==64 else "sparse",
                               close_policy=("edit_once" if editable else "full_write") if q==32 else "unchanged",
-                              warm_head_sample=editable and q==64,request_cls=window_fixed if q<32 else None)
+                              warm_head_sample=editable and q==64,
+                              request_cls=window_fixed if q<32 else repeat_fixed if repeat and q==64 else None)
                     else:
                         fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
                                           borrow=False,coverage="head" if q==64 else "sparse")

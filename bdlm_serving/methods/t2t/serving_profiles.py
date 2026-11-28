@@ -159,14 +159,15 @@ def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_token
     opts = {}
     engine = LLaDABudgetRequest
     if profile is not None:
-        window = profile=="quarter_edit_window"
-        if profile not in ("quarter_fullwrite","quarter_edit_warm","quarter_edit_window") or (coverage, top_gate) != ("sparse", "half"):
+        top_repeat = profile=="quarter_window_repeat64"
+        window = top_repeat or profile=="quarter_edit_window"
+        if not (window or profile in ("quarter_fullwrite","quarter_edit_warm")) or (coverage, top_gate) != ("sparse", "half"):
             raise ValueError("Unknown LLaDA profile or conflicting explicit settings")
         coverage, top_gate = "head", "quarter"
         editable = window or profile=="quarter_edit_warm"
         if window:
-            from experiments.t2t.serving_slots.llada_window_switch import SwitchableWindowRequest
-            engine = SwitchableWindowRequest
+            from experiments.t2t.serving_slots.llada_window_switch import SwitchableWindowRequest, TopAgreementWindowRequest
+            engine = TopAgreementWindowRequest if top_repeat else SwitchableWindowRequest
         opts = dict(close_policy="edit_once" if editable else "full_write", borrow_at_half=not window,
                     warm_head_sample=editable)
     raw = engine(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids,

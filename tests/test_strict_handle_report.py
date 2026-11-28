@@ -113,20 +113,29 @@ def test_verified_draft_compares_through_eos_and_requires_complete_canvas():
         compare_block(a[:32],b[:32],{1})
 
 
-def test_switchable_window_requires_real_fixed_changes_and_a_parked_write(cohort):
+@pytest.mark.parametrize("repeat",[False,True])
+def test_switchable_window_requires_real_fixed_changes_and_a_parked_write(cohort,repeat):
     path,manifest=cohort
+    profile="quarter_window_repeat64" if repeat else "quarter_edit_window"
     for p in path.glob("*.json"):
         r=json.loads(p.read_text())
         s=r["suite"]
-        r.update(profile="quarter_edit_window", downshifts_with_debt=int(s=="switch25"))
+        r.update(profile=profile, downshifts_with_debt=int(s=="switch25"))
         r["policy_checks"]=({"window_F":1} if s in ("fixed4","fixed8","fixed16") else {
             "fixed32":{"edit_once_F":2,"terminal_writes":1},
             "fixed64":{"quarter_open_F":1,"warm_sample_rows":2},
             "park":{"parked_dirty_Q":1}}.get(s,{}))
         if s=="park":
             r.update(directed_pairs={"64>4":1,"4>64":1},F=3,decoder_F=3)
+        if repeat and s=="fixed64": r["policy_checks"]["repeat_Q"]=1
         p.write_text(json.dumps(r))
-    assert summarize(path,"llada",manifest)["profile"]=="quarter_edit_window"
+    if repeat:
+        with pytest.raises(ValueError,match="live vote"):
+            summarize(path,"llada",manifest)
+        p=path/"switch25-00.json"
+        r=json.loads(p.read_text());r["policy_checks"]["discard_on_downshift"]=1
+        p.write_text(json.dumps(r))
+    assert summarize(path,"llada",manifest)["profile"]==profile
     for p in path.glob("park-*.json"):
         r=json.loads(p.read_text())
         r["policy_checks"]={}

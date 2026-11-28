@@ -22,3 +22,24 @@ class SwitchableWindowRequest(LLaDABudgetRequest):
         if self._window_geometry is not None:
             event["window_geometry"] = self._window_geometry
         return event
+
+
+class TopAgreementWindowRequest(SwitchableWindowRequest):
+    """Experimental: a second paid Q64 vote; never reuse a smaller offer's vote."""
+    def _step(self,q):
+        self._top_warm = q==2*B and self.bank.last_end>=min(self.head+B,self.end)
+        if not self._top_warm:
+            self._agree_stamp = self._agree_memo = None
+        return super()._step(q)
+
+    def _additional_admissions(self,idx,old,draft,conf,accepted):
+        import torch
+        from .llada_agreement import confirmation
+        if not self._top_warm:
+            return torch.zeros_like(accepted)
+        tick=len(self.records)
+        prev=(self._agree_memo if getattr(self,"_agree_stamp",None)==(self.head,tick-1)
+              else draft.new_full((B,),-1))
+        extra,self._agree_memo=confirmation(self.head,idx,old,draft,conf,accepted,prev,self.mask_id)
+        self._agree_stamp=(self.head,tick)
+        return extra
