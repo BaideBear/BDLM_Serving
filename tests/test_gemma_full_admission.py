@@ -10,7 +10,8 @@ def certificate(**changes):
 
 def test_full_new_mask_block_over_parent_is_certified():
     item = certificate()
-    assert item['physical_q'] == 256 and item['over_parent_rows'] == list(range(64))
+    assert item['physical_q'] == 256
+    assert item['over_parent_rows'] == list(range(64, 256))
     assert item['eligible'] and item['explainable']
 
 
