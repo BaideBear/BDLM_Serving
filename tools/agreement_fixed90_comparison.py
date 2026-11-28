@@ -118,9 +118,20 @@ def dataset_cost(rows, dataset):
         worst, key=lambda x:(-x["delta_F"], x["index"]))[:3])
 
 
+def first_measured_hole(event):
+    """A left-hand unresolved row seen at this step is a witness, not a full frontier."""
+    all_rows = event["positions"]
+    extra = set(event["extra"])
+    native = {i for i, take in zip(all_rows, event["native"], strict=True) if take}
+    require(len(extra) == len(event["extra"]) and len(set(all_rows)) == len(all_rows)
+            and extra and extra <= set(all_rows)-native, "invalid first additional acceptance")
+    left = set(all_rows)-extra-native
+    return dict(extra=len(extra), behind=sum(min(left)<p for p in extra) if left else 0)
+
+
 def run(root, model, samples, replay_dir=None, *, gemma_dir=None, fixed_q=None,
         with_intervals=False):
-    rows, hashes = {}, {}
+    rows, hashes, first_holes = {}, {}, {}
     q = fixed_q if fixed_q is not None else (128 if model=="gemma" else 16)
     require((model=="llada" and q==16 and not gemma_dir and not replay_dir) or
             (model=="gemma" and ((q==128 and not gemma_dir) or
@@ -172,6 +183,15 @@ def run(root, model, samples, replay_dir=None, *, gemma_dir=None, fixed_q=None,
                     dev = json.loads((gemma_dir.parent/"six"/path.name).read_bytes())
                     require(all(d[k]==dev[k] for k in ("index","seed","task_id","dataset","prompt_sha256",
                                                        "first_extra","error","arms")), "six screen not reproduced")
+                if with_intervals:
+                    events=d["arms"]["apply"]["agreement"]["extra_events"]
+                    marker=d.get("first_extra")
+                    require(bool(events)==bool(marker), "inconsistent first-fork records")
+                    if events:
+                        event=events[0]
+                        require(all(event[k]==marker[k] for k in ("tick","block","extra")),
+                                "mismatching first-fork row set")
+                        first_holes[i]=first_measured_hole(event)
             for key in ("stock", "apply", "observer"):
                 b = d["arms"][key]["bill"]
                 require(b["peak_decoder_Q"] == q and b["D"]+b["E"] == b["F"] and
@@ -219,6 +239,22 @@ def run(root, model, samples, replay_dir=None, *, gemma_dir=None, fixed_q=None,
     if with_intervals:
         out["paired_intervals"]=paired_intervals(rows,dataset)
         out["cost_breakdown"]=dataset_cost(rows,dataset)
+        if model=="gemma" and q==64:
+            groups={}
+            for i,row in rows.items():
+                a,b=(row[k]["correct"] for k in ("stock","apply"))
+                key="same_score" if a==b else "gain" if b else "loss"
+                g=groups.setdefault(key,dict(n=0,exposed=0,any_behind=0,all_behind=0,
+                                             extra_rows=0,behind_rows=0))
+                g["n"]+=1
+                if i in first_holes:
+                    rec=first_holes[i]
+                    g["exposed"]+=1
+                    g["any_behind"]+=rec["behind"]>0
+                    g["all_behind"]+=rec["behind"]==rec["extra"]
+                    g["extra_rows"]+=rec["extra"]
+                    g["behind_rows"]+=rec["behind"]
+            out["first_measured_left_hole"]=groups
     return out
 
 

@@ -1,6 +1,6 @@
 from tools.audit_agreement_dose import selection, tally
 import pytest
-from tools.agreement_fixed90_comparison import cohorts, dataset_cost, decompose, paired_intervals
+from tools.agreement_fixed90_comparison import cohorts, dataset_cost, decompose, first_measured_hole, paired_intervals
 
 
 def step(tick, block, votes, probs, native, ids):
@@ -65,3 +65,11 @@ def test_cost_breakdown_keeps_the_full_long_failed_generation():
     assert out["datasets"]["code"] == dict(requests=3, stock_correct=3, apply_correct=2,
                                            delta_F=290, delta_N=438, delta_Q=550)
     assert out["greatest_extra_F"][0]["index"] == 2
+
+
+def test_measured_hole_excludes_native_and_same_tick_extra_writes():
+    s=dict(positions=[4,5,7,9],native=[True,False,False,False],extra=[5,9])
+    assert first_measured_hole(s)=={"extra":2,"behind":1}
+    assert first_measured_hole(dict(s,extra=[5,7,9]))=={"extra":3,"behind":0}
+    with pytest.raises(ValueError):
+        first_measured_hole(dict(s,extra=[4]))

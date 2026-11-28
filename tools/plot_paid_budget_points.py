@@ -55,7 +55,7 @@ def collect(files, historical):
     return rows
 
 
-def draw(rows,out):
+def draw(rows,out,matched_live=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -65,6 +65,13 @@ def draw(rows,out):
     sections=fig.add_gridspec(len(models),1,left=.06,right=.985,top=1-1.23/fig.get_figheight(),
                               bottom=.56/fig.get_figheight(),hspace=.34)
     handles={}
+    if matched_live:
+        conf=json.loads(matched_live.read_bytes())
+        point=conf["live"]
+        if (conf["gpu"]!="GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c" or point["count"]!=90
+                or "gemma" not in models or not conf["raw_sha256"]):
+            raise ValueError("invalid A3 Live confirmation")
+        matched=(point["correct"],point["macro_tpf"],100*point["pooled_te"])
     for index,model in enumerate(models):
         panel=sections[index].subgridspec(2,3,height_ratios=(2.25,1),hspace=.49,wspace=.25)
         qs=OFFERS[model]
@@ -80,6 +87,9 @@ def draw(rows,out):
                 line,=ax.plot(range(5),y,marker=marker,color=color,linestyle="-" if name.startswith("Repeat") else "--",
                               label=name,linewidth=1.6,markersize=5.5)
                 handles[name]=line
+            if matched_live and model=="gemma":
+                ax.scatter([qs.index(128)],[matched[j]],s=115,marker="o",facecolors="none",
+                           edgecolors="#121212",linewidths=1.1,zorder=8)
             ax.set(title=("Correct / 90","Tokens per forward","Token efficiency (%)")[j],
                    xticks=range(5),xticklabels=qs,xlabel="Fixed decoder budget Q")
             if j==0:ax.set_ylabel(NAMES[model],weight="bold")
@@ -93,8 +103,10 @@ def draw(rows,out):
                 if i>0 and k==0:c.get_text().set_color(list(METHODS.values())[i-1][0])
     fig.suptitle("Paid admission at fixed Q | Frozen 90",x=.06,y=.986,ha="left",fontweight="bold",fontsize=15)
     fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.51,.95),ncol=6,frameon=False)
-    fig.text(.06,.015,"Matched IBS = same GPU, scorer and stopping rule per offer. Other dashed points are historical. "
-             "Missing is not zero. No interpolation across untested budgets.",fontsize=9)
+    foot="Matched IBS = same GPU, scorer and stopping rule per offer. "
+    if matched_live:
+        foot+=f"Ring = same-A3 Gemma Q128 Live ({matched[0]}/90, {matched[1]:.3f} TPF, {matched[2]:.2f}% TE). "
+    fig.text(.06,.015,foot+"Other references historical. Missing is not zero.",fontsize=9)
     fig.savefig(out,dpi=145,bbox_inches="tight",pad_inches=.17)
     plt.close(fig)
 
@@ -104,5 +116,6 @@ if __name__=="__main__":
     p.add_argument("files",nargs="+",type=Path)
     p.add_argument("--historical",type=Path,required=True)
     p.add_argument("--out",type=Path,required=True)
+    p.add_argument("--matched-live",type=Path)
     args=p.parse_args()
-    draw(collect(args.files,args.historical),args.out)
+    draw(collect(args.files,args.historical),args.out,args.matched_live)

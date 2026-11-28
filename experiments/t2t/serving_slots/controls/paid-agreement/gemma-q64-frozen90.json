@@ -242,6 +242,32 @@
       }
     ]
   },
+  "first_measured_left_hole": {
+    "gain": {
+      "all_behind": 0,
+      "any_behind": 0,
+      "behind_rows": 0,
+      "exposed": 1,
+      "extra_rows": 1,
+      "n": 1
+    },
+    "loss": {
+      "all_behind": 5,
+      "any_behind": 5,
+      "behind_rows": 12,
+      "exposed": 7,
+      "extra_rows": 15,
+      "n": 7
+    },
+    "same_score": {
+      "all_behind": 30,
+      "any_behind": 43,
+      "behind_rows": 143,
+      "exposed": 74,
+      "extra_rows": 218,
+      "n": 82
+    }
+  },
   "fixed_q": 64,
   "hashes": {
     "case-00.json": "f48a7bf34fb31c174de85bf96950450c0b008709419f2f9c88c9a780a86f28fd",

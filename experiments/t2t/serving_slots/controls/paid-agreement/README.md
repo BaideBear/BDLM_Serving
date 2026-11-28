@@ -27,8 +27,14 @@ accuracy is [-12.22, -1.11] percentage points (descriptive, not adjusted for
 multiple comparisons). LLaDA Q16 instead saved 1,257 calls and 18,272 rows;
 the +0.428 macro TPF decomposes into +0.085 from length and +0.343 from calls.
 Its net score conceals twelve flips; #75 failed to converge in all three arms
-and remains charged with zero delivery. Historical Live got 75/90 at Q16 and
-88/90 at Gemma Q128; neither is a matched arm here. These three registrations
+and remains charged with zero delivery. Historical LLaDA Live got 75/90 at Q16.
+**Gemma Q128 Live was subsequently rerun on the same A3.** It scored 88/90
+at 13.047 TPF and 11.97% TE (`N=30,351, F=2,384, Q=253,634`), reproducing the
+historical point. The A3 gap versus the repeat treatment is nine correct
+answers, with 393 additional forwards. This is an end-to-end method comparison:
+both methods use the same board, prompts and scorer, but their native/sparse
+acceptance, writeback and closing rules differ. See the [plot data and source
+digests](q128-same-card-live-point.json). These three paired registrations
 are not a ten-tier curve or evidence for a mixed-budget policy.
 
 Breaking down the Q64 result explains the increase in total computation:
@@ -46,6 +52,16 @@ first difference (block 0, decoder tick 5) it additionally accepted rows
 of those rows individually. Index 88 also went from passing to failing:
 391 → 926 tokens and 45 → 206 F. Both are in the primary 90, not removed
 as outliers; neither implies a serving-time policy for code prompts.
+
+At each A2 request's **first additional acceptance**, a row is a verified
+out-of-order write if a lower-position row was measured on that same tick
+and remained rejected by native **and** treatment. Among 7 lost-score cases
+all extras were behind such a hole on 5; among 82 same-score cases this also
+happened on 30 (74 had any fork). The one rescued case had a fork but no
+such observed hole. For #72 both extras were after still-rejected row 136.
+Only measured rows are tested: absence of a witness does not prove a fully
+resolved physical prefix. This post-hoc association is neither a cause nor
+evidence that a frontier filter would improve quality.
 
 [Budget figure with numeric values](fixed-budget90.png) ·
 [Replot script](../../../../../tools/plot_paid_budget_points.py) ·

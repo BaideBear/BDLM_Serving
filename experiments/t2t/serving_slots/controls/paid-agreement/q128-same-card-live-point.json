@@ -1,0 +1,29 @@
+{
+  "schema": "gemma-live-q128-a3-frozen90-v1",
+  "gpu": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "raw_sha256": "a7d85ee3e36cdc59e100ca76794da35752cab1cebc059f693c64fb4d55542ae4",
+  "reference_sha256": "c7b450237fdf3dd7abc905200e704ea89d9dbee4bd6dacd8806dd03a4a67f93a",
+  "release_sha256": "d5f8845cc21fdbf797b5ed7507a044efc686ad76d75facb49ca54010d33f8842",
+  "live": {
+    "N": 30351,
+    "D": 2310,
+    "E": 74,
+    "F": 2384,
+    "Q": 253634,
+    "count": 90,
+    "correct": 88,
+    "failed_indices": [
+      59,
+      63
+    ],
+    "unscored_indices": [],
+    "macro_tpf": 13.047157730912744,
+    "pooled_te": 0.11966455601378365
+  },
+  "historical_audit": {
+    "comparison": "A3 new vs A7 historical (reproduction check only)",
+    "n": 90,
+    "exact": 90,
+    "mismatch": {}
+  }
+}
