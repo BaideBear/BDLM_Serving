@@ -1,0 +1,515 @@
+{
+  "q": 128,
+  "device": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "rows": [
+    {
+      "index": 7,
+      "dataset": "gsm8k",
+      "fork": {
+        "tick": 3,
+        "block": 0,
+        "k": 1,
+        "repeat": [
+          57
+        ],
+        "current": [
+          95
+        ],
+        "paid_Q": 128
+      },
+      "arms": {
+        "stock": {
+          "N": 184,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1423,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "d0d685795de3e86634ff3f2e9bf8cef063673d9818049dbd629f2203225a7b49"
+        },
+        "repeat": {
+          "N": 182,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 11,
+            "E": 0,
+            "F": 11,
+            "Q": 1267,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "0c232284517ae92cc805507334570be32e5253b5b11e6ffb19406146f01627ad"
+        },
+        "current": {
+          "N": 184,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 10,
+            "E": 0,
+            "F": 10,
+            "Q": 1167,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "49415e8609052b8ba2b73468f6041e0da5a55cad164d6b4234c9ca5f00505a62"
+        }
+      },
+      "doses": {
+        "repeat": 3,
+        "current": 8
+      },
+      "case_sha256": "0f7c2d5776cd961b722fe839bd1f10b7961d8db080ce9f8e30a02e1205004904"
+    },
+    {
+      "index": 13,
+      "dataset": "math500",
+      "fork": {
+        "tick": 2,
+        "block": 0,
+        "k": 3,
+        "repeat": [
+          26,
+          27,
+          38
+        ],
+        "current": [
+          70,
+          89,
+          90
+        ],
+        "paid_Q": 128
+      },
+      "arms": {
+        "stock": {
+          "N": 274,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2228,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 405,
+            "paid_rows": 405
+          },
+          "delivered_sha256": "de74114fa79df047a651ccc8719a781d79914e6686b0caa2e18d6f33e55bab40"
+        },
+        "repeat": {
+          "N": 251,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1150,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "4d617f67921cbe3cbfa55a82d51b67f69be6601867593be93442d708902fd7d3"
+        },
+        "current": {
+          "N": 374,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2416,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 504,
+            "paid_rows": 504
+          },
+          "delivered_sha256": "c16bb3f46827438ab367ef39f28e95f0c444c06d47da60933c98a47f7e5cc54a"
+        }
+      },
+      "doses": {
+        "repeat": 10,
+        "current": 21
+      },
+      "case_sha256": "70a63ce1b10917b651b60bcc9902dce8bdd6b5b3581b0dc74d0a56ba51c87ac9"
+    },
+    {
+      "index": 25,
+      "dataset": "humaneval",
+      "fork": {
+        "tick": 5,
+        "block": 0,
+        "k": 5,
+        "repeat": [
+          171,
+          192,
+          193,
+          200,
+          204
+        ],
+        "current": [
+          171,
+          184,
+          186,
+          193,
+          194
+        ],
+        "paid_Q": 121
+      },
+      "arms": {
+        "stock": {
+          "N": 224,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80"
+        },
+        "repeat": {
+          "N": 224,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80"
+        },
+        "current": {
+          "N": 224,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "delivered_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80"
+        }
+      },
+      "doses": {
+        "repeat": 5,
+        "current": 5
+      },
+      "case_sha256": "a908032b4cea6377a131005f4aa558333d99dfd9b27961198b79ef1b87403d8b"
+    },
+    {
+      "index": 33,
+      "dataset": "gsm8k",
+      "fork": {
+        "tick": 1,
+        "block": 0,
+        "k": 1,
+        "repeat": [
+          9
+        ],
+        "current": [
+          107
+        ],
+        "paid_Q": 128
+      },
+      "arms": {
+        "stock": {
+          "N": 265,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 18,
+            "E": 1,
+            "F": 19,
+            "Q": 2076,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 396,
+            "paid_rows": 396
+          },
+          "delivered_sha256": "2a8a1f5573a9ff5a11c053e6a08d5b6e7af5b7b234d68f5f9d51102cdad4241e"
+        },
+        "repeat": {
+          "N": 254,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 15,
+            "E": 1,
+            "F": 16,
+            "Q": 1599,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "delivered_sha256": "38e67af7f8121bfbf5073fd5dba236cec35284722bd92288ad0d2d13ccaf9af7"
+        },
+        "current": {
+          "N": 260,
+          "correct": true,
+          "scoring": "numeric_exact_match",
+          "bill": {
+            "D": 13,
+            "E": 1,
+            "F": 14,
+            "Q": 1400,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "delivered_sha256": "fc177f75d95d2c6b33751fe5a51feecb9e6780899d7f2035aaa715632025401b"
+        }
+      },
+      "doses": {
+        "repeat": 3,
+        "current": 6
+      },
+      "case_sha256": "6377a349281ad01aaf434a700a0d14e5290d0f7e84b2a089f1813f0e9567c1d4"
+    },
+    {
+      "index": 55,
+      "dataset": "math500",
+      "fork": {
+        "tick": 3,
+        "block": 0,
+        "k": 2,
+        "repeat": [
+          42,
+          111
+        ],
+        "current": [
+          134,
+          140
+        ],
+        "paid_Q": 128
+      },
+      "arms": {
+        "stock": {
+          "N": 398,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 28,
+            "E": 1,
+            "F": 29,
+            "Q": 3011,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 512,
+            "paid_rows": 512
+          },
+          "delivered_sha256": "4a672640a60095f2afe409dd82e05dee06aeb00df05b61c467204d97336d64f2"
+        },
+        "repeat": {
+          "N": 365,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2249,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 496,
+            "paid_rows": 496
+          },
+          "delivered_sha256": "7a17225480cf0abc949a61a9c2daaaa8b9175df63c0ef9dd426a7345bb62ffac"
+        },
+        "current": {
+          "N": 385,
+          "correct": true,
+          "scoring": "math_verify_0.8.0_last_box",
+          "bill": {
+            "D": 23,
+            "E": 1,
+            "F": 24,
+            "Q": 2300,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 512,
+            "paid_rows": 512
+          },
+          "delivered_sha256": "d1238881c7c67321c4069a31d15516c7c75d4e8a44bed8c27be17fed8eedfca4"
+        }
+      },
+      "doses": {
+        "repeat": 4,
+        "current": 17
+      },
+      "case_sha256": "123bc4e1b15ce1b42792789812f786c6ee0e2fe0d320c9d7869c6082d8149952"
+    },
+    {
+      "index": 71,
+      "dataset": "humaneval",
+      "fork": null,
+      "arms": {
+        "stock": {
+          "N": 99,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "delivered_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2"
+        },
+        "repeat": {
+          "N": 99,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "delivered_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2"
+        },
+        "current": {
+          "N": 99,
+          "correct": true,
+          "scoring": "humaneval_base_pass1",
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "delivered_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2"
+        }
+      },
+      "doses": {
+        "repeat": 0,
+        "current": 0
+      },
+      "case_sha256": "3f9ccd1c095c9e563a6079baf364f8b7dbc7a8823815bd00c4922c2290172534"
+    }
+  ],
+  "cohorts": {
+    "six": {
+      "stock": {
+        "correct": 6,
+        "N": 1444,
+        "F": 100,
+        "Q": 10725,
+        "te": 0.13463869463869463,
+        "tpf": 15.652980527280219
+      },
+      "repeat": {
+        "correct": 6,
+        "N": 1375,
+        "F": 79,
+        "Q": 8252,
+        "te": 0.16662627241880756,
+        "tpf": 18.034447738252087
+      },
+      "current": {
+        "correct": 6,
+        "N": 1526,
+        "F": 88,
+        "Q": 9270,
+        "te": 0.16461704422869472,
+        "tpf": 18.045660800552106
+      }
+    },
+    "orig3": {
+      "stock": {
+        "correct": 3,
+        "N": 682,
+        "F": 43,
+        "Q": 4613,
+        "te": 0.14784305224365923,
+        "tpf": 18.415458937198068
+      },
+      "repeat": {
+        "correct": 3,
+        "N": 657,
+        "F": 31,
+        "Q": 3379,
+        "te": 0.1944362237348328,
+        "tpf": 21.820707070707073
+      },
+      "current": {
+        "correct": 3,
+        "N": 782,
+        "F": 41,
+        "Q": 4545,
+        "te": 0.17205720572057207,
+        "tpf": 20.88695652173913
+      }
+    },
+    "added3": {
+      "stock": {
+        "correct": 3,
+        "N": 762,
+        "F": 57,
+        "Q": 6112,
+        "te": 0.12467277486910995,
+        "tpf": 12.890502117362372
+      },
+      "repeat": {
+        "correct": 3,
+        "N": 718,
+        "F": 48,
+        "Q": 4873,
+        "te": 0.147342499486969,
+        "tpf": 14.248188405797102
+      },
+      "current": {
+        "correct": 3,
+        "N": 744,
+        "F": 47,
+        "Q": 4725,
+        "te": 0.15746031746031747,
+        "tpf": 15.20436507936508
+      }
+    }
+  }
+}

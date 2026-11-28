@@ -51,9 +51,10 @@ def guard(stage):
             f"Unexpected A3 state at {stage}: {apps}")
 
 
-def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring, special):
+def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring, special,
+            *, agreement_type=Agreement):
     stop = Stop("paid", Q)
-    agreement = None if mode == "stock" else Agreement(
+    agreement = None if mode == "stock" else agreement_type(
         apply=(mode == "apply"), excluded_ids=special, floor=0.5)
     prompt = data["input_ids"][0].tolist()
     eos = set(model.generation_config.eos_token_id)
@@ -126,7 +127,7 @@ def match(arms):
     return first
 
 
-def main():
+def main(extra_control=None, control_name="equal_dose"):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, required=True)
     ap.add_argument("--deadline", type=int, required=True)
@@ -176,6 +177,8 @@ def main():
         arms = {m: run_arm(rt, torch, model, data, proc, controls, unmask, task, m, scoring, special)
                 for m in order}
         first = match(arms)
+        comparison = (None if extra_control is None else extra_control(
+            arms, rt, torch, model, data, proc, controls, unmask, task, scoring, special))
         row = dict(
             index=index, task_id=task["task_id"], dataset=task["dataset"], seed=task["seed"],
             order=order,
@@ -189,6 +192,8 @@ def main():
                   for m, v in arms.items()},
             first_extra=first,
             stock_observer_identical=stable(arms["stock"]) == stable(arms["observer"]))
+        if comparison is not None:
+            row[control_name] = comparison
         per_case.append(row)
         (a.root / f"case-{index:02}.json").write_text(json.dumps(row, separators=(",", ":")) + "\n")
         print(json.dumps(dict(index=index, first_extra=first,
@@ -196,7 +201,9 @@ def main():
                          separators=(",", ":")), flush=True)
     gate = ("passed" if all(r["stock_observer_identical"] for r in per_case) else "failed")
     (a.root / "summary.json").write_text(json.dumps(dict(
-        schema="gemma-paid-agreement-q128-v1", gpu=GPU, q=Q, cases=list(CASES),
+        schema=("gemma-paid-agreement-q128-v1" if extra_control is None
+                else f"gemma-paid-agreement-{control_name.replace('_','-')}-six-v1"),
+        gpu=GPU, q=Q, cases=list(CASES),
         gate=gate, per_case=per_case, torch=str(torch.__version__),
         transformers=transformers.__version__, model=str(MODEL), samples=str(SAMPLES),
         baseline_sha=BASELINE_SHA, optimus=OPTIMUS), indent=2) + "\n")

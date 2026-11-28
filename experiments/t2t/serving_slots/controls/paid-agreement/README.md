@@ -89,6 +89,15 @@ matched interventions. Neither a quality loss with more TPF nor a TPF gain
 caused solely by longer output is a joint win. Do not promote to all ten
 offers, schedule mixed budgets, or stack another factor on the six-case result.
 
+With matched task IDs and seeds, the historical Live / A3 paid IBS / A3
+candidate scores were 30/29/28 on GSM8K, 28/24/27 on MATH500, and 30/25/24
+on HumanEval (each out of 30). Of the nine Live successes missed by the
+candidate, five were already missed by IBS and four were lost at treatment.
+Both Live failures remained failures under both A3 arms. These are outcome
+overlaps across executors and devices, not causal evidence about T2T.
+[Join and per-task counts](q128-live-gap.json) ·
+[Same-dose A3 placement ablation](equal-dose.md).
+
 ## Is the repeat signal picking different positions from confidence alone?
 
 On the unchanged GPU **observer** trajectory, take each step with `k>0` extra
