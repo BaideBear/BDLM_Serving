@@ -403,11 +403,12 @@ class AblationRequest(FixedFamilyRequest):
         if self.frontier_ordinal != head.ordinal:
             self.frontier_ordinal = head.ordinal
             self.frontier_previous = None
-        unresolved = FULL-head.rows.accepted
-        frontier = min(unresolved, default=B)
-        if not set(range(frontier)).issubset(head.rows.accepted) or \
-                head.rows.dirty & set(range(frontier)):
-            raise RuntimeError('Frontier is not accepted, initialized and debt-free')
+        # This is the accepted, initialized, non-dirty contiguous prefix length;
+        # an ineligible or zero-length entry deliberately gets current=0.
+        frontier = 0
+        while (frontier < B and frontier in head.rows.accepted and
+               frontier in head.rows.initialized and frontier not in head.rows.dirty):
+            frontier += 1
         if self.frontier_gate:
             frontier_receipt = dict(previous=self.frontier_previous, current=frontier,
                                     ordinal=head.ordinal, gate=True)
