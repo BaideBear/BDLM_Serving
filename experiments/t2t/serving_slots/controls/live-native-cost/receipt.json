@@ -1,0 +1,275 @@
+{
+  "schema": "live-native-cost-v1",
+  "source_manifest_sha256": {
+    "verified_eos": "96ad086779198373e7f5b3291677e8c7d72ee4988bbe7f8673aa9e2bd52c838a",
+    "profile_close": "d63e6377088cfa935077a8cd2aef59cd930cb109d6579ac27bc5aaf5a42c3da2",
+    "cold_pacing": "e4a5f397f6ed63cc138dbc65ad3c9fe8290bd7889c0d74e922fa9bc77ce0d8e9"
+  },
+  "cohorts": {
+    "original30": {
+      "requests": 30,
+      "bills": {
+        "correct": 30,
+        "N": 9683,
+        "F": 801,
+        "decoder_F": 779,
+        "decoder_Q": 84656,
+        "encoder_F": 22,
+        "encoder_Q": 5632
+      },
+      "route_F": {
+        "sparse": 536,
+        "drain": 152,
+        "verify": 79,
+        "verify_paid": 12
+      },
+      "route_Q": {
+        "sparse": 58156,
+        "drain": 14852,
+        "verify": 10112,
+        "verify_paid": 1536
+      },
+      "drain": {
+        "cold_drain_F": 52,
+        "warm_drain_F": 60,
+        "closing_drain_F": 40,
+        "closing_drain_Q": 516
+      },
+      "extra": {
+        "eos_saved_F": 13,
+        "already_fused_F": 12,
+        "already_fused_dirty_Q": 141,
+        "ordinary_dirty_Q": 44326,
+        "prefix_edits": 3,
+        "prefix_revoked": 14
+      },
+      "macro_tpf": 12.424388459821785,
+      "pooled_TE": 0.11438055188055188
+    },
+    "new60": {
+      "requests": 60,
+      "bills": {
+        "correct": 58,
+        "N": 20668,
+        "F": 1583,
+        "decoder_F": 1531,
+        "decoder_Q": 168978,
+        "encoder_F": 52,
+        "encoder_Q": 13312
+      },
+      "route_F": {
+        "sparse": 1031,
+        "drain": 309,
+        "verify": 160,
+        "verify_paid": 31
+      },
+      "route_Q": {
+        "sparse": 113590,
+        "drain": 30940,
+        "verify": 20480,
+        "verify_paid": 3968
+      },
+      "drain": {
+        "cold_drain_F": 112,
+        "warm_drain_F": 116,
+        "closing_drain_F": 81,
+        "closing_drain_Q": 1756
+      },
+      "extra": {
+        "eos_saved_F": 33,
+        "already_fused_F": 31,
+        "already_fused_dirty_Q": 346,
+        "ordinary_dirty_Q": 85634,
+        "prefix_edits": 21,
+        "prefix_revoked": 27
+      },
+      "macro_tpf": 13.358542366458225,
+      "pooled_TE": 0.12231178023174614
+    },
+    "frozen90": {
+      "requests": 90,
+      "bills": {
+        "correct": 88,
+        "N": 30351,
+        "F": 2384,
+        "decoder_F": 2310,
+        "decoder_Q": 253634,
+        "encoder_F": 74,
+        "encoder_Q": 18944
+      },
+      "route_F": {
+        "sparse": 1567,
+        "drain": 461,
+        "verify": 239,
+        "verify_paid": 43
+      },
+      "route_Q": {
+        "sparse": 171746,
+        "drain": 45792,
+        "verify": 30592,
+        "verify_paid": 5504
+      },
+      "drain": {
+        "cold_drain_F": 164,
+        "warm_drain_F": 176,
+        "closing_drain_F": 121,
+        "closing_drain_Q": 2272
+      },
+      "extra": {
+        "eos_saved_F": 46,
+        "already_fused_F": 43,
+        "already_fused_dirty_Q": 487,
+        "ordinary_dirty_Q": 129960,
+        "prefix_edits": 24,
+        "prefix_revoked": 41
+      },
+      "macro_tpf": 13.047157730912744,
+      "pooled_TE": 0.11966455601378365
+    }
+  },
+  "a0_probe": {
+    "worker": {
+      "kind": "start",
+      "pid": 789075,
+      "gpu": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+      "q": 128,
+      "cases": [
+        0,
+        10,
+        20,
+        30,
+        40,
+        50
+      ],
+      "source": "d37b3b8d3cb2b2b61735792c91113c185f77f567e832d4241daf08ce6399e122"
+    },
+    "totals": {
+      "opportunities": 0,
+      "warm_drains": 9,
+      "cold_drains": 9,
+      "closing_drains": 6
+    },
+    "stock_bills": {
+      "F": 139,
+      "D": 136,
+      "E": 3,
+      "Q": 14984,
+      "N": 1743,
+      "correct": 5,
+      "saved": 0
+    },
+    "release": "RELEASE rc=0 launcher=789027 gpu=GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1 memory_mib=0 apps='' locks=closed date=2026-11-28T20:20:45+08:00",
+    "raw_sha256": "7e164a582fab4e1bd4d789ecda1df54691f299a0a974a9b43a8073a6ca842fc7",
+    "comparisons": [
+      {
+        "index": 0,
+        "same": {
+          "F": false,
+          "N": false,
+          "correct": true,
+          "encoder_digest": false,
+          "tape": false,
+          "ids": false,
+          "D": false,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": false
+        },
+        "first_divergent_tick": 0
+      },
+      {
+        "index": 10,
+        "same": {
+          "F": false,
+          "N": false,
+          "correct": true,
+          "encoder_digest": false,
+          "tape": false,
+          "ids": false,
+          "D": false,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": true
+        },
+        "first_divergent_tick": 0
+      },
+      {
+        "index": 20,
+        "same": {
+          "F": true,
+          "N": true,
+          "correct": false,
+          "encoder_digest": true,
+          "tape": false,
+          "ids": false,
+          "D": true,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": true
+        },
+        "first_divergent_tick": 0
+      },
+      {
+        "index": 30,
+        "same": {
+          "F": false,
+          "N": false,
+          "correct": true,
+          "encoder_digest": true,
+          "tape": false,
+          "ids": false,
+          "D": false,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": true
+        },
+        "first_divergent_tick": 0
+      },
+      {
+        "index": 40,
+        "same": {
+          "F": false,
+          "N": false,
+          "correct": true,
+          "encoder_digest": true,
+          "tape": false,
+          "ids": false,
+          "D": false,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": true
+        },
+        "first_divergent_tick": 0
+      },
+      {
+        "index": 50,
+        "same": {
+          "F": false,
+          "N": false,
+          "correct": true,
+          "encoder_digest": false,
+          "tape": false,
+          "ids": false,
+          "D": false,
+          "E": true,
+          "Q": false,
+          "cold_drains": true,
+          "warm_drains": true,
+          "closing_drains": false
+        },
+        "first_divergent_tick": 0
+      }
+    ],
+    "treatment_requests": 0
+  }
+}
