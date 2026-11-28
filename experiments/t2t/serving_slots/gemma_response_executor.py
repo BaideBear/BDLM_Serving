@@ -189,8 +189,8 @@ def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
             data = proc.apply_chat_template([{'role': 'user', 'content': task['prompt']}],
                 tokenize=True, add_generation_prompt=True, return_dict=True,
                 return_tensors='pt').to('cuda:0')
-            reference_path = references / f'C64-fuse1-{index:02}.json'
-            sealed = json.loads(reference_path.read_bytes())
+            reference_path = references / f'C64-pair-{index:02}.json'
+            sealed = json.loads(reference_path.read_bytes())['on']
             reference = run_reference(model, data, task, deadline=deadline)
             reference['N'] = sum(x not in special for x in reference['output_ids'])
             reference['text'] = proc.tokenizer.decode(reference['output_ids'], skip_special_tokens=True)
