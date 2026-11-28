@@ -40,9 +40,11 @@ def run(a):
             and sha256(b"".join(bytes.fromhex(sha(p)) for p in files)).hexdigest()==PARENTS[q][1]
             and device.startswith("GPU-") and torch.cuda.device_count()==1 and reg["device"]==device
             and reg["checkpoint"]==str(a.checkpoint) and len(files)==90,"unsealed parent or GPU")
+    solo=a.scope=="solo"
+    require(not solo or q==64,"solo follow-up is registered at Q64")
     tasks=load_tasks(a.samples)
     a.out.mkdir(exist_ok=False); (a.out/"rows").mkdir()
-    save(a.out/"run.json",dict(protocol=PROTOCOL,device=device,q=q,parent=PARENTS[q],
+    save(a.out/"run.json",dict(protocol=PROTOCOL,device=device,q=q,parent=PARENTS[q],scope=a.scope,
          samples=SAMPLES,scorer=SCORER_SHA,checkpoint=str(a.checkpoint),order=ORDER,
          sources={p.name:sha(p) for p in map(Path,(__file__,llada_frontier_accept.__file__,
                                                     llada_agreement.__file__))},pid=os.getpid()))
@@ -53,7 +55,7 @@ def run(a):
         kwargs=dict(cross=("quarter",False),coverage="head",warm_head_sample=True)
     else:
         kwargs=dict(cross=("head",False),close_policy="edit_once")
-    classes={"old":base,"frontier":frontier_class(base)};added=0
+    classes={"old":base,"frontier":frontier_class(base,solo=solo)};added=excluded=0
     for j,i in enumerate(ORDER):
         require(time.time()<a.deadline-60,"deadline")
         native=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
@@ -67,19 +69,24 @@ def run(a):
         oldref=dict(oldref) if q==64 else compact({**oldref,"output_ids":oldref["ids"]})
         require(actual==oldref and all(all(r[k]==hist[k] for k in KEYS)
                 and r["input_sha256"]==hist["input"] for r in arms.values()),"reference did not replay")
-        first,n,calls=check_first(old,arms["frontier"],mask,q); added+=n
+        blocked=[]
+        first,n,calls=check_first(old,arms["frontier"],mask,q,solo=solo,excluded=blocked)
+        added+=n;excluded+=sum(blocked)
         save(a.out/"rows"/f"{i:02d}.json",dict(**{k:old[k] for k in KEYS},input=hist["input"],
              reference_equal=True,first=first,added=n,changed_F=calls,
+             **(dict(joint_withheld=sum(blocked)) if solo else {}),
              old=actual,frontier=compact(arms["frontier"])))
         print(i,"additional admissions",n,flush=True)
-        if j+1==len(ANCHORS) and not added:
-            print("No additional admission on anchors; stopping.",flush=True)
+        if j+1==len(ANCHORS) and (not added or (solo and not excluded)):
+            print("No distinct intervention on anchors; stopping.",flush=True)
             return
 
 
 def report(root, manifest):
     meta=json.loads((root/"run.json").read_bytes()); q=meta["q"]
-    require(meta["protocol"]==PROTOCOL and meta["parent"]==list(PARENTS[q])
+    solo=meta.get("scope","all")=="solo"
+    require(meta.get("scope","all") in ("solo","all") and (not solo or q==64)
+            and meta["protocol"]==PROTOCOL and meta["parent"]==list(PARENTS[q])
             and meta["order"]==list(ORDER) and meta["samples"]==manifest["samples_sha256"]==SAMPLES
             and meta["scorer"]==SCORER_SHA,"invalid registration")
     rows={}; files=sorted((root/"rows").glob("*.json"))
@@ -88,10 +95,12 @@ def report(root, manifest):
         require(p.name==f"{i:02d}.json" and all(r[k]==manifest["samples"][i][k] for k in KEYS)
                 and r["reference_equal"] and bool(r["first"])==bool(r["added"])==bool(r["changed_F"])
                 and 0<=r["changed_F"]<=r["added"] and (r["first"] or r["old"]==r["frontier"])
+                and (not solo or r["joint_withheld"]>=0)
                 and all(0<v["max_decoder_Q"]<=q and v["F"]<=v["Q"]<=v["F"]*q and v["N"]>=0
                         for v in (r["old"],r["frontier"])),"invalid receipt")
         rows[i]=r
-    require(set(rows)==set(ORDER[:len(rows)]) and (len(rows)<=3 or any(rows[i]["added"] for i in ANCHORS)),
+    require(set(rows)==set(ORDER[:len(rows)]) and (len(rows)<=3 or
+            any(rows[i]["added"] for i in ANCHORS) and (not solo or any(rows[i]["joint_withheld"] for i in ANCHORS))),
             "invalid exposure or order")
     cohorts={}
     for name,idx in (("original30",range(30)),("new60",range(30,90)),("frozen90",range(90))):
@@ -101,6 +110,8 @@ def report(root, manifest):
                 added=sum(r["added"] for r in part),ci=paired(part,"old","frontier"),
                 rescued=sum(r["frontier"]["correct"] and not r["old"]["correct"] for r in part),
                 lost=sum(r["old"]["correct"] and not r["frontier"]["correct"] for r in part))
+        if solo:
+            g["joint_withheld"]=sum(r["joint_withheld"] for r in part)
         for k in ("old","frontier"):
             sums={key:sum(r[k][key] for r in part) for key in ("correct","N","F","Q")}
             g[k]=dict(**sums,failed=sum(bool(r[k]["failure"]) for r in part),
@@ -115,6 +126,7 @@ if __name__=="__main__":
     for field in ("checkpoint","samples","reference","out"):
         live.add_argument("--"+field,type=Path,required=True)
     live.add_argument("--q",choices=PARENTS,type=int,required=True)
+    live.add_argument("--scope",choices=("all","solo"),default="all")
     live.add_argument("--deadline",type=int,required=True)
     rep=cmd.add_parser("report");rep.add_argument("root",type=Path);rep.add_argument("manifest",type=Path)
     a=ap.parse_args()

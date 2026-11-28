@@ -50,3 +50,14 @@ def test_cold_head_cannot_extend_despite_a_contiguous_qualified_run():
     e["admitted"]=[2,3]
     with pytest.raises(ValueError,match="explained"):
         audit([e],0,32,True)
+
+
+def test_solo_rule_disables_the_new_write_on_first_or_existing_successor_projection():
+    for pos,last_end in (([2,3,32],32),([2,3],40)):
+        old=event(pos,[.6]+[.95]*(len(pos)-1),pos[1:],last_end=last_end)
+        excluded=[]
+        assert audit([old],0,64,True,solo=True,excluded=excluded)==[set()] and excluded==[1]
+        with pytest.raises(ValueError,match="explained"):
+            audit([old],0,64,True)
+    one=event([2,3],[.6,.95],[2,3])
+    assert audit([one],0,64,True,solo=True)==[{2}]

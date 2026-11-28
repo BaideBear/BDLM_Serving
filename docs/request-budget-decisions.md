@@ -53,6 +53,15 @@ LLaDA 五个固定档各三题逐位置复现独立实现；混合循环覆盖�
 多付了 57 F，TPF 23.535→22.330、TE 8.84%→8.48%。不作为默认改动。
 这不是说终检可以删：进入后续 encoder 的 78 个已验证块中，有 5 个与验证前的草稿不同。
 
+**本来要投影，并不意味着本轮应该多走一步采样时钟。** 在每个新 Gemma 块尚未建全时，
+只改第一次纯写回：让这次本就投影的未接受行多走一次原生采样。该轮实算宽度不变，
+但 [Q32](../experiments/t2t/serving_slots/controls/gemma-factors/cold-first-retry-q32/README.md)
+从 85 降到 76/90，TPF 4.879→5.067，TE 15.63%→15.83%，整批 F **增加** 199；
+[Q64](../experiments/t2t/serving_slots/controls/gemma-factors/cold-first-retry-q64/README.md)
+从 83 降到 80/90，TPF 8.176→7.940，TE 13.96%→12.76%。
+这两档不采用。与 LLaDA Q16 的区别不是预算大小：后者只是把已经投影的等待 MASK
+加入**本就发生**的常规采样，不凭空多走一个采样时钟。
+
 **最紧的一档已经有同题实测。** [LLaDA 固定 Q4，首个未解 MASK 附近的活动窗口](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c4-window-frozen90.json)
 在原30、新60分别为 **25/30、47/60**，严格限宽 IBS4 为 **23/30、46/60**。全90三项为
 **72/90、1.504 TPF、37.68% TE**，对照 **69/90、1.395、35.66%**。

@@ -1,7 +1,7 @@
 """One M2T factor at B and 2B: use a contiguous paid run at the warm head frontier."""
 
 
-def frontier_class(control):
+def frontier_class(control, *, solo=False):
     """Keep normal and consecutive-vote admissions; add a paid left-hand run."""
     class Frontier(control):
         def _step(self, q):
@@ -17,7 +17,7 @@ def frontier_class(control):
             import torch
             inherited=getattr(super(),"_additional_admissions",None)
             extra=inherited(idx,old,draft,conf,accepted) if inherited else torch.zeros_like(accepted)
-            if self._left is None:
+            if self._left is None or (solo and self.bank.last_end>self.head+32):
                 return extra
             # A gap (not sampled), a resolved position, or a weak/MASK proposal ends the run.
             left=self._left
@@ -29,7 +29,7 @@ def frontier_class(control):
     return Frontier
 
 
-def audit(trace,mask,q,enabled):
+def audit(trace,mask,q,enabled,*,solo=False,excluded=None):
     """Rebuild every acceptance from payments and the independently tracked token state."""
     decoded=set()
     last={}
@@ -63,6 +63,10 @@ def audit(trace,mask,q,enabled):
                 if not v or v[0]!=mask or v[1]==mask or not v[3]:
                     break
                 run.add(p)
+        if solo and (s["last_end"]>head+32 or any(p>=head+32 for p in e["rows"])):
+            if excluded is not None:
+                excluded.append(len(run-normal))
+            run=set()
         if set(e["admitted"])!=normal|(run if enabled else set()):
             raise ValueError("Added admissions not explained by paid contiguous frontier")
         decoded.update(e["admitted"]);decoded.difference_update(e["revoked"])
@@ -70,9 +74,9 @@ def audit(trace,mask,q,enabled):
     return additions
 
 
-def check_first(old,new,mask,q):
-    off=audit(old["trace"],mask,q,False)
-    on=audit(new["trace"],mask,q,True)
+def check_first(old,new,mask,q,*,solo=False,excluded=None):
+    off=audit(old["trace"],mask,q,False,solo=solo)
+    on=audit(new["trace"],mask,q,True,solo=solo,excluded=excluded)
     first=None
     for i,(a,b) in enumerate(zip(old["trace"],new["trace"])):
         if not on[i]:

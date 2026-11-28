@@ -19,6 +19,20 @@ compact metrics use original30/new60/frozen90. The 0.5 condition on
 adjacent measured rows is a hypothesis, not a recommendation to lower
 the global admission threshold.
 
+**Physical-state follow-up at fixed Q64 (A7):** on original30 the all-state
+rule improved Q32 macro TPF (4.811→5.637, 26→26 correct) but Q64 lost four
+correct (28→24, 7.271→7.672). The follow-up is exploratory, registered after
+reading those 30, not an independent statistical confirmation. On top of the
+sealed paid-repeat Q64, allow the additional contiguous admissions only on
+a fully initialized head *without any resident or newly projected successor*.
+Keep the ordinary consecutive confirmation, cold-start rule, thresholds and
+causal mask otherwise unchanged. Reconstruct eligibility from the pre-call
+high-water mark and the positions actually projected; compare against actual
+same-card repeat, also show the separately measured all-state rule. Expand
+only if 0/10/20 have both a real solo addition and a would-have-qualified
+joint admission excluded by this rule (same-state counter, not scored gain).
+No outcome-directed substitutions. Launcher mode `64 DEADLINE solo`.
+
 **Transfer to Q16, not the Q16 paid-waiting sampler.** [Sealed A7 fixed90](q16-agreement-frozen90.json).
 Add only Q64's two-consecutive-paid-proposals acceptance to the original
 Q16 active-window control. Every historical control matched. On 55 exposed

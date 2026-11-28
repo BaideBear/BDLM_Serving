@@ -1,0 +1,4 @@
+cohort,requests,old_correct,new_correct,old_N,new_N,old_F,new_F,old_Q,new_Q,old_macro_TPF,new_macro_TPF,old_macro_TE,new_macro_TE,old_pooled_TPF,new_pooled_TPF,old_pooled_TE,new_pooled_TE,old_strict_cap,new_strict_cap,diverged,visibility_only,same_selection_before,zero_gap_divergence,first_horizon_tick_min,first_horizon_tick_median,horizon_gap_at_horizon_median,horizon_gap_at_output_median
+original30,30,11,7,18468,21958,16220,19696,113469,137794,1.6346012323238144,1.644868492640774,0.23318169647991563,0.23420618611781396,1.1385943279901356,1.1148456539398863,0.162758110144621,0.1593538180182011,True,True,30,30,30,0,2,9.0,4.0,3.0
+new60,0,0,0,0,0,0,0,0,0,,,,,,,,,True,True,0,0,0,0,,,,
+all90,30,11,7,18468,21958,16220,19696,113469,137794,1.6346012323238144,1.644868492640774,0.23318169647991563,0.23420618611781396,1.1385943279901356,1.1148456539398863,0.162758110144621,0.1593538180182011,True,True,30,30,30,0,2,9.0,4.0,3.0

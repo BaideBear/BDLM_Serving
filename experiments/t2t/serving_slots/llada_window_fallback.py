@@ -27,6 +27,50 @@ def protected(paid):
     return ColdFallback
 
 
+def first_waiting(paid):
+    """Use the same projected rows; only the true head frontier may join cold sampling."""
+    class FirstPaid(paid):
+        def _cross_plan(self,q):
+            p,s,phase,cap=super()._cross_plan(q)
+            if self.extra_window_mask:
+                masks,_,_=self._inputs(32)
+                self.extra_window_mask=tuple(x for x in self.extra_window_mask if x==min(masks))
+                s=tuple(sorted((*p.cold,*self.extra_window_mask)))
+            return p,s,phase,cap
+    return FirstPaid
+
+
+def compare_first(a,b,mask):
+    decoded=set()
+    first=None
+    omitted=retained=accepted=0
+    for i,y in enumerate(b["trace"]):
+        st=y["pre_state"]; lo=max(st["origin"],st["head"]); hi=min(st["end"],st["head"]+32)
+        pool=(set(y["mask"])-set(y["dirty"])) if y["cold"] and y["sampled"] else set()
+        left=next((p for p in range(lo,hi) if p not in decoded),None) if pool else None
+        keep=pool & {left}
+        require(set(y.get("paid_waiting_mask",()))==keep and (not pool or
+                set(y["sampled"])==set(y["cold"])|keep) and
+                set(y["admitted"])==set(decision(y,mask,False)), "wrong paid-frontier decision")
+        omitted+=len(pool-keep);retained+=len(keep);accepted+=len(keep&set(y["admitted"]))
+        if first is None:
+            require(i<len(a["trace"]),"extra tick before a real change")
+            x=a["trace"][i]
+            if pool-keep:
+                require(set(x["sampled"])==set(y["sampled"])|(pool-keep) and
+                        set(x["paid_waiting_mask"])==pool and all(x[k]==y[k] for k in
+                        ("pre_state","rows","q","cold","dirty","prefix","mask","sample_clock",
+                         "layer_physical_q","phase","visible_kv")), "unmatched first sampling change")
+                first=dict(tick=i,removed=sorted(pool-keep),kept=sorted(keep),width=y["q"])
+            else:
+                require(x==y,"changed before the first eligible restriction")
+        decoded.update(y["admitted"]);decoded.difference_update(y["revoked"])
+    if not first:
+        require(len(a["trace"])==len(b["trace"]) and all(a[k]==b[k] for k in
+                ("score","F","Q","N","failure","output_ids")),"unexplained no-op difference")
+    return first,dict(omitted=omitted,retained=retained,accepted=accepted)
+
+
 def decision(e,mask,protect):
     """Independently reconstruct actual writes from measured proposals."""
     measured=list(zip(e["sampled"],e.get("proposals",[])))
@@ -91,7 +135,8 @@ def run(a):
     tasks=load_tasks(a.samples)
     a.out.mkdir(parents=True,exist_ok=False)
     (a.out/"rows").mkdir()
-    save(a.out/"run.json",dict(protocol="llada-q8-cold-fallback-v1",q=8,device=uuid,
+    limit=a.factor=="first_waiting"; name="first_waiting" if limit else "protected"
+    save(a.out/"run.json",dict(protocol="llada-q8-first-waiting-v1" if limit else "llada-q8-cold-fallback-v1",q=8,device=uuid,
          order=ORDER,samples=SAMPLES,scorer=SCORER_SHA,parent=sealed["rows_sha256"],
          sources={Path(p).name:sha(Path(p)) for p in (__file__,base.__file__,sample.__file__)},pid=os.getpid()))
     def ready():
@@ -102,8 +147,8 @@ def run(a):
     tok,model=load_gpu(a,ready)
     _,paid=sample.variants(request_classes()[1])
     mask=tok.convert_tokens_to_ids("<|mask|>")
-    variants={"paid":paid,"protected":protected(paid)}
-    exposed=0
+    variants={"paid":paid,name:first_waiting(paid) if limit else protected(paid)}
+    exposed=admitted=0
     for j,i in enumerate(ORDER):
         ref=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
         old=json.loads(raw[i].read_bytes())
@@ -111,8 +156,13 @@ def run(a):
         res={k:evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],8,Law(),cross=("head",False),
              audit_admission=True,request_cls=variants[k]) for k in
              (tuple(variants) if j%2==0 else tuple(reversed(variants)))}
-        first,swaps=compare(*[res[k] for k in variants],mask)
-        row=dict(first=first,swaps=swaps,input=old["input"],**{k:tasks[i][k] for k in KEYS})
+        if limit:
+            first,stats=compare_first(res["paid"],res[name],mask)
+            admitted+=stats["accepted"]
+        else:
+            first,swaps=compare(res["paid"],res[name],mask)
+            stats=dict(swaps=swaps)
+        row=dict(first=first,**stats,input=old["input"],**{k:tasks[i][k] for k in KEYS})
         for k,v in res.items():
             require(all(row[t]==v[t]==old[t] for t in KEYS) and row["input"]==v["input_sha256"]
                     and 0<v["max_decoder_Q"]<=8 and v["Q"]==sum(e["q"] for e in v["trace"])
@@ -122,23 +172,28 @@ def run(a):
         require(all(old["paid"][k]==v for k,v in row["paid"].items()),"same-device control differs")
         save(a.out/"rows"/f"{i:02d}.json",row)
         exposed+=bool(first)
-        print(i,first,swaps,flush=True)
+        print(i,first,stats,flush=True)
         if j+1==len(ANCHORS):
+            if limit and (not exposed or not admitted):
+                print("Stopped: not distinct from both cold-only and paid-all on anchors.",flush=True)
+                return
             require(exposed>0,"no actual fallback exchange on registered anchors")
 
 
 def report(root,manifest):
     reg=json.loads((root/"run.json").read_bytes())
-    require(reg["protocol"]=="llada-q8-cold-fallback-v1" and reg["samples"]==SAMPLES==manifest["samples_sha256"]
+    limit=reg["protocol"]=="llada-q8-first-waiting-v1"; name="first_waiting" if limit else "protected"
+    require((limit or reg["protocol"]=="llada-q8-cold-fallback-v1") and reg["samples"]==SAMPLES==manifest["samples_sha256"]
             and reg["order"]==list(ORDER) and reg["scorer"]==SCORER_SHA,"wrong run")
     rows={}
     digest=sha256()
     for path in sorted((root/"rows").glob("*.json")):
         blob=path.read_bytes(); r=json.loads(blob); i=r["index"]
         require(path.name==f"{i:02d}.json" and all(r[k]==manifest["samples"][i][k] for k in KEYS)
-                and bool(r["first"])==bool(r["swaps"]) and (r["first"] or r["protected"]==r["paid"])
+                and bool(r["first"])==bool(r["omitted"] if limit else r["swaps"])
+                and (not limit or 0<=r["accepted"]<=r["retained"]) and (r["first"] or r[name]==r["paid"])
                 and all(0<v["F"]<=v["Q"]<=8*v["F"] and (not v["correct"] or not v["failure"])
-                        for v in [r["paid"],r["protected"]]),"wrong receipt")
+                        for v in [r["paid"],r[name]]),"wrong receipt")
         rows[i]=r; digest.update(sha256(blob).digest())
     require(set(rows)==set(ORDER[:len(rows)]),"unexpected rows")
     cohorts={}
@@ -146,10 +201,11 @@ def report(root,manifest):
         if not set(ids)<=rows.keys(): continue
         part=[rows[i] for i in ids]
         c=cohorts[k]=dict(n=len(part),exposed=sum(bool(r["first"]) for r in part),
-            swaps=sum(r["swaps"] for r in part),ci95=paired(part,"paid","protected"),
-            rescued=sum(not r["paid"]["correct"] and r["protected"]["correct"] for r in part),
-            lost=sum(r["paid"]["correct"] and not r["protected"]["correct"] for r in part))
-        for arm in ("paid","protected"):
+            ci95=paired(part,"paid",name),
+            rescued=sum(not r["paid"]["correct"] and r[name]["correct"] for r in part),
+            lost=sum(r["paid"]["correct"] and not r[name]["correct"] for r in part))
+        c.update({k:sum(r[k] for r in part) for k in (("omitted","retained","accepted") if limit else ("swaps",))})
+        for arm in ("paid",name):
             vals=[r[arm] for r in part]
             s={t:sum(v[t] for v in vals) for t in ("N","F","Q","correct")}
             c[arm]=dict(**s,macro_TPF=mean(v["N"]/v["F"] for v in vals),TE=s["N"]/s["Q"],
@@ -163,6 +219,7 @@ if __name__=="__main__":
     for k in ("out","samples","checkpoint","reference","handoff","parent"):
         ev.add_argument("--"+k,type=Path,required=True)
     ev.add_argument("--deadline",type=int,required=True)
+    ev.add_argument("--factor",choices=("fallback","first_waiting"),default="fallback")
     re=subs.add_parser("report");re.add_argument("root",type=Path);re.add_argument("manifest",type=Path)
     a=ap.parse_args()
     if a.mode=="run": run(a)

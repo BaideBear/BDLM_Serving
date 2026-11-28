@@ -178,6 +178,45 @@ def collect():
     return list(rows.values())
 
 
+def compare_live(rows):
+    """Deltas against the actual comparators, not a per-metric oracle envelope."""
+    at={(r["model"],r["cohort"],r["budget"],r["method"]):r for r in rows}
+    lines=["# Fixed-budget decisions against baselines", "",
+           "Each entry compares the published live request to one measured baseline on the same frozen tasks. "
+           "Use hard-capped IBS below 2B, plus native and Flow at their actual block-size endpoints. "
+           "Uncapped nominal windows are shown separately in the [full table](README.md).",
+           "", "The deltas are live minus baseline, never vs a composite of different baselines. "
+           "Correct deltas are whole questions (not percent); TE deltas are percentage points. "
+           "'Both at least as high' is a point estimate, not a noninferiority test. "
+           "The original and additional tasks are disjoint, not two new independent replications.",
+           "", "| Model | Q | Baseline | Correct delta (30 / 60 / 90) | Macro TPF delta (30 / 60 / 90) | TE delta (90, pp) | Both at least as high (30 / 60 / 90) |",
+           "|---|---:|---|---:|---:|---:|---|"]
+    for model,tiers in MODELS.items():
+        for q in tiers:
+            methods=(["IBS capped"] if q<tiers[-1] else ["Flow W2"])
+            if q==tiers[-2]:
+                methods+=["Native","Flow W1"]
+            for name in methods:
+                score=[]; tpf=[]; wins=[]
+                for c in ("original30","new60","frozen90"):
+                    live=at[model,c,q,"Live profile"]; ref=at[model,c,q,name]
+                    score.append(live["correct"]-ref["correct"])
+                    tpf.append(live["macro_TPF"]-ref["macro_TPF"])
+                    wins.append("yes" if min(score[-1],tpf[-1])>=0 else "no")
+                # The sealed Gemma dense-stop source publishes four decimal places.
+                tol=1.0e-4 if model=="gemma" and q==256 else 1e-6
+                if score[0]+score[1]!=score[2] or not isclose(tpf[0]/3+2*tpf[1]/3,tpf[2],abs_tol=tol):
+                    raise ValueError("The subgroup deltas do not reproduce the full cohort")
+                eff=(f'{100*(live["token_efficiency"]-ref["token_efficiency"]):+.2f}'
+                     if ref["token_efficiency"] is not None else "n/a")
+                triple=" / ".join
+                lines.append(f"| {model} | {q} | {name} | {triple(f'{v:+d}' for v in score)} | "
+                             f"{triple(f'{v:+.3f}' for v in tpf)} | {eff} | {triple(wins)} |")
+    return "\n".join(lines+["","Same offer does not mean the same number of rows over the entire request. "
+                            "Cross-device results are descriptive. See [metrics.csv](metrics.csv) for "
+                            "N, F, selected Q (when verified), source receipts, and the exact series.",""])
+
+
 def render(rows):
     lines=["# Fixed offers: published requests versus measured baselines","",
            "One independent request at the same offer from prompt to final output. "
@@ -220,7 +259,8 @@ def render(rows):
                                  +(f"{100*te:.2f}%" if te is not None else "n/a"))
                 lines.append(f"| {model} | {q} | "+" | ".join(cells)+" |")
         lines+=[""]
-    lines+=["[Budget curves with numeric readouts](frozen90.png). "
+    lines+=["[Same-offer deltas vs each baseline, including original30 and new60](tradeoffs.md). "
+            "[Budget curves with numeric readouts](frozen90.png). "
             "[Numeric data and source paths](metrics.csv). [Lower-offer receipt manifest](llada-lower.json). "
             "Regenerate this table from the repository root with `python -m "
             "experiments.t2t.serving_slots.fixed_request_comparison`. "
@@ -284,4 +324,5 @@ if __name__=="__main__":
     data=collect()
     write_csv(DEST/"metrics.csv",data)
     (DEST/"README.md").write_text(render(data))
+    (DEST/"tradeoffs.md").write_text(compare_live(data))
     draw(data)

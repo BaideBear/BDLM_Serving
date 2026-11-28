@@ -452,3 +452,19 @@ exchanges using admissions and revocations. Same frozen anchors 0/10/20;
 stop if none expose the exchange, otherwise complete all 90, no replacement.
 This is not the zero-exposure prefix displacement or the spare read-only
 intervention. Launcher mode `swap_interior8`.
+
+Outcome: no eligible exchange on any of 0/10/20. The three input-matched
+control replays passed, and both arms produced identical outputs and bills.
+Stopped as preregistered. This does not establish a frozen90 null effect.
+Ordered pilot row digest `cfa1e0cf78aba7c6f5605ab6d14c8a47ec5a9fbd3e7549ec0bbda54291192ed3`.
+
+**Q8 paid waiting dose on H0.** Same projected rows as the sealed paid-all
+sampler. On mixed cold sampling calls, of the already projected waiting
+MASKs allow only the actual first unresolved MASK in the physical head to
+join cold proposals. If the frontier is not eligible, keep cold-only sampling;
+all other phases and thresholds are unchanged. Compare against actual
+same-device paid-all and report the separate sealed cold-only control.
+Expand beyond original anchors 0/10/20 only if at least one waiting proposal
+was actually omitted and a retained frontier produced at least one actual
+admission. Record immediate admissions, all three metrics and output
+denominators on original30/new60/frozen90. Launcher: `first_waiting8`.

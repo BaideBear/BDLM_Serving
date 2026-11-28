@@ -53,6 +53,9 @@ case "${2:-admission16}" in
   swap_interior8) dir=$rt/llada-window-interior-swap-q8-1128
     module=experiments.t2t.serving_slots.llada_window_spare
     opts=(run --q 8 --factor interior_swap --parent "$rt/llada-window-paid-q8-1128/results") ;;
+  first_waiting8) dir=$rt/llada-first-waiting-q8-1128
+    module=experiments.t2t.serving_slots.llada_window_fallback
+    opts=(run --factor first_waiting --parent "$rt/llada-window-paid-q8-1128/results") ;;
   *) exit 2 ;;
 esac
 [[ ! -e $dir/results ]]
