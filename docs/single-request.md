@@ -14,6 +14,15 @@ skip a chunk. [GPU switch and fixed-offer replay](../experiments/t2t/serving_slo
 mandatory writes, optional prefix rows, when to open the successor, and
 which proposed savings changed outputs in the fixed-budget experiments.
 
+LLaDA's opt-in `open_strict_llada(..., profile="quarter_window_repeat64")`
+keeps the active window at Q4/8/16, the edit-once close at Q32, and the
+quarter-gated warm-head policy at Q64. At Q64 only, a second consecutive
+paid sample can confirm a previously unaccepted draft on the same head row.
+The [GPU qualification](../experiments/t2t/serving_slots/controls/strict-handle/README.md)
+checked five fixed offers and live switches; there is no mixed-path quality
+claim. The experimental Q16 paid-MASK and Q32 warm-head surplus arms are
+**not** part of this profile.
+
 `open_strict_llada(..., profile="quarter_edit_warm")` uses the same live KV
 bank and absolute dirty ledger at all five offers. Relative to `quarter_fullwrite`
 only two conditions change. At B, a fully resident, mask-free head with all

@@ -167,3 +167,30 @@ parked (9 on the immediate drop and 5 on later small calls). Receipts:
 `/gs/results/llada-switch-window-api-replay-1128`, source `c16a6d5`. The first
 package lacked the frozen30 identity manifest and exited before any request;
 the replay used the missing manifest from the same commit, not different tasks.
+
+## LLaDA: active window with consecutive Q64 confirmation
+
+[`quarter_window_repeat64`, A800 GPU1](llada-quarter-window-repeat64.json)
+keeps the lower four fixed paths unchanged. At Q64 a fully resident head may
+accept an additional non-MASK draft only after the same row gives the same
+draft on consecutive measured head samples, above 0.5 both times. The ordinary
+acceptance rule and its fallback run first. A vote is tentative, unlike a KV
+write obligation: an intervening small offer invalidates the vote, not the debt.
+
+The 15 fixed replays (five offers on frozen indices 0/10/20) matched output
+IDs, selected positions and physical F/Q against their independent controls.
+The fixed Q64 cases exercised 64 additional admissions, reconstructed from
+paid proposals. `switch25` covered all 25 ordered pairs, with 90 downshifts
+carrying debt, 31 parked rows paid on such downshifts, and 111 tentative
+votes discarded. In the separate targeted `park` suite all three requests
+traversed 64→4→64: 10 parked rows paid, six on the first drop. Checks included
+the first-layer causal mask and all 20 projection widths. This qualifies
+the live handle, *not* a mixed-budget quality or TPF improvement.
+
+Source snapshot `8fd6d6a`, runtime `/gs/runtime/llada-switch-repeat64-1128`.
+Rebuild this compact report there without rerunning inference:
+
+```sh
+/usr/bin/python3 -B -m experiments.t2t.serving_slots.strict_handle_report \
+  llada /gs/results/llada-switch-repeat64-1128 benchmarks/frozen90/manifest.json
+```

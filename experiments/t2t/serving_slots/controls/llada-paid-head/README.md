@@ -272,6 +272,7 @@ Flow W2 is 74/90 and 10.006 TPF; the remaining TPF gap is 2.334.
 The opt-in `quarter_window_repeat64` keeps the qualified low-tier window
 and Q32 close; only Q64 adds the measured admission rule. A lower offer,
 cold head, missed row, intervening drain or head change breaks the pair.
-The qualification checks fixed equality on all five offers, all 25
-directed transitions, a live discarded vote, and payment of parked writes.
-Implementation alone is not evidence of switching performance or quality.
+The [completed GPU qualification](../strict-handle/llada-quarter-window-repeat64.json)
+verified fixed equality on all five offers, all 25 directed transitions,
+live votes discarded on downshift, and actual payment of parked writes.
+It does not measure mixed-budget performance or quality.
