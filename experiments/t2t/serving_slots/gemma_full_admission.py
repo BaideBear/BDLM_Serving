@@ -123,7 +123,9 @@ class FullAdmissionHandle(StrictHandle):
             explainable = bool(certificate and certificate.get("explainable") and
                                certificate.get("nominal_q") == q and
                                certificate.get("physical_q") == width)
-            if (event["offer"] != q or event["ordinal"] != request.ordinal or
+            # _apply may promote and advance request.ordinal before this check;
+            # the returned event binds to the canvas that was actually paid.
+            if (event["offer"] != q or
                     not 0 < width <= 2 * B or
                     width != event.get("decoder_Q", width) or
                     event.get("decoder_F", 1) != 1 or
