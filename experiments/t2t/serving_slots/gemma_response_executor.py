@@ -39,6 +39,8 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         self.response_admission_tick = None
         self.response_admission_ordinal = None
         self.response_schedule = []
+        self.route_F = {}
+        self.route_Q = {}
 
     def response_offer_for(self, tick=None):
         """Small offer until the response block is open, then exact 2B."""
@@ -64,6 +66,8 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
             raise RuntimeError('Response executor exceeded its registered step cap')
         event['response_schedule_offer'] = offer
         event['history_Q'] = event['decoder_Q']
+        self.route_F[event['route']] = self.route_F.get(event['route'], 0) + 1
+        self.route_Q[event['route']] = self.route_Q.get(event['route'], 0) + event['decoder_Q']
         event['response_block_opened'] = (before_tail is None and self.tail is not None)
         self.response_schedule.append(offer)
         return event
@@ -97,7 +101,6 @@ class _ResponseHandle:
 def run_candidate(model, data, task, *, deadline):
     """Audit one response request through the established frozen90 physical drive."""
     import json
-    from collections import Counter
     from types import SimpleNamespace
     from experiments.t2t.serving_slots import strict_handle_qualify as qualify
     from bdlm_serving.evaluation import scoring
@@ -119,12 +122,8 @@ def run_candidate(model, data, task, *, deadline):
             profile='fixed90_candidate')
     finally:
         setattr(qualify, 'open_strict_gemma', old_open)
-    route_f=Counter(e["route"] for e in row["events"])
-    route_q=Counter()
-    for e in row["events"]:
-        route_q[e["route"]] += e["decoder_Q"]
-    row["route_F"]=dict(route_f)
-    row["route_Q"]=dict(route_q)
+    row["route_F"]=dict(request.route_F)
+    row["route_Q"]=dict(request.route_Q)
     return row, ids, handle._request
 
 
