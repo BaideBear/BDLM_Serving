@@ -30,3 +30,9 @@ def test_active_window_is_its_own_sealed_arm_never_a_cherry_picked_composite():
     repeat=at["llada21","frozen90",64,"Paid repeat"]
     assert repeat["correct"]==75 and repeat["token_efficiency"]==pytest.approx(43387/399051)
     assert len([r for r in rows if r["method"]=="Paid repeat"])==3
+    paid=[r for r in rows if r["method"]=="Paid MASK"]
+    assert {(r["budget"],r["model"]) for r in paid}=={(8,"llada21"),(16,"llada21")} and len(paid)==6
+    assert at["llada21","frozen90",8,"Paid MASK"]["correct"]==70
+    q16=at["llada21","frozen90",16,"Paid MASK"]
+    assert q16["correct"]==75 and q16["macro_TPF"]==pytest.approx(3.35629259)
+    assert q16["token_efficiency"]==pytest.approx(44943/175591)

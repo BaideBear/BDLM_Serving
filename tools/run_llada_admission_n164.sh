@@ -6,6 +6,29 @@ rt=/data1/project_data/gx-erqw-20261123/runtime
 hold=/data1/project_data/gx-megrez-20261122/gpu-holders/gpu-hold
 uuid=GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb
 deadline=${1:?deadline}
+if [[ ${2:-} == spare_waiting8 && $# == 3 ]]; then
+  prev=$rt/llada-window-fallback-q8-1128
+  pid=$3
+  [[ $pid =~ ^[1-9][0-9]*$ ]]
+  if [[ -r /proc/$pid/cmdline ]]; then
+    tr '\0' '\n' <"/proc/$pid/cmdline" | grep -Fx "$prev/results" >/dev/null
+    stamp=$(awk '{print $22}' "/proc/$pid/stat")
+    while [[ -r /proc/$pid/stat ]]; do
+      now=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null) || break
+      [[ $now == "$stamp" ]] || break
+      (( $(date +%s)<deadline-180 ))
+      sleep 4
+    done
+  fi
+  (cd "$prev/repo" && /usr/bin/python3 -B -m experiments.t2t.serving_slots.llada_window_fallback \
+      report "$prev/results" benchmarks/frozen90/manifest.json) |
+    /usr/bin/python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["finished"]==90 and r["cohorts"]["frozen90"]["n"]==90'
+  # The preceding launcher's EXIT trap may still be restoring the holder.
+  until "$hold" status 0 | /usr/bin/python3 -c 'import json,sys; r,=json.load(sys.stdin); sys.exit(not (r["running"] and r["phase"]=="running"))'; do
+    (( $(date +%s)<deadline-180 ))
+    sleep 2
+  done
+fi
 left=$((deadline-$(date +%s)-5))
 ((left>0))
 case "${2:-admission16}" in
@@ -21,6 +44,12 @@ case "${2:-admission16}" in
   fallback8) dir=$rt/llada-window-fallback-q8-1128
     module=experiments.t2t.serving_slots.llada_window_fallback
     opts=(run --parent "$rt/llada-window-paid-q8-1128/results") ;;
+  spare_waiting8) dir=$rt/llada-window-spare-waiting-q8-1128
+    module=experiments.t2t.serving_slots.llada_window_spare
+    opts=(run --q 8 --factor waiting --parent "$rt/llada-window-paid-q8-1128/results") ;;
+  spare_prefix8) dir=$rt/llada-window-spare-prefix-q8-1128
+    module=experiments.t2t.serving_slots.llada_window_spare
+    opts=(run --q 8 --factor prefix --parent "$rt/llada-window-paid-q8-1128/results") ;;
   *) exit 2 ;;
 esac
 [[ ! -e $dir/results ]]

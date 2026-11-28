@@ -127,6 +127,42 @@ def collect():
                 r["correct"]!=old["correct"]+v["rescued"]-v["lost"] or not isclose(r["TE"],r["N"]/r["Q"])):
             raise ValueError("Q64 repeat control/bill mismatch")
         add("llada21",c,64,"Paid repeat",v["pairs"],r["correct"],r["macro_TPF"],r["N"],r["F"],r["Q"],name)
+    name="llada-slot-allocation/c8-paid-frozen90.json"
+    paid=json.loads((ROOT/name).read_bytes())
+    if paid["registration"]["protocol"]!="llada-window-paid-mask-v1" or paid["registration"]["q"]!=8:
+        raise ValueError("Wrong H0 paid sampling cohort")
+    for c,v in paid["cohorts"].items():
+        if c not in COHORTS: continue
+        r=v["arms"]["paid"]
+        if (r["failed"] or not isclose(r["TE"],r["N"]/r["Q"])
+                or r["paid_waiting_rows"]<r["paid_waiting_admits"]):
+            raise ValueError("Invalid H0 paid sampling accounting")
+        add("llada21",c,8,"Paid MASK",v["pairs"],r["correct"],r["macro_TPF"],r["N"],r["F"],r["Q"],name)
+    name="llada-window-sample-q16/summary.json"
+    paid=json.loads((ROOT/name).read_bytes())
+    if paid["q"]!=16 or paid["protocol"]!="llada-window-paid-mask-v1":
+        raise ValueError("Wrong A4 paid sampling cohort")
+    for raw,v in paid["cohorts"].items():
+        c=NAMES.get(raw,raw)
+        if c not in COHORTS: continue
+        part=v["per_index"]
+        start=30 if c=="new60" else 0
+        if ({p["index"] for p in part}!=set(range(start,start+COHORTS[c])) or len(part)!=COHORTS[c]
+                or v["control_replay"]!=len(part) or v["first_failures"] or v["control_replay_failures"]):
+            raise ValueError("Unpaired or unsealed A4 paid sampling study")
+        ref=rows["llada21",c,16,"Active window"]
+        for a in ("old","new"):
+            values={k:sum(p[a+"_"+k] for p in part) for k in ("N","F","Q","correct")}
+            macro=sum(p[a+"_N"]/p[a+"_F"] for p in part)/len(part)
+            if (any(v[a+"_"+k]!=x for k,x in values.items())
+                    or not isclose(macro,v[a+"_macro_TPF"]) or v[a+"_failures"]
+                    or not isclose(v[a+"_pooled_TE"],values["N"]/values["Q"])):
+                raise ValueError("Paid sampling row sums disagree")
+            if a=="old":
+                if any(x!=ref["history_Q" if k=="Q" else k] for k,x in values.items()):
+                    raise ValueError("A4 replay does not reproduce fixed A5 reference")
+            else:
+                add("llada21",c,16,"Paid MASK",len(part),values["correct"],macro,values["N"],values["F"],values["Q"],name)
     return list(rows.values())
 
 
@@ -137,7 +173,9 @@ def render(rows):
            "They are not the best trial chosen separately at each point. "
            "`Active window` is the low-offer fixed head-only arm of the qualified LLaDA "
            "`quarter_edit_window` handle. It is shown only at independently measured, sealed "
-           "90-case budgets. `Paid repeat` is only the measured Q64 consecutive-confirmation arm. "
+           "90-case budgets. `Paid MASK` samples the already-projected waiting MASKs on mixed cold calls "
+           "(H800 Q8, A800 Q16). The H800 Q8 same-device control is 71/90; the A800 active-window "
+           "point on the chart is 72/90, not that paired control. `Paid repeat` is only the measured Q64 consecutive-confirmation arm. "
            "These are not a best-of combination or a mixed-offer run.","",
            "Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. "
            "The Q in the first column is a per-request decoder offer, not mean Q/F. "
@@ -149,7 +187,7 @@ def render(rows):
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "
            "Differences are not claims of statistical significance.",""]
-    methods=("Request","Active window","Paid repeat","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
+    methods=("Request","Active window","Paid MASK","Paid repeat","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
     for c in ("frozen90","original30","new60"):
         lines+=[f"## {c}","",f"| Model | Q | {' | '.join(methods)} |","|---|---:|"+"---:|"*len(methods)]
         for model,tiers in MODELS.items():
@@ -180,7 +218,7 @@ def draw(rows):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from math import nan
-    methods={"Request":("#146859","o"),"Active window":("#ba253e","P"),"Paid repeat":("#067c96","*"),
+    methods={"Request":("#146859","o"),"Active window":("#ba253e","P"),"Paid MASK":("#925008","X"),"Paid repeat":("#067c96","*"),
              "IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
              "Native":("#393d43","s"),"Flow W1":("#b75827","+"),"Flow W2":("#aa3159","D")}
     fig,axes=plt.subplots(2,3,figsize=(16.8,9.8))
@@ -194,7 +232,7 @@ def draw(rows):
             ax.grid(axis="y",alpha=.2);ax.spines[["right","top"]].set_visible(False)
             cells=[]; colors=[]
             for name,(color,marker) in methods.items():
-                if name in ("Active window","Paid repeat") and model!="llada21":continue
+                if name in ("Active window","Paid MASK","Paid repeat") and model!="llada21":continue
                 colors.append(color)
                 vals={r["budget"]:r[metric] for r in rows if
                       (r["cohort"],r["model"],r["method"])==("frozen90",model,name) and r[metric] is not None}
@@ -202,7 +240,7 @@ def draw(rows):
                              str(vals[q]) if metric=="correct" else f"{vals[q]*scale:.2f}" for q in tiers]])
                 if not vals:continue
                 x=list(range(5));y=[vals.get(q,nan)*scale for q in tiers]
-                candidate=name in ("Request","Active window","Paid repeat")
+                candidate=name in ("Request","Active window","Paid MASK","Paid repeat")
                 line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if candidate else "--",
                               lw=2 if candidate else 1.3,ms=6,alpha=.95)
                 handles[name]=line
@@ -218,7 +256,7 @@ def draw(rows):
             if col==0:
                 ax.set_ylabel("LLaDA 2.1" if model=="llada21" else "DiffusionGemma",weight="bold")
     fig.suptitle("Single-request execution at fixed Q  |  frozen 90",x=.05,ha="left",fontsize=18)
-    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.949),ncol=8,frameon=False)
+    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.949),ncol=9,frameon=False)
     fig.text(.055,.015,"Baselines are dashed. Native/W1/W2 are measured endpoints only; dash in table = unavailable. "
              "Each point is a separate constant-budget run.",fontsize=9)
     fig.savefig(DEST/"frozen90.png",dpi=150,facecolor="white")

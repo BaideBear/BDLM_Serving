@@ -1,0 +1,17 @@
+{
+  "control_replay": 90,
+  "control_replay_failures": 0,
+  "exposed": 83,
+  "first_checks": 83,
+  "first_failures": 0,
+  "new_failures": 0,
+  "new_pooled_TE": 0.2559527538427368,
+  "old_failures": 0,
+  "old_pooled_TE": 0.21054030155726702,
+  "paid_waiting_admits": 5414,
+  "paid_waiting_calls": 3142,
+  "paid_waiting_rows": 19172,
+  "protocol": "llada-window-paid-mask-v1",
+  "q": 16,
+  "requests": 90
+}

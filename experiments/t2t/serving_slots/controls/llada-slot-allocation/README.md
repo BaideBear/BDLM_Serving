@@ -316,3 +316,66 @@ paid controls (token digest and bill), audit both samplers from their
 actual proposals, and require at least one real first exchange among
 fixed anchors 0/10/20 before expansion. If no exchange occurs the pilot
 ends; never replace an anchor or count an ongoing run as evidence.
+
+[Full Q8 fallback results](c8-fallback-frozen90.json). All 90 controls
+replayed; 80 requests and 2,035 fallback decisions actually changed.
+Six rescued, six lost. No failures. Do not adopt the cold-only fallback.
+
+| Cohort | Correct, paid → restricted | Macro TPF | Pooled TE |
+|---|---:|---:|---:|
+| Original30 | 24 → 23 | 2.326 → 2.355 | 30.93% → 28.46% |
+| New60 | 46 → 47 | 2.474 → 2.437 | 32.74% → 30.80% |
+| Frozen90 | 70 → 70 | 2.424 → 2.410 | 32.08% → 29.90% |
+
+The restricted arm spent 23,757 F / 161,076 Q vs 21,623 F / 146,571 Q.
+The paired TPF difference interval is [-0.074,+0.042]; failure to improve
+does not prove the two samplers are equivalent. This only tests the native
+fallback on mixed Q8 calls. It does not change the Q16 or Q64 results.
+
+**Preregistered separate Q8 spare-seat experiment (H0).** On the same
+90 paid-sampling controls, when the primary head still has cold rows
+in the current plan and there is unused capacity, add exactly the
+leftmost *unselected, resident, non-dirty, unresolved* head position
+to both the projection and sampler. Nothing is displaced. Unlike the
+prior paid experiment, it costs an actual extra row; unlike the spare
+clean-interior experiment, it can advance an outstanding MASK on that
+call. Retain the original native thresholds, fallback and clock. Stop
+after the unchanged 0/10/20 anchors if none exposes a real spare seat.
+Otherwise report all 90, original30 and new60, plus extra rows and
+admissions, failures and same-device control checks. No claim until
+the relevant cohort is complete. Raw data: n164 runtime
+`llada-window-spare-waiting-q8-1128/results`. Run via
+`run_llada_admission_n164.sh DEADLINE spare_waiting8 PREDECESSOR_PID`.
+
+Result: zero eligible admissions or projections on all three pilot anchors;
+both arms' delivered IDs, bills and scores were identical. Stopped before
+expansion as registered. No 90-case result and no evidence about other requests.
+
+**Spare prefix on the active window, H0 Q8.** The H0 *original active
+window* (not the expanded paid sampler, not IBS8) is the comparator.
+Supplement a sampling call with up to two otherwise unselected clean,
+resident, decoded generated prefix positions, nearest the first unresolved
+position of the same physical block. Do not displace MASKs, widen visible
+KV, change the sampler set, or edit supplemental rows. Independently
+reconstruct the prefix from actual admissions and revocations. Replay the
+sealed 90 same-device controls; expand only on real exposure at 0/10/20.
+Source: `llada_window_spare`, flag `--factor prefix`; raw results:
+`llada-window-spare-prefix-q8-1128/results`. Compare original30, new60 and
+full90 quality/TPF/TE. Do not confuse extra immediately paid Q with a
+whole-request Q difference, or transfer spare-IBS findings to this arm.
+
+**Spare clean-interior reads, [Q16 completed](c16-spare-read-frozen90.json).**
+The 90 same-device active-window controls replayed. Extra clean reads were
+real for 83/90 requests, 1,833 supplemental Q in total. Original30
+21 → 23 correct but new60 49 → 46; pooled 70 → 69/90, macro TPF
+2.933 → 2.877 and TE 21.05% → 20.43%. Five rescues, six losses, no
+failed requests. Do not adopt. These are clean seats **to the right**
+of the first MASK, not decoded prefixes, and not the Q16 paid-MASK trial.
+
+[Q8, same intervention](c8-spare-read-frozen90.json): 73/90 requests
+had actual supplemental reads, 665 rows. Original30 fell 24 → 21,
+new60 48 → 46; frozen90 72 → 67 correct (2 rescues, 7 losses),
+macro TPF 2.300 → 2.284, TE 29.94% → 28.57%. Full trajectories cost
+22,684 → 25,507 forwards and 153,616 → 172,511 selected Q. The 665
+supplemental reads are counted at the calls making them, not the net
+whole-trajectory difference. No failures in either arm.

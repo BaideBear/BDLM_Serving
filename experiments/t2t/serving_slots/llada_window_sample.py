@@ -14,7 +14,7 @@ def variants(base):
     class WindowPaidMask(control):
         def _cross_plan(self,q):
             p,s,phase,cap=super()._cross_plan(q)
-            self.extra_window_mask=extra_mask(p,s) if q==8 and self.cross=="head" and not self.borrow else ()
+            self.extra_window_mask=extra_mask(p,s) if q in (8,16) and self.cross=="head" and not self.borrow else ()
             return p,tuple(sorted((*s,*self.extra_window_mask))),phase,cap
 
         def _step(self,q):

@@ -31,6 +31,17 @@ LLaDA Q64 可复用连续两次已算候选的相同 token，但降档或采样�
 72/90、3.375、20.54%。这是固定 Q16 的结果，非混合路径；Q8 同类干预反而少对一题，
 不能仅以「投影已付」为由对所有档位更改采样。
 
+在 Q8 已开放等待 MASK 的版本上，进一步[只允许从冷 MASK 中兜底](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c8-fallback-frozen90.json)
+也不值得：80/90 题实际触发，正确数 70→70（救回、丢失各 6 题），TPF 2.424→2.410，
+TE 32.08%→29.90%。原30少对一题、新60多对一题；不把这样一个次级接受规则纳入默认路径。
+
+**留下空位也可以是正确决策。** 只用空位重算首个 MASK **右侧**的已解行、不允许这些行采样：
+[Q8](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c8-spare-read-frozen90.json)
+在 73/90 题实际触发，72→67 题、TPF 2.300→2.284、TE 29.94%→28.57%；
+[Q16](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c16-spare-read-frozen90.json)
+为 70→69 题、2.933→2.877、21.05%→20.43%。这两个对照不支持把空位填给干净的块内行，
+也不能据此否定首个 MASK **左侧**的真前缀。小档优先留给能解码的位置；若无此类位置，不强填。
+
 ## 一轮怎么决策
 
 令 `D` 为上一轮及降档之前尚未以新输入写回的不同绝对位置（含暂停的后块），`R=C-min(C,|D|)`。

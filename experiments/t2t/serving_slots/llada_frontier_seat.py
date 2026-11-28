@@ -182,6 +182,18 @@ def first_interior(old,new,*,compare_sampling):
 
 
 def qualify_extension(factor, old, new):
+    if factor=="paid":
+        require(old["protocol"]=="llada-window-paid-mask-v1"
+                and new["protocol"]=="llada-window-paid-mask-v1"
+                and old["q"]==new["q"] and old["q"] in (8,16)
+                and len(old["order"])==30 and len(new["order"])==90
+                and old["order"]==new["order"][:30]
+                and old["geometry_sha256"]==new["geometry_sha256"]
+                and old["sampling_sha256"]==new["sampling_sha256"],
+                "paid extension must inherit the same window control and sampling registration")
+        require(all(old[k]==new[k] for k in ("device","checkpoint","samples","scorer")),
+                "paid extension must inherit the same device, checkpoint, samples and scorer")
+        return "paid"
     sources={"frontier":"04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9",
              "window":"5a986abee4a9461c07c4811014d978ece7fa6575a48fbe26c015e88d9fbf1254"}
     require(factor in sources and old["planner"]==sources[factor]
@@ -201,7 +213,7 @@ def qualify_extension(factor, old, new):
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor=="window" else (8,) if a.factor=="paid" else (4,8)
+    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor=="window" else (8,16) if a.factor=="paid" else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES

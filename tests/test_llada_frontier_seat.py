@@ -87,6 +87,23 @@ def test_window_extension_requires_registered_geometry_and_same_gpu():
             qualify_extension("window",old,dict(new,**{k:"changed"}))
 
 
+def test_paid_extension_requires_same_q_device_checkpoint_samples_scorer():
+    import pytest
+    from experiments.t2t.serving_slots.llada_frontier_seat import qualify_extension
+    params=dict(protocol="llada-window-paid-mask-v1",device="GPU-test",q=16,
+                checkpoint="ckpt",samples="s",scorer="c",
+                geometry_sha256="g",sampling_sha256="p")
+    old=dict(params,order=list(range(30)))
+    new=dict(params,order=list(range(90)))
+    assert qualify_extension("paid",old,new)=="paid"
+    for k in ("protocol","q","device","checkpoint","samples","scorer",
+              "geometry_sha256","sampling_sha256"):
+        with pytest.raises(ValueError):
+            qualify_extension("paid",old,dict(new,**{k:"changed"}))
+    with pytest.raises(ValueError):
+        qualify_extension("paid",dict(old,order=list(range(1,31))),new)
+
+
 def test_paid_warm_mask_does_not_sample_prefix_dirty_or_insert_new_queries():
     from experiments.t2t.serving_slots.llada_window_sample import extra_mask
     p=Plan((2,3,4,5,6),(3,),(6,),(4,5),(2,),False)
