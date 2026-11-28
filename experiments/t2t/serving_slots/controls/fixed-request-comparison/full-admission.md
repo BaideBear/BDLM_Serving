@@ -20,6 +20,14 @@ TPF is the mean of each request's final non-special token count divided by its a
 
 Separate diagnostics, not candidate scores: [six paired LLaDA requests per small budget, three first-admission widths](../llada-small-admission-width/README.md) and [Gemma strict-parent first-successor exposure on all 90 requests](../gemma-parent-first-projection/README.md).
 
+## Gemma candidate protocol
+
+The [registered executor](../../gemma_full_admission.py) is the file from `6175e24` (SHA-256 `5681908c23b5549b8fbf26b75aea0bb3fc15947337bd672aff8e0b149adc8530`). The first block uses the unchanged `dense_stop_joint_verified_eos` parent. When a later, fresh block would first receive only a proper subset of its rows, project the whole block and sample in that forward. Do not add a second forward if the parent already chose all rows. Afterward use the ordinary planner. Keep the parent's self-conditioning, writeback, encoder commit and EOS verification. Certificates store block-relative row IDs; billing checks the pre-forward block ordinal even if the same forward advances to the next block.
+
+Evaluate rolling Q = 32, 64, 128, 256 and 512 from the prompt on the same 90 task IDs and seeds. In the small tiers a single admission can physically project 256 rows: report over-offer work separately. Count generation-time encoder forwards in TPF, but not their rows in the history-reading decoder-Q denominator for TE. The earlier `c60824c` failed same-device cross-block checks and is excluded. A parent replay or a qualification pair is not a completed candidate panel.
+
+## LLaDA evidence notes
+
 Q32 used three disjoint GPU shards of 30 tasks. All 90 physical tapes and seals passed verification, and independent reconstruction of emitted IDs and rescoring matched 90/90. The third producer and receiver both emitted exhaustive terminal receipts, but the orchestrating local shell exited 2 after the pipeline and did not persist its per-stage exit codes. [The reconciliation](llada-q32-shard-reconciliation.json) leaves those codes null; they were not synthesized. Q4 uses two attempts reconciled per index; Q8 preserves both received and reconstructed producer digests where serialization order differed.
 
 ## Q16 paired detail
