@@ -203,10 +203,13 @@ def run_arm(rt, torch, model, data, proc, controls, unmask, task, mode, scoring,
     bill, states = reconcile(trace, decoder, encoder, events, ids, prompt, eos,
                              certs["trigger"], certs["payment"], Q64)
     score = scoring.score(proc.tokenizer.decode(ids, skip_special_tokens=True), task)
+    agreement_record = None if agreement is None else dict(
+        observations=agreement.observations,
+        first_extra=agreement.first_extra, applied=agreement.apply)
     return dict(ids=ids, trace=trace, decoder=decoder, encoder=encoder, events=events,
                 states=states, projections=sorted(projections), rng_after=after, bill=bill,
                 **certs, correct=bool(score["correct"]), scoring=score["metric"],
-                N=sum(i not in extras for i in ids), agreement=agreement, seat=seat)
+                N=sum(i not in extras for i in ids), agreement=agreement_record, seat=seat)
 
 
 def stable(a):
