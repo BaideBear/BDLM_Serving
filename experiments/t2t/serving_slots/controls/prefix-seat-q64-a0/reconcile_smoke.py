@@ -23,7 +23,7 @@ def find_case(raw_log: Path, index: int):
             except Exception:
                 continue
             if record.get("kind") == "case" and record.get("index") == index:
-                matches.append((line_number, record))
+                matches.append((line_number, line, record))
     if len(matches) != 1:
         raise RuntimeError(f"Expected one case receipt for {index}, found {len(matches)}")
     return matches[0]
@@ -46,7 +46,7 @@ def main() -> int:
     if str(args.source_root) not in sys.path:
         sys.path.insert(0, str(args.source_root))
     production = importlib.import_module("tools.run_gemma_ibs_certified_eos")
-    line_number, receipt = find_case(args.raw_log, args.index)
+    line_number, line, receipt = find_case(args.raw_log, args.index)
     arm = receipt["arms"]["stock"]
     require_keys = {"ids", "trace", "decoder", "encoder", "events", "bill"}
     if not require_keys <= arm.keys():
