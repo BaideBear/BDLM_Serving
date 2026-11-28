@@ -19,14 +19,14 @@ def role(rel):
     a = p.parts
     if len(a) < 2 or a[0] not in SCOPE or p.is_absolute() or ".." in a or ".git" in a:
         return None
-    if a[0] in ("results", "logs"):
-        return a[0]
     if any(s in {".pytest_cache", "__pycache__", "triton", "triton-rl"} or
            (s.startswith("triton-g") and s[8:].isdigit()) for s in a[:-1]):
         return "cache"
     # Keep code even when a historic launcher put code inside an output directory.
     if p.suffix.lower() in {".py",".sh",".cu",".cuh",".h",".c",".cpp",".toml",".yaml",".yml",".ini",".md"}:
         return None
+    if a[0] in ("results", "logs"):
+        return a[0]
     # Keep tracked files in the actual source checkout (not in copied experiment runtimes).
     if a[0] == "history-repo":
         return None
@@ -66,6 +66,19 @@ def inventory(root):
                 what=role(name)
                 if what and regular_unlinked(root,name):
                     print(json.dumps([name,path.stat().st_size,digest(path),what],separators=(",",":")))
+
+
+def receipted_inventory(root, entries):
+    """Re-hash only the remaining source candidates against archived regular files."""
+    for line in entries:
+        name, size, expected, group = json.loads(line)
+        if not role(name) or group != role(name):
+            raise ValueError("Candidate outside allowed storage scope")
+        p = regular_unlinked(root, name)
+        if p and p.stat().st_size == size:
+            actual = digest(p)
+            if actual == expected:
+                print(json.dumps([name, size, actual, group], separators=(",", ":")))
 
 
 def opened():
@@ -112,12 +125,14 @@ def prune(root, keep, *, apply):
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("action", choices=["inventory","prune"])
+    ap.add_argument("action", choices=["inventory","verify","prune"])
     ap.add_argument("root",type=Path)
     ap.add_argument("--keep",action="append",default=[])
     ap.add_argument("--apply",action="store_true")
     args=ap.parse_args()
     if args.action=="inventory":
         inventory(args.root.resolve())
+    elif args.action=="verify":
+        receipted_inventory(args.root.resolve(),sys.stdin)
     else:
         prune(args.root.resolve(),args.keep,apply=args.apply)

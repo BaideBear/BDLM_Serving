@@ -1,14 +1,14 @@
 import json
 from pathlib import Path
 import pytest
-from tools.a800_storage_audit import inventory, prune, regular_unlinked, role
+from tools.a800_storage_audit import inventory, prune, receipted_inventory, regular_unlinked, role
 
 
 @pytest.mark.parametrize("name",[
     "../results/test.log", "runtime/../logs/file.log", "/gs/results/foo.json",
     "models-persistent/m/weights.bin","env/deps/configs.json",
     "runtime/repo/benchmarks/frozen90/manifest.json","history-repo/.git/config",
-    "runtime/repo/figures/plot.py","work/copy/helpers.sh"])
+    "runtime/repo/figures/plot.py","work/copy/helpers.sh", "results/smoke/runner.py"])
 def test_scope_and_dependencies_kept(name):
     assert role(name) is None
 
@@ -28,3 +28,15 @@ def test_inventory_no_links_and_no_unmatched_source_cleanup(tmp_path,capsys):
     with pytest.raises(ValueError,match="source"):
         prune(root,[],apply=True)
     assert (directory/"ok.json").is_file()
+
+
+def test_destination_authorizes_only_matching_regular_copies(tmp_path, capsys):
+    root = tmp_path.resolve()
+    (root/"results").mkdir()
+    (root/"results"/"a.json").write_bytes(b"A")
+    (root/"results"/"b.json").write_bytes(b"B")
+    inventory(root)
+    source = capsys.readouterr().out.splitlines()
+    (root/"results"/"b.json").write_bytes(b"C")
+    receipted_inventory(root, source)
+    assert capsys.readouterr().out.splitlines() == [source[0]]

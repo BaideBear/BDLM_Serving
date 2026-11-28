@@ -1,5 +1,7 @@
 # 单请求 Serving 槽位：固定曲线与运行中切档
 
+[两模型共享的普通 decoder 选行算法、可调超参与固定预算验证顺序](../../../docs/shared-request-planner.md)。
+
 [集群用卡与存储：A800 实验后立即释放，原始结果在 n164](../../../docs/cluster-storage.md)。
 
 [2026-11-28：预算不足与富余的逐轮执行规则、双块开门消融及任意切档准入](design_race/README.md)。新组按实际 decoder 行硬限额登记，旧实验与 attention 预算的口径保留在各自报告中。
