@@ -45,7 +45,6 @@ def main():
     qualification_source_sha = seal["qualification_source_sha256"]
     runner_sha = sha_file(Path(__file__))
     tasks = load_tasks(args.samples)
-    guard("inputs")
     proc = AutoProcessor.from_pretrained(args.weights, local_files_only=True)
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(
         args.weights, local_files_only=True, dtype=torch.bfloat16,
