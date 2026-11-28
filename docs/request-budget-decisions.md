@@ -5,6 +5,8 @@
 
 ## 预算决策摘要
 
+[参考版本：Live Profile v1](live-profile-v1.md)。后续的五档统一接受规则只改善了 Q4 和 Q16 的 TPF；按[预注册九题筛选](../experiments/t2t/serving_slots/controls/risk-ribbon/README.md)不扩测，也不替换 v1。
+
 11月28日固定90题新结论：**相同的“多接受几个已算 MASK”规则不应从 B 原样移植到 2B。**
 LLaDA Q32 当前块建全后，从首个实际 MASK 开始，只额外接受本轮新测、连续且置信度
 大于 0.5 的非 MASK 提案，现有接受规则仍保留。正确数 74→75，TPF 4.937→5.793，

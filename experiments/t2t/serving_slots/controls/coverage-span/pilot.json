@@ -1,0 +1,801 @@
+{
+  "tiers": {
+    "4": {
+      "receipt_sha256": "f753709d060fa187a1dddb5ffdf986a5e3049a9bbbda1c6309f124b38ab98c73",
+      "registration": {
+        "protocol": "coverage-span-v1",
+        "offer": 4,
+        "indices": [
+          1,
+          11,
+          21,
+          31,
+          41,
+          51,
+          61,
+          71,
+          81
+        ],
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "device": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+        "sources": {
+          "coverage_span_eval.py": "05117d3166dab61fc328881e7ed51ea2c9d066c9e29c2d15989b6484dc5ec9c4",
+          "coverage_span.py": "e2ddd6ef72cb941e8f8e04da1f82fedc04832e3973afbe82933da83ca50b9ee4"
+        }
+      },
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "covered_exposed": 0,
+          "live": {
+            "N": 625,
+            "F": 423,
+            "Q": 1597,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.4925878836477318,
+            "TE": 0.3913587977457733,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 614,
+            "F": 398,
+            "Q": 1581,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 1.4968630539549364,
+            "TE": 0.3883617963314358,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 23
+          },
+          "covered": {
+            "N": 614,
+            "F": 398,
+            "Q": 1581,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 1.4968630539549364,
+            "TE": 0.3883617963314358,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 23
+          }
+        },
+        "additional": {
+          "n": 6,
+          "covered_exposed": 1,
+          "live": {
+            "N": 3758,
+            "F": 2423,
+            "Q": 9246,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.5433024380788374,
+            "TE": 0.4064460307159853,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 3957,
+            "F": 2361,
+            "Q": 9428,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.6496179566230234,
+            "TE": 0.4197072549851506,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 157
+          },
+          "covered": {
+            "N": 3954,
+            "F": 2360,
+            "Q": 9426,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.648195274362863,
+            "TE": 0.4194780394653087,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 156
+          }
+        },
+        "all": {
+          "n": 9,
+          "covered_exposed": 1,
+          "live": {
+            "N": 4383,
+            "F": 2846,
+            "Q": 10843,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 1.526397586601802,
+            "TE": 0.4042239232684681,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 4571,
+            "F": 2759,
+            "Q": 11009,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 1.598699655733661,
+            "TE": 0.415205740757562,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 180
+          },
+          "covered": {
+            "N": 4568,
+            "F": 2758,
+            "Q": 11007,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 1.597751200893554,
+            "TE": 0.4150086308712637,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 179
+          }
+        }
+      }
+    },
+    "8": {
+      "receipt_sha256": "ad83d35604fa76864162f0bf7863d4f51e88477f04bd9dee13a74182adaef1f5",
+      "registration": {
+        "protocol": "coverage-span-v1",
+        "offer": 8,
+        "indices": [
+          1,
+          11,
+          21,
+          31,
+          41,
+          51,
+          61,
+          71,
+          81
+        ],
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "device": "GPU-608770c1-ce99-323c-07a5-ab197153dd32",
+        "sources": {
+          "coverage_span_eval.py": "05117d3166dab61fc328881e7ed51ea2c9d066c9e29c2d15989b6484dc5ec9c4",
+          "coverage_span.py": "e2ddd6ef72cb941e8f8e04da1f82fedc04832e3973afbe82933da83ca50b9ee4"
+        }
+      },
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "covered_exposed": 0,
+          "live": {
+            "N": 595,
+            "F": 243,
+            "Q": 1681,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 2.526917214973421,
+            "TE": 0.3539559785841761,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 618,
+            "F": 253,
+            "Q": 2003,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 2.4037155177506055,
+            "TE": 0.30853719420868697,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 27
+          },
+          "covered": {
+            "N": 618,
+            "F": 253,
+            "Q": 2003,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 2.4037155177506055,
+            "TE": 0.30853719420868697,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 27
+          }
+        },
+        "additional": {
+          "n": 6,
+          "covered_exposed": 1,
+          "live": {
+            "N": 3904,
+            "F": 1708,
+            "Q": 11637,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 2.394047899227883,
+            "TE": 0.3354816533470826,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 5643,
+            "F": 2668,
+            "Q": 21313,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 2.6553888708402447,
+            "TE": 0.26476798198282736,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 458
+          },
+          "covered": {
+            "N": 5631,
+            "F": 2686,
+            "Q": 21453,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 2.592060199511573,
+            "TE": 0.2624807719200112,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 468
+          }
+        },
+        "all": {
+          "n": 9,
+          "covered_exposed": 1,
+          "live": {
+            "N": 4499,
+            "F": 1951,
+            "Q": 13318,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 2.438337671143062,
+            "TE": 0.33781348550833457,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 6261,
+            "F": 2921,
+            "Q": 23316,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 2.5714977531436984,
+            "TE": 0.26852804940813174,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 485
+          },
+          "covered": {
+            "N": 6249,
+            "F": 2939,
+            "Q": 23456,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 2.529278638924584,
+            "TE": 0.2664137107776262,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 495
+          }
+        }
+      }
+    },
+    "16": {
+      "receipt_sha256": "65e23c4064e10f84af672ccb2aaab85651412291b9217c9cf21e0496c61bd430",
+      "registration": {
+        "protocol": "coverage-span-v1",
+        "offer": 16,
+        "indices": [
+          1,
+          11,
+          21,
+          31,
+          41,
+          51,
+          61,
+          71,
+          81
+        ],
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "device": "GPU-8c80a093-8254-7eb4-db21-6a1bbe2d5d83",
+        "sources": {
+          "coverage_span_eval.py": "05117d3166dab61fc328881e7ed51ea2c9d066c9e29c2d15989b6484dc5ec9c4",
+          "coverage_span.py": "e2ddd6ef72cb941e8f8e04da1f82fedc04832e3973afbe82933da83ca50b9ee4"
+        }
+      },
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "covered_exposed": 0,
+          "live": {
+            "N": 607,
+            "F": 178,
+            "Q": 2002,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.591319289917421,
+            "TE": 0.3031968031968032,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 590,
+            "F": 157,
+            "Q": 2468,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.990758650333118,
+            "TE": 0.23905996758508913,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 36
+          },
+          "covered": {
+            "N": 590,
+            "F": 157,
+            "Q": 2468,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.990758650333118,
+            "TE": 0.23905996758508913,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 36
+          }
+        },
+        "additional": {
+          "n": 6,
+          "covered_exposed": 3,
+          "live": {
+            "N": 4519,
+            "F": 1625,
+            "Q": 16220,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.170062729681663,
+            "TE": 0.2786066584463625,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 4341,
+            "F": 1262,
+            "Q": 20079,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 4.042485009833088,
+            "TE": 0.21619602569849097,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 437
+          },
+          "covered": {
+            "N": 3867,
+            "F": 1024,
+            "Q": 16274,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.8920587004386693,
+            "TE": 0.23761828683790095,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 351
+          }
+        },
+        "all": {
+          "n": 9,
+          "covered_exposed": 3,
+          "live": {
+            "N": 5126,
+            "F": 1803,
+            "Q": 18222,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 3.310481583093582,
+            "TE": 0.28130830863791023,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 4931,
+            "F": 1419,
+            "Q": 22547,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 4.025242889999765,
+            "TE": 0.21869871823302434,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 473
+          },
+          "covered": {
+            "N": 4457,
+            "F": 1181,
+            "Q": 18742,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 3.924958683736819,
+            "TE": 0.23780813146942695,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 387
+          }
+        }
+      }
+    },
+    "32": {
+      "receipt_sha256": "a82d48b95f6f60e4bc8b70332e4d6de2f0ee7174aa900469984db8982859601a",
+      "registration": {
+        "protocol": "coverage-span-v1",
+        "offer": 32,
+        "indices": [
+          1,
+          11,
+          21,
+          31,
+          41,
+          51,
+          61,
+          71,
+          81
+        ],
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "device": "GPU-deacbfb9-4b41-7164-082e-5cf5961071d8",
+        "sources": {
+          "coverage_span_eval.py": "05117d3166dab61fc328881e7ed51ea2c9d066c9e29c2d15989b6484dc5ec9c4",
+          "coverage_span.py": "e2ddd6ef72cb941e8f8e04da1f82fedc04832e3973afbe82933da83ca50b9ee4"
+        }
+      },
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "covered_exposed": 3,
+          "live": {
+            "N": 610,
+            "F": 120,
+            "Q": 2813,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 5.624624624624625,
+            "TE": 0.21685033771773907,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 591,
+            "F": 156,
+            "Q": 4793,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 4.679020979020979,
+            "TE": 0.12330481952847903,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 58
+          },
+          "covered": {
+            "N": 571,
+            "F": 87,
+            "Q": 2635,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 7.108703130374956,
+            "TE": 0.21669829222011386,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 36
+          }
+        },
+        "additional": {
+          "n": 6,
+          "covered_exposed": 6,
+          "live": {
+            "N": 3744,
+            "F": 835,
+            "Q": 19023,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 5.5089173405109335,
+            "TE": 0.19681438258949693,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 3814,
+            "F": 812,
+            "Q": 25594,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 5.211734798064623,
+            "TE": 0.14901930139876535,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 371
+          },
+          "covered": {
+            "N": 4242,
+            "F": 901,
+            "Q": 28476,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.477635486081572,
+            "TE": 0.14896755162241887,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 440
+          }
+        },
+        "all": {
+          "n": 9,
+          "covered_exposed": 9,
+          "live": {
+            "N": 4354,
+            "F": 955,
+            "Q": 21836,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 5.547486435215498,
+            "TE": 0.1993954936801612,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 0
+          },
+          "span": {
+            "N": 4405,
+            "F": 968,
+            "Q": 30387,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 5.034163525050075,
+            "TE": 0.14496330667719748,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 429
+          },
+          "covered": {
+            "N": 4813,
+            "F": 988,
+            "Q": 31111,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 7.354658034179367,
+            "TE": 0.1547041239432998,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 1,
+            "two_block_F": 476
+          }
+        }
+      }
+    },
+    "64": {
+      "receipt_sha256": "1d8516bcdab1b1a6a2dddda2f712f7c04c2b8cfd7d3a7dc4e6b27cf1abd42a62",
+      "registration": {
+        "protocol": "coverage-span-v1",
+        "offer": 64,
+        "indices": [
+          1,
+          11,
+          21,
+          31,
+          41,
+          51,
+          61,
+          71,
+          81
+        ],
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "device": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+        "sources": {
+          "coverage_span_eval.py": "05117d3166dab61fc328881e7ed51ea2c9d066c9e29c2d15989b6484dc5ec9c4",
+          "coverage_span.py": "e2ddd6ef72cb941e8f8e04da1f82fedc04832e3973afbe82933da83ca50b9ee4"
+        }
+      },
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "covered_exposed": 3,
+          "live": {
+            "N": 617,
+            "F": 120,
+            "Q": 5407,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.054916985951468,
+            "TE": 0.11411133715553912,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 59
+          },
+          "span": {
+            "N": 594,
+            "F": 106,
+            "Q": 4173,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 5.92929292929293,
+            "TE": 0.14234363767074049,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 48
+          },
+          "covered": {
+            "N": 608,
+            "F": 75,
+            "Q": 2904,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 8.33943833943834,
+            "TE": 0.209366391184573,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 34
+          }
+        },
+        "additional": {
+          "n": 6,
+          "covered_exposed": 6,
+          "live": {
+            "N": 3816,
+            "F": 588,
+            "Q": 27558,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.329957076809504,
+            "TE": 0.13847158719790986,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 301
+          },
+          "span": {
+            "N": 3891,
+            "F": 910,
+            "Q": 39720,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 5.2498659557719805,
+            "TE": 0.0979607250755287,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 451
+          },
+          "covered": {
+            "N": 3958,
+            "F": 574,
+            "Q": 24861,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.855758686909841,
+            "TE": 0.15920518080527735,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 309
+          }
+        },
+        "all": {
+          "n": 9,
+          "covered_exposed": 9,
+          "live": {
+            "N": 4433,
+            "F": 708,
+            "Q": 32965,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 7.238277046523492,
+            "TE": 0.13447595935082662,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 360
+          },
+          "span": {
+            "N": 4485,
+            "F": 1016,
+            "Q": 43893,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 5.476341613612297,
+            "TE": 0.10218030209828446,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 499
+          },
+          "covered": {
+            "N": 4566,
+            "F": 649,
+            "Q": 27765,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 8.016985237752674,
+            "TE": 0.16445164775796867,
+            "new_failures": 0,
+            "rescued": 0,
+            "lost": 0,
+            "two_block_F": 343
+          }
+        }
+      }
+    }
+  },
+  "decision": {
+    "arms": {
+      "span": {
+        "passed": false,
+        "tpf_gains": 3,
+        "no_worse_both": 1,
+        "worst_high_tpf_ratio": 0.7565808241952491
+      },
+      "covered": {
+        "passed": true,
+        "tpf_gains": 5,
+        "no_worse_both": 2,
+        "worst_high_tpf_ratio": 1.107581982041319
+      }
+    },
+    "expand": "covered"
+  }
+}

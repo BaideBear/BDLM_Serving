@@ -1,0 +1,510 @@
+{
+  "tiers": {
+    "4": {
+      "registration": {
+        "protocol": "llada-risk-ribbon-v1",
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80
+        ],
+        "q": 4,
+        "risk": 0.35,
+        "device": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "source": "7a8252876a72f1ee91df7344da8170da0ab2b3f29dda016b793847ca08c617cb",
+        "checkpoint": "/gs/models/LLaDA2.1-mini"
+      },
+      "receipt_sha256": "1a495cd90b0fb01751ed3e99ca7504302f2adc5ebb6645cb7e8b758ace85173e",
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "exposed": 3,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": 0.1586093802296631,
+          "live": {
+            "N": 812,
+            "F": 555,
+            "Q": 2114,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.481687236226557,
+            "TE": 0.3841059602649007
+          },
+          "ribbon": {
+            "N": 742,
+            "F": 453,
+            "Q": 1737,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 1.64029661645622,
+            "TE": 0.4271732872769142
+          }
+        },
+        "additional": {
+          "n": 6,
+          "exposed": 6,
+          "rescues": 1,
+          "losses": 1,
+          "mean_paired_TPF_delta": 0.06400418407861393,
+          "live": {
+            "N": 4513,
+            "F": 3095,
+            "Q": 11751,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 1.5374208546884156,
+            "TE": 0.3840524210705472
+          },
+          "ribbon": {
+            "N": 4253,
+            "F": 2624,
+            "Q": 10033,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 1.6014250387670295,
+            "TE": 0.4239011262832652
+          }
+        },
+        "all": {
+          "n": 9,
+          "exposed": 9,
+          "rescues": 1,
+          "losses": 1,
+          "mean_paired_TPF_delta": 0.09553924946229699,
+          "live": {
+            "N": 5325,
+            "F": 3650,
+            "Q": 13865,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 1.518842981867796,
+            "TE": 0.3840605842048323
+          },
+          "ribbon": {
+            "N": 4995,
+            "F": 3077,
+            "Q": 11770,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 1.614382231330093,
+            "TE": 0.4243840271877655
+          }
+        }
+      }
+    },
+    "8": {
+      "registration": {
+        "protocol": "llada-risk-ribbon-v1",
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80
+        ],
+        "q": 8,
+        "risk": 0.35,
+        "device": "GPU-608770c1-ce99-323c-07a5-ab197153dd32",
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "source": "7a8252876a72f1ee91df7344da8170da0ab2b3f29dda016b793847ca08c617cb",
+        "checkpoint": "/gs/models/LLaDA2.1-mini"
+      },
+      "receipt_sha256": "52c63bdbe2b292d764eb11cb6267c80e8ef7c8817402d62105e657413ba693fe",
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "exposed": 3,
+          "rescues": 0,
+          "losses": 1,
+          "mean_paired_TPF_delta": -0.38990921566286385,
+          "live": {
+            "N": 906,
+            "F": 386,
+            "Q": 2635,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 2.4229057546441384,
+            "TE": 0.34383301707779884
+          },
+          "ribbon": {
+            "N": 806,
+            "F": 486,
+            "Q": 3301,
+            "correct": 2,
+            "failures": 0,
+            "macro_TPF": 2.0329965389812745,
+            "TE": 0.24416843380793699
+          }
+        },
+        "additional": {
+          "n": 6,
+          "exposed": 6,
+          "rescues": 1,
+          "losses": 0,
+          "mean_paired_TPF_delta": 0.16803367672274516,
+          "live": {
+            "N": 4645,
+            "F": 2215,
+            "Q": 14889,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 2.270732918954449,
+            "TE": 0.31197528376653905
+          },
+          "ribbon": {
+            "N": 4223,
+            "F": 1884,
+            "Q": 12872,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 2.438766595677194,
+            "TE": 0.3280764449968925
+          }
+        },
+        "all": {
+          "n": 9,
+          "exposed": 9,
+          "rescues": 1,
+          "losses": 1,
+          "mean_paired_TPF_delta": -0.017947287405791174,
+          "live": {
+            "N": 5551,
+            "F": 2601,
+            "Q": 17524,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 2.3214571975176788,
+            "TE": 0.3167655786350148
+          },
+          "ribbon": {
+            "N": 5029,
+            "F": 2370,
+            "Q": 16173,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 2.3035099101118877,
+            "TE": 0.31095034934767823
+          }
+        }
+      }
+    },
+    "16": {
+      "registration": {
+        "protocol": "llada-risk-ribbon-v1",
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80
+        ],
+        "q": 16,
+        "risk": 0.35,
+        "device": "GPU-8c80a093-8254-7eb4-db21-6a1bbe2d5d83",
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "source": "7a8252876a72f1ee91df7344da8170da0ab2b3f29dda016b793847ca08c617cb",
+        "checkpoint": "/gs/models/LLaDA2.1-mini"
+      },
+      "receipt_sha256": "804ec51be9e83068cb769ee97c86cb081ab7d61f580e04a8d1cf8d00d3f5cd80",
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "exposed": 3,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.12685212069323834,
+          "live": {
+            "N": 844,
+            "F": 262,
+            "Q": 2835,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.6508383818643737,
+            "TE": 0.29770723104056435
+          },
+          "ribbon": {
+            "N": 1104,
+            "F": 519,
+            "Q": 5550,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 3.5239862611711352,
+            "TE": 0.1989189189189189
+          }
+        },
+        "additional": {
+          "n": 6,
+          "exposed": 6,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": 0.3915271389203934,
+          "live": {
+            "N": 4305,
+            "F": 1502,
+            "Q": 15290,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 3.315141416948799,
+            "TE": 0.2815565729234794
+          },
+          "ribbon": {
+            "N": 4088,
+            "F": 1334,
+            "Q": 14149,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 3.706668555869193,
+            "TE": 0.28892501236836526
+          }
+        },
+        "all": {
+          "n": 9,
+          "exposed": 9,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": 0.2187340523825162,
+          "live": {
+            "N": 5149,
+            "F": 1764,
+            "Q": 18125,
+            "correct": 9,
+            "failures": 0,
+            "macro_TPF": 3.4270404052539907,
+            "TE": 0.28408275862068966
+          },
+          "ribbon": {
+            "N": 5192,
+            "F": 1853,
+            "Q": 19699,
+            "correct": 9,
+            "failures": 0,
+            "macro_TPF": 3.6457744576365068,
+            "TE": 0.2635666785115996
+          }
+        }
+      }
+    },
+    "32": {
+      "registration": {
+        "protocol": "llada-risk-ribbon-v1",
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80
+        ],
+        "q": 32,
+        "risk": 0.35,
+        "device": "GPU-deacbfb9-4b41-7164-082e-5cf5961071d8",
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "source": "7a8252876a72f1ee91df7344da8170da0ab2b3f29dda016b793847ca08c617cb",
+        "checkpoint": "/gs/models/LLaDA2.1-mini"
+      },
+      "receipt_sha256": "ee9e45d0e12c1cb92d1e1ca7fcf9debcdb3eb87eb0351c99d167895f04bbdf35",
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "exposed": 3,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.9089855656693517,
+          "live": {
+            "N": 830,
+            "F": 123,
+            "Q": 3201,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.051892551892552,
+            "TE": 0.2592939706341768
+          },
+          "ribbon": {
+            "N": 838,
+            "F": 151,
+            "Q": 3738,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 6.1429069862232,
+            "TE": 0.2241840556447298
+          }
+        },
+        "additional": {
+          "n": 6,
+          "exposed": 6,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.23725826007096829,
+          "live": {
+            "N": 3978,
+            "F": 956,
+            "Q": 22276,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 5.468917954210277,
+            "TE": 0.17857784162327167
+          },
+          "ribbon": {
+            "N": 4132,
+            "F": 1217,
+            "Q": 27071,
+            "correct": 5,
+            "failures": 0,
+            "macro_TPF": 5.231659694139309,
+            "TE": 0.15263566177828672
+          }
+        },
+        "all": {
+          "n": 9,
+          "exposed": 9,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.4611673619370961,
+          "live": {
+            "N": 4808,
+            "F": 1079,
+            "Q": 25477,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 5.996576153437702,
+            "TE": 0.18871923695882561
+          },
+          "ribbon": {
+            "N": 4970,
+            "F": 1368,
+            "Q": 30809,
+            "correct": 8,
+            "failures": 0,
+            "macro_TPF": 5.535408791500606,
+            "TE": 0.16131649842578466
+          }
+        }
+      }
+    },
+    "64": {
+      "registration": {
+        "protocol": "llada-risk-ribbon-v1",
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80
+        ],
+        "q": 64,
+        "risk": 0.35,
+        "device": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+        "source": "7a8252876a72f1ee91df7344da8170da0ab2b3f29dda016b793847ca08c617cb",
+        "checkpoint": "/gs/models/LLaDA2.1-mini"
+      },
+      "receipt_sha256": "fc3f1c7a649cf6cf727f7e2baa065db0a975a930cfb8f1300ef6aefe8c589eb2",
+      "cohorts": {
+        "original": {
+          "n": 3,
+          "exposed": 3,
+          "rescues": 0,
+          "losses": 0,
+          "mean_paired_TPF_delta": 0.8493028491921232,
+          "live": {
+            "N": 850,
+            "F": 127,
+            "Q": 5872,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 8.084648633847719,
+            "TE": 0.14475476839237056
+          },
+          "ribbon": {
+            "N": 847,
+            "F": 118,
+            "Q": 5179,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 8.933951483039841,
+            "TE": 0.16354508592392353
+          }
+        },
+        "additional": {
+          "n": 6,
+          "exposed": 6,
+          "rescues": 1,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.4333791130072435,
+          "live": {
+            "N": 5386,
+            "F": 1291,
+            "Q": 57019,
+            "correct": 3,
+            "failures": 0,
+            "macro_TPF": 7.5298284617724835,
+            "TE": 0.09445974148967888
+          },
+          "ribbon": {
+            "N": 5367,
+            "F": 1337,
+            "Q": 59959,
+            "correct": 4,
+            "failures": 0,
+            "macro_TPF": 7.09644934876524,
+            "TE": 0.08951116596340833
+          }
+        },
+        "all": {
+          "n": 9,
+          "exposed": 9,
+          "rescues": 1,
+          "losses": 0,
+          "mean_paired_TPF_delta": -0.005818458940787943,
+          "live": {
+            "N": 6236,
+            "F": 1418,
+            "Q": 62891,
+            "correct": 6,
+            "failures": 0,
+            "macro_TPF": 7.714768519130895,
+            "TE": 0.09915568205307596
+          },
+          "ribbon": {
+            "N": 6214,
+            "F": 1455,
+            "Q": 65138,
+            "correct": 7,
+            "failures": 0,
+            "macro_TPF": 7.708950060190107,
+            "TE": 0.09539746384598852
+          }
+        }
+      }
+    }
+  },
+  "expand": false
+}
