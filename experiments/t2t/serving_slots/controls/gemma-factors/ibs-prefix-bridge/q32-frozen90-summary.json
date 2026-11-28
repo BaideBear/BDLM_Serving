@@ -1,0 +1,375 @@
+{
+  "panel_sha": "b975fb538b9be8158c44aa4e376754bf432c08e46a87715d12a304282b924326",
+  "register": "b573869136569160406c0d41a3dfec047ed2bf1f3dd559444be0bc49d79d6262",
+  "pairs_digest": "c0186bec119269f1c70d561931551fb8f674c1f38dbb51771baad0e1e29434a7",
+  "gpu": "NVIDIA H800 PCIe",
+  "torch": "2.9.0+cu128",
+  "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+  ],
+  "verified": 90,
+  "executions": 270,
+  "cohorts": {
+    "32": {
+      "all": {
+        "pairs": 90,
+        "exposed": 70,
+        "rescues": 1,
+        "losses": 0,
+        "changed_ids": 33,
+        "off": {
+          "correct": 79,
+          "N": 36118,
+          "F": 6287,
+          "decoder_Q": 186829,
+          "encoder_F": 93,
+          "extra_Q": 0,
+          "macro_TPF": 6.839990867567846,
+          "pooled_TE": 0.19332116534371002,
+          "peak": 32
+        },
+        "on": {
+          "correct": 80,
+          "N": 35754,
+          "F": 6148,
+          "decoder_Q": 184058,
+          "encoder_F": 90,
+          "extra_Q": 1830,
+          "macro_TPF": 6.821343453277029,
+          "pooled_TE": 0.19425398515685274,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            3.3333333333333335
+          ],
+          "macro_TPF_delta": [
+            -0.19954931090756223,
+            0.13500027975075202
+          ],
+          "pooled_TE_delta_pp": [
+            -2.574170197209391,
+            3.085039253552652
+          ]
+        }
+      },
+      "original30_panel": {
+        "pairs": 30,
+        "exposed": 23,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 11,
+        "off": {
+          "correct": 28,
+          "N": 9988,
+          "F": 1656,
+          "decoder_Q": 49445,
+          "encoder_F": 23,
+          "extra_Q": 0,
+          "macro_TPF": 6.744657791964521,
+          "pooled_TE": 0.20200222469410456,
+          "peak": 32
+        },
+        "on": {
+          "correct": 28,
+          "N": 10222,
+          "F": 1718,
+          "decoder_Q": 51336,
+          "encoder_F": 24,
+          "extra_Q": 403,
+          "macro_TPF": 6.676322559279252,
+          "pooled_TE": 0.1991195262583762,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            0.0
+          ],
+          "macro_TPF_delta": [
+            -0.2237418161162534,
+            0.06686258271191779
+          ],
+          "pooled_TE_delta_pp": [
+            -0.9323789463179383,
+            0.36545698365803014
+          ]
+        }
+      },
+      "added60_panel": {
+        "pairs": 60,
+        "exposed": 47,
+        "rescues": 1,
+        "losses": 0,
+        "changed_ids": 22,
+        "off": {
+          "correct": 51,
+          "N": 26130,
+          "F": 4631,
+          "decoder_Q": 137384,
+          "encoder_F": 70,
+          "extra_Q": 0,
+          "macro_TPF": 6.8876574053695085,
+          "pooled_TE": 0.19019682059046178,
+          "peak": 32
+        },
+        "on": {
+          "correct": 52,
+          "N": 25532,
+          "F": 4430,
+          "decoder_Q": 132722,
+          "encoder_F": 66,
+          "extra_Q": 1427,
+          "macro_TPF": 6.893853900275918,
+          "pooled_TE": 0.19237202573800877,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            5.0
+          ],
+          "macro_TPF_delta": [
+            -0.2543790841474184,
+            0.22296303256473357
+          ],
+          "pooled_TE_delta_pp": [
+            -3.2614920814792088,
+            4.275720901931123
+          ]
+        }
+      },
+      "previously_screened15": {
+        "pairs": 15,
+        "exposed": 12,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 4,
+        "off": {
+          "correct": 12,
+          "N": 8008,
+          "F": 1368,
+          "decoder_Q": 40161,
+          "encoder_F": 21,
+          "extra_Q": 0,
+          "macro_TPF": 6.793243076502654,
+          "pooled_TE": 0.19939742536291427,
+          "peak": 32
+        },
+        "on": {
+          "correct": 12,
+          "N": 7082,
+          "F": 1018,
+          "decoder_Q": 29918,
+          "encoder_F": 17,
+          "extra_Q": 393,
+          "macro_TPF": 7.08060187866183,
+          "pooled_TE": 0.23671368406979076,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            0.0
+          ],
+          "macro_TPF_delta": [
+            -0.08126731668760642,
+            0.7016391594138206
+          ],
+          "pooled_TE_delta_pp": [
+            -0.5550321903306371,
+            5.832355140299578
+          ]
+        }
+      },
+      "not_on_these_two_panels75": {
+        "pairs": 75,
+        "exposed": 58,
+        "rescues": 1,
+        "losses": 0,
+        "changed_ids": 29,
+        "off": {
+          "correct": 67,
+          "N": 28110,
+          "F": 4919,
+          "decoder_Q": 146668,
+          "encoder_F": 72,
+          "extra_Q": 0,
+          "macro_TPF": 6.849340425780884,
+          "pooled_TE": 0.19165734856955846,
+          "peak": 32
+        },
+        "on": {
+          "correct": 68,
+          "N": 28672,
+          "F": 5130,
+          "decoder_Q": 154140,
+          "encoder_F": 73,
+          "extra_Q": 1437,
+          "macro_TPF": 6.769491768200069,
+          "pooled_TE": 0.1860127157129882,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            4.0
+          ],
+          "macro_TPF_delta": [
+            -0.26566175504725936,
+            0.08363968403531664
+          ],
+          "pooled_TE_delta_pp": [
+            -3.2755815782001707,
+            2.872136159008662
+          ]
+        }
+      },
+      "excluding_prior_long_index51": {
+        "pairs": 89,
+        "exposed": 69,
+        "rescues": 1,
+        "losses": 0,
+        "changed_ids": 32,
+        "off": {
+          "correct": 79,
+          "N": 34199,
+          "F": 5853,
+          "decoder_Q": 174131,
+          "encoder_F": 86,
+          "extra_Q": 0,
+          "macro_TPF": 6.867163135898101,
+          "pooled_TE": 0.19639811406354984,
+          "peak": 32
+        },
+        "on": {
+          "correct": 80,
+          "N": 33708,
+          "F": 5840,
+          "decoder_Q": 175197,
+          "encoder_F": 83,
+          "extra_Q": 1694,
+          "macro_TPF": 6.82334891743905,
+          "pooled_TE": 0.19240055480402063,
+          "peak": 32
+        },
+        "paired_stratified_ci95": {
+          "correct_delta_pp": [
+            0.0,
+            3.3707865168539324
+          ],
+          "macro_TPF_delta": [
+            -0.22138676832130447,
+            0.10270931442031607
+          ],
+          "pooled_TE_delta_pp": [
+            -3.015752975886041,
+            2.674642538703262
+          ]
+        }
+      }
+    }
+  },
+  "raw_directory": "/data1/project_data/gx-erqw-20261123/results/gemma-ibs-q32-frozen90-f6913c2",
+  "historical_capped_control": {
+    "count": 90,
+    "matched": {
+      "ids": 90,
+      "events": 90,
+      "trace": 90,
+      "bill": 90
+    },
+    "discrepancies": [],
+    "run_sha": "c390d5e7c02ecc608592448e19cb9ab8d2125241be38d1ee59cd728716277855"
+  }
+}

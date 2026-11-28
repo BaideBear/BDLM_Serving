@@ -1,6 +1,6 @@
 # Warm prefix refresh on hard-capped IBS
 
-**Decision: the prespecified nine-case screen passed; no promotion or follow-on run.**
+**Final decision: reject the four-row slack refresh as a default.** The [full Q32 confirmation](#fixed-q32-confirmation) failed its retention gate. The nine-case results below are the original screen, not the final decision.
 Q32 rescued one of two control misses (#50, MATH) without losing a control success.
 The Q32 forward reduction came mostly from a different case (#80). Q64 gained
 no correct answers and consumed more decoder rows. This is one paired rescue,
@@ -101,3 +101,39 @@ The [six-case registration](replay-six.json) selected the second index of each d
 At Q32 all 126 saved forwards came from MATH index 51, **incorrect on both arms**, with N increasing 1,919 to 2,046. The other five saved zero F; index 31 produced one more token. At Q64 all six outputs were unchanged. No case was rescued or lost at either offer. This warrants checking concentration, not adding prefix refresh to a default policy.
 
 The [complete Q32 paired registration](q32-frozen90.json) calls for 90 fresh triplets, disjoint reporting of the previously screened 15 and remaining 75, and a sensitivity analysis for #51 without excluding it from any primary result. The separate Q64 qualifications do not support a further standalone Q64 run. These controls cannot demonstrate that a native T2T request path is correct.
+
+## Fixed Q32 confirmation
+
+All 90 triplets (270 requests) were rerun on the same n164 H0. All pristine
+and observation-only runs agreed. Against the historical same-stack capped
+IBS, **90/90** also agreed on output IDs, events, trace and N/F/Q bill.
+Observed peak was 32 in both arms. The treatment was triggered on 70/90
+requests, spent 1,830 extra prefix rows at the moments it triggered, changed
+33 final outputs, rescued one scored answer and lost none.
+
+| Frozen cases | Correct off → on | Macro TPF off → on | Token efficiency off → on | Total N off → on | Total F off → on | Selected decoder Q off → on |
+|---|---:|---:|---:|---:|---:|---:|
+| All 90 (primary) | 79 → 80 | 6.840 → 6.821 | 19.33% → 19.43% | 36,118 → 35,754 | 6,287 → 6,148 | 186,829 → 184,058 |
+| Original 30 | 28 → 28 | 6.745 → 6.676 | 20.20% → 19.91% | 9,988 → 10,222 | 1,656 → 1,718 | 49,445 → 51,336 |
+| Added 60 | 51 → 52 | 6.888 → 6.894 | 19.02% → 19.24% | 26,130 → 25,532 | 4,631 → 4,430 | 137,384 → 132,722 |
+| Previously screened 15 (now on H0) | 12 → 12 | 6.793 → 7.081 | 19.94% → 23.67% | 8,008 → 7,082 | 1,368 → 1,018 | 40,161 → 29,918 |
+| Other 75 (primary confirmation) | 67 → 68 | 6.849 → 6.769 | 19.17% → 18.60% | 28,110 → 28,672 | 4,919 → 5,130 | 146,668 → 154,140 |
+| Without #51 (sensitivity only) | 79 → 80 | 6.867 → 6.823 | 19.64% → 19.24% | 34,199 → 33,708 | 5,853 → 5,840 | 174,131 → 175,197 |
+
+The only rescue was HumanEval #78, N 251 → 322 and F 19 → 41. The older A1
+pilot rescue on #50 is not replicated on H0: both arms got it right with
+identical N/F. #51 remained wrong (434 → 308 F); it accounts for 126 of
+the 139 **net** saved forwards. The primary macro TPF nevertheless decreased:
+each request, not each forward, receives the same weight. Among the other
+75, the treatment spent 211 more F and 7,472 more decoder Q. These data do
+not warrant increasing the default prefix dose or claiming a general T2T
+benefit.
+
+Descriptive paired, stratified 95% bootstrap intervals for the **all-90**
+changes: quality [0, +3.33] percentage points, mean TPF [-0.200, +0.135],
+pooled TE [-2.57, +3.09] percentage points. For the 75: quality [0,+4.00],
+TPF [-0.266,+0.084], TE [-3.28,+2.87] pp. The other 75 were not in these
+two pilots, not a globally untouched validation set.
+[Verified metrics and receipt digests](q32-frozen90-summary.json) ·
+[Numeric figure](q32-frozen90.png) ·
+[Replot script](../../../../../../tools/plot_ibs_bridge_confirmation.py).

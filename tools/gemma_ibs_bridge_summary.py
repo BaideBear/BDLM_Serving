@@ -37,7 +37,7 @@ def paired_uncertainty(rows, repeats=4000):
     for _ in range(repeats):
         sample = [x for group in strata.values() for x in rng.choices(group,k=len(group))]
         d_score,d_tpf,n0,q0,n1,q1 = map(sum,zip(*sample))
-        for out, value in zip(dist,(100*d_score/len(sample),d_tpf,100*(n1/q1-n0/q0))):
+        for out, value in zip(dist,(100*d_score/len(sample),d_tpf/len(sample),100*(n1/q1-n0/q0))):
             out.append(value)
     result = {}
     for key,v in zip(("correct_delta_pp","macro_TPF_delta","pooled_TE_delta_pp"),dist):
@@ -46,7 +46,7 @@ def paired_uncertainty(rows, repeats=4000):
     return result
 
 
-def verify(out, panel_path, samples, generation_config):
+def verify(out, panel_path, samples, generation_config, historical_capped=None):
     panel = read(panel_path)
     reg = read(out/"pairs/registration.json")
     cfg = generation_config.read_bytes()
@@ -65,7 +65,13 @@ def verify(out, panel_path, samples, generation_config):
             [(r["index"],r["q"]) for r in records] == keys and
             {p.name for p in (out/"pairs").glob("*-q*.json")} == {f"{i:02}-q{q}.json" for i,q in keys},
             "Missing/duplicate/unregistered pair")
-    inputs, hashes = {}, []
+    inputs, hashes, previous = {}, [], []
+    if historical_capped:
+        meta = read(historical_capped/"run.json")
+        require(meta["hard_q_cap"] is True and meta["samples_sha256"] == PINS["samples"]
+                and meta["cap"] == 2048 and meta["seed_offset"] == 0 and
+                meta["suite"] == "frozen90" and meta["torch"] == reg["torch"]
+                and meta["hashes"] == reg["controls"], "Historical comparison is not compatible")
     for row in records:
         i, q = row["index"], row["q"]
         path = out/"pairs"/f"{i:02}-q{q}.json"
@@ -89,6 +95,17 @@ def verify(out, panel_path, samples, generation_config):
             compact = {k:raw[k] for k in ("N","F","decoder_Q","encoder_F","correct")}
             require(row[arm] == dict(**compact,extra_Q=bill["extra_Q"],peak=bill["peak"],
                                      ids_sha=digest(raw["output_ids"])), "Compact arm mismatch")
+        if historical_capped:
+            policy = f"ibs_cap_{q}"
+            h = read(historical_capped/f"{i:02}-{policy}.json")
+            a = full["off"]
+            require(h["policy"] == policy and h["status"] == "success" and
+                    all(h[k] == row[k] for k in ("index","dataset","seed","task_id")),
+                    "Mismatched historical control")
+            previous.append(dict(index=i,q=q,ids=h["output_ids"]==a["output_ids"],
+                events=h["events"]==a["events"],trace=h["trace"]==a["trace"],
+                bill=(h["output_tokens"],h["generation_forwards"],sum(e[1] for e in h["events"] if e[0]=="decoder"))==
+                     (a["N"],a["F"],a["decoder_Q"])))
     groups = {}
     for q in panel["tiers"]:
         x = [r for r in records if r["q"] == q]
@@ -103,14 +120,23 @@ def verify(out, panel_path, samples, generation_config):
         if "prior_six" in panel:
             for tag,group in cohorts:
                 groups[str(q)][tag]["paired_stratified_ci95"] = paired_uncertainty(group)
-    return dict(panel_sha=reg["panel_sha"], register=marker["reg"], pairs_digest=digest(hashes),
+    out_record = dict(panel_sha=reg["panel_sha"], register=marker["reg"], pairs_digest=digest(hashes),
                 gpu=reg["gpu"], torch=reg["torch"], indices=panel["indices"], verified=len(records),
                 executions=3*len(records), cohorts=groups, raw_directory=str(out))
+    if previous:
+        fields = ("ids","events","trace","bill")
+        out_record["historical_capped_control"] = dict(count=len(previous),
+                matched={k:sum(r[k] for r in previous) for k in fields},
+                discrepancies=[r for r in previous if not all(r[k] for k in fields)],
+                run_sha=sha(historical_capped/"run.json"))
+    return out_record
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     for name in ("out","panel","samples","generation-config"):
         p.add_argument("--"+name, type=Path, required=True)
+    p.add_argument("--historical-capped", type=Path)
     a = p.parse_args()
-    print(json.dumps(verify(a.out,a.panel,a.samples,a.generation_config), indent=2, allow_nan=False))
+    print(json.dumps(verify(a.out,a.panel,a.samples,a.generation_config,a.historical_capped),
+                     indent=2, allow_nan=False))
