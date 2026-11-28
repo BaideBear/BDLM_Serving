@@ -34,3 +34,26 @@ gain to query selection.
 [Evidence, original30/new60 splits, Q counters and raw-source hashes](exposure.json).
 Reproduce on n164: `python3 tools/ibs_frozen_eos_tail.py
 /data1/project_data/gx-erqw-20261123/runtime/t2t-native-1125/prefix90`.
+
+## Shared stop predicate on the six registered GPU pairs per model
+
+The [pure decision function](../../../../../bdlm_serving/methods/t2t/frozen_stop.py)
+consumes the post-write immutable frontier, generated interval, absolute
+EOS position, outstanding row set and offer. It neither performs a model
+call nor marks anything paid. Only a caller that guarantees the prefix is
+immutable may use it. A full block ending in EOS is an ordinary end, not
+an early termination. A suffix payment never advances the sampler; do not
+finish until a real paid projection has cleared the debt.
+
+| Registered GPU pilot | Stock decoder ticks replayed | Stop with no debt | Stop after suffix-only payment | Ordinary block EOS | Measured payment F / Q |
+|---|---:|---:|---:|---:|---:|
+| LLaDA Q4, six | 1,814 | 4 | 2 | 0 | 2 / 3 |
+| Gemma Q32, six | 289 | 1 | 4 | 1 | 4 / 20 |
+
+The [audit](../../../../../tools/audit_shared_frozen_stop.py) reconstructs the
+LLaDA prefix from ordinary writes and revocations, excludes prompt tokens,
+and reads Gemma's independently reconciled per-tick states. It checks the
+first trigger and any physical payment against the treatment arm. [Compact
+output with raw-tape hashes](pilot-replay.json). The pilot replay is **not**
+a second inference run or evidence that the Q-selection policy beats IBS.
+The in-flight registered GPU executors were not modified.

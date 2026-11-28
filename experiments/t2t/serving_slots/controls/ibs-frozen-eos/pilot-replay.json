@@ -1,0 +1,46 @@
+{
+  "indices": [
+    0,
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
+  "scope": "GPU pilot tape replay, no new inference",
+  "llada21_q4": {
+    "stock_ticks": 1814,
+    "first_decision_counts": {
+      "frozen_eos": 4,
+      "suffix_debt": 2
+    },
+    "actual_payment_forwards": 2,
+    "actual_payment_Q": 3,
+    "source_sha256": [
+      "541739f09af4a8b23d879bbd51c0afb1ccc13bbfd860a9af43a305dfe29173dd",
+      "c45e25b47584c82dc2e8bfb59f90446988a03cbb1dad95be195a7a394a9cab1c",
+      "d9b8a71193fc2fe70664be9153b7a35ecd3ff80339906ea588dd6bd7a0d9c69c",
+      "464b630db5a1cb58839e151dbdb7a231514e3bb767ab757039894820258b2197",
+      "a049f467de8bca2fdf580f4f36b5d268bb66e9b000f38f85b2a734402bb1d921",
+      "b21a195e18c391d70426b5cb726715b736137b017bc639ee0d13d7413b2bf9f7"
+    ]
+  },
+  "gemma_q32": {
+    "stock_ticks": 289,
+    "first_decision_counts": {
+      "suffix_debt": 4,
+      "frozen_eos": 1,
+      "ordinary_block_end": 1
+    },
+    "actual_payment_forwards": 4,
+    "actual_payment_Q": 20,
+    "source_sha256": [
+      "1fe84f96c45ae6a265ba73c3595c1bad9de76449c7a7ff1dd5b0cb5dcefe14c6",
+      "d4cdca9cd6be80c63497a47d806359604b24e633e427a9847f9d3ed47382e805",
+      "0c09274d0085f1fb41c46703380ab6c5d04456bc2bfdb2a0858837b886f3680e",
+      "1b2ed7aa1263480449c113431ea1e7cdd50a735b15d7c5029e1edb83e767babb",
+      "72d8d1f52c2e4d6c4812f005aae22270b860dfe22b9314248ebd8ecd396fc643",
+      "5683c9541e29a05da2a599261fc6933aa93a4f390d7a5ebfee14aa79179a3e7e"
+    ]
+  }
+}

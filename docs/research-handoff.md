@@ -102,3 +102,5 @@ H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q
 2026-11-28 18:00（UTC+8）。[Gemma `step(256)` 原生端点](../experiments/t2t/serving_slots/controls/gemma-factors/native-argmax-q256/README.md)已从真实 `generate` 进行全 90 题配对验收：交付 ID、171 个停判 argmax 和 81 次非末块编码输入都一致。原生与 step 均为 85/90、25.510 TPF、9.31% TE；额外付费 verify 为 85/90、21.976、8.26%。这是 Q256 的等价性，不是五档算法或取胜结果。
 
 [两模型八个固定 IBS 档的块尾审计](../experiments/t2t/serving_slots/controls/ibs-frozen-eos/README.md)：第一枚已交付 EOS 进入不可改写的块内前缀以后，LLaDA Q4、Gemma Q32 的旧执行分别实际消耗了 556、1,036 次后续 decoder F；等到所有欠账自然清空，则分别只剩 394、42 次。已安排同卡实测“确认前缀＋真实后缀欠账写回＋停止”，不得把旧账本直接相减称为实测；原强基线也须使用相同停止规则，不能把共用端点收益记为 Q 选择的优势。
+
+[两模型共用的停止函数与六题实测轨迹复核](../experiments/t2t/serving_slots/controls/ibs-frozen-eos/README.md#shared-stop-predicate-on-the-six-registered-gpu-pairs-per-model)：LLaDA Q4 的 1,814 个、Gemma Q32 的 289 个普通 decoder 轮均已复核；处理组实际额外偿还的后缀分别是 2 F / 3 Q、4 F / 20 Q。Gemma 一题是自然整块结束。此结果只限定在冻结前缀的 IBS，不能用于还可能编辑前缀的原生执行器；十档统一算法仍未通过。
