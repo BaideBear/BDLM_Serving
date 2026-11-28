@@ -28,6 +28,37 @@ permission to drop such debt on other inputs: the historical IBS capped writer
 only registers edits whose new token is not MASK. This isolated experiment is
 not a qualification for importing it wholesale as a switchable request.
 
+### What does the strict window spend its Q on?
+
+[Per-cohort counters, four tiers](ibs-paid-ticks.json). Each tier contains
+the same 90 requests, and every charged post-prefill call on each request.
+No partial prefix cache or model replay is inferred. A cold MASK is a selected
+MASK whose absolute position had never been projected; a warm MASK was
+projected previously and is still unresolved. An admission counts a MASK
+becoming non-MASK, not a final delivered token. An edit changes an already
+decoded position. These are different numerators.
+
+| Fixed IBS Q | Dirty / actual Q | Warm admissions / all admissions | Warm admissions on calls also projecting cold MASKs | Edits on mandatory rows / all edits | All offered seats mandatory: F / total F |
+|---:|---:|---:|---:|---:|---:|
+| 4 | 41,364 / 105,885 | 9,273 / 40,915 | 4,534 | 441 / 455 | 4,137 / 27,397 |
+| 8 | 44,361 / 145,324 | 14,740 / 44,155 | 6,396 | 150 / 206 | 1,835 / 19,692 |
+| 16 | 44,098 / 206,927 | 20,367 / 43,771 | 6,739 | 213 / 328 | 584 / 15,480 |
+| 32 | 42,876 / 268,170 | 22,908 / 42,331 | 0 | 386 / 547 | 178 / 12,694 |
+
+At Q32 all cold/warm MASK mixing disappears on this control, **not** warm
+admissions. The best interpretation is to test the use of already-projected
+MASKs in Q8/Q16 mixed calls, not to add extra projections or globally loosen
+the sampler. Mandatory writes and useful edit opportunities overlap; a new
+projection just for an edit is not always necessary. Counts do not establish
+the benefit of allowing any particular edit, and are not quotas.
+
+Generation failures (Q4/8/16/32: 6/0/1/2) stay in the relevant 90. Their
+completed physical forwards are included; terminal unpaid historical writes
+are 6/0/1/2 rows respectively and are not fictitiously charged. No historical
+token-to-MASK revocations were observed in these four cohorts. Reproduce on
+n164 with `tools/audit_llada_ibs_ticks.py PREFIX90 FROZEN90_MANIFEST`; the
+audit checks each per-task bill against the independently scored ledger.
+
 `tools/audit_ibs_spare.py RUN_ROOT MANIFEST` on the receipt host checks
 source and return seals, per-request IDs and per-forward debt, bills and
 cohort totals. No new model inference is required.
@@ -96,8 +127,15 @@ All 30 pairs were exposed, and all 30 output sequences changed (6 rescues,
 this does not imply a causal admission probability on other trajectories.
 The fully measured [paired report](c8-frontier-original30.json) improves over
 its own control, not over [strict IBS8](../llada21-q8-ibs-original-vs-capped.csv).
-Extend unchanged to added60 on the same physical A0, with exact replays of
-both arms on 0/10/20 before accepting the inherited original30.
+The [same A0 extension to all 90](c8-frontier-frozen90.json) passed exact
+replays on 0/10/20 before accepting the other original pairs. New60 correct
+went from 19 to 32. For frozen90 the two arms had **30 vs 46 correct,
+1.681 vs 1.913 macro TPF and 16.54% vs 21.04% TE**. Paid F fell
+47,198 to 38,567 and selected Q fell 329,926 to 262,743. Of the 90 tasks,
+89 were exposed; 23 were rescued and 7 lost. The descriptive paired 95%
+intervals were [+6.67,+28.89] percentage points and [+0.130,+0.336] TPF.
+The A0 control is not the independent H4 control (29 correct); neither
+version catches the frozen90 strict IBS8 (72 correct, 2.364 TPF, 29.36% TE).
 
 At [fixed Q4 on H0, full90](c4-frontier-frozen90.json), exchanging that
 single seat improved 8 to 17 correct on original30 and 10 to 30 on new60.

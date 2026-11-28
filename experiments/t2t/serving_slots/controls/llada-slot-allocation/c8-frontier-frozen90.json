@@ -1,0 +1,248 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "arms": {
+        "exchange": {
+          "F": 38567,
+          "N": 55288,
+          "Q": 262743,
+          "TE": 0.21042615788051441,
+          "actions": 6449,
+          "correct": 46,
+          "failed": 0,
+          "macro_TPF": 1.9125131512220914,
+          "swapped_admits": 5181
+        },
+        "old": {
+          "F": 47198,
+          "N": 54584,
+          "Q": 329926,
+          "TE": 0.16544315998132914,
+          "actions": 0,
+          "correct": 30,
+          "failed": 0,
+          "macro_TPF": 1.680527383336421,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 86,
+          "losses": 7,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.06667,
+              0.28889
+            ],
+            "macro_TPF": [
+              0.13037,
+              0.33599
+            ]
+          },
+          "rescues": 23
+        }
+      },
+      "exposed": 89,
+      "pairs": 90
+    },
+    "new60": {
+      "arms": {
+        "exchange": {
+          "F": 25904,
+          "N": 37557,
+          "Q": 176312,
+          "TE": 0.21301442896683154,
+          "actions": 4366,
+          "correct": 32,
+          "failed": 0,
+          "macro_TPF": 1.936233611080176,
+          "swapped_admits": 3364
+        },
+        "old": {
+          "F": 30978,
+          "N": 36116,
+          "Q": 216457,
+          "TE": 0.1668506908993472,
+          "actions": 0,
+          "correct": 19,
+          "failed": 0,
+          "macro_TPF": 1.7034904588427242,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 56,
+          "losses": 4,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.08333,
+              0.35
+            ],
+            "macro_TPF": [
+              0.0988,
+              0.3671
+            ]
+          },
+          "rescues": 17
+        }
+      },
+      "exposed": 59,
+      "pairs": 60
+    },
+    "original30": {
+      "arms": {
+        "exchange": {
+          "F": 12663,
+          "N": 17731,
+          "Q": 86431,
+          "TE": 0.20514630167416784,
+          "actions": 2083,
+          "correct": 14,
+          "failed": 0,
+          "macro_TPF": 1.8650722315059218,
+          "swapped_admits": 1817
+        },
+        "old": {
+          "F": 16220,
+          "N": 18468,
+          "Q": 113469,
+          "TE": 0.162758110144621,
+          "actions": 0,
+          "correct": 11,
+          "failed": 0,
+          "macro_TPF": 1.6346012323238144,
+          "swapped_admits": 0
+        }
+      },
+      "changes": {
+        "old_to_exchange": {
+          "different_ids": 30,
+          "losses": 3,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.06667,
+              0.26667
+            ],
+            "macro_TPF": [
+              0.06981,
+              0.39872
+            ]
+          },
+          "rescues": 6
+        }
+      },
+      "exposed": 30,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+    "inherited": "/gs/results/llada-frontier-seat-q8-1128",
+    "inherited_planner": "04618ba8a8075dd7980f3e006dc5d8f64d1b8b36b2205e7aed7ba1895fc86cb9",
+    "inherited_replay": [
+      0,
+      10,
+      20
+    ],
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "planner": "a7f615f8bfd63c23333e14d0d4d829297cc82d61b876f13352346039f6abf419",
+    "protocol": "llada-frontier-one-seat-v1",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "989629fb7693426b3b1c0bb0a01f4a428b566adf1fd4c3e1c62d4a55897b494f"
+}
