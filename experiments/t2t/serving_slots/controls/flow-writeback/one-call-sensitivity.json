@@ -1,0 +1,579 @@
+[
+  {
+    "all90": {
+      "F": 27397,
+      "N": 37754,
+      "Q": 105885,
+      "actual_tpf": 1.3951084478751463,
+      "cases_with_clean_promotion": 90,
+      "clean_launches": 933,
+      "n": 90,
+      "one_free_successor_call_tpf": 1.440543817711618,
+      "work": {
+        "debt_Q": 41364,
+        "edited_row_visits": 455,
+        "first_view_admits": 31642,
+        "mask_no_debt_F": 6234,
+        "mixed_mask_debt_F": 14228,
+        "no_mask_no_debt_F": 360,
+        "no_mask_with_debt_F": 6575,
+        "other_resolved_Q": 8297,
+        "revisit_admits": 9273,
+        "unresolved_first_Q": 40915,
+        "unresolved_revisit_Q": 15309
+      }
+    },
+    "model": "llada21",
+    "new60": {
+      "F": 18692,
+      "N": 26509,
+      "Q": 72241,
+      "actual_tpf": 1.4015773637673106,
+      "cases_with_clean_promotion": 60,
+      "clean_launches": 632,
+      "n": 60,
+      "one_free_successor_call_tpf": 1.4472630107461397,
+      "work": {
+        "debt_Q": 28081,
+        "edited_row_visits": 308,
+        "first_view_admits": 21465,
+        "mask_no_debt_F": 4278,
+        "mixed_mask_debt_F": 9662,
+        "no_mask_no_debt_F": 248,
+        "no_mask_with_debt_F": 4504,
+        "other_resolved_Q": 5829,
+        "revisit_admits": 6312,
+        "unresolved_first_Q": 27777,
+        "unresolved_revisit_Q": 10554
+      }
+    },
+    "original30": {
+      "F": 8705,
+      "N": 11245,
+      "Q": 33644,
+      "actual_tpf": 1.382170616090818,
+      "cases_with_clean_promotion": 30,
+      "clean_launches": 301,
+      "n": 30,
+      "one_free_successor_call_tpf": 1.4271054316425749,
+      "work": {
+        "debt_Q": 13283,
+        "edited_row_visits": 147,
+        "first_view_admits": 10177,
+        "mask_no_debt_F": 1956,
+        "mixed_mask_debt_F": 4566,
+        "no_mask_no_debt_F": 112,
+        "no_mask_with_debt_F": 2071,
+        "other_resolved_Q": 2468,
+        "revisit_admits": 2961,
+        "unresolved_first_Q": 13138,
+        "unresolved_revisit_Q": 4755
+      }
+    },
+    "q": 4,
+    "source_sha256": "444ebcf67fa934e7bda89e864e758e5c8112b4802d89da6f42588421a07902d5"
+  },
+  {
+    "all90": {
+      "F": 19692,
+      "N": 42667,
+      "Q": 145324,
+      "actual_tpf": 2.364478500486853,
+      "cases_with_clean_promotion": 90,
+      "clean_launches": 1062,
+      "n": 90,
+      "one_free_successor_call_tpf": 2.4995223535760593,
+      "work": {
+        "debt_Q": 44361,
+        "edited_row_visits": 206,
+        "first_view_admits": 29415,
+        "mask_no_debt_F": 3585,
+        "mixed_mask_debt_F": 12322,
+        "no_mask_no_debt_F": 161,
+        "no_mask_with_debt_F": 3624,
+        "other_resolved_Q": 18134,
+        "revisit_admits": 14740,
+        "unresolved_first_Q": 44155,
+        "unresolved_revisit_Q": 38674
+      }
+    },
+    "model": "llada21",
+    "new60": {
+      "F": 13040,
+      "N": 28760,
+      "Q": 96295,
+      "actual_tpf": 2.414177680835274,
+      "cases_with_clean_promotion": 60,
+      "clean_launches": 706,
+      "n": 60,
+      "one_free_successor_call_tpf": 2.5531135002795478,
+      "work": {
+        "debt_Q": 29876,
+        "edited_row_visits": 137,
+        "first_view_admits": 20296,
+        "mask_no_debt_F": 2441,
+        "mixed_mask_debt_F": 8021,
+        "no_mask_no_debt_F": 110,
+        "no_mask_with_debt_F": 2468,
+        "other_resolved_Q": 11915,
+        "revisit_admits": 9443,
+        "unresolved_first_Q": 29739,
+        "unresolved_revisit_Q": 24765
+      }
+    },
+    "original30": {
+      "F": 6652,
+      "N": 13907,
+      "Q": 49029,
+      "actual_tpf": 2.26508013979001,
+      "cases_with_clean_promotion": 30,
+      "clean_launches": 356,
+      "n": 30,
+      "one_free_successor_call_tpf": 2.3923400601690825,
+      "work": {
+        "debt_Q": 14485,
+        "edited_row_visits": 69,
+        "first_view_admits": 9119,
+        "mask_no_debt_F": 1144,
+        "mixed_mask_debt_F": 4301,
+        "no_mask_no_debt_F": 51,
+        "no_mask_with_debt_F": 1156,
+        "other_resolved_Q": 6219,
+        "revisit_admits": 5297,
+        "unresolved_first_Q": 14416,
+        "unresolved_revisit_Q": 13909
+      }
+    },
+    "q": 8,
+    "source_sha256": "ceb103ced675fe7d520b5373a4984a30983d6e61137ae0aa34b2b9c6cbfb0b9c"
+  },
+  {
+    "all90": {
+      "F": 15480,
+      "N": 42500,
+      "Q": 206927,
+      "actual_tpf": 3.3749400574064903,
+      "cases_with_clean_promotion": 89,
+      "clean_launches": 1122,
+      "n": 90,
+      "one_free_successor_call_tpf": 3.696013000997977,
+      "work": {
+        "debt_Q": 44098,
+        "edited_row_visits": 328,
+        "first_view_admits": 23404,
+        "mask_no_debt_F": 2018,
+        "mixed_mask_debt_F": 11297,
+        "no_mask_no_debt_F": 54,
+        "no_mask_with_debt_F": 2111,
+        "other_resolved_Q": 34785,
+        "revisit_admits": 20367,
+        "unresolved_first_Q": 43771,
+        "unresolved_revisit_Q": 84273
+      }
+    },
+    "model": "llada21",
+    "new60": {
+      "F": 10202,
+      "N": 28880,
+      "Q": 136443,
+      "actual_tpf": 3.468071835437717,
+      "cases_with_clean_promotion": 59,
+      "clean_launches": 747,
+      "n": 60,
+      "one_free_successor_call_tpf": 3.805575223065176,
+      "work": {
+        "debt_Q": 29924,
+        "edited_row_visits": 218,
+        "first_view_admits": 16332,
+        "mask_no_debt_F": 1389,
+        "mixed_mask_debt_F": 7306,
+        "no_mask_no_debt_F": 36,
+        "no_mask_with_debt_F": 1471,
+        "other_resolved_Q": 23018,
+        "revisit_admits": 13375,
+        "unresolved_first_Q": 29707,
+        "unresolved_revisit_Q": 53794
+      }
+    },
+    "original30": {
+      "F": 5278,
+      "N": 13620,
+      "Q": 70484,
+      "actual_tpf": 3.1886765013440375,
+      "cases_with_clean_promotion": 30,
+      "clean_launches": 375,
+      "n": 30,
+      "one_free_successor_call_tpf": 3.47688855686358,
+      "work": {
+        "debt_Q": 14174,
+        "edited_row_visits": 110,
+        "first_view_admits": 7072,
+        "mask_no_debt_F": 629,
+        "mixed_mask_debt_F": 3991,
+        "no_mask_no_debt_F": 18,
+        "no_mask_with_debt_F": 640,
+        "other_resolved_Q": 11767,
+        "revisit_admits": 6992,
+        "unresolved_first_Q": 14064,
+        "unresolved_revisit_Q": 30479
+      }
+    },
+    "q": 16,
+    "source_sha256": "cf00240b0182627bc1f80254861d2bba0caed5c720b2c2f58b434e8bc7b74f24"
+  },
+  {
+    "all90": {
+      "F": 12694,
+      "N": 40852,
+      "Q": 268170,
+      "actual_tpf": 4.49489631253014,
+      "cases_with_clean_promotion": 89,
+      "clean_launches": 1100,
+      "n": 90,
+      "one_free_successor_call_tpf": 5.190068030760167,
+      "work": {
+        "debt_Q": 42876,
+        "edited_row_visits": 547,
+        "first_view_admits": 19423,
+        "mask_no_debt_F": 1372,
+        "mixed_mask_debt_F": 9794,
+        "no_mask_with_debt_F": 1528,
+        "other_resolved_Q": 49577,
+        "revisit_admits": 22908,
+        "unresolved_first_Q": 42331,
+        "unresolved_revisit_Q": 133386
+      }
+    },
+    "model": "llada21",
+    "new60": {
+      "F": 7595,
+      "N": 26675,
+      "Q": 161900,
+      "actual_tpf": 4.606979855125763,
+      "cases_with_clean_promotion": 59,
+      "clean_launches": 704,
+      "n": 60,
+      "one_free_successor_call_tpf": 5.338646265187256,
+      "work": {
+        "debt_Q": 28108,
+        "edited_row_visits": 387,
+        "first_view_admits": 13612,
+        "mask_no_debt_F": 900,
+        "mixed_mask_debt_F": 5650,
+        "no_mask_with_debt_F": 1045,
+        "other_resolved_Q": 31271,
+        "revisit_admits": 14111,
+        "unresolved_first_Q": 27723,
+        "unresolved_revisit_Q": 74798
+      }
+    },
+    "original30": {
+      "F": 5099,
+      "N": 14177,
+      "Q": 106270,
+      "actual_tpf": 4.2707292273388955,
+      "cases_with_clean_promotion": 30,
+      "clean_launches": 396,
+      "n": 30,
+      "one_free_successor_call_tpf": 4.892911561905989,
+      "work": {
+        "debt_Q": 14768,
+        "edited_row_visits": 160,
+        "first_view_admits": 5811,
+        "mask_no_debt_F": 472,
+        "mixed_mask_debt_F": 4144,
+        "no_mask_with_debt_F": 483,
+        "other_resolved_Q": 18306,
+        "revisit_admits": 8797,
+        "unresolved_first_Q": 14608,
+        "unresolved_revisit_Q": 58588
+      }
+    },
+    "q": 32,
+    "source_sha256": "8c141543e965414c7c2fd4ef51ca966472052534f9337eb3896409eaec31a4f1"
+  },
+  {
+    "all90": {
+      "F": 6287,
+      "N": 36118,
+      "Q": 186829,
+      "actual_tpf": 6.839990867567846,
+      "cases_with_clean_promotion": 53,
+      "clean_launches": 92,
+      "n": 90,
+      "one_free_successor_call_tpf": 6.917766333423225,
+      "work": {
+        "debt_Q": 46848,
+        "edited_row_visits": 0,
+        "first_view_admits": 25822,
+        "mask_no_debt_F": 221,
+        "mixed_mask_debt_F": 5752,
+        "no_mask_with_debt_F": 221,
+        "other_resolved_Q": 34518,
+        "revisit_admits": 21026,
+        "unresolved_first_Q": 46848,
+        "unresolved_revisit_Q": 58615
+      }
+    },
+    "model": "gemma",
+    "new60": {
+      "F": 4631,
+      "N": 26130,
+      "Q": 137384,
+      "actual_tpf": 6.8876574053695085,
+      "cases_with_clean_promotion": 35,
+      "clean_launches": 70,
+      "n": 60,
+      "one_free_successor_call_tpf": 6.969694824886502,
+      "work": {
+        "debt_Q": 33280,
+        "edited_row_visits": 0,
+        "first_view_admits": 18275,
+        "mask_no_debt_F": 166,
+        "mixed_mask_debt_F": 4229,
+        "no_mask_with_debt_F": 166,
+        "other_resolved_Q": 25833,
+        "revisit_admits": 15005,
+        "unresolved_first_Q": 33280,
+        "unresolved_revisit_Q": 44991
+      }
+    },
+    "original30": {
+      "F": 1656,
+      "N": 9988,
+      "Q": 49445,
+      "actual_tpf": 6.744657791964521,
+      "cases_with_clean_promotion": 18,
+      "clean_launches": 22,
+      "n": 30,
+      "one_free_successor_call_tpf": 6.813909350496672,
+      "work": {
+        "debt_Q": 13568,
+        "edited_row_visits": 0,
+        "first_view_admits": 7547,
+        "mask_no_debt_F": 55,
+        "mixed_mask_debt_F": 1523,
+        "no_mask_with_debt_F": 55,
+        "other_resolved_Q": 8685,
+        "revisit_admits": 6021,
+        "unresolved_first_Q": 13568,
+        "unresolved_revisit_Q": 13624
+      }
+    },
+    "q": 32,
+    "source_sha256": "6c2a8bf946d5de06fc063a32fa3da090cef4912d4c3e372910c7d87013e97f4e"
+  },
+  {
+    "all90": {
+      "F": 3498,
+      "N": 34605,
+      "Q": 196051,
+      "actual_tpf": 11.0503476415242,
+      "cases_with_clean_promotion": 58,
+      "clean_launches": 89,
+      "n": 90,
+      "one_free_successor_call_tpf": 11.276238103746506,
+      "work": {
+        "debt_Q": 45824,
+        "edited_row_visits": 0,
+        "first_view_admits": 22184,
+        "mask_no_debt_F": 187,
+        "mixed_mask_debt_F": 3035,
+        "no_mask_with_debt_F": 187,
+        "other_resolved_Q": 43508,
+        "revisit_admits": 23640,
+        "unresolved_first_Q": 45824,
+        "unresolved_revisit_Q": 60895
+      }
+    },
+    "model": "gemma",
+    "new60": {
+      "F": 2078,
+      "N": 22315,
+      "Q": 117034,
+      "actual_tpf": 11.116454158552395,
+      "cases_with_clean_promotion": 37,
+      "clean_launches": 56,
+      "n": 60,
+      "one_free_successor_call_tpf": 11.348212628304461,
+      "work": {
+        "debt_Q": 29696,
+        "edited_row_visits": 0,
+        "first_view_admits": 15000,
+        "mask_no_debt_F": 124,
+        "mixed_mask_debt_F": 1774,
+        "no_mask_with_debt_F": 124,
+        "other_resolved_Q": 24238,
+        "revisit_admits": 14696,
+        "unresolved_first_Q": 29696,
+        "unresolved_revisit_Q": 33404
+      }
+    },
+    "original30": {
+      "F": 1420,
+      "N": 12290,
+      "Q": 79017,
+      "actual_tpf": 10.918134607467806,
+      "cases_with_clean_promotion": 21,
+      "clean_launches": 33,
+      "n": 30,
+      "one_free_successor_call_tpf": 11.132289054630597,
+      "work": {
+        "debt_Q": 16128,
+        "edited_row_visits": 0,
+        "first_view_admits": 7184,
+        "mask_no_debt_F": 63,
+        "mixed_mask_debt_F": 1261,
+        "no_mask_with_debt_F": 63,
+        "other_resolved_Q": 19270,
+        "revisit_admits": 8944,
+        "unresolved_first_Q": 16128,
+        "unresolved_revisit_Q": 27491
+      }
+    },
+    "q": 64,
+    "source_sha256": "63d1f19c8ba6ffce29d974fc4ea7a191562f0db94aebf1a86361dd22cfe95c65"
+  },
+  {
+    "all90": {
+      "F": 2055,
+      "N": 30814,
+      "Q": 209763,
+      "actual_tpf": 16.40823248699324,
+      "cases_with_clean_promotion": 57,
+      "clean_launches": 78,
+      "n": 90,
+      "one_free_successor_call_tpf": 16.873840897839724,
+      "work": {
+        "debt_Q": 43008,
+        "edited_row_visits": 0,
+        "first_view_admits": 16263,
+        "mask_no_debt_F": 173,
+        "mixed_mask_debt_F": 1631,
+        "no_mask_with_debt_F": 173,
+        "other_resolved_Q": 56663,
+        "revisit_admits": 26745,
+        "unresolved_first_Q": 43008,
+        "unresolved_revisit_Q": 67084
+      }
+    },
+    "model": "gemma",
+    "new60": {
+      "F": 1341,
+      "N": 20406,
+      "Q": 137136,
+      "actual_tpf": 16.37718828469601,
+      "cases_with_clean_promotion": 40,
+      "clean_launches": 53,
+      "n": 60,
+      "one_free_successor_call_tpf": 16.892315266000374,
+      "work": {
+        "debt_Q": 28928,
+        "edited_row_visits": 0,
+        "first_view_admits": 11473,
+        "mask_no_debt_F": 118,
+        "mixed_mask_debt_F": 1052,
+        "no_mask_with_debt_F": 118,
+        "other_resolved_Q": 35991,
+        "revisit_admits": 17455,
+        "unresolved_first_Q": 28928,
+        "unresolved_revisit_Q": 43289
+      }
+    },
+    "original30": {
+      "F": 714,
+      "N": 10408,
+      "Q": 72627,
+      "actual_tpf": 16.4703208915877,
+      "cases_with_clean_promotion": 17,
+      "clean_launches": 25,
+      "n": 30,
+      "one_free_successor_call_tpf": 16.836892161518424,
+      "work": {
+        "debt_Q": 14080,
+        "edited_row_visits": 0,
+        "first_view_admits": 4790,
+        "mask_no_debt_F": 55,
+        "mixed_mask_debt_F": 579,
+        "no_mask_with_debt_F": 55,
+        "other_resolved_Q": 20672,
+        "revisit_admits": 9290,
+        "unresolved_first_Q": 14080,
+        "unresolved_revisit_Q": 23795
+      }
+    },
+    "q": 128,
+    "source_sha256": "09299b0014d69fe150f6f82984dc1495fb604061794fe99c6b915071a8a2c551"
+  },
+  {
+    "all90": {
+      "F": 1563,
+      "N": 32193,
+      "Q": 290137,
+      "actual_tpf": 23.655898667497123,
+      "cases_with_clean_promotion": 58,
+      "clean_launches": 82,
+      "n": 90,
+      "one_free_successor_call_tpf": 24.71578917310731,
+      "work": {
+        "debt_Q": 44032,
+        "edited_row_visits": 0,
+        "first_view_admits": 13275,
+        "mask_no_debt_F": 172,
+        "mixed_mask_debt_F": 1137,
+        "no_mask_with_debt_F": 172,
+        "other_resolved_Q": 89320,
+        "revisit_admits": 30757,
+        "unresolved_first_Q": 44032,
+        "unresolved_revisit_Q": 112753
+      }
+    },
+    "model": "gemma",
+    "new60": {
+      "F": 1009,
+      "N": 22063,
+      "Q": 186161,
+      "actual_tpf": 23.96119303750905,
+      "cases_with_clean_promotion": 42,
+      "clean_launches": 58,
+      "n": 60,
+      "one_free_successor_call_tpf": 25.22229850688132,
+      "work": {
+        "debt_Q": 30208,
+        "edited_row_visits": 0,
+        "first_view_admits": 9494,
+        "mask_no_debt_F": 118,
+        "mixed_mask_debt_F": 715,
+        "no_mask_with_debt_F": 118,
+        "other_resolved_Q": 55163,
+        "revisit_admits": 20714,
+        "unresolved_first_Q": 30208,
+        "unresolved_revisit_Q": 70582
+      }
+    },
+    "original30": {
+      "F": 554,
+      "N": 10130,
+      "Q": 103976,
+      "actual_tpf": 23.04530992747327,
+      "cases_with_clean_promotion": 16,
+      "clean_launches": 24,
+      "n": 30,
+      "one_free_successor_call_tpf": 23.702770505559293,
+      "work": {
+        "debt_Q": 13824,
+        "edited_row_visits": 0,
+        "first_view_admits": 3781,
+        "mask_no_debt_F": 54,
+        "mixed_mask_debt_F": 422,
+        "no_mask_with_debt_F": 54,
+        "other_resolved_Q": 34157,
+        "revisit_admits": 10043,
+        "unresolved_first_Q": 13824,
+        "unresolved_revisit_Q": 42171
+      }
+    },
+    "q": 256,
+    "source_sha256": "ac3d04b0ac52f57a0b40a1f19b6e6937a373d1777a9f423a7e14dcd5c0b54ae7"
+  }
+]

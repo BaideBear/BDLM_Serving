@@ -22,6 +22,8 @@ Even a forward with no token changes has paid projection and informs stopping. T
 
 ## Can a smaller Q use genuine spare seats?
 
+[What one free successor call per boundary could buy, and the next matched screen](boundary-sensitivity.md).
+
 For each physical block on strict IBS, count its **first** ordinary call satisfying all these pre-forward conditions: no unresolved valid head row, head is resident or will be resident using its original query set, `0 < head_Q < q`, and there is generation room beyond the block. We then classify what actually happened in the original tape. The following columns require both a later promoted successor and **no subsequent head ID edit from the triggering call through promotion**. The runtime may use only the current canvas and must check for generated EOS; it cannot use the reference outcome or edit history. A block with an EOS or a head revision must be handled even when that speculation is unprofitable.
 
 | Model | q | Candidate blocks before outcome check | Subsequently promoted without head edit | Distinct requests | Spare Q on these blocks |
