@@ -1,0 +1,11 @@
+{
+  "protocol": "gemma-ibs-bridge-q32-frozen90-v1",
+  "indices": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89],
+  "tiers": [32],
+  "old_pilot": [0,10,20,30,50,70,40,60,80],
+  "prior_six": [1,11,21,31,51,71],
+  "arms": ["plain","off","on"],
+  "execution": "Run every arm fresh on the same H0 for all ninety frozen tasks; never fill from either earlier panel. No samples removed. Fixed seed, cap 2048 and strict decoder Q32.",
+  "intervention": "Exact same four-row maximum warm-slack bridge as both preceding panels. Extra rows are not sampled; this is an IBS-specific KV and self-conditioning control, not native Gemma T2T.",
+  "decision": "Do not label evidence positive unless quality is no worse and macro TPF and pooled TE both improve on all90 and on the 75 outside the two screening panels. Show original30/new60 separately, gains/losses, total N/F/decoder Q and the sensitivity excluding previously identified index51. These are descriptive retention gates, not statistical proof; cannot qualify a general request controller."
+}

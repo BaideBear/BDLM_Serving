@@ -88,3 +88,16 @@ On 2026-11-28 the completion marker was written at 14:27:31 +08. At
 had 0 MiB in use and no compute PID. The final audit streamed only the three
 compact artifacts to the local archive, without writing another A800 log.
 No successor, holder, or dependency on retaining the A800 result path.
+
+## Independent runner check on n164 H0
+
+The [six-case registration](replay-six.json) selected the second index of each dataset within each frozen cohort, disjoint from the nine above. On Torch 2.9.0+cu128, all 12 plain/off comparisons matched in full, including output IDs, score, physical projections and encoder inputs. The off/on comparison below is **not** compared across GPU stacks or combined with the earlier nine; it is a GPU runner qualification, not frozen90. [Verified compact evidence](replay-six-summary.json).
+
+| Fixed Q (6 cases each) | Correct off/on | Macro TPF off/on | TE off/on | Total F off/on | Decoder Q off/on |
+|---|---:|---:|---:|---:|---:|
+| 32 | 5/5 | 6.073/6.447 | 17.01%/22.71% | 597/471 | 17,386/13,584 |
+| 64 | 5/5 | 11.749/11.749 | 21.52%/21.43% | 171/171 | 9,733/9,774 |
+
+At Q32 all 126 saved forwards came from MATH index 51, **incorrect on both arms**, with N increasing 1,919 to 2,046. The other five saved zero F; index 31 produced one more token. At Q64 all six outputs were unchanged. No case was rescued or lost at either offer. This warrants checking concentration, not adding prefix refresh to a default policy.
+
+The [complete Q32 paired registration](q32-frozen90.json) calls for 90 fresh triplets, disjoint reporting of the previously screened 15 and remaining 75, and a sensitivity analysis for #51 without excluding it from any primary result. The separate Q64 qualifications do not support a further standalone Q64 run. These controls cannot demonstrate that a native T2T request path is correct.

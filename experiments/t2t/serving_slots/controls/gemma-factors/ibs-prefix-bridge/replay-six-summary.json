@@ -1,0 +1,198 @@
+{
+  "panel_sha": "bf252010a8350825c7b89b5371c9c6b02366a8804c03b2f3a979641ee1dcefaf",
+  "register": "52ef93c6b7a271d36376d3897b1c5f5b2267a70695832e7cf51406c9caa45e96",
+  "pairs_digest": "b3e5279ae9dd95df29957ad86b91447cc9c258842fd237dc518afc8dfbe852e0",
+  "gpu": "NVIDIA H800 PCIe",
+  "torch": "2.9.0+cu128",
+  "indices": [
+    1,
+    11,
+    21,
+    31,
+    51,
+    71
+  ],
+  "verified": 12,
+  "executions": 36,
+  "cohorts": {
+    "32": {
+      "all": {
+        "pairs": 6,
+        "exposed": 4,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 2,
+        "off": {
+          "correct": 5,
+          "N": 2957,
+          "F": 597,
+          "decoder_Q": 17386,
+          "encoder_F": 8,
+          "extra_Q": 0,
+          "macro_TPF": 6.073242120147785,
+          "pooled_TE": 0.1700793742091338,
+          "peak": 32
+        },
+        "on": {
+          "correct": 5,
+          "N": 3085,
+          "F": 471,
+          "decoder_Q": 13584,
+          "encoder_F": 8,
+          "extra_Q": 208,
+          "macro_TPF": 6.44706500133392,
+          "pooled_TE": 0.22710541813898705,
+          "peak": 32
+        }
+      },
+      "original30_panel": {
+        "pairs": 3,
+        "exposed": 2,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 0,
+        "off": {
+          "correct": 3,
+          "N": 700,
+          "F": 97,
+          "decoder_Q": 2887,
+          "encoder_F": 1,
+          "extra_Q": 0,
+          "macro_TPF": 7.290713853599516,
+          "pooled_TE": 0.24246622791825426,
+          "peak": 32
+        },
+        "on": {
+          "correct": 3,
+          "N": 700,
+          "F": 97,
+          "decoder_Q": 2899,
+          "encoder_F": 1,
+          "extra_Q": 12,
+          "macro_TPF": 7.290713853599516,
+          "pooled_TE": 0.24146257330113832,
+          "peak": 32
+        }
+      },
+      "added60_panel": {
+        "pairs": 3,
+        "exposed": 2,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 2,
+        "off": {
+          "correct": 2,
+          "N": 2257,
+          "F": 500,
+          "decoder_Q": 14499,
+          "encoder_F": 7,
+          "extra_Q": 0,
+          "macro_TPF": 4.855770386696053,
+          "pooled_TE": 0.15566590799365473,
+          "peak": 32
+        },
+        "on": {
+          "correct": 2,
+          "N": 2385,
+          "F": 374,
+          "decoder_Q": 10685,
+          "encoder_F": 7,
+          "extra_Q": 196,
+          "macro_TPF": 5.603416149068323,
+          "pooled_TE": 0.2232101076275152,
+          "peak": 32
+        }
+      }
+    },
+    "64": {
+      "all": {
+        "pairs": 6,
+        "exposed": 4,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 0,
+        "off": {
+          "correct": 5,
+          "N": 2095,
+          "F": 171,
+          "decoder_Q": 9733,
+          "encoder_F": 5,
+          "extra_Q": 0,
+          "macro_TPF": 11.748895128023406,
+          "pooled_TE": 0.21524709750333915,
+          "peak": 64
+        },
+        "on": {
+          "correct": 5,
+          "N": 2095,
+          "F": 171,
+          "decoder_Q": 9774,
+          "encoder_F": 5,
+          "extra_Q": 44,
+          "macro_TPF": 11.748895128023406,
+          "pooled_TE": 0.21434417843257622,
+          "peak": 64
+        }
+      },
+      "original30_panel": {
+        "pairs": 3,
+        "exposed": 2,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 0,
+        "off": {
+          "correct": 2,
+          "N": 703,
+          "F": 59,
+          "decoder_Q": 3392,
+          "encoder_F": 1,
+          "extra_Q": 0,
+          "macro_TPF": 11.71606334841629,
+          "pooled_TE": 0.20725235849056603,
+          "peak": 64
+        },
+        "on": {
+          "correct": 2,
+          "N": 703,
+          "F": 59,
+          "decoder_Q": 3404,
+          "encoder_F": 1,
+          "extra_Q": 12,
+          "macro_TPF": 11.71606334841629,
+          "pooled_TE": 0.20652173913043478,
+          "peak": 64
+        }
+      },
+      "added60_panel": {
+        "pairs": 3,
+        "exposed": 2,
+        "rescues": 0,
+        "losses": 0,
+        "changed_ids": 0,
+        "off": {
+          "correct": 3,
+          "N": 1392,
+          "F": 112,
+          "decoder_Q": 6341,
+          "encoder_F": 4,
+          "extra_Q": 0,
+          "macro_TPF": 11.781726907630523,
+          "pooled_TE": 0.21952373442674658,
+          "peak": 64
+        },
+        "on": {
+          "correct": 3,
+          "N": 1392,
+          "F": 112,
+          "decoder_Q": 6370,
+          "encoder_F": 4,
+          "extra_Q": 32,
+          "macro_TPF": 11.781726907630523,
+          "pooled_TE": 0.2185243328100471,
+          "peak": 64
+        }
+      }
+    }
+  },
+  "raw_directory": "/data1/project_data/gx-erqw-20261123/results/gemma-ibs-replay6-h0-1adf1d1-run2"
+}

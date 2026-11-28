@@ -10,6 +10,20 @@ from experiments.t2t.serving_slots import gemma_ibs_prefix_bridge as bridge
 from experiments.t2t.serving_slots import gemma_ibs_prefix_bridge_eval as pilot
 
 
+def registered_cases(panel):
+    if panel["protocol"] == "gemma-ibs-bridge-q32-frozen90-v1":
+        bridge.require(panel["indices"] == list(range(90)) and panel["tiers"] == [32]
+                       and panel["prior_six"] == [1,11,21,31,51,71],
+                       "Full Q32 registration changed")
+    else:
+        bridge.require(panel["protocol"] == "gemma-ibs-bridge-replay-v1" and
+                       panel["indices"] == [1,11,21,31,51,71] and
+                       panel["tiers"] == list(bridge.TIERS), "Unknown qualification panel")
+    bridge.require(panel["old_pilot"] == list(bridge.CASES)
+                   and panel["arms"] == ["plain", "off", "on"], "Pilot or arms changed")
+    return panel["indices"], panel["tiers"]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--panel", type=Path, required=True)
@@ -27,12 +41,7 @@ def main():
     from experiments.t2t.serving_slots import shared_gemma_worker, shared_h0_screen
 
     panel = pilot.read(a.panel)
-    indices, tiers = panel["indices"], panel["tiers"]
-    bridge.require(panel["protocol"] == "gemma-ibs-bridge-replay-v1" and
-                   panel["old_pilot"] == list(bridge.CASES) and set(indices).isdisjoint(bridge.CASES)
-                   and len(indices) == len(set(indices)) and indices and all(0 <= i < 90 for i in indices)
-                   and tiers == list(bridge.TIERS) and panel["arms"] == ["plain", "off", "on"],
-                   "Unknown or overlapping pilot panel")
+    indices, tiers = registered_cases(panel)
     tasks = frozen90.load_tasks(a.samples)
     paths = dict(runtime=rt.__file__, limits=optimus_limits.__file__, scorer=scoring.__file__,
                  samples=a.samples, model_manifest=frozen.ROOT/"benchmarks/checkpoints/diffusiongemma.json",
