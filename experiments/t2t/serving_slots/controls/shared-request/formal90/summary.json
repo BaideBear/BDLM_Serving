@@ -1,0 +1,1336 @@
+{
+  "version": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "seen": 900,
+  "total": 900,
+  "deferred_incomplete_lines": [],
+  "boards": {
+    "n164:H0": 150,
+    "n164:H4": 150,
+    "A800:0": 150,
+    "A800:1": 150,
+    "A800:2": 150,
+    "A800:3": 150
+  },
+  "points": [
+    {
+      "model": "llada21",
+      "offer": 4,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 21,
+          "N": 60288,
+          "F": 52656,
+          "Q": 209973,
+          "macro_TPF": 1.3094455443833257,
+          "pooled_TE": 0.2871226300524353
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 9,
+          "N": 23039,
+          "F": 20223,
+          "Q": 80662,
+          "macro_TPF": 1.2890446841057026,
+          "pooled_TE": 0.28562396171679355
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 12,
+          "N": 37249,
+          "F": 32433,
+          "Q": 129311,
+          "macro_TPF": 1.319645974522137,
+          "pooled_TE": 0.28805747384213254
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 6,
+          "N": 11894,
+          "F": 10310,
+          "Q": 41098,
+          "macro_TPF": 1.2996061196122797,
+          "pooled_TE": 0.2894058105017276
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 15,
+          "N": 48394,
+          "F": 42346,
+          "Q": 168875,
+          "macro_TPF": 1.311905400576087,
+          "pooled_TE": 0.28656698741672837
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 61851,
+        "cold_mask": 61889,
+        "warm_mask": 86233,
+        "prefix": 0,
+        "terminal_verification": 0,
+        "rebuild": 0
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": -38,
+            "macro_TPF": -0.16772151102232002,
+            "TE_percentage_points": -7.725400791087428
+          },
+          "IBS capped": {
+            "correct": -48,
+            "macro_TPF": -0.0856629034918206,
+            "TE_percentage_points": -6.943401158707924
+          },
+          "Live profile": {
+            "correct": -51,
+            "macro_TPF": -0.19429738154704634,
+            "TE_percentage_points": -8.96293849671484
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": -9,
+            "macro_TPF": -0.14534983183097516,
+            "TE_percentage_points": -7.4595535918326075
+          },
+          "IBS capped": {
+            "correct": -14,
+            "macro_TPF": -0.09312593198511543,
+            "TE_percentage_points": -4.8610968731429
+          },
+          "Live profile": {
+            "correct": -16,
+            "macro_TPF": -0.20025899510576006,
+            "TE_percentage_points": -8.882986875218402
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": -29,
+            "macro_TPF": -0.1789073506179928,
+            "TE_percentage_points": -7.845798910114244
+          },
+          "IBS capped": {
+            "correct": -34,
+            "macro_TPF": -0.08193138924517362,
+            "TE_percentage_points": -7.889481087153421
+          },
+          "Live profile": {
+            "correct": -35,
+            "macro_TPF": -0.19131657476768993,
+            "TE_percentage_points": -8.984385664247462
+          }
+        }
+      }
+    },
+    {
+      "model": "llada21",
+      "offer": 8,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 43,
+          "N": 55805,
+          "F": 36415,
+          "Q": 289118,
+          "macro_TPF": 2.0328931618803137,
+          "pooled_TE": 0.19301807566460752
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 14,
+          "N": 20099,
+          "F": 13688,
+          "Q": 108786,
+          "macro_TPF": 1.9419849960274245,
+          "pooled_TE": 0.18475722979059805
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 29,
+          "N": 35706,
+          "F": 22727,
+          "Q": 180332,
+          "macro_TPF": 2.078347244806758,
+          "pooled_TE": 0.19800146396646187
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 10,
+          "N": 8814,
+          "F": 5560,
+          "Q": 44070,
+          "macro_TPF": 2.0051905991781376,
+          "pooled_TE": 0.2
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 33,
+          "N": 46991,
+          "F": 30855,
+          "Q": 245048,
+          "macro_TPF": 2.0398188025558572,
+          "pooled_TE": 0.19176243021775324
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 57577,
+        "cold_mask": 57956,
+        "warm_mask": 173426,
+        "prefix": 159,
+        "terminal_verification": 0,
+        "rebuild": 0
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": -26,
+            "macro_TPF": -0.3085805855695942,
+            "TE_percentage_points": -8.921762677223713
+          },
+          "IBS capped": {
+            "correct": -29,
+            "macro_TPF": -0.33158533860653927,
+            "TE_percentage_points": -10.058105455476438
+          },
+          "Live profile": {
+            "correct": -29,
+            "macro_TPF": -0.26734273661465835,
+            "TE_percentage_points": -10.640385955047424
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": -9,
+            "macro_TPF": -0.3512261024424228,
+            "TE_percentage_points": -8.513613881437593
+          },
+          "IBS capped": {
+            "correct": -11,
+            "macro_TPF": -0.3230951437625855,
+            "TE_percentage_points": -9.88912231658155
+          },
+          "Live profile": {
+            "correct": -10,
+            "macro_TPF": -0.2682051079088563,
+            "TE_percentage_points": -10.849244401399172
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": -17,
+            "macro_TPF": -0.2872578271331805,
+            "TE_percentage_points": -9.163507057842299
+          },
+          "IBS capped": {
+            "correct": -18,
+            "macro_TPF": -0.33583043602851603,
+            "TE_percentage_points": -10.066409499298565
+          },
+          "Live profile": {
+            "correct": -19,
+            "macro_TPF": -0.2669115509675595,
+            "TE_percentage_points": -10.458966903846425
+          }
+        }
+      }
+    },
+    {
+      "model": "llada21",
+      "offer": 16,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 42,
+          "N": 55459,
+          "F": 31051,
+          "Q": 473469,
+          "macro_TPF": 2.9614925841632,
+          "pooled_TE": 0.11713332868677781
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 12,
+          "N": 20713,
+          "F": 12355,
+          "Q": 188618,
+          "macro_TPF": 2.7510053174265616,
+          "pooled_TE": 0.10981454580156719
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 30,
+          "N": 34746,
+          "F": 18696,
+          "Q": 284851,
+          "macro_TPF": 3.066736217531519,
+          "pooled_TE": 0.12197956124429965
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 9,
+          "N": 7861,
+          "F": 4049,
+          "Q": 61633,
+          "macro_TPF": 2.9937499532540586,
+          "pooled_TE": 0.1275453085197865
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 33,
+          "N": 47598,
+          "F": 27002,
+          "Q": 411836,
+          "macro_TPF": 2.953428241890485,
+          "pooled_TE": 0.11557513184859992
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 58188,
+        "cold_mask": 57872,
+        "warm_mask": 331644,
+        "prefix": 25765,
+        "terminal_verification": 0,
+        "rebuild": 0
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": -31,
+            "macro_TPF": -0.40937910128632593,
+            "TE_percentage_points": -8.800645155550486
+          },
+          "IBS capped": {
+            "correct": -30,
+            "macro_TPF": -0.41344747324329045,
+            "TE_percentage_points": -8.8253111942043
+          },
+          "Live profile": {
+            "correct": -33,
+            "macro_TPF": -0.3948000103649041,
+            "TE_percentage_points": -13.881942515595899
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": -12,
+            "macro_TPF": -0.4216659062396313,
+            "TE_percentage_points": -8.9205947235178
+          },
+          "IBS capped": {
+            "correct": -11,
+            "macro_TPF": -0.4376711839174754,
+            "TE_percentage_points": -8.34207983900224
+          },
+          "Live profile": {
+            "correct": -13,
+            "macro_TPF": -0.43210452953594336,
+            "TE_percentage_points": -12.015289059532217
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": -19,
+            "macro_TPF": -0.4032356988096737,
+            "TE_percentage_points": -8.631527211842297
+          },
+          "IBS capped": {
+            "correct": -19,
+            "macro_TPF": -0.40133561790619776,
+            "TE_percentage_points": -8.968391727786711
+          },
+          "Live profile": {
+            "correct": -20,
+            "macro_TPF": -0.376147750779384,
+            "TE_percentage_points": -15.010410284401654
+          }
+        }
+      }
+    },
+    {
+      "model": "llada21",
+      "offer": 32,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 64,
+          "N": 43930,
+          "F": 12170,
+          "Q": 306365,
+          "macro_TPF": 5.257704392944388,
+          "pooled_TE": 0.14339105315554976
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 19,
+          "N": 15159,
+          "F": 4745,
+          "Q": 119146,
+          "macro_TPF": 4.8311976862025885,
+          "pooled_TE": 0.12723045675054134
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 45,
+          "N": 28771,
+          "F": 7425,
+          "Q": 187219,
+          "macro_TPF": 5.470957746315288,
+          "pooled_TE": 0.15367564189532046
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 14,
+          "N": 6957,
+          "F": 1718,
+          "Q": 43504,
+          "macro_TPF": 5.210487226048496,
+          "pooled_TE": 0.1599163295329165
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 50,
+          "N": 36973,
+          "F": 10452,
+          "Q": 262861,
+          "macro_TPF": 5.269508684668361,
+          "pooled_TE": 0.1406560881987058
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 46467,
+        "cold_mask": 46237,
+        "warm_mask": 185020,
+        "prefix": 28641,
+        "terminal_verification": 0,
+        "rebuild": 0
+      },
+      "comparisons": {
+        "all90": {
+          "Native": {
+            "correct": -11,
+            "macro_TPF": -0.41931241578722833,
+            "TE_percentage_points": -1.2186739560167665
+          },
+          "Flow W1": {
+            "correct": -11,
+            "macro_TPF": -1.8536605130575063,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -7,
+            "macro_TPF": 0.7628080804142474,
+            "TE_percentage_points": -0.8945151490756698
+          },
+          "IBS capped": {
+            "correct": -7,
+            "macro_TPF": 0.7628080804142474,
+            "TE_percentage_points": -0.8945151490756698
+          },
+          "Live profile": {
+            "correct": -11,
+            "macro_TPF": -0.5351348928945265,
+            "TE_percentage_points": -3.71827877453986
+          }
+        },
+        "original30": {
+          "Native": {
+            "correct": -7,
+            "macro_TPF": -0.8964853499243617,
+            "TE_percentage_points": -2.827925198732273
+          },
+          "Flow W1": {
+            "correct": -7,
+            "macro_TPF": -2.21117057400399,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -6,
+            "macro_TPF": 0.5604684588636939,
+            "TE_percentage_points": -0.617501986562502
+          },
+          "IBS capped": {
+            "correct": -6,
+            "macro_TPF": 0.5604684588636939,
+            "TE_percentage_points": -0.617501986562502
+          },
+          "Live profile": {
+            "correct": -7,
+            "macro_TPF": -0.8055410441106927,
+            "TE_percentage_points": -4.930655705121525
+          }
+        },
+        "new60": {
+          "Native": {
+            "correct": -4,
+            "macro_TPF": -0.18072594871866166,
+            "TE_percentage_points": -0.19334182081216789
+          },
+          "Flow W1": {
+            "correct": -4,
+            "macro_TPF": -1.674905482584264,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -1,
+            "macro_TPF": 0.8639778911895251,
+            "TE_percentage_points": -1.1086556992882135
+          },
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": 0.8639778911895251,
+            "TE_percentage_points": -1.1086556992882135
+          },
+          "Live profile": {
+            "correct": -4,
+            "macro_TPF": -0.39993181728644167,
+            "TE_percentage_points": -2.9015337067217457
+          }
+        }
+      }
+    },
+    {
+      "model": "llada21",
+      "offer": 64,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 59,
+          "N": 46048,
+          "F": 11158,
+          "Q": 451195,
+          "macro_TPF": 6.20643255854618,
+          "pooled_TE": 0.10205786854907524
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 19,
+          "N": 16190,
+          "F": 3950,
+          "Q": 162558,
+          "macro_TPF": 5.738701179157782,
+          "pooled_TE": 0.09959522139790106
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 40,
+          "N": 29858,
+          "F": 7208,
+          "Q": 288637,
+          "macro_TPF": 6.4402982482403806,
+          "pooled_TE": 0.10344481130277823
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 12,
+          "N": 7439,
+          "F": 1704,
+          "Q": 70080,
+          "macro_TPF": 5.826381479526528,
+          "pooled_TE": 0.10615011415525114
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 47,
+          "N": 38609,
+          "F": 9454,
+          "Q": 381115,
+          "macro_TPF": 6.301445328301094,
+          "pooled_TE": 0.10130538026579904
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 50185,
+        "cold_mask": 49205,
+        "warm_mask": 293429,
+        "prefix": 58376,
+        "terminal_verification": 0,
+        "rebuild": 0
+      },
+      "comparisons": {
+        "all90": {
+          "Flow W2": {
+            "correct": -15,
+            "macro_TPF": -3.799804506535742,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -13,
+            "macro_TPF": 1.8099050043222285,
+            "TE_percentage_points": -4.3547961006032265
+          },
+          "Live profile": {
+            "correct": -16,
+            "macro_TPF": -1.465841511934971,
+            "TE_percentage_points": -0.6667582583737355
+          }
+        },
+        "original30": {
+          "Flow W2": {
+            "correct": -4,
+            "macro_TPF": -3.982100247804774,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -5,
+            "macro_TPF": 1.5107528412735416,
+            "TE_percentage_points": -3.783437312353166
+          },
+          "Live profile": {
+            "correct": -9,
+            "macro_TPF": -1.532388713635882,
+            "TE_percentage_points": -0.8701242458923397
+          }
+        },
+        "new60": {
+          "Flow W2": {
+            "correct": -11,
+            "macro_TPF": -3.7086566359012254,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": -8,
+            "macro_TPF": 1.9594810858465728,
+            "TE_percentage_points": -4.6743642946492425
+          },
+          "Live profile": {
+            "correct": -7,
+            "macro_TPF": -1.432567911084515,
+            "TE_percentage_points": -0.5465653642506507
+          }
+        }
+      }
+    },
+    {
+      "model": "gemma",
+      "offer": 32,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 75,
+          "N": 33769,
+          "F": 7610,
+          "Q": 236819,
+          "macro_TPF": 4.5634045025041345,
+          "pooled_TE": 0.14259413307209304
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 26,
+          "N": 10649,
+          "F": 2450,
+          "Q": 76219,
+          "macro_TPF": 4.509130967275788,
+          "pooled_TE": 0.13971581889030293
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 49,
+          "N": 23120,
+          "F": 5160,
+          "Q": 160600,
+          "macro_TPF": 4.590541270118309,
+          "pooled_TE": 0.1439601494396015
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 17,
+          "N": 5694,
+          "F": 1292,
+          "Q": 40104,
+          "macro_TPF": 4.541574962915089,
+          "pooled_TE": 0.1419808497905446
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 58,
+          "N": 28075,
+          "F": 6318,
+          "Q": 196715,
+          "macro_TPF": 4.568861887401397,
+          "pooled_TE": 0.14271916223978853
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 91348,
+        "cold_mask": 45286,
+        "warm_mask": 45518,
+        "prefix": 8994,
+        "terminal_verification": 43776,
+        "rebuild": 1897
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": -3,
+            "macro_TPF": -2.1794036354600106,
+            "TE_percentage_points": -2.386908376843075
+          },
+          "IBS capped": {
+            "correct": -4,
+            "macro_TPF": -2.2765863650637117,
+            "TE_percentage_points": -5.072703227161698
+          },
+          "Live profile": {
+            "correct": -10,
+            "macro_TPF": -0.3153504974958654,
+            "TE_percentage_points": -1.3704003692353361
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": -1,
+            "macro_TPF": -2.362867522535944,
+            "TE_percentage_points": -6.086293265992443
+          },
+          "IBS capped": {
+            "correct": -2,
+            "macro_TPF": -2.2355268246887334,
+            "TE_percentage_points": -6.228640580380162
+          },
+          "Live profile": {
+            "correct": -3,
+            "macro_TPF": -0.3231710327242121,
+            "TE_percentage_points": -1.3692939807001618
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": -2,
+            "macro_TPF": -2.0876716919220426,
+            "TE_percentage_points": -1.0633474889434198
+          },
+          "IBS capped": {
+            "correct": -2,
+            "macro_TPF": -2.2971161352511995,
+            "TE_percentage_points": -4.623667115086027
+          },
+          "Live profile": {
+            "correct": -7,
+            "macro_TPF": -0.31144072988169125,
+            "TE_percentage_points": -1.373714028200923
+          }
+        }
+      }
+    },
+    {
+      "model": "gemma",
+      "offer": 64,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 79,
+          "N": 33083,
+          "F": 5054,
+          "Q": 309162,
+          "macro_TPF": 6.936713110010535,
+          "pooled_TE": 0.10700862331075617
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 27,
+          "N": 10267,
+          "F": 1550,
+          "Q": 95114,
+          "macro_TPF": 6.929143238044363,
+          "pooled_TE": 0.10794415122905146
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 52,
+          "N": 22816,
+          "F": 3504,
+          "Q": 214048,
+          "macro_TPF": 6.940498045993621,
+          "pooled_TE": 0.10659291373897443
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 16,
+          "N": 5566,
+          "F": 809,
+          "Q": 49544,
+          "macro_TPF": 7.082332615328506,
+          "pooled_TE": 0.11234458259325045
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 63,
+          "N": 27517,
+          "F": 4245,
+          "Q": 259618,
+          "macro_TPF": 6.900308233681042,
+          "pooled_TE": 0.1059903396528746
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 123238,
+        "cold_mask": 50510,
+        "warm_mask": 72344,
+        "prefix": 11776,
+        "terminal_verification": 44032,
+        "rebuild": 7262
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": -1,
+            "macro_TPF": -4.178904015359054,
+            "TE_percentage_points": -7.081043420758815
+          },
+          "IBS capped": {
+            "correct": -2,
+            "macro_TPF": -4.113634531513664,
+            "TE_percentage_points": -6.95015704653531
+          },
+          "Live profile": {
+            "correct": -4,
+            "macro_TPF": -1.2394278899894644,
+            "TE_percentage_points": -3.261708793846205
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": -2,
+            "macro_TPF": -4.077843505747245,
+            "TE_percentage_points": -6.448942973780494
+          },
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": -3.9889913694234433,
+            "TE_percentage_points": -4.759199921958618
+          },
+          "Live profile": {
+            "correct": -2,
+            "macro_TPF": -1.1010037619556368,
+            "TE_percentage_points": -2.8258547026953797
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": -4.22943427016496,
+            "TE_percentage_points": -7.390007491812815
+          },
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": -4.175956112558774,
+            "TE_percentage_points": -8.407817329556254
+          },
+          "Live profile": {
+            "correct": -2,
+            "macro_TPF": -1.3086399540063791,
+            "TE_percentage_points": -3.4736210134427363
+          }
+        }
+      }
+    },
+    {
+      "model": "gemma",
+      "offer": 128,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 79,
+          "N": 32007,
+          "F": 3288,
+          "Q": 387572,
+          "macro_TPF": 10.355081346119821,
+          "pooled_TE": 0.08258336515537758
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 27,
+          "N": 9806,
+          "F": 1020,
+          "Q": 121270,
+          "macro_TPF": 10.251833896864811,
+          "pooled_TE": 0.08086088892553805
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 52,
+          "N": 22201,
+          "F": 2268,
+          "Q": 266302,
+          "macro_TPF": 10.406705070747329,
+          "pooled_TE": 0.08336775540551704
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 16,
+          "N": 5530,
+          "F": 522,
+          "Q": 62370,
+          "macro_TPF": 11.10473298142004,
+          "pooled_TE": 0.08866442199775533
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 63,
+          "N": 26477,
+          "F": 2766,
+          "Q": 325202,
+          "macro_TPF": 10.167668437294768,
+          "pooled_TE": 0.08141708845579056
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 155933,
+        "cold_mask": 56931,
+        "warm_mask": 98768,
+        "prefix": 16263,
+        "terminal_verification": 43776,
+        "rebuild": 15901
+      },
+      "comparisons": {
+        "all90": {
+          "IBS nominal": {
+            "correct": 0,
+            "macro_TPF": -6.063407687996843,
+            "TE_percentage_points": -6.3980453069098235
+          },
+          "IBS capped": {
+            "correct": 0,
+            "macro_TPF": -6.053151140873421,
+            "TE_percentage_points": -6.431575432708596
+          },
+          "Live profile": {
+            "correct": -9,
+            "macro_TPF": -2.6920766538801786,
+            "TE_percentage_points": -3.708119085840607
+          }
+        },
+        "original30": {
+          "IBS nominal": {
+            "correct": 2,
+            "macro_TPF": -6.2196486089711005,
+            "TE_percentage_points": -6.19002235860156
+          },
+          "IBS capped": {
+            "correct": 2,
+            "macro_TPF": -6.218486994722886,
+            "TE_percentage_points": -6.24466964077402
+          },
+          "Live profile": {
+            "correct": -3,
+            "macro_TPF": -2.172554103135189,
+            "TE_percentage_points": -3.3519662955013825
+          }
+        },
+        "new60": {
+          "IBS nominal": {
+            "correct": -2,
+            "macro_TPF": -5.9852872275097155,
+            "TE_percentage_points": -6.517166036078949
+          },
+          "IBS capped": {
+            "correct": -2,
+            "macro_TPF": -5.9704832139486825,
+            "TE_percentage_points": -6.5433434653985945
+          },
+          "Live profile": {
+            "correct": -6,
+            "macro_TPF": -2.9518369292526714,
+            "TE_percentage_points": -3.894402482622911
+          }
+        }
+      }
+    },
+    {
+      "model": "gemma",
+      "offer": 256,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 83,
+          "N": 31911,
+          "F": 2646,
+          "Q": 507809,
+          "macro_TPF": 13.054703869193913,
+          "pooled_TE": 0.06284055619337192
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 28,
+          "N": 10117,
+          "F": 869,
+          "Q": 168468,
+          "macro_TPF": 12.52886483076295,
+          "pooled_TE": 0.06005294774081725
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 55,
+          "N": 21794,
+          "F": 1777,
+          "Q": 339341,
+          "macro_TPF": 13.317623388409396,
+          "pooled_TE": 0.06422448215806519
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 17,
+          "N": 5559,
+          "F": 434,
+          "Q": 85327,
+          "macro_TPF": 13.50929050481225,
+          "pooled_TE": 0.06514936655454898
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 66,
+          "N": 26352,
+          "F": 2212,
+          "Q": 422482,
+          "macro_TPF": 12.94105721028933,
+          "pooled_TE": 0.06237425499784606
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 207800,
+        "cold_mask": 61904,
+        "warm_mask": 145586,
+        "prefix": 31026,
+        "terminal_verification": 43264,
+        "rebuild": 18229
+      },
+      "comparisons": {
+        "all90": {
+          "Native": {
+            "correct": -2,
+            "macro_TPF": -12.455302010006536,
+            "TE_percentage_points": -3.02208039889989
+          },
+          "Flow W1": {
+            "correct": -2,
+            "macro_TPF": -12.455302010006536,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 4,
+            "macro_TPF": -10.60119479830321,
+            "TE_percentage_points": -4.811737057915279
+          },
+          "IBS capped": {
+            "correct": 4,
+            "macro_TPF": -10.60119479830321,
+            "TE_percentage_points": -4.811737057915279
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": -11.197296130806086,
+            "TE_percentage_points": -2.40416102416524
+          }
+        },
+        "original30": {
+          "Native": {
+            "correct": 0,
+            "macro_TPF": -11.754815864712123,
+            "TE_percentage_points": -2.8666962351990177
+          },
+          "Flow W1": {
+            "correct": 0,
+            "macro_TPF": -11.754815864712123,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": -10.516445096710319,
+            "TE_percentage_points": -3.7373381412064184
+          },
+          "IBS capped": {
+            "correct": 1,
+            "macro_TPF": -10.516445096710319,
+            "TE_percentage_points": -3.7373381412064184
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": -10.729635169237051,
+            "TE_percentage_points": -2.059682360064616
+          }
+        },
+        "new60": {
+          "Native": {
+            "correct": -2,
+            "macro_TPF": -12.805545082653746,
+            "TE_percentage_points": -3.095118874588962
+          },
+          "Flow W1": {
+            "correct": -2,
+            "macro_TPF": -12.805545082653746,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 3,
+            "macro_TPF": -10.643569649099655,
+            "TE_percentage_points": -5.42912112471056
+          },
+          "IBS capped": {
+            "correct": 3,
+            "macro_TPF": -10.643569649099655,
+            "TE_percentage_points": -5.42912112471056
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": -11.431076611590603,
+            "TE_percentage_points": -2.5895633998217815
+          }
+        }
+      }
+    },
+    {
+      "model": "gemma",
+      "offer": 512,
+      "verified": 90,
+      "target": 90,
+      "cohorts": {
+        "all90": {
+          "requests": 90,
+          "complete": 90,
+          "failures": 0,
+          "correct": 80,
+          "N": 32421,
+          "F": 2482,
+          "Q": 696049,
+          "macro_TPF": 14.08235473384778,
+          "pooled_TE": 0.04657861730998823
+        },
+        "original30": {
+          "requests": 30,
+          "complete": 30,
+          "failures": 0,
+          "correct": 27,
+          "N": 10182,
+          "F": 850,
+          "Q": 235470,
+          "macro_TPF": 13.567926246337159,
+          "pooled_TE": 0.04324117722002803
+        },
+        "new60": {
+          "requests": 60,
+          "complete": 60,
+          "failures": 0,
+          "correct": 53,
+          "N": 22239,
+          "F": 1632,
+          "Q": 460579,
+          "macro_TPF": 14.339568977603086,
+          "pooled_TE": 0.04828487621016156
+        }
+      },
+      "selection_split": {
+        "screen18": {
+          "requests": 18,
+          "complete": 18,
+          "failures": 0,
+          "correct": 16,
+          "N": 5615,
+          "F": 437,
+          "Q": 113251,
+          "macro_TPF": 14.6913296049225,
+          "pooled_TE": 0.04958013615773812
+        },
+        "remaining72": {
+          "requests": 72,
+          "complete": 72,
+          "failures": 0,
+          "correct": 64,
+          "N": 26806,
+          "F": 2045,
+          "Q": 582798,
+          "macro_TPF": 13.930111016079097,
+          "pooled_TE": 0.045995353450080476
+        }
+      },
+      "physical_Q_by_role": {
+        "dirty": 288196,
+        "cold_mask": 62720,
+        "warm_mask": 225287,
+        "prefix": 55846,
+        "terminal_verification": 43776,
+        "rebuild": 20224
+      },
+      "comparisons": {
+        "all90": {
+          "Flow W2": {
+            "correct": -4,
+            "macro_TPF": -11.307718261397959,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": -9.573543933649344,
+            "TE_percentage_points": -6.437930946253648
+          },
+          "Live profile": {
+            "correct": -4,
+            "macro_TPF": -11.513224266152221,
+            "TE_percentage_points": -2.7591633821700947
+          }
+        },
+        "original30": {
+          "Flow W2": {
+            "correct": -2,
+            "macro_TPF": -10.324801982231058,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 0,
+            "macro_TPF": -9.47738368113611,
+            "TE_percentage_points": -5.418515193285341
+          },
+          "Live profile": {
+            "correct": -1,
+            "macro_TPF": -11.354837753662842,
+            "TE_percentage_points": -3.040657440979004
+          }
+        },
+        "new60": {
+          "Flow W2": {
+            "correct": -2,
+            "macro_TPF": -11.799176400981409,
+            "TE_percentage_points": null
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": -9.621624059905965,
+            "TE_percentage_points": -7.023081719500923
+          },
+          "Live profile": {
+            "correct": -3,
+            "macro_TPF": -11.592417022396912,
+            "TE_percentage_points": -2.612740078490167
+          }
+        }
+      }
+    }
+  ]
+}

@@ -5,10 +5,14 @@
 [First formal anchor registration (not results)](formal90-anchor.json) |
 [Frozen control measurements](../fixed-request-comparison/README.md).
 
-These are **engineering smoke tests only** on the same `gsm8k/167`, index 0,
-seed 17000. Neither model has a completed frozen90 point for this planner.
-Do not pool these runs, compare budgets on this basis, or use them as a
-version's confirmation set. Both models' selected parameters remain unset.
+**November 28: all ten fixed offers completed on frozen90.** See the
+[two-model table and figure](formal90/README.md). This is the untuned
+`1/8, 1/4` reference; it does not beat the corresponding baselines on
+both objectives. Neither model's tuned parameters are locked.
+
+The earlier runs immediately below are **engineering smoke tests only**
+on `gsm8k/167`, index 0, seed 17000. Do not pool them, compare budgets on
+their basis or use them as a confirmation set.
 
 | Model | Q offer | Device | Final nonspecial N | Post-prefill F | Selected decoder Q | Receipt SHA-256 |
 |---|---:|---|---:|---:|---:|---|
@@ -118,3 +122,31 @@ Use `register`, `preflight` and then `run` with the same base registration,
 devices and frozen `screen18` cases. Qualification is 3 cases per model
 on H0; the full paired design is 18 cases x 2 arms x 2 models = 72
 requests. The unchanged arm must reproduce its formal control metrics.
+
+[H0 qualification](successor-h0.json): 12/12 receipts, 6/6 unchanged
+arm replays agree on score, physical bills and roles (not text identity).
+Enabling the next block raised three-case macro TPF from 6.408 to 8.233
+on LLaDA and 11.684 to 14.731 on Gemma. LLaDA went from 3 correct to 2,
+Gemma stayed at 2; pooled efficiency fell on both. Do not infer a
+general two-block benefit from these three cases.
+
+### Why test MASK ordering?
+
+On [90 paired LLaDA Q4 requests](formal90/llada-q4-pairs.json), only 1
+IBS mistake was corrected and 49 previously correct responses regressed.
+The net deficit was 19 GSM8K, 19 MATH500 and 10 HumanEval. There were
+12 final outputs with N >= 2000 vs 4 under capped IBS, but not enough
+long outputs to account for 49 regressions. The shared run used 0
+clean-prefix rows out of 209,973 actual decoder Q. Tuning prefix fraction
+alone does not explain the reference's Q4 behavior.
+
+[Mask-order probe](mask-order18.json): with identical debt, prefix and
+per-block MASK counts at the same state, choose either not-yet-resident
+MASK rows first (existing reference), or earliest unresolved absolute
+positions irrespective of residency. Sample exactly the selected rows
+under the unchanged sampler. Keep the masks, successor gate and native
+sampling/verification protocols identical; different subsequent states and
+different total F/Q are possible. Record how often the two orders disagree
+on the visited states. Design: two fixed tight offers per model,
+three registered H0 qualification inputs, then a paired 18-case screen if
+qualified. This is not a replacement IBS implementation or a 90-case result.

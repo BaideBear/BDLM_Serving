@@ -1,0 +1,32 @@
+{
+  "arms": [
+    "cold_first",
+    "left_first"
+  ],
+  "cap": 2048,
+  "cases": "screen18",
+  "format": "shared-mask-order-v1",
+  "offers": {
+    "gemma": [
+      32,
+      64
+    ],
+    "llada21": [
+      4,
+      8
+    ]
+  },
+  "params": {
+    "gemma": {
+      "open_at": "1/4",
+      "prefix_share": "1/8"
+    },
+    "llada21": {
+      "open_at": "1/4",
+      "prefix_share": "1/8"
+    }
+  },
+  "source": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "stage": "mask_order18",
+  "wrapper": "94a93f203c127cda215b5d86635f0cf9b1ec3aa63627544c07cffd4aea99a39b"
+}

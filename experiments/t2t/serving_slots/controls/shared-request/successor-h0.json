@@ -1,0 +1,101 @@
+{
+  "version": "785aead4b901955629b9ca9b6928d80d88d1888fda97b23c3f2c7785b44851ee",
+  "seen": 12,
+  "target": 12,
+  "replay_matches": 6,
+  "deferred": [],
+  "results": {
+    "llada21": {
+      "head_only": {
+        "requests": 3,
+        "complete": 3,
+        "failures": 0,
+        "correct": 3,
+        "N": 702,
+        "F": 119,
+        "Q": 2665,
+        "macro_TPF": 6.408000949667617,
+        "pooled_TE": 0.2634146341463415,
+        "ordinary": {
+          "ordinary_F": 119,
+          "ordinary_Q": 2665,
+          "head_Q": 2665,
+          "tail_Q": 0,
+          "dual_F": 0,
+          "tail_sampled_Q": 0,
+          "tail_dirty_Q": 0,
+          "tail_open_F": 0
+        }
+      },
+      "allow_successor": {
+        "requests": 3,
+        "complete": 3,
+        "failures": 0,
+        "correct": 2,
+        "N": 792,
+        "F": 139,
+        "Q": 5771,
+        "macro_TPF": 8.232520325203252,
+        "pooled_TE": 0.13723791370646335,
+        "ordinary": {
+          "ordinary_F": 139,
+          "ordinary_Q": 5771,
+          "head_Q": 2448,
+          "tail_Q": 3323,
+          "dual_F": 133,
+          "tail_sampled_Q": 2969,
+          "tail_dirty_Q": 354,
+          "tail_open_F": 27
+        }
+      },
+      "rescued": 0,
+      "lost": 1
+    },
+    "gemma": {
+      "head_only": {
+        "requests": 3,
+        "complete": 3,
+        "failures": 0,
+        "correct": 2,
+        "N": 728,
+        "F": 71,
+        "Q": 11388,
+        "macro_TPF": 11.683870165402313,
+        "pooled_TE": 0.0639269406392694,
+        "ordinary": {
+          "ordinary_F": 66,
+          "ordinary_Q": 10364,
+          "head_Q": 10364,
+          "tail_Q": 0,
+          "dual_F": 0,
+          "tail_sampled_Q": 0,
+          "tail_dirty_Q": 0,
+          "tail_open_F": 0
+        }
+      },
+      "allow_successor": {
+        "requests": 3,
+        "complete": 3,
+        "failures": 0,
+        "correct": 2,
+        "N": 920,
+        "F": 63,
+        "Q": 18381,
+        "macro_TPF": 14.730616605616605,
+        "pooled_TE": 0.05005168380392797,
+        "ordinary": {
+          "ordinary_F": 54,
+          "ordinary_Q": 16589,
+          "head_Q": 9113,
+          "tail_Q": 7476,
+          "dual_F": 44,
+          "tail_sampled_Q": 3738,
+          "tail_dirty_Q": 3738,
+          "tail_open_F": 5
+        }
+      },
+      "rescued": 0,
+      "lost": 0
+    }
+  }
+}

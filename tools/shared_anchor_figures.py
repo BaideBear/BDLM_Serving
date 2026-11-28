@@ -45,7 +45,7 @@ def main():
     a.out.mkdir(parents=True, exist_ok=True)
     cols = ("model","cohort","budget","method","n","correct","macro_TPF","token_efficiency","N","F","history_Q","source")
     with (a.out/"metrics.csv").open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore", lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
     (a.out/"summary.json").write_text(json.dumps(report, allow_nan=False, indent=2)+"\n")
