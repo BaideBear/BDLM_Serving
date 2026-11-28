@@ -1,0 +1,11 @@
+{
+  "parent_registration": "a2561d031948307b04f29b95ed9893d7f8fb309c26ba538d8d4dbe03698eb97b",
+  "board": "n164:H4",
+  "pilot": [7, 13, 25, 33, 55, 71],
+  "time_limit_seconds": 600,
+  "deadline": 1795915200,
+  "first_state": "One true W2 prefill per case. Branch on the first one-open forward. Same active embeddings, key axis, absolute position IDs, mask, pre-state, writer and native sampler. No continuation or thresholds changed.",
+  "order": ["dense64", "repeat_identical64", "dense64_zero_only_unopened_embeddings", "active32_same_masked_key_axis"],
+  "bill": "Six prefills, 24 generation-side calls, 1344 decoder Q. Per-layer input shape for all calls. No completed generations or quality claims.",
+  "decision": "Compare every vocabulary logit on every active head row (bitwise), native top1, actual M2T/T2T choices, post and frontier. First dense/compact decisions must reproduce the sealed raw pair. Self-repeat nonzero makes attribution inconclusive. A nonzero same-shape perturbation reveals possible whole-forward cross-row dependence; do not attribute to BF16 or a particular kernel. Only with bitwise-identical repeat and same-shape perturbation, and differing compact logits, may a shape association be reported for this state."
+}

@@ -1,0 +1,54 @@
+{
+  "scope": "archived-control exposure only; not treatment outcomes",
+  "registration": "a2561d031948307b04f29b95ed9893d7f8fb309c26ba538d8d4dbe03698eb97b",
+  "sealed_pairs_sha256": "fd21e1c54b3f754eb245721f3bca18c486e53d9cf9f248165100c64233c54c3c",
+  "compact_bytes_sha256": "3569a3fc7485afd4659dc63c5456e0a5b03b15ed775abc862f5617a3debac8ce",
+  "original30": {
+    "requests": 30,
+    "exposed_requests": 20,
+    "trigger_ticks": 77,
+    "first_triggers": 70,
+    "original_progress_ge_gate_after_one_more_tick": 42,
+    "successor_actually_visited_some_time": 70,
+    "head_eventually_terminal_eos": 1,
+    "head_not_terminal_and_successor_visited": 69,
+    "visible_eos_at_first_trigger": 1,
+    "exact_current_progress_matched_ticks": {
+      "flagged_in_overlap": 37,
+      "next_gate_rate_flagged": 0.7027027027027027,
+      "next_gate_rate_unflagged_standardized": 0.5443243243243243
+    }
+  },
+  "added60": {
+    "requests": 60,
+    "exposed_requests": 30,
+    "trigger_ticks": 139,
+    "first_triggers": 124,
+    "original_progress_ge_gate_after_one_more_tick": 61,
+    "successor_actually_visited_some_time": 123,
+    "head_eventually_terminal_eos": 2,
+    "head_not_terminal_and_successor_visited": 122,
+    "visible_eos_at_first_trigger": 2,
+    "exact_current_progress_matched_ticks": {
+      "flagged_in_overlap": 91,
+      "next_gate_rate_flagged": 0.5164835164835165,
+      "next_gate_rate_unflagged_standardized": 0.38697242473838217
+    }
+  },
+  "frozen90": {
+    "requests": 90,
+    "exposed_requests": 50,
+    "trigger_ticks": 216,
+    "first_triggers": 194,
+    "original_progress_ge_gate_after_one_more_tick": 103,
+    "successor_actually_visited_some_time": 193,
+    "head_eventually_terminal_eos": 3,
+    "head_not_terminal_and_successor_visited": 191,
+    "visible_eos_at_first_trigger": 3,
+    "exact_current_progress_matched_ticks": {
+      "flagged_in_overlap": 151,
+      "next_gate_rate_flagged": 0.5894039735099338,
+      "next_gate_rate_unflagged_standardized": 0.4617109160155518
+    }
+  }
+}

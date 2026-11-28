@@ -1,0 +1,1 @@
+{"active_w2": {"actual_m2t_writes": 44123, "actual_t2t_writes": 3429, "eos_commits": 86, "finished_open_slot_projections": 92, "partial_prompt_requests": 88, "requests": 90}, "flow_w2": {"actual_m2t_writes": 45049, "actual_t2t_writes": 3337, "eos_commits": 84, "finished_open_slot_projections": 78, "partial_prompt_requests": 88, "requests": 90}}

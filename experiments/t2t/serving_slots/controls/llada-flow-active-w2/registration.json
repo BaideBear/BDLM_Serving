@@ -1,0 +1,16 @@
+{
+  "study": "llada-flow-active-w2-h4-v1",
+  "board": "n164:H4",
+  "deadline": 1795915200,
+  "uuid": "GPU-d3bdc2bc-d19d-e98f-ac79-ab9c6e887e0e",
+  "source": "7a38ffc",
+  "flow_commit": "8f730a2173140792a4324736efdcba27a2bdee75",
+  "packed_sha256": "7445d6865bfd9199795be8535546a49e1f9452f4a8b900e10317d5c6256b74ac",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "pilot": [7,13,25,33,55,71],
+  "selection": "Previously fixed six IDs, three datasets in each cohort. No outcome/length selection; no replacements. Then unused indices ascending to frozen90 (six count once). Alternate request order by pair ordinal.",
+  "arms": ["flow_w2", "active_w2"],
+  "factor": "LLaDA2.1 batch=1, B32, Q64. Keep official packed-loop controller. Only when exactly one slot is open, omit the second virtual slot's projection and the inactive KV scatter. Do not narrow an opened but locally finished slot. Keep key coordinates, committed prefix, active writes, original sampler (.5/.5/post16), acceptance_ratio gate .8, prompt/EOS protocol and 2048 cap.",
+  "gate": "Every pilot dense control matches its archived frozen reference IDs, cap/EOS/score, physical widths and official F. All 20 layers actually project the billed rows. Check active slot/writeback coverage, zero visibility of unopened KV, current rows measured when opened, cutoff, actual single- and dual-slot exposure, partial prompt and EOS. Same pre-state and inputs up to any first decision fork; numeric drift is not token-equivalence and must be disclosed. No expansion on an unexplained control or geometry failure.",
+  "metrics": "Report six then paired original30/new60/frozen90; correctness, exact IDs, macro N/F, pooled N/selected decoder Q, physical Q and F, matched saved rows vs trajectory changes. Single request/board baseline only."
+}
