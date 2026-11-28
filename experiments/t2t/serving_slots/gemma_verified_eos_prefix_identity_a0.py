@@ -175,11 +175,6 @@ def main() -> int:
                                                       "control_prefix_pool",
                                                       "treatment_prefix_pool")},
                        control=control, treatment=treatment)
-        if fork is not None:
-            row["first_fork"] = {
-                key: fork[key] for key in ("kind", "tick", "control_prefix",
-                                           "treatment_prefix", "control_prefix_pool",
-                                           "treatment_prefix_pool")}
         except Exception as exc:
             import traceback
             traceback.print_exc()
