@@ -11,6 +11,11 @@ py=$rt/venv/bin/python
 hold=/data1/project_data/gx-megrez-20261122/gpu-holders/gpu-hold
 export PYTHONPATH="$PWD:$rt/diffusiongemma-native-20261125/deps:$rt/fixed-baseline-deps"
 export PYTHONDONTWRITEBYTECODE=1 TOKENIZERS_PARALLELISM=false HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2
+case ${4:-screen} in
+    screen) module=experiments.t2t.serving_slots.shared_h0_screen; args=() ;;
+    ibs-bridge) module=tools.gemma_ibs_bridge_replay; args=(--staged-h0 --panel "${5:?panel}" --out "$out" --samples "$rt/t2t-native-1125/prefix90/samples.json") ;;
+    *) exit 2 ;;
+esac
 pids(){ nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-compute-apps=pid --format=csv,noheader,nounits | sort -n | xargs; }
 owner(){ "$hold" status 0 | python3 -c 'import json,os,sys; h,=json.load(sys.stdin); i=h["instance"]; assert h["running"] and i["uid"]==os.getuid() and h["gpu_status"]["uuid"]==i["gpu_uuid"]==os.environ["CUDA_VISIBLE_DEVICES"] and i["pid"]==h["pid"] and i["boot_id"]==open("/proc/sys/kernel/random/boot_id").read().strip() and int(open("/proc/%d/stat"%h["pid"]).read().split(") ")[1].split()[19])==i["start_ticks"]; print(i["pid"])'; }
 initial=$(owner)
@@ -33,7 +38,7 @@ restore(){
 }
 trap restore EXIT
 trap 'exit 130' INT TERM HUP
-"$py" -Bu -m experiments.t2t.serving_slots.shared_h0_screen >"$out/receipts.ndjson" 2>"$out/stderr.log" &
+"$py" -Bu -m "$module" "${args[@]}" >"$out/receipts.ndjson" 2>"$out/stderr.log" &
 worker=$!
 printf '%s\n' "$worker" >"$out/worker.pid"
 until [[ -e "$out/ready" ]]; do

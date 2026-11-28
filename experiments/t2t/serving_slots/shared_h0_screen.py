@@ -16,7 +16,7 @@ from bdlm_serving.evaluation.frozen90 import load_tasks
 from bdlm_serving.methods.t2t.unified_rows import Params
 
 
-def main():
+def load_staged_h0():
     base = Path("/data1/project_data/gx-erqw-20261123")
     remaining = int(os.environ["BDLM_WINDOW_END"]) - int(time.time()) - 30
     if remaining < 60 or os.environ.get("CUDA_VISIBLE_DEVICES") != DEVICES["n164:H0"]:
@@ -48,7 +48,12 @@ def main():
         raise RuntimeError("Parameters or buffers not completely on H0")
     eos = model.generation_config.eos_token_id
     special = set(proc.tokenizer.all_special_ids) | set(eos if isinstance(eos, list) else [eos])
-    ctx = Handle(model, proc, device, frozenset(special | {model.generation_config.pad_token_id}))
+    return Handle(model, proc, device, frozenset(special | {model.generation_config.pad_token_id}))
+
+
+def main():
+    base = Path("/data1/project_data/gx-erqw-20261123")
+    ctx = load_staged_h0()
     tasks = load_tasks(base/"runtime/t2t-native-1125/prefix90/samples.json")
     shard = shard_cases(json.loads(MANIFEST.read_bytes())["samples"], "n164:H0", "screen18")
     for q in (32, 128, 512, 64, 256):

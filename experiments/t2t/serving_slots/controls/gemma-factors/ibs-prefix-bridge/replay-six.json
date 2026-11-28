@@ -1,0 +1,10 @@
+{
+  "protocol": "gemma-ibs-bridge-replay-v1",
+  "indices": [1, 11, 21, 31, 51, 71],
+  "tiers": [32, 64],
+  "old_pilot": [0, 10, 20, 30, 50, 70, 40, 60, 80],
+  "selection": "Second frozen index in each of three datasets in original30 and added60. No outcomes used to select these six. Score separately; not a blind holdout.",
+  "arms": ["plain", "off", "on"],
+  "rule": "Preserve all original capped IBS selections and the visible span. Revisit at most four clean prefix rows only in warm unused seats. Project rows, update self-conditioning, do not sample extra rows.",
+  "gate": "All 12 same-device plain/off replays must agree on complete outputs, selected rows, admissions, EOS/length, post-prefill encoder inputs, N/F/Q and score. On arm must pass the physical-row and first-fork audit. This qualifies the runner, not a gain on 90 tasks."
+}

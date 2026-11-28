@@ -1,0 +1,70 @@
+{
+  "TE": "sum(N)/sum(selected decoder Q)",
+  "historical_replay": "independent on A1; no cross-host per-row equivalence asserted",
+  "macro_TPF": "mean(N/(decoder_F+postprefill_encoder_F))",
+  "marker": {
+    "n": 18,
+    "reg": "dec46a742d5c092a2fc5699549e2adfcc7da3bf2f5843f96d01e4caeb20f5cb4"
+  },
+  "missing_pairs": [],
+  "pairs_digest": "5d9f597c3ec05357798a9a2b36876f374cdda1067fad5ee4f6b8fbdb132562a8",
+  "raw": "/gs/results/gemma-ibs-prefix-bridge-a1-1128",
+  "registration": {
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "case_indices": [
+      0,
+      10,
+      20,
+      30,
+      50,
+      70,
+      40,
+      60,
+      80
+    ],
+    "deadline": 1795849200,
+    "launch": "b1b58dceb04c0d8ed5da4b3432f633ed4de8954ec35ca1f7c8b9bfd6d376af2a",
+    "model": {
+      "checkpoint": "/gs/models/diffusiongemma-cd40195",
+      "entries": 19,
+      "manifest": "ceb951734eb354728d7ba984093739119addbeda981b554af46d5dc105071f53",
+      "verified": 1795846217.1685414
+    },
+    "optimus": {
+      "sequence.py": "99c80047d517113579e04fd57443471a759a738dc30b206ba1342e0d4f9b3da2",
+      "unmasking.py": "bbc3c3328e5497aa08aed6e04150ab0383f95dc06b4ff570a69adaed4a769746"
+    },
+    "pid": 417055,
+    "pins": {
+      "controls_module": "f21a4704697cace53b19dfbbbf94bbabc877241b9c979e15b0d40e9a2ea0d223",
+      "limits": "842f078e06b5f79b336165b060d1212e947e01182e167379a1d1dbb9f62b5376",
+      "model_manifest": "ceb951734eb354728d7ba984093739119addbeda981b554af46d5dc105071f53",
+      "native": "e7cdf58bf216bfae7462f207983dc0d228122e7056f3e1650a268fc9ce46e768",
+      "runtime": "a09d04477361cb2a260dac85ce2195c0bfee9218306b7cfb96d7ddf4f1dba9af",
+      "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+      "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+    },
+    "registration": "547a6c490ce9c11112a6ce7549c5c410fa96d110400514609f1eaaf55b95de42",
+    "sources": {
+      "gemma_ibs_prefix_bridge": "5f34373b45ca4a4d3906497c9708259c25c61c9bdad09ff122869d61338e4bc1",
+      "gemma_ibs_prefix_bridge_eval": "ef55842cc7f8ebbabbea4522c338ba981c9bb7cd957c4d943a82e0ba90ef9ee9"
+    },
+    "start_ticks": "36681135",
+    "tiers": [
+      32,
+      64
+    ],
+    "torch": "2.10.0+cu128",
+    "uuid": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff"
+  },
+  "registration_digest": "dec46a742d5c092a2fc5699549e2adfcc7da3bf2f5843f96d01e4caeb20f5cb4",
+  "report_sha256": "f1320b20e51db891daafe5860ab17bc75082c81681692c564ceaca4b92cc7402",
+  "same_board_unmodified_replays": 18,
+  "screen": {
+    "exposure": true,
+    "net_Q32_gain": true,
+    "no_net_Q64_loss": true,
+    "preserved_Q32_TPF": true
+  },
+  "status": "complete"
+}
