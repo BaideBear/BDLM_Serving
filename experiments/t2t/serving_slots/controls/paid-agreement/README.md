@@ -1,5 +1,7 @@
 # Two paid observations on the same unresolved row
 
+[四档阶段归档：90 题同卡主表、带数值的图、六题消融与未测档说明](four-slot-checkpoint.md) (`paid-agreement-four-slot-20261128`).
+
 [Paid Agreement v1: frozen results, figure and reproduction](v1.md) (`paid-agreement-v1`). Archived as an experimental version, not a default policy.
 
 **After v1: [four measured points with numerical labels](fixed-budget90-with-q8.png).**

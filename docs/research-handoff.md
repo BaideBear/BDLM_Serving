@@ -2,6 +2,8 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+**2026-11-28 四档快照：[连续两轮提案一致的 90 题结果与图](../experiments/t2t/serving_slots/controls/paid-agreement/four-slot-checkpoint.md)**（`paid-agreement-four-slot-20261128`）。在原三档外补入 LLaDA Q8，不修改旧标签。LLaDA Q16 总分持平且少算；Gemma Q64 多算且少对 6 题；不升为默认算法。同一份额外采纳限额另做六题：LLaDA Q16 可扩 90，Gemma Q64 不扩。与独立的前缀换位、零触发观察分开记账。
+
 **已归档版本：[Paid Agreement v1](../experiments/t2t/serving_slots/controls/paid-agreement/v1.md)**（标签 `paid-agreement-v1`）。只含 LLaDA 2.1 Q16、DiffusionGemma Q64/Q128 三档作为正式结论，附同卡对照和独立标注的诊断。不升为默认；后续结果另行登记，不改这个快照。
 
 **阶段补充：[固定预算下，哪些 KV 值得再算](../experiments/t2t/serving_slots/controls/prefix-clamp/fixed-budget-checkpoint.md)**。LLaDA Q16 每块用一个已付清前缀行替代一个暖 MASK，六题正确数不变，但多 50 F、795 Q；Q64 跳过后块已付清行且禁用旧 logits，少 27 Q、多 7 F。Gemma 上分别记录精确复用后块 KV 的零次机会，以及 Q128 纯写回步的零空位。两项 LLaDA 配对、Gemma 观察和已有 90 题正式分数分开读。

@@ -1,0 +1,14 @@
+{
+  "arms": ["stock", "observer", "apply", "capped"],
+  "cases": [7, 13, 25, 33, 55, 71],
+  "uuid": "GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb",
+  "q": 16,
+  "cap": 2048,
+  "allowance": 0.5,
+  "floor": 0.5,
+  "archive_sha256": "1d1e61371e7931242eccc5ef14475967f5598e53e07be05f280ef538fcc60da6",
+  "capped_sha256": "edd7f7f41704fbcc720f06449d6171ce5126ae5d4f8e7eb946ac663022c00402",
+  "decision": "A maximal non-skipping prefix ranked by 1-min(previous,current), then absolute position, of v1 extras per ordinary block sampling decision. Return the chosen subset in v1 order.",
+  "control": "All four arms use the same paid frozen-prefix EOS close and strict IBS Q16. Only the capped arm swaps the v1 ledger factory; no other sampler, row, debt or projection changes.",
+  "promotion": "None. Stop after this fixed panel."
+}

@@ -1,0 +1,382 @@
+{
+  "schema": "gemma-live-q128-post-drain-mask-a3-six-v1",
+  "source_sha256": "a05e35a122925b50c4eed5329cf88d6d859185420ac429cde52cba1dd4ac54f9",
+  "reference_sha256": "949212746eb79c82df03e0bd990a07019096091cd8f7bb177c1e2952b48eaba3",
+  "gpu": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "launcher_release": "RELEASE rc=0 state=GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c\\,\\ 0\\,\\ 3 apps='' lock=closed date=2026-11-28T21:47:33+08:00",
+  "independent_release": "A3_CLEAR state=GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c\\,\\ 0\\,\\ 0 apps='' worker=absent scratch=absent lock=free date=2026-11-28T21:48:19+08:00",
+  "cases": [
+    7,
+    13,
+    25,
+    33,
+    55,
+    71
+  ],
+  "totals": {
+    "bare": {
+      "N": 1420,
+      "D": 117,
+      "E": 3,
+      "F": 120,
+      "Q": 12451,
+      "correct": 6,
+      "macro_tpf": 12.159687013694366,
+      "pooled_te": 0.11404706449281182
+    },
+    "noop": {
+      "N": 1420,
+      "D": 117,
+      "E": 3,
+      "F": 120,
+      "Q": 12451,
+      "correct": 6,
+      "macro_tpf": 12.159687013694366,
+      "pooled_te": 0.11404706449281182
+    },
+    "treat": {
+      "N": 1363,
+      "D": 102,
+      "E": 1,
+      "F": 103,
+      "Q": 10756,
+      "correct": 5,
+      "macro_tpf": 13.763492063492063,
+      "pooled_te": 0.12671997024916326
+    }
+  },
+  "exposed": 5,
+  "swaps": 5,
+  "changed_ids": 5,
+  "gains": [],
+  "losses": [
+    25
+  ],
+  "rows": [
+    {
+      "index": 7,
+      "dataset": "gsm8k",
+      "bare": {
+        "N": 213,
+        "D": 17,
+        "E": 0,
+        "F": 17,
+        "Q": 1826,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "07e787353b027c79b1790b93862fa755a23d59fb483f771211f7fa544f89eca8"
+      },
+      "noop": {
+        "N": 213,
+        "D": 17,
+        "E": 0,
+        "F": 17,
+        "Q": 1826,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "07e787353b027c79b1790b93862fa755a23d59fb483f771211f7fa544f89eca8"
+      },
+      "treat": {
+        "N": 203,
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "Q": 1750,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "8c78f58942cb4a71a0136fd0f484f2b5e857e86098459f5d2bfb6b4963765979"
+      },
+      "stock_opportunities": 1,
+      "swaps": 1,
+      "first_fork": {
+        "tick": 4,
+        "head": 0,
+        "previous_tick": 3,
+        "drop": 0,
+        "take": 131,
+        "frontier": 6,
+        "width": 128,
+        "encoder_end": 59,
+        "visible_start": 59,
+        "visible_end": 315,
+        "stock_rightmost_query": 130,
+        "trial_rightmost_query": 131,
+        "debt": [],
+        "age": 2,
+        "state_sha256": "5d75e776b1eed31afbe32abf80a071d3463363704e26ef245411152c640aeadf",
+        "predecessor_tape_sha256": "18dc3ec5c48906c4a5c7bb27c1a670b32950deb5d67bfedeacd1661c627f3302"
+      }
+    },
+    {
+      "index": 13,
+      "dataset": "math500",
+      "bare": {
+        "N": 277,
+        "D": 24,
+        "E": 1,
+        "F": 25,
+        "Q": 2707,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "6c09beeded12a1ef2f97a7fe8b1021ec4eca2762523085b2c77babe5758459fa"
+      },
+      "noop": {
+        "N": 277,
+        "D": 24,
+        "E": 1,
+        "F": 25,
+        "Q": 2707,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "6c09beeded12a1ef2f97a7fe8b1021ec4eca2762523085b2c77babe5758459fa"
+      },
+      "treat": {
+        "N": 253,
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "Q": 1851,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "38fade181319f20f1f8919c62d3e4dfa31abb75eec6cba361cae483466ead9a9"
+      },
+      "stock_opportunities": 1,
+      "swaps": 1,
+      "first_fork": {
+        "tick": 4,
+        "head": 0,
+        "previous_tick": 3,
+        "drop": 0,
+        "take": 131,
+        "frontier": 9,
+        "width": 128,
+        "encoder_end": 52,
+        "visible_start": 52,
+        "visible_end": 308,
+        "stock_rightmost_query": 130,
+        "trial_rightmost_query": 131,
+        "debt": [],
+        "age": 2,
+        "state_sha256": "011e6092041398868f18b03e1caec0c17e17e88a416804b06397663e1800a91c",
+        "predecessor_tape_sha256": "24f55beab40cbcea982c584d6c815b229122a4ff575a9372b13f756503a234b3"
+      }
+    },
+    {
+      "index": 25,
+      "dataset": "humaneval",
+      "bare": {
+        "N": 199,
+        "D": 18,
+        "E": 0,
+        "F": 18,
+        "Q": 1619,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "adf1f649d797c82f9a6f01aa4f64e14fb1a4ed05cdf36309c5bd05d747681662"
+      },
+      "noop": {
+        "N": 199,
+        "D": 18,
+        "E": 0,
+        "F": 18,
+        "Q": 1619,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "adf1f649d797c82f9a6f01aa4f64e14fb1a4ed05cdf36309c5bd05d747681662"
+      },
+      "treat": {
+        "N": 200,
+        "D": 20,
+        "E": 0,
+        "F": 20,
+        "Q": 1715,
+        "correct": false,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "3bef5d3bbfaf58877b1862cecb06677bcde685cbad27351393178ce884bfe0ff"
+      },
+      "stock_opportunities": 1,
+      "swaps": 1,
+      "first_fork": {
+        "tick": 4,
+        "head": 0,
+        "previous_tick": 3,
+        "drop": 0,
+        "take": 132,
+        "frontier": 20,
+        "width": 128,
+        "encoder_end": 151,
+        "visible_start": 151,
+        "visible_end": 407,
+        "stock_rightmost_query": 131,
+        "trial_rightmost_query": 132,
+        "debt": [],
+        "age": 2,
+        "state_sha256": "87d4e9c94bd553a0acf2175638b306bcaa807663756259499d4f6ee774ab9e2d",
+        "predecessor_tape_sha256": "d7cffe52ed20cb678a1a81fd2b454d4dc2bc2ede1a09ffcb763d94948f6eb7be"
+      }
+    },
+    {
+      "index": 33,
+      "dataset": "gsm8k",
+      "bare": {
+        "N": 262,
+        "D": 20,
+        "E": 1,
+        "F": 21,
+        "Q": 2215,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "d39de1c41bfe70afa4927f73d38216b4658991c41c58df116aa85b1159ad1ab8"
+      },
+      "noop": {
+        "N": 262,
+        "D": 20,
+        "E": 1,
+        "F": 21,
+        "Q": 2215,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "d39de1c41bfe70afa4927f73d38216b4658991c41c58df116aa85b1159ad1ab8"
+      },
+      "treat": {
+        "N": 251,
+        "D": 14,
+        "E": 0,
+        "F": 14,
+        "Q": 1597,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "32e35491dd9ecbba582db69abc3c6131e2479686f574795d4e70d7787e47eabe"
+      },
+      "stock_opportunities": 1,
+      "swaps": 1,
+      "first_fork": {
+        "tick": 4,
+        "head": 0,
+        "previous_tick": 3,
+        "drop": 0,
+        "take": 133,
+        "frontier": 6,
+        "width": 128,
+        "encoder_end": 69,
+        "visible_start": 69,
+        "visible_end": 325,
+        "stock_rightmost_query": 132,
+        "trial_rightmost_query": 133,
+        "debt": [],
+        "age": 2,
+        "state_sha256": "56676a9ee4b87beea0a25b36a5e3dc1dfc9309f31bef1cf107b15dfad3f7c204",
+        "predecessor_tape_sha256": "a8f1301fce050eb05eacc1a652591c7e239a26907ed96b25b3602746ead84857"
+      }
+    },
+    {
+      "index": 55,
+      "dataset": "math500",
+      "bare": {
+        "N": 369,
+        "D": 31,
+        "E": 1,
+        "F": 32,
+        "Q": 3227,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "50b80d3feddcb1bc2880472e7c7c86aed7f84bcb8e020887912d2577d90a4fce"
+      },
+      "noop": {
+        "N": 369,
+        "D": 31,
+        "E": 1,
+        "F": 32,
+        "Q": 3227,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "50b80d3feddcb1bc2880472e7c7c86aed7f84bcb8e020887912d2577d90a4fce"
+      },
+      "treat": {
+        "N": 356,
+        "D": 29,
+        "E": 1,
+        "F": 30,
+        "Q": 2986,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "4a78326065ac0d5068135889b50ddd9321282dc9b9b2e16d4de257fa2773f647"
+      },
+      "stock_opportunities": 1,
+      "swaps": 1,
+      "first_fork": {
+        "tick": 4,
+        "head": 0,
+        "previous_tick": 3,
+        "drop": 0,
+        "take": 131,
+        "frontier": 8,
+        "width": 128,
+        "encoder_end": 33,
+        "visible_start": 33,
+        "visible_end": 289,
+        "stock_rightmost_query": 130,
+        "trial_rightmost_query": 131,
+        "debt": [],
+        "age": 2,
+        "state_sha256": "9bd8fe126e88dfae3f8ece1de68511364c64b13f3832cfe5fa2b80c757936c67",
+        "predecessor_tape_sha256": "c32850fefa8085d8683c98b0e31a4a06ac25399d5569e183636ec92bae278247"
+      }
+    },
+    {
+      "index": 71,
+      "dataset": "humaneval",
+      "bare": {
+        "N": 100,
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "Q": 857,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "ba357bf6c3556ed05dcddd262fef4229c9c95a2aecd75a93b7d4c2b23c5134d0"
+      },
+      "noop": {
+        "N": 100,
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "Q": 857,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "ba357bf6c3556ed05dcddd262fef4229c9c95a2aecd75a93b7d4c2b23c5134d0"
+      },
+      "treat": {
+        "N": 100,
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "Q": 857,
+        "correct": true,
+        "terminal_eos": true,
+        "peak_Q": 128,
+        "ids_sha256": "ba357bf6c3556ed05dcddd262fef4229c9c95a2aecd75a93b7d4c2b23c5134d0"
+      },
+      "stock_opportunities": 0,
+      "swaps": 0,
+      "first_fork": null
+    }
+  ]
+}

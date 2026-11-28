@@ -1,0 +1,62 @@
+{
+  "schema": "gemma-live-q32-lastmiss-a3-gate-v1",
+  "gpu": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "raw_sha256": "7a6076a7cc172819801c78bb2c0a337c9ca6a7a279fe7494ac171a9c6b80c642",
+  "cases": [
+    0,
+    10,
+    20
+  ],
+  "rows": [
+    {
+      "index": 0,
+      "counts": {
+        "warm_sample_ticks": 33,
+        "adjacent_sample_ticks": 31,
+        "rejected_rows": 257,
+        "clean_rejected_rows": 0,
+        "clean_rejected_omitted_rows": 0,
+        "donor_ticks": 28
+      },
+      "swaps": [],
+      "exact_bare_noop": true
+    },
+    {
+      "index": 10,
+      "counts": {
+        "warm_sample_ticks": 29,
+        "adjacent_sample_ticks": 27,
+        "rejected_rows": 204,
+        "clean_rejected_rows": 0,
+        "clean_rejected_omitted_rows": 0,
+        "donor_ticks": 25
+      },
+      "swaps": [],
+      "exact_bare_noop": true
+    },
+    {
+      "index": 20,
+      "counts": {
+        "warm_sample_ticks": 10,
+        "adjacent_sample_ticks": 9,
+        "rejected_rows": 6,
+        "clean_rejected_rows": 0,
+        "clean_rejected_omitted_rows": 0,
+        "donor_ticks": 9
+      },
+      "swaps": [],
+      "exact_bare_noop": true
+    }
+  ],
+  "totals": {
+    "warm_sample_ticks": 72,
+    "adjacent_sample_ticks": 67,
+    "rejected_rows": 467,
+    "clean_rejected_rows": 0,
+    "clean_rejected_omitted_rows": 0,
+    "donor_ticks": 62
+  },
+  "decision": "no_go",
+  "launcher_release": "RELEASE rc=0 state=GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c\\,\\ 0\\,\\ 10 apps='' lock=closed date=2026-11-28T22:09:00+08:00",
+  "independent_release": "A3_CLEAR state=GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c\\,\\ 0\\,\\ 0 apps='' worker=absent scratch=absent lock=free date=2026-11-28T22:09:30+08:00"
+}

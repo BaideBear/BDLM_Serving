@@ -1,0 +1,277 @@
+{
+ "schema": "gemma-q64-repeat-cut-fork-summary-v1",
+ "class_sha": "edd7f7f41704fbcc720f06449d6171ce5126ae5d4f8e7eb946ac663022c00402",
+ "q": 64,
+ "allowance": 0.5,
+ "affected_tasks": [
+  7,
+  13,
+  25
+ ],
+ "identical_tasks": [
+  33,
+  55,
+  71
+ ],
+ "aggregate_capped_minus_v1": {
+  "delta_F": 4,
+  "delta_Q": 132,
+  "delta_N": 6
+ },
+ "per_task": [
+  {
+   "index": 7,
+   "first_diff": 5,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true,
+    "enc_epochs": 1
+   },
+   "at_fork_equal": {
+    "positions": true,
+    "ids": true,
+    "q": true,
+    "ledger_inputs": "same positions/proposals/probabilities/native"
+   },
+   "differing_fields": [
+    "accepted",
+    "admitted",
+    "decoder.sample.take"
+   ],
+   "v1_extras_applied": 7,
+   "capped_extras_applied": 1,
+   "dropped": [
+    72,
+    74,
+    75,
+    76,
+    77,
+    86
+   ],
+   "capped_subset": true,
+   "arm_delta": {
+    "dN": 6,
+    "dF": 0,
+    "dQ": -6
+   },
+   "arms": {
+    "stock": {
+     "N": 198,
+     "F": 16,
+     "Q": 961
+    },
+    "v1": {
+     "N": 194,
+     "F": 15,
+     "Q": 898
+    },
+    "capped": {
+     "N": 200,
+     "F": 15,
+     "Q": 892
+    }
+   },
+   "sealed": {
+    "stock_match": true,
+    "v1_match": true,
+    "observer_extra": [
+     30,
+     30
+    ]
+   },
+   "reproduced_prior_run": true
+  },
+  {
+   "index": 13,
+   "first_diff": 11,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true,
+    "enc_epochs": 1
+   },
+   "at_fork_equal": {
+    "positions": true,
+    "ids": true,
+    "q": true,
+    "ledger_inputs": "same positions/proposals/probabilities/native"
+   },
+   "differing_fields": [
+    "accepted",
+    "admitted",
+    "decoder.sample.take"
+   ],
+   "v1_extras_applied": 2,
+   "capped_extras_applied": 1,
+   "dropped": [
+    188
+   ],
+   "capped_subset": true,
+   "arm_delta": {
+    "dN": 0,
+    "dF": 0,
+    "dQ": 0
+   },
+   "arms": {
+    "stock": {
+     "N": 260,
+     "F": 20,
+     "Q": 1154
+    },
+    "v1": {
+     "N": 334,
+     "F": 29,
+     "Q": 1614
+    },
+    "capped": {
+     "N": 334,
+     "F": 29,
+     "Q": 1614
+    }
+   },
+   "sealed": {
+    "stock_match": true,
+    "v1_match": true,
+    "observer_extra": [
+     3,
+     3
+    ]
+   },
+   "reproduced_prior_run": true
+  },
+  {
+   "index": 25,
+   "first_diff": 7,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true,
+    "enc_epochs": 1
+   },
+   "at_fork_equal": {
+    "positions": true,
+    "ids": true,
+    "q": true,
+    "ledger_inputs": "same positions/proposals/probabilities/native"
+   },
+   "differing_fields": [
+    "accepted",
+    "admitted",
+    "decoder.sample.take"
+   ],
+   "v1_extras_applied": 7,
+   "capped_extras_applied": 1,
+   "dropped": [
+    169,
+    170,
+    171,
+    194,
+    195,
+    196
+   ],
+   "capped_subset": true,
+   "arm_delta": {
+    "dN": 0,
+    "dF": 4,
+    "dQ": 138
+   },
+   "arms": {
+    "stock": {
+     "N": 222,
+     "F": 13,
+     "Q": 757
+    },
+    "v1": {
+     "N": 222,
+     "F": 14,
+     "Q": 805
+    },
+    "capped": {
+     "N": 222,
+     "F": 18,
+     "Q": 943
+    }
+   },
+   "sealed": {
+    "stock_match": true,
+    "v1_match": true,
+    "observer_extra": [
+     9,
+     9
+    ]
+   },
+   "reproduced_prior_run": true
+  },
+  {
+   "index": 33,
+   "first_diff": null,
+   "identical": true,
+   "arms": {
+    "stock": {
+     "N": 229,
+     "F": 14,
+     "Q": 829
+    },
+    "v1": {
+     "N": 240,
+     "F": 15,
+     "Q": 861
+    },
+    "capped": {
+     "N": 240,
+     "F": 15,
+     "Q": 861
+    }
+   }
+  },
+  {
+   "index": 55,
+   "first_diff": null,
+   "identical": true,
+   "arms": {
+    "stock": {
+     "N": 248,
+     "F": 18,
+     "Q": 1108
+    },
+    "v1": {
+     "N": 248,
+     "F": 17,
+     "Q": 959
+    },
+    "capped": {
+     "N": 248,
+     "F": 17,
+     "Q": 959
+    }
+   }
+  },
+  {
+   "index": 71,
+   "first_diff": null,
+   "identical": true,
+   "arms": {
+    "stock": {
+     "N": 99,
+     "F": 7,
+     "Q": 385
+    },
+    "v1": {
+     "N": 99,
+     "F": 7,
+     "Q": 385
+    },
+    "capped": {
+     "N": 99,
+     "F": 7,
+     "Q": 385
+    }
+   }
+  }
+ ],
+ "note": "prefix_events flag in reconstruct_q64.py used a wrong index and is discarded; the encoder-receipt prefix (prefix_encoder) and the per-tick trace/decoder/SC checks are the equality evidence, and the D/E event stream is a function of them."
+}
