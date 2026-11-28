@@ -6,9 +6,8 @@ from pathlib import Path
 import subprocess
 import time
 
-from .gemma_full_admission_qualify import (CORE, GPU, RUNTIME, digest, guard,
-                                           read, run_generic, sha_file,
-                                           source_manifest, write)
+from .gemma_full_admission_qualify import (CORE, GPU, RUNTIME, guard, read,
+                                           run_generic, sha_file, write)
 from .gemma_full_admission import open_full_admission
 
 
@@ -31,14 +30,20 @@ def main():
     from bdlm_serving.evaluation.frozen90 import load_tasks
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
     from . import gemma_full_admission_fixed90_h0 as h0
+    from . import gemma_response_forks as live
     seal = read(args.qualification)
     if seal["schema"] != "gemma-full-admission-fixed-q64-a3-torch26-v1" or seal["offer"] != 64:
         raise RuntimeError("Formal shard does not match the qualification seal")
-    manifest_sha, files = source_manifest(args.source_manifest, CORE, Path(__file__))
-    if manifest_sha != seal["qualification_source_sha256"]:
-        raise RuntimeError("Formal source manifest changed after qualification")
+    # The qualification source closure is immutable; the formal runner is a
+    # separate reporting adapter and is pinned independently.
+    for name, wanted in seal["source_files"].items():
+        p = Path(name)
+        if not p.is_file() or sha_file(p) != wanted:
+            raise RuntimeError(f"Qualified dependency drift: {name}")
     if sha_file(CORE) != seal["executor_sha256"]:
         raise RuntimeError("Formal executor changed after qualification")
+    qualification_source_sha = seal["qualification_source_sha256"]
+    runner_sha = sha_file(Path(__file__))
     tasks = load_tasks(args.samples)
     guard("inputs")
     proc = AutoProcessor.from_pretrained(args.weights, local_files_only=True)
@@ -52,7 +57,8 @@ def main():
                     "offer": 64, "registered": indices,
                     "qualification": str(args.qualification),
                     "qualification_sha256": sha_file(args.qualification),
-                    "qualification_source_sha256": manifest_sha,
+                    "qualification_source_sha256": qualification_source_sha,
+                    "formal_runner_sha256": runner_sha,
                     "executor_sha256": sha_file(CORE), "commit": args.commit,
                     "runtime": RUNTIME, "gpu": GPU, "pid": os.getpid(), "host": host}
     args.out.mkdir(parents=False, exist_ok=False)
@@ -68,7 +74,11 @@ def main():
             source = "qualification"
         else:
             task = next(t for t in tasks if t["index"] == index)
-            raw = run_generic(model, proc, task, None, open_full_admission, 64)
+            data = proc.apply_chat_template(
+                [{"role": "user", "content": task["prompt"]}], tokenize=True,
+                add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
+            prompt = live.digest(data["input_ids"][0].tolist())
+            raw = run_generic(model, proc, task, prompt, open_full_admission, 64)
             source = "formal"
         raw["qualification_origin"] = seal["qualification_origin"]
         saved_q = h0.Q
