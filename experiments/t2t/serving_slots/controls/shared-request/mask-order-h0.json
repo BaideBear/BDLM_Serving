@@ -1,0 +1,203 @@
+{
+  "version": "2a7540786543779421c51df34d3edfec1df33614160d88db52b3639de59762b4",
+  "source": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "scope": "n164:H0",
+  "seen": 24,
+  "target": 24,
+  "replay_matches": 12,
+  "deferred": [],
+  "points": [
+    {
+      "model": "llada21",
+      "offer": 4,
+      "arms": {
+        "cold_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 2,
+          "N": 673,
+          "F": 464,
+          "Q": 1837,
+          "macro_TPF": 1.4894897477994409,
+          "pooled_TE": 0.3663581927054981,
+          "plan_counts": {
+            "calls": 464,
+            "differing_calls": 142,
+            "different_mask_seats": 335,
+            "mask_Q": 1113,
+            "cold_Q": 725,
+            "prefix_Q": 0,
+            "dirty_Q": 724
+          }
+        },
+        "left_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 3,
+          "N": 843,
+          "F": 527,
+          "Q": 2064,
+          "macro_TPF": 1.6036050623728901,
+          "pooled_TE": 0.40843023255813954,
+          "plan_counts": {
+            "calls": 527,
+            "differing_calls": 138,
+            "different_mask_seats": 216,
+            "mask_Q": 1153,
+            "cold_Q": 911,
+            "prefix_Q": 0,
+            "dirty_Q": 911
+          }
+        }
+      },
+      "rescued": 1,
+      "lost": 0
+    },
+    {
+      "model": "llada21",
+      "offer": 8,
+      "arms": {
+        "cold_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 3,
+          "N": 1011,
+          "F": 458,
+          "Q": 3585,
+          "macro_TPF": 2.4710729624150396,
+          "pooled_TE": 0.2820083682008368,
+          "plan_counts": {
+            "calls": 458,
+            "differing_calls": 120,
+            "different_mask_seats": 511,
+            "mask_Q": 2501,
+            "cold_Q": 1090,
+            "prefix_Q": 8,
+            "dirty_Q": 1076
+          }
+        },
+        "left_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 3,
+          "N": 792,
+          "F": 276,
+          "Q": 2089,
+          "macro_TPF": 2.8545116279069767,
+          "pooled_TE": 0.3791287697462901,
+          "plan_counts": {
+            "calls": 276,
+            "differing_calls": 76,
+            "different_mask_seats": 256,
+            "mask_Q": 1231,
+            "cold_Q": 847,
+            "prefix_Q": 11,
+            "dirty_Q": 847
+          }
+        }
+      },
+      "rescued": 0,
+      "lost": 0
+    },
+    {
+      "model": "gemma",
+      "offer": 32,
+      "arms": {
+        "cold_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 3,
+          "N": 847,
+          "F": 192,
+          "Q": 5949,
+          "macro_TPF": 4.464363554656781,
+          "pooled_TE": 0.14237687006219532,
+          "plan_counts": {
+            "calls": 148,
+            "differing_calls": 77,
+            "different_mask_seats": 1042,
+            "mask_Q": 2202,
+            "cold_Q": 1296,
+            "prefix_Q": 233,
+            "dirty_Q": 2214
+          }
+        },
+        "left_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 3,
+          "N": 823,
+          "F": 175,
+          "Q": 5360,
+          "macro_TPF": 4.775324675324676,
+          "pooled_TE": 0.15354477611940298,
+          "plan_counts": {
+            "calls": 132,
+            "differing_calls": 75,
+            "different_mask_seats": 637,
+            "mask_Q": 1928,
+            "cold_Q": 1280,
+            "prefix_Q": 208,
+            "dirty_Q": 1931
+          }
+        }
+      },
+      "rescued": 0,
+      "lost": 0
+    },
+    {
+      "model": "gemma",
+      "offer": 64,
+      "arms": {
+        "cold_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 1,
+          "N": 727,
+          "F": 115,
+          "Q": 7162,
+          "macro_TPF": 6.28168202764977,
+          "pooled_TE": 0.10150795867076236,
+          "plan_counts": {
+            "calls": 97,
+            "differing_calls": 29,
+            "different_mask_seats": 777,
+            "mask_Q": 2884,
+            "cold_Q": 1339,
+            "prefix_Q": 305,
+            "dirty_Q": 2892
+          }
+        },
+        "left_first": {
+          "requests": 3,
+          "complete": 3,
+          "failures": 0,
+          "correct": 2,
+          "N": 756,
+          "F": 108,
+          "Q": 6531,
+          "macro_TPF": 6.8132783882783885,
+          "pooled_TE": 0.1157556270096463,
+          "plan_counts": {
+            "calls": 84,
+            "differing_calls": 50,
+            "different_mask_seats": 1021,
+            "mask_Q": 2444,
+            "cold_Q": 1348,
+            "prefix_Q": 279,
+            "dirty_Q": 2445
+          }
+        }
+      },
+      "rescued": 1,
+      "lost": 0
+    }
+  ]
+}

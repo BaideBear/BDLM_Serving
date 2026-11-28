@@ -8,7 +8,9 @@
 **November 28: all ten fixed offers completed on frozen90.** See the
 [two-model table and figure](formal90/README.md). This is the untuned
 `1/8, 1/4` reference; it does not beat the corresponding baselines on
-both objectives. Neither model's tuned parameters are locked.
+both objectives. **Rejected as a candidate**: the pre-existing Live Profile
+has higher TPF and token efficiency at every offer, with no loss of quality
+at any offer. Keep already-registered panels as diagnostics.
 
 The earlier runs immediately below are **engineering smoke tests only**
 on `gsm8k/167`, index 0, seed 17000. Do not pool them, compare budgets on
@@ -150,3 +152,11 @@ different total F/Q are possible. Record how often the two orders disagree
 on the visited states. Design: two fixed tight offers per model,
 three registered H0 qualification inputs, then a paired 18-case screen if
 qualified. This is not a replacement IBS implementation or a 90-case result.
+
+[H0 mask-order qualification](mask-order-h0.json): 24/24 receipts, all
+12 cold-first controls matched their formal score and bills. At the four
+tight model/offers, earliest-first improved TPF and did not lose a correct
+answer on these three inputs. This does not establish parity with capped
+IBS or reverse the full-model rejection above. Recompute the paired report
+on the cluster with `python -m tools.shared_mask_order_report MASK_ROOT
+FORMAL_ROOT FORMAL_REGISTRATION --board n164:H0 --require-complete`.
