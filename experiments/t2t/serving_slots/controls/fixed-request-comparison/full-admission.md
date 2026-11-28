@@ -2,7 +2,25 @@
 
 ## Freeze decision: incomplete
 
-The candidate keeps the ordinary Live policy and changes one event: on the first projection of a successor, add every valid row in that block and let eligible rows sample immediately. It is a **fixed rolling offer**, not a hard per-call budget. This release has one audited candidate tier out of ten. Neither a same-device control nor a suffix branched from an earlier state counts as a new candidate request.
+The candidate keeps the ordinary Live policy and changes one event: on the first projection of a successor, add every valid row in that block and let eligible rows sample immediately. It is a **fixed rolling offer**, not a hard per-call budget. All five LLaDA tiers have audited 90-case results; no Gemma candidate tier in this release has passed the same gate. A parent control or a suffix branched from an earlier state does not count as a fixed candidate request.
+
+## LLaDA 2.1: complete fixed-offer panel
+
+| Rolling Q | Correct / 90 (original 30 + new 60) | Macro TPF | Token efficiency | Decoder Q per forward: mean / peak | Rows above rolling offers | Reference: correct / TPF / TE |
+|---:|---:|---:|---:|---:|---:|---|
+| 4 | 68 (20 + 48) | 1.886 | 32.05% | 5.28 / 32 | 40,447 | Capped IBS: 69 / 1.395 / 35.66% |
+| 8 | 71 (24 + 47) | 2.868 | 27.39% | 8.85 / 32 | 32,913 | Capped IBS: 72 / 2.364 / 29.36% |
+| 16 | 73 (25 + 48) | 3.642 | 20.35% | 13.63 / 32 | 21,303 | Capped IBS: 72 / 3.375 / 20.54% |
+| 32 | 75 (26 + 49) | 5.793 | 18.06% | 22.92 / 32 | 0 | Capped IBS: 71 / 4.495 / 15.23%; native: 75 / 5.677 / 15.56%; Flow W1: 75 / 7.111 / 17.30% |
+| 64 | 68 (21 + 47) | 7.636 | 10.01% | 44.86 / 64 | 0 | Flow W2: 74 / 10.006 / 11.61% |
+
+TPF is the mean of each request's final non-special token count divided by its actual generation forwards; TE is the pooled final non-special tokens divided by actual history-reading decoder Q. These are not wall-clock throughput measurements. Peak and total work must both accompany nominal Q. The below-B overages were exclusively admission calls. At Q32 all three aggregate metrics equal the measured earlier Live profile; its advantage over IBS is not evidence that full admission created the advantage. At Q64 none of 1,354 admission calls added a row to the parent plan. One same-device strict replay (#7) also matched output IDs and N/F/Q; the other 89 do not have this paired final-output check. The Q64 deficit against Flow W2 is not attributable to charging additional opening rows.
+
+[Budget plot with exact readings](llada21-full-admission-frozen90.png) · [Machine-readable verdicts, originals and held-out additions](full-admission-status.json) · [Render the figure](../../../../../tools/plot_full_admission.py).
+
+Q32 used three disjoint GPU shards of 30 tasks. All 90 physical tapes and seals passed verification, and independent reconstruction of emitted IDs and rescoring matched 90/90. The third producer and receiver both emitted exhaustive terminal receipts, but the orchestrating local shell exited 2 after the pipeline and did not persist its per-stage exit codes. [The reconciliation](llada-q32-shard-reconciliation.json) leaves those codes null; they were not synthesized. Q4 uses two attempts reconciled per index; Q8 preserves both received and reconstructed producer digests where serialization order differed.
+
+## Q16 paired detail
 
 | LLaDA 2.1, fixed Q16 | Correct / 90 | Macro TPF | Token efficiency | Final N | Generation F | Decoder Q |
 |---|---:|---:|---:|---:|---:|---:|

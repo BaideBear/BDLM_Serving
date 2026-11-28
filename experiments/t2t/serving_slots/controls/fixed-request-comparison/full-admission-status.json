@@ -1,6 +1,6 @@
 {
   "family": "live-full-successor-v1",
-  "ready_tiers": 1,
+  "ready_tiers": 5,
   "total_tiers": 10,
   "status": "incomplete",
   "meets_performance": null,
@@ -12,7 +12,167 @@
       "required": [
         "IBS capped"
       ],
-      "status": "incomplete"
+      "status": "ready_to_compare",
+      "cohorts": {
+        "original30": {
+          "n": 30,
+          "correct": 20,
+          "N": 16891,
+          "F": 10534,
+          "decoder_F": 10534,
+          "encoder_F": 0,
+          "history_Q": 54727,
+          "mean_decoder_Q": 5.195272451110689,
+          "macro_TPF": 1.8334452544805564,
+          "token_efficiency": 0.3086410729621576,
+          "peak": 32,
+          "new_block_Q": 16822,
+          "over_offer_Q": 14713,
+          "terminals": {
+            "eos": 26,
+            "cap": 4
+          }
+        },
+        "new60": {
+          "n": 60,
+          "correct": 48,
+          "N": 29291,
+          "F": 16773,
+          "decoder_F": 16773,
+          "encoder_F": 0,
+          "history_Q": 89370,
+          "mean_decoder_Q": 5.328206045430155,
+          "macro_TPF": 1.9118890379598197,
+          "token_efficiency": 0.3277498041848495,
+          "peak": 32,
+          "new_block_Q": 29418,
+          "over_offer_Q": 25734,
+          "terminals": {
+            "eos": 56,
+            "cap": 4
+          }
+        },
+        "frozen90": {
+          "n": 90,
+          "correct": 68,
+          "N": 46182,
+          "F": 27307,
+          "decoder_F": 27307,
+          "encoder_F": 0,
+          "history_Q": 144097,
+          "mean_decoder_Q": 5.276925330501337,
+          "macro_TPF": 1.8857411101333985,
+          "token_efficiency": 0.3204924460606397,
+          "peak": 32,
+          "new_block_Q": 46240,
+          "over_offer_Q": 40447,
+          "terminals": {
+            "eos": 82,
+            "cap": 8
+          }
+        }
+      },
+      "comparisons": {
+        "original30": {
+          "IBS capped": {
+            "correct": -3,
+            "macro_TPF": 0.45127463838973836,
+            "TE_pp": -2.5593857486064966,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 33644,
+            "extra_history_Q": 21083,
+            "baseline_peak_Q": 4,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 2,
+            "macro_TPF": 0.3990507385438786,
+            "TE_pp": -5.157842467296203,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 43554,
+            "extra_history_Q": 11173,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": -5,
+            "macro_TPF": 0.3441415752690937,
+            "TE_pp": -6.581275750681997,
+            "baseline_source": "llada-slot-allocation/c4-window-frozen90.json",
+            "baseline_history_Q": 41196,
+            "extra_history_Q": 13531,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        },
+        "new60": {
+          "IBS capped": {
+            "correct": 2,
+            "macro_TPF": 0.5103116741925091,
+            "TE_pp": -3.920248052881725,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 72241,
+            "extra_history_Q": 17129,
+            "baseline_peak_Q": 4,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 7,
+            "macro_TPF": 0.41333571281968995,
+            "TE_pp": -3.876565875842547,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 84654,
+            "extra_history_Q": 4716,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": 1,
+            "macro_TPF": 0.4009264886699928,
+            "TE_pp": -5.015152629975766,
+            "baseline_source": "llada-slot-allocation/c4-window-frozen90.json",
+            "baseline_history_Q": 82376,
+            "extra_history_Q": 6994,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        },
+        "frozen90": {
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": 0.4906326622582522,
+            "TE_pp": -3.606419557887486,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 105885,
+            "extra_history_Q": 38212,
+            "baseline_peak_Q": 4,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 9,
+            "macro_TPF": 0.40857405472775277,
+            "TE_pp": -4.3884191902669905,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 128208,
+            "extra_history_Q": 15889,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": -4,
+            "macro_TPF": 0.38199818420302645,
+            "TE_pp": -5.625956895894402,
+            "baseline_source": "llada-slot-allocation/c4-window-frozen90.json",
+            "baseline_history_Q": 123572,
+            "extra_history_Q": 20525,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        }
+      },
+      "three_metrics_complete": true,
+      "meets_performance": false,
+      "candidate_hard_cap_observed": false
     },
     {
       "model": "llada21",
@@ -20,7 +180,167 @@
       "required": [
         "IBS capped"
       ],
-      "status": "incomplete"
+      "status": "ready_to_compare",
+      "cohorts": {
+        "original30": {
+          "n": 30,
+          "correct": 24,
+          "N": 14979,
+          "F": 6660,
+          "decoder_F": 6660,
+          "encoder_F": 0,
+          "history_Q": 58026,
+          "mean_decoder_Q": 8.712612612612613,
+          "macro_TPF": 2.6780696183200985,
+          "token_efficiency": 0.25814290145796714,
+          "peak": 32,
+          "new_block_Q": 14961,
+          "over_offer_Q": 11217,
+          "terminals": {
+            "eos": 28,
+            "cap": 2
+          }
+        },
+        "new60": {
+          "n": 60,
+          "correct": 47,
+          "N": 28953,
+          "F": 11473,
+          "decoder_F": 11473,
+          "encoder_F": 0,
+          "history_Q": 102367,
+          "mean_decoder_Q": 8.92242656672187,
+          "macro_TPF": 2.963647775042086,
+          "token_efficiency": 0.28283528871609015,
+          "peak": 32,
+          "new_block_Q": 28944,
+          "over_offer_Q": 21696,
+          "terminals": {
+            "eos": 57,
+            "cap": 3
+          }
+        },
+        "frozen90": {
+          "n": 90,
+          "correct": 71,
+          "N": 43932,
+          "F": 18133,
+          "decoder_F": 18133,
+          "encoder_F": 0,
+          "history_Q": 160393,
+          "mean_decoder_Q": 8.845364804500083,
+          "macro_TPF": 2.868455056134757,
+          "token_efficiency": 0.2739022276533265,
+          "peak": 32,
+          "new_block_Q": 43905,
+          "over_offer_Q": 32913,
+          "terminals": {
+            "eos": 85,
+            "cap": 5
+          }
+        }
+      },
+      "comparisons": {
+        "original30": {
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": 0.4129894785300885,
+            "TE_pp": -2.550555149844641,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 49029,
+            "extra_history_Q": 8997,
+            "baseline_peak_Q": 8,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": 0.3848585198502512,
+            "TE_pp": -1.1750467147006838,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 61239,
+            "extra_history_Q": -3213,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.4678795143838177,
+            "TE_pp": -3.510677234662263,
+            "baseline_source": "llada-slot-allocation/c8-window-frozen90.json",
+            "baseline_history_Q": 52116,
+            "extra_history_Q": 5910,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        },
+        "new60": {
+          "IBS capped": {
+            "correct": 0,
+            "macro_TPF": 0.549470094206812,
+            "TE_pp": -1.583027024335737,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 96295,
+            "extra_history_Q": 6072,
+            "baseline_peak_Q": 8,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": 0.5980427031021476,
+            "TE_pp": -0.6801245828794711,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 102128,
+            "extra_history_Q": 239,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": -1,
+            "macro_TPF": 0.6183889792677686,
+            "TE_pp": -1.9755844288835978,
+            "baseline_source": "llada-slot-allocation/c8-window-frozen90.json",
+            "baseline_history_Q": 101500,
+            "extra_history_Q": 867,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        },
+        "frozen90": {
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": 0.5039765556479039,
+            "TE_pp": -1.9696902566045393,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 145324,
+            "extra_history_Q": 15069,
+            "baseline_peak_Q": 8,
+            "both_observed_within_offer": false
+          },
+          "IBS nominal": {
+            "correct": 2,
+            "macro_TPF": 0.5269813086848489,
+            "TE_pp": -0.8333474783518147,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 163367,
+            "extra_history_Q": -2974,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          },
+          "Live profile": {
+            "correct": -1,
+            "macro_TPF": 0.5682191576397848,
+            "TE_pp": -2.5519707561755256,
+            "baseline_source": "llada-slot-allocation/c8-window-frozen90.json",
+            "baseline_history_Q": 153616,
+            "extra_history_Q": 6777,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
+          }
+        }
+      },
+      "three_metrics_complete": true,
+      "meets_performance": false,
+      "candidate_hard_cap_observed": false
     },
     {
       "model": "llada21",
@@ -198,7 +518,227 @@
         "Native",
         "Flow W1"
       ],
-      "status": "incomplete"
+      "status": "ready_to_compare",
+      "cohorts": {
+        "original30": {
+          "n": 30,
+          "correct": 26,
+          "N": 14070,
+          "F": 3467,
+          "decoder_F": 3467,
+          "encoder_F": 0,
+          "history_Q": 79700,
+          "mean_decoder_Q": 22.98817421401788,
+          "macro_TPF": 5.636738730313281,
+          "token_efficiency": 0.1765370138017566,
+          "peak": 32,
+          "new_block_Q": 14005,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 28,
+            "cap": 2
+          }
+        },
+        "new60": {
+          "n": 60,
+          "correct": 49,
+          "N": 27763,
+          "F": 6641,
+          "decoder_F": 6641,
+          "encoder_F": 0,
+          "history_Q": 151967,
+          "mean_decoder_Q": 22.88315012799277,
+          "macro_TPF": 5.87088956360173,
+          "token_efficiency": 0.18269097896253791,
+          "peak": 32,
+          "new_block_Q": 27786,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 55,
+            "cap": 5
+          }
+        },
+        "frozen90": {
+          "n": 90,
+          "correct": 75,
+          "N": 41833,
+          "F": 10108,
+          "decoder_F": 10108,
+          "encoder_F": 0,
+          "history_Q": 231667,
+          "mean_decoder_Q": 22.919172932330827,
+          "macro_TPF": 5.792839285838914,
+          "token_efficiency": 0.18057384090094836,
+          "peak": 32,
+          "new_block_Q": 41791,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 83,
+            "cap": 7
+          }
+        }
+      },
+      "comparisons": {
+        "original30": {
+          "IBS capped": {
+            "correct": 1,
+            "macro_TPF": 1.3660095029743866,
+            "TE_pp": 4.313153718559024,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 106270,
+            "extra_history_Q": -26570,
+            "baseline_peak_Q": 32,
+            "both_observed_within_offer": true
+          },
+          "Native": {
+            "correct": 0,
+            "macro_TPF": -0.09094430581366897,
+            "TE_pp": 2.1027305063892525,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 82400,
+            "extra_history_Q": -2700,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Flow W1": {
+            "correct": 0,
+            "macro_TPF": -1.4056295298932975,
+            "TE_pp": -0.21141697623345002,
+            "baseline_source": "fixed-request-comparison/llada-flow-w1-calls90.json",
+            "baseline_history_Q": 71648,
+            "extra_history_Q": 8052,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": 1.3660095029743866,
+            "TE_pp": 4.313153718559024,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 106270,
+            "extra_history_Q": -26570,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.0,
+            "TE_pp": 0.0,
+            "baseline_source": "llada-paid-head/q32-frontier-frozen90.json",
+            "baseline_history_Q": 79700,
+            "extra_history_Q": 0,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        },
+        "new60": {
+          "IBS capped": {
+            "correct": 3,
+            "macro_TPF": 1.2639097084759667,
+            "TE_pp": 1.792878007433532,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 161900,
+            "extra_history_Q": -9933,
+            "baseline_peak_Q": 32,
+            "both_observed_within_offer": true
+          },
+          "Native": {
+            "correct": 0,
+            "macro_TPF": 0.21920586856778002,
+            "TE_pp": 2.708191885909578,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 179424,
+            "extra_history_Q": -27457,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Flow W1": {
+            "correct": 0,
+            "macro_TPF": -1.2749736652978223,
+            "TE_pp": 1.2248031422223553,
+            "baseline_source": "fixed-request-comparison/llada-flow-w1-calls90.json",
+            "baseline_history_Q": 156768,
+            "extra_history_Q": -4801,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": 3,
+            "macro_TPF": 1.2639097084759667,
+            "TE_pp": 1.792878007433532,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 161900,
+            "extra_history_Q": -9933,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.0,
+            "TE_pp": 0.0,
+            "baseline_source": "llada-paid-head/q32-frontier-frozen90.json",
+            "baseline_history_Q": 151967,
+            "extra_history_Q": 0,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        },
+        "frozen90": {
+          "IBS capped": {
+            "correct": 4,
+            "macro_TPF": 1.297942973308774,
+            "TE_pp": 2.8237636254641902,
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 268170,
+            "extra_history_Q": -36503,
+            "baseline_peak_Q": 32,
+            "both_observed_within_offer": true
+          },
+          "Native": {
+            "correct": 0,
+            "macro_TPF": 0.1158224771072982,
+            "TE_pp": 2.4996048185230935,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 261824,
+            "extra_history_Q": -30157,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Flow W1": {
+            "correct": 0,
+            "macro_TPF": -1.3185256201629798,
+            "TE_pp": 0.755618889758608,
+            "baseline_source": "fixed-request-comparison/llada-flow-w1-calls90.json",
+            "baseline_history_Q": 228416,
+            "extra_history_Q": 3251,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": 4,
+            "macro_TPF": 1.297942973308774,
+            "TE_pp": 2.8237636254641902,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 268170,
+            "extra_history_Q": -36503,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.0,
+            "TE_pp": 0.0,
+            "baseline_source": "llada-paid-head/q32-frontier-frozen90.json",
+            "baseline_history_Q": 231667,
+            "extra_history_Q": 0,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        }
+      },
+      "three_metrics_complete": true,
+      "meets_performance": false,
+      "candidate_hard_cap_observed": true
     },
     {
       "model": "llada21",
@@ -206,7 +746,167 @@
       "required": [
         "Flow W2"
       ],
-      "status": "incomplete"
+      "status": "ready_to_compare",
+      "cohorts": {
+        "original30": {
+          "n": 30,
+          "correct": 21,
+          "N": 13652,
+          "F": 3038,
+          "decoder_F": 3038,
+          "encoder_F": 0,
+          "history_Q": 135269,
+          "mean_decoder_Q": 44.52567478604345,
+          "macro_TPF": 6.800478996596268,
+          "token_efficiency": 0.10092482386947489,
+          "peak": 64,
+          "new_block_Q": 13722,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 29,
+            "cap": 1
+          }
+        },
+        "new60": {
+          "n": 60,
+          "correct": 47,
+          "N": 29597,
+          "F": 6591,
+          "decoder_F": 6591,
+          "encoder_F": 0,
+          "history_Q": 296682,
+          "mean_decoder_Q": 45.01319981793355,
+          "macro_TPF": 8.053139776972793,
+          "token_efficiency": 0.09976001240385328,
+          "peak": 64,
+          "new_block_Q": 29554,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 56,
+            "cap": 4
+          }
+        },
+        "frozen90": {
+          "n": 90,
+          "correct": 68,
+          "N": 43249,
+          "F": 9629,
+          "decoder_F": 9629,
+          "encoder_F": 0,
+          "history_Q": 431951,
+          "mean_decoder_Q": 44.85938311351127,
+          "macro_TPF": 7.635586183513952,
+          "token_efficiency": 0.10012478267210864,
+          "peak": 64,
+          "new_block_Q": 43276,
+          "over_offer_Q": 0,
+          "terminals": {
+            "eos": 85,
+            "cap": 5
+          }
+        }
+      },
+      "comparisons": {
+        "original30": {
+          "Flow W2": {
+            "correct": -2,
+            "macro_TPF": -2.920322430366288,
+            "TE_pp": -1.7137605429167646,
+            "baseline_source": "llada-flow-active-w2/summary.json",
+            "baseline_history_Q": 113152,
+            "extra_history_Q": 22117,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": -3,
+            "macro_TPF": 2.5725306587120276,
+            "TE_pp": -3.6504770651957825,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 105283,
+            "extra_history_Q": 29986,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": -7,
+            "macro_TPF": -0.47061089619739604,
+            "TE_pp": -0.7371639987349563,
+            "baseline_source": "llada-paid-head/q64-agreement-frozen90.json",
+            "baseline_history_Q": 120244,
+            "extra_history_Q": 15025,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        },
+        "new60": {
+          "Flow W2": {
+            "correct": -4,
+            "macro_TPF": -2.0958151071688125,
+            "TE_pp": -1.5381453879471345,
+            "baseline_source": "llada-flow-active-w2/summary.json",
+            "baseline_history_Q": 244864,
+            "extra_history_Q": 51818,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": -1,
+            "macro_TPF": 3.5723226145789857,
+            "TE_pp": -5.042844184541738,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 187844,
+            "extra_history_Q": 108838,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.18027361764789784,
+            "TE_pp": -0.9150452541431459,
+            "baseline_source": "llada-paid-head/q64-agreement-frozen90.json",
+            "baseline_history_Q": 278807,
+            "extra_history_Q": 17875,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        },
+        "frozen90": {
+          "Flow W2": {
+            "correct": -6,
+            "macro_TPF": -2.370650881567971,
+            "TE_pp": -1.5939862483415141,
+            "baseline_source": "llada-flow-active-w2/summary.json",
+            "baseline_history_Q": 358016,
+            "extra_history_Q": 73935,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "IBS nominal": {
+            "correct": -4,
+            "macro_TPF": 3.2390586292899997,
+            "TE_pp": -4.548104688299887,
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 293127,
+            "extra_history_Q": 138824,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          },
+          "Live profile": {
+            "correct": -7,
+            "macro_TPF": -0.03668788696719982,
+            "TE_pp": -0.8600668460703953,
+            "baseline_source": "llada-paid-head/q64-agreement-frozen90.json",
+            "baseline_history_Q": 399051,
+            "extra_history_Q": 32900,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": null
+          }
+        }
+      },
+      "three_metrics_complete": true,
+      "meets_performance": false,
+      "candidate_hard_cap_observed": true
     },
     {
       "model": "gemma",

@@ -1,5 +1,9 @@
+from hashlib import sha256
+import json
+
 import pytest
-from tools.fixed_admission_rows import inspect_tick, MASK
+
+from tools.fixed_admission_rows import case_digests, inspect_tick, MASK, output_ids, packed, tape_path
 
 
 def tick(rows, ids, dirty=(), written=None, new=(), q=4, edits=()):
@@ -37,3 +41,53 @@ def test_initialization_is_not_regular_mask_or_an_arbitrary_overflow():
         inspect_tick(tick(rows,[MASK]*32),4,set(),3,2051)
     with pytest.raises(ValueError,match="outstanding"):
         inspect_tick(tick([26],[MASK],dirty=[12]),4,{12},3,2051)
+
+
+def test_transport_preserves_both_hashes_and_native_bytes_still_verify():
+    orig = (packed(dict(widths={8: 20, 32: 2}, N=12)) + "\n").encode()
+    row = json.loads(orig)
+    received = (packed(row) + "\n").encode()
+    producer_sha = sha256(orig).hexdigest()
+    received_sha = sha256(received).hexdigest()
+    assert producer_sha != received_sha
+    assert case_digests(orig, row, producer_sha) == (producer_sha, producer_sha)
+    with pytest.raises(ValueError, match="seal bytes"):
+        case_digests(received, row, producer_sha)
+    assert case_digests(received, row, producer_sha, transport=True) == (received_sha, producer_sha)
+
+
+def test_transport_rejects_tampering_even_with_valid_receiver_serialization():
+    orig = (packed(dict(widths={8: 20, 32: 2}, correct=True)) + "\n").encode()
+    producer = sha256(orig).hexdigest()
+    for patch, match in (
+        ({"correct": False}, "seal digest"),
+        ({"widths": {"8": 21, "32": 2}}, "seal digest"),
+        ({"widths": {"08": 20, "32": 2}}, "noncanonical width keys"),
+    ):
+        altered = dict(json.loads(orig), **patch)
+        with pytest.raises(ValueError, match=match):
+            case_digests((packed(altered) + "\n").encode(), altered, producer, transport=True)
+    row = json.loads(orig)
+    with pytest.raises(ValueError, match="seal bytes"):
+        case_digests((packed(row) + " \n").encode(), row, producer, transport=True)
+
+
+def test_transport_raw_path_is_bound_to_attempt_and_index(tmp_path):
+    name = "case-07.ndjson"
+    row = {"raw": f"{tmp_path.name}/{name}"}
+    assert tape_path(tmp_path, row, 7, transport=True) == tmp_path / name
+    for wrong in (name, f"other/{name}", f"{tmp_path.name}/case-08.ndjson"):
+        with pytest.raises(ValueError, match="transported raw path"):
+            tape_path(tmp_path, {"raw": wrong}, 7, transport=True)
+    (tmp_path / name).symlink_to(tmp_path / "other")
+    with pytest.raises(ValueError, match="redirected raw path"):
+        tape_path(tmp_path, row, 7, transport=True)
+
+
+def test_output_reconstruction_checks_the_final_token_values():
+    row = dict(prefill={"decoder_q": 17}, output_ids=2, N=1, end_reason="eos",
+               ids_sha=sha256(b"[34,2]").hexdigest())
+    assert output_ids(row, {16: 11, 17: 34, 18: 2, 19: 27}) == [34, 2]
+    for writes in ({17: 34}, {17: 33, 18: 2}, {17: MASK, 18: 2}):
+        with pytest.raises(ValueError, match="output token digest"):
+            output_ids(row, writes)

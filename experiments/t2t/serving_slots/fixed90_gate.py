@@ -15,11 +15,17 @@ MANIFEST = Path(__file__).resolve().parents[3] / "benchmarks/frozen90/manifest.j
 ROOT = Path(__file__).resolve().parent / "controls/fixed-request-comparison"
 # An entry pins the audited implementation AND its fixed-from-prompt driver.
 # Add other producers only after checking their source, physical bills and prompt parity.
-LOCK = {("llada21", 16): (
-    "7c584c5426d77fad3eec4aa397c1f58a86b7ea093ccded2574ee8b76fa44c993",
-    "0e5e429bf2a51451a72ea431244a61b6be74b9e2d75bf0e7b76f0e32f392d279",
-    "aac79bb98f76cfe422079843f1dcc53a9e8c9b5cf56008d43f3ad4a4d3791518",
-    "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692")}
+LLADA_EXEC = "7c584c5426d77fad3eec4aa397c1f58a86b7ea093ccded2574ee8b76fa44c993"
+LLADA_SCORER = "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+H4 = "aac79bb98f76cfe422079843f1dcc53a9e8c9b5cf56008d43f3ad4a4d3791518"
+A800 = "d4b48682fb49b315db221a96e288fb01ea20499f6aa4e4ef705ec9a2b328a918"
+LOCK = {("llada21", q): (LLADA_EXEC, source, checkpoint, LLADA_SCORER)
+        for q, source, checkpoint in (
+            (4, "00176188a04430a5ed805dbdc387b0e7fcff5b6c58725a40dddf6db85646e7ed", A800),
+            (8, "30e6ff4f9e55291fab31a99c57838509095202d0afe25ff4d8554656038e84d4", A800),
+            (16, "0e5e429bf2a51451a72ea431244a61b6be74b9e2d75bf0e7b76f0e32f392d279", H4),
+            (32, "6755c80651c176604fa3bd51bf98b164ea3384245c7d5a12f7d2d36c0ce4d00b", A800),
+            (64, "3e28a74ebb8a13baa5f720ce611c2a34231de3dc9672a4fef8f72e33232c6515", H4))}
 
 
 def controls(model, q):

@@ -1,0 +1,36 @@
+{
+  "source_sha256": "6755c80651c176604fa3bd51bf98b164ea3384245c7d5a12f7d2d36c0ce4d00b",
+  "cases": 90,
+  "shards": {
+    "0": {
+      "reconstructed_and_rescored": 30,
+      "correct": 26,
+      "pipeline_exit": [
+        "0",
+        "0",
+        "0"
+      ],
+      "producer_finished": true,
+      "receiver_finished": true
+    },
+    "1": {
+      "reconstructed_and_rescored": 30,
+      "correct": 27,
+      "pipeline_exit": [
+        "0",
+        "0",
+        "0"
+      ],
+      "producer_finished": true,
+      "receiver_finished": true
+    },
+    "2": {
+      "reconstructed_and_rescored": 30,
+      "correct": 22,
+      "pipeline_exit": null,
+      "producer_finished": true,
+      "receiver_finished": true
+    }
+  },
+  "missing_pipeline_exit": 2
+}
