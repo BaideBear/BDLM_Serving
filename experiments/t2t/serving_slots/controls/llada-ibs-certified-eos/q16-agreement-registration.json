@@ -1,0 +1,19 @@
+{
+  "study": "llada21-strict-ibs-q16-paid-eos-agreement",
+  "board": "n164:H0",
+  "uuid": "GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb",
+  "q": 16,
+  "block": 32,
+  "cap": 2048,
+  "six": [7, 13, 25, 33, 55, 71],
+  "arms": ["stock", "tracked", "apply"],
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "ledger_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+  "evidence_sha": "f4ae0deaf51708c168cf1c3453043e535ce5c7318cd47d886288d8698c96f155",
+  "opt_controls": {
+    "sequence.py": "99c80047d517113579e04fd57443471a759a738dc30b206ba1342e0d4f9b3da2",
+    "unmasking.py": "bbc3c3328e5497aa08aed6e04150ab0383f95dc06b4ff570a69adaed4a769746"
+  },
+  "policy": "Common paid certified EOS for all three arms. Tracked observes only currently selected generation MASK rows after native M2T/T2T. Apply adds only the shared ledger tuple: same physical block and row, neighboring physical decoder ticks, same argmax, two FP32 probabilities strictly above 0.5, not natively accepted, no special tokens.",
+  "acceptance": "Stock replays historical ordinary prefix through the certificate and delivers exact historical IDs. Tracked no-op replays stock. Before and at first extra admission verify unchanged rows, inputs, original acceptance, T2T, incoming debt and only the added measured writes. Verify future physical payback, including terminal suffix payment. Benefit requires strict decreases in both total F and Q, no new failures and no case-level loss of correctness. Six only."
+}
