@@ -7,6 +7,8 @@ resolved, it is not passed to the admission sampler.  All dirty debt, the first
 actual unresolved MASK, and the original right edge are preserved.  A changed
 token anywhere remains subject to the normal real writeback debt.
 """
+import numpy as np
+
 from bdlm_serving.methods.t2t.prefix_seat import choose_prefix_seat
 
 
@@ -65,7 +67,9 @@ class PrefixSeat:
                     right_edge=local[-1], before=list(local), after=list(after),
                     due=sorted(due), resident_prefix=prefix in resident)
         self.exchanges.append(item)
-        return after
+        # The pinned runtime performs ``start + local``; preserve its ndarray
+        # representation and dtype rather than returning a tuple.
+        return np.asarray(after, dtype=np.int64)
 
 
 def require_state(*, local, prior, width, dirty, start, ready, bank, donor, prefix):
