@@ -34,6 +34,29 @@ def measured_w1():
             for name,group in (("original30",cases[:30]),("new60",cases[30:]),("frozen90",cases))}
 
 
+def measured_w2():
+    docs = {}
+    for m, file, signed in (
+        ("llada21", "summary.json", "8fc9ffd15eb305ba887b59716058a55d81618b8e5acfc7da16b1c7ac62785a15"),
+        ("gemma", "gemma-decoder-bills.json", "430f52eb03119cb8e922c64b87a6327faa221f7c6adb4f0f15c9c81c437f942e"),
+    ):
+        path = f"llada-flow-active-w2/{file}"
+        blob = (ROOT/path).read_bytes()
+        if sha256(blob).hexdigest() != signed:
+            raise ValueError("Different W2 decoder ledger")
+        doc = json.loads(blob)
+        for c in COHORTS:
+            if m == "llada21":
+                v = doc[c]["flow_w2"]
+                docs[m,c] = (path, v["F"], v["N"], v["macro_TPF"], v["Q"], 0, v["correct"])
+            else:
+                v = doc["flow_w2"][c]
+                if v["F"] != v["decoder_F"] + v["encoder_F"] or v["requests"] != COHORTS[c]:
+                    raise ValueError("Incomplete Gemma W2 ledger")
+                docs[m,c] = (path, v["F"], v["N"], v["macro_TPF"], v["decoder_Q"], v["encoder_Q"], None)
+    return docs
+
+
 def collect():
     rows={}
 
@@ -75,6 +98,7 @@ def collect():
             r["N"],r["F"],r["history_Q"],r["source"],r["peak_decoder_Q"])
     name="block-history90-matrix.csv"
     w1=measured_w1()
+    w2=measured_w2()
     for r in read(name):
         m,b=r["model"],int(r["setting"])
         if r["method"]=="flow" and b in (1,2):
@@ -93,6 +117,12 @@ def collect():
                     and v["Q"]==int(r["physical_Q"])):
                 raise ValueError("Historical W1 cost or scoring mismatch")
             history,source=v["Q"],"fixed-request-comparison/llada-flow-w1-calls90.json"
+        elif label=="Flow W2":
+            source,f,n,tpf,history,encoder,correct=w2[m,NAMES.get(r["cohort"],r["cohort"])]
+            if (f!=int(r["F"]) or n!=int(r["N"]) or not isclose(tpf,float(r["macro_tpf"]))
+                    or history+encoder!=int(r["physical_Q"])
+                    or (correct is not None and correct!=int(r["correct"]))):
+                raise ValueError("W2 ledger does not reproduce the scored baseline")
         add(m,r["cohort"],b,label,r["requests"],r["correct"],r["macro_tpf"],r["N"],r["F"],history,source)
     name="fixed-family-references.csv"
     for r in read(name):
@@ -288,6 +318,8 @@ def render(rows, *, ablations=False):
            "Flow TE is omitted where this selection is not separately verified; it is not zero. "
            "For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies "
            "the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. "
+           "W2 uses the [audited decoder ledgers](../llada-flow-active-w2/README.md), "
+           "with generation encoder F included in TPF and encoder rows excluded from TE. "
            "Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only "
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "

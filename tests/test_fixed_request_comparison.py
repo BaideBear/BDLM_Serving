@@ -16,7 +16,10 @@ def test_same_fixed_offer_does_not_pool_hardware_or_contaminate_efficiency():
     assert w1["token_efficiency"]==pytest.approx(39520/228416)
     assert at["llada21","original30",32,"Flow W1"]["history_Q"]==71648
     assert at["llada21","new60",32,"Flow W1"]["history_Q"]==156768
-    assert at["llada21","frozen90",64,"Flow W2"]["token_efficiency"] is None
+    assert at["llada21","frozen90",64,"Flow W2"]["token_efficiency"]==pytest.approx(41553/358016)
+    w2=at["gemma","frozen90",512,"Flow W2"]
+    assert (w2["F"],w2["N"],w2["history_Q"])==(1494,32504,720896)
+    assert w2["token_efficiency"]==pytest.approx(32504/720896)
     assert ("llada21","frozen90",64,"IBS capped") not in at
     assert "separately verified" in render(rows)
 
@@ -58,7 +61,7 @@ def test_live_series_matches_named_dispatch_not_best_per_metric():
 def test_tradeoffs_compare_the_same_named_baseline_without_pooling_subgroups():
     table=compare_live(collect())
     ties=next(s for s in table.splitlines() if s.startswith("| gemma | 512 | Flow W2"))
-    assert "| -1 / +1 / +0 |" in ties and "| n/a | no / no / yes |" in ties
+    assert "| -1 / +1 / +0 |" in ties and "| +2.91 | no / no / yes |" in ties
     row=next(s for s in table.splitlines() if s.startswith("| llada21 | 4 | IBS capped"))
     assert "| +2 / +1 / +3 |" in row and row.endswith("yes / yes / yes |")
     assert table.count("| IBS capped |")==8 and table.count("| Flow W2 |")==2
