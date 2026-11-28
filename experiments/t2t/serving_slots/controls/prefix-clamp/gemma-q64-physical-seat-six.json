@@ -1,0 +1,191 @@
+{
+  "cases": [
+    {
+      "exchanges": 1,
+      "index": 7,
+      "same_output": false,
+      "seat": {
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "N": 206,
+        "Q": 976,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "N": 198,
+        "Q": 961,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      }
+    },
+    {
+      "exchanges": 1,
+      "index": 13,
+      "same_output": false,
+      "seat": {
+        "D": 18,
+        "E": 0,
+        "F": 18,
+        "N": 240,
+        "Q": 1091,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 19,
+        "E": 1,
+        "F": 20,
+        "N": 260,
+        "Q": 1154,
+        "correct": true,
+        "encoder_Q": 256,
+        "peak_decoder_Q": 64
+      }
+    },
+    {
+      "exchanges": 1,
+      "index": 25,
+      "same_output": false,
+      "seat": {
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "N": 232,
+        "Q": 901,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 13,
+        "E": 0,
+        "F": 13,
+        "N": 222,
+        "Q": 757,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      }
+    },
+    {
+      "exchanges": 2,
+      "index": 33,
+      "same_output": false,
+      "seat": {
+        "D": 106,
+        "E": 1,
+        "F": 107,
+        "N": 263,
+        "Q": 5810,
+        "correct": true,
+        "encoder_Q": 256,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 14,
+        "E": 0,
+        "F": 14,
+        "N": 229,
+        "Q": 829,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      }
+    },
+    {
+      "exchanges": 2,
+      "index": 55,
+      "same_output": false,
+      "seat": {
+        "D": 28,
+        "E": 1,
+        "F": 29,
+        "N": 354,
+        "Q": 1675,
+        "correct": true,
+        "encoder_Q": 256,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 18,
+        "E": 0,
+        "F": 18,
+        "N": 248,
+        "Q": 1108,
+        "correct": true,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      }
+    },
+    {
+      "exchanges": 1,
+      "index": 71,
+      "same_output": true,
+      "seat": {
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "N": 99,
+        "Q": 385,
+        "correct": false,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      },
+      "stock": {
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "N": 99,
+        "Q": 385,
+        "correct": false,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64
+      }
+    }
+  ],
+  "source": "gemma-q64-prefix-seat-a0-2e5b714-fixed-six-v1",
+  "source_sha256": {
+    "case-07.json": "17fdc9516858a59965daa25bc3cc6f25a4d100b9289094a01a7fdad5eaa39b79",
+    "case-13.json": "2428c3645bfbbe4a9d27721c0ce024059d9ad796e6a15b1ede01386294a3a19f",
+    "case-25.json": "9f5422963ec932505045c5c2f73eb67c1a67834a6a7eb7fb1b6a65e930fd9c75",
+    "case-33.json": "ffcad0a0a3c27a279439f747259431c0ff46d46eb0c622edab38e7f9c7230a36",
+    "case-55.json": "95d1bcba5cb4755120d956f3c4b2ee5132e2a3ff8ee9097bac221e19a7f8a66a",
+    "case-71.json": "5738ed20b10aa7b4530df58573e274a51187bef362d766beb17955cc72f2d98b",
+    "raw.log": "912daae0d9b73f438a8264c9793fcd2a4b9571138132b5b285f74d4927c1239b",
+    "summary.json": "887deeb697c91cb3689c0e351d3a69c7f9b829718603fc465afcfc6293f95c31"
+  },
+  "totals": {
+    "seat": {
+      "D": 191,
+      "E": 2,
+      "F": 193,
+      "N": 1394,
+      "Q": 10838,
+      "correct": 5,
+      "encoder_Q": 512,
+      "peak_decoder_Q": 64,
+      "te": 0.12862151688503415,
+      "tpf": 11.586005158858043
+    },
+    "stock": {
+      "D": 87,
+      "E": 1,
+      "F": 88,
+      "N": 1256,
+      "Q": 5194,
+      "correct": 5,
+      "encoder_Q": 256,
+      "peak_decoder_Q": 64,
+      "te": 0.241817481709665,
+      "tpf": 14.454950142450143
+    }
+  }
+}

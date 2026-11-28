@@ -6,7 +6,7 @@ The earlier `Request` is quarter_edit_warm. `Active window` changes selected hea
 
 Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. The Q in the first column is a per-request decoder offer, not mean Q/F. Native and Flow are shown only at their actual block-size endpoints.
 
-TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
+TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
 
 ## frozen90
 

@@ -11,6 +11,11 @@ def test_same_fixed_offer_does_not_pool_hardware_or_contaminate_efficiency():
     assert capped["F"]==2055 and capped["peak_decoder_Q"]=="128"
     assert at["gemma","frozen90",128,"IBS nominal"]["F"]==2042
     assert at["llada21","frozen90",32,"Native"]["F"]!=at["llada21","frozen90",32,"Flow W1"]["F"]
+    w1=at["llada21","frozen90",32,"Flow W1"]
+    assert (w1["N"],w1["F"],w1["history_Q"],w1["correct"])==(39520,7138,228416,75)
+    assert w1["token_efficiency"]==pytest.approx(39520/228416)
+    assert at["llada21","original30",32,"Flow W1"]["history_Q"]==71648
+    assert at["llada21","new60",32,"Flow W1"]["history_Q"]==156768
     assert at["llada21","frozen90",64,"Flow W2"]["token_efficiency"] is None
     assert ("llada21","frozen90",64,"IBS capped") not in at
     assert "separately verified" in render(rows)

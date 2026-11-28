@@ -1,8 +1,10 @@
 """Compare complete fixed-offer request cohorts with nominal and capped IBS."""
 import csv
+from hashlib import sha256
 import json
 from math import isclose
 from pathlib import Path
+from statistics import mean
 
 from .factor_tables import write_csv
 
@@ -18,6 +20,18 @@ NAMES={"added60":"new60","all90":"frozen90","original-0-29":"original30",
 def read(name):
     with (ROOT/name).open(newline="") as f:
         return list(csv.DictReader(f))
+
+
+def measured_w1():
+    blob=(DEST/"llada-flow-w1-calls90.json").read_bytes()
+    if sha256(blob).hexdigest()!="a54a0c7423c30576eef2b3dff2a59a55e2f337d12359c0e7610ac9bb3f2a5f61":
+        raise ValueError("Different historical W1 call ledger")
+    cases=json.loads(blob)["rows"]
+    if [x["index"] for x in cases]!=list(range(90)):
+        raise ValueError("Incomplete historical W1 cohort")
+    return {name: {**{k:sum(x[k] for x in group) for k in ("N","F","Q","correct")},
+                    "macro_tpf":mean(x["N"]/x["F"] for x in group)}
+            for name,group in (("original30",cases[:30]),("new60",cases[30:]),("frozen90",cases))}
 
 
 def collect():
@@ -60,6 +74,7 @@ def collect():
         add("gemma",r["cohort"],r["budget"],"Request",r["n"],r["correct"],r["macro_TPF"],
             r["N"],r["F"],r["history_Q"],r["source"],r["peak_decoder_Q"])
     name="block-history90-matrix.csv"
+    w1=measured_w1()
     for r in read(name):
         m,b=r["model"],int(r["setting"])
         if r["method"]=="flow" and b in (1,2):
@@ -70,7 +85,15 @@ def collect():
         else:
             continue
         if b not in MODELS[m]: continue
-        add(m,r["cohort"],b,label,r["requests"],r["correct"],r["macro_tpf"],r["N"],r["F"],r["prefix_kv_Q"],name)
+        history,source=r["prefix_kv_Q"],name
+        if (m,label)==("llada21","Flow W1"):
+            v=w1[NAMES.get(r["cohort"],r["cohort"])]
+            if not (all(v[k]==int(r[k]) for k in ("N","F","correct"))
+                    and isclose(v["macro_tpf"],float(r["macro_tpf"]))
+                    and v["Q"]==int(r["physical_Q"])):
+                raise ValueError("Historical W1 cost or scoring mismatch")
+            history,source=v["Q"],"fixed-request-comparison/llada-flow-w1-calls90.json"
+        add(m,r["cohort"],b,label,r["requests"],r["correct"],r["macro_tpf"],r["N"],r["F"],history,source)
     name="fixed-family-references.csv"
     for r in read(name):
         if r["method"]!="ibs": continue
@@ -263,6 +286,8 @@ def render(rows, *, ablations=False):
            "TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). "
            "TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. "
            "Flow TE is omitted where this selection is not separately verified; it is not zero. "
+           "For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies "
+           "the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. "
            "Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only "
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "

@@ -4,6 +4,8 @@
 
 本轮版本入口：[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)，标签 `paid-agreement-admission-20261128`。这是负结果也保留的研究快照，不是十档执行策略的发布。
 
+**归档后的独立试验：[固定刷新数量时如何选前缀位置](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)。** 历史 LLaDA Q8 右端策略 90 题中，分散选择会在 88 题、2,486 步改变行，尚不是新策略的 90 题结果；此前 Gemma Q512 用当轮 EOS 推测可省 1,280 Q 不成立，改用上轮已知信号后六题零机会。另外，[Gemma Q64 满额时用一个前缀换出暖 MASK](../experiments/t2t/serving_slots/controls/prefix-clamp/fixed-budget-checkpoint.md)六题均真实换位，仍 5/6，TPF 14.455→11.586，TE 24.18%→12.86%，不扩 90。[LLaDA Flow W1 完整基线图表](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)已从逐调用账单补上 17.30% TE。
+
 **2026-11-28 22:42，新决定：不采用两个额外采纳限制。** [LLaDA Q16 同卡 90 题](../experiments/t2t/serving_slots/controls/paid-agreement/allowance.md)：IBS / 不限额连续两票 / 每步限额分别 72 / 72 / 67；TPF 3.406 / 3.833 / 3.644，TE 20.65% / 23.39% / 23.06%。限额又少用 489 F，却新增 2 道不收敛，六题正例在其余 84 题上翻转。另一项[不越过本轮实测缺口的四组六题实跑](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)在 LLaDA Q8 少对 1 题；Gemma Q64（IBS 父算法）、Q128（保留原生 T2T 的 Live 父算法）均不提速。本轮不据此转混合预算。
 
 **四档快照之后，只测一个因素：** [不跨过本轮实测而仍未被采纳的 MASK 去做额外写入](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)。六题原始路径的回放中，LLaDA Q16 留下 131/221 个额外候选，Gemma Q128 留下 23/81。只证明规则改变选择，不证明质量提升。此项和限制每步额外采纳总量互为独立消融，不叠加；付费 IBS 的 Gemma 适配不能代替支持原生 T2T 的 Live 验证。

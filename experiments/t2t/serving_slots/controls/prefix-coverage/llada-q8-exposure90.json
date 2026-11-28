@@ -1,0 +1,47 @@
+{
+  "cohorts": {
+    "full90": {
+      "changed_ticks": 2486,
+      "eligible_ticks": 2938,
+      "exposed_requests": 88,
+      "replaced_q": 2486,
+      "requests": 90,
+      "right_prefix_q": 5437,
+      "ticks": 18753,
+      "two_seat_ticks": 2499
+    },
+    "new60": {
+      "changed_ticks": 1617,
+      "eligible_ticks": 1885,
+      "exposed_requests": 58,
+      "replaced_q": 1617,
+      "requests": 60,
+      "right_prefix_q": 3510,
+      "ticks": 12339,
+      "two_seat_ticks": 1625
+    },
+    "original30": {
+      "changed_ticks": 869,
+      "eligible_ticks": 1053,
+      "exposed_requests": 30,
+      "replaced_q": 869,
+      "requests": 30,
+      "right_prefix_q": 1927,
+      "ticks": 6414,
+      "two_seat_ticks": 874
+    },
+    "six": {
+      "changed_ticks": 67,
+      "eligible_ticks": 84,
+      "exposed_requests": 6,
+      "replaced_q": 67,
+      "requests": 6,
+      "right_prefix_q": 152,
+      "ticks": 549,
+      "two_seat_ticks": 68
+    }
+  },
+  "observation_only": true,
+  "paired_source_sha256": "7dcf81db145e361e847f2ee8ce9af62d22cade2365e53fef492204683cc7053b",
+  "parent": "historical right-edge Q8; original full-block stop"
+}

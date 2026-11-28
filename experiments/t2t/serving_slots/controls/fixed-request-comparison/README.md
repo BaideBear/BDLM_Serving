@@ -6,7 +6,7 @@ Every point is an independent constant-budget request from prompt to final outpu
 
 Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. The Q in the first column is a per-request decoder offer, not mean Q/F. Native and Flow are shown only at their actual block-size endpoints.
 
-TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
+TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
 
 ## frozen90
 
@@ -15,7 +15,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | llada21 | 4 | 72/90 / 1.504 / 37.68% | 69/90 / 1.395 / 35.66% | 59/90 / 1.477 / 36.44% | - | - | - |
 | llada21 | 8 | 72/90 / 2.300 / 29.94% | 72/90 / 2.364 / 29.36% | 69/90 / 2.341 / 28.22% | - | - | - |
 | llada21 | 16 | 75/90 / 3.356 / 25.60% | 72/90 / 3.375 / 20.54% | 73/90 / 3.371 / 20.51% | - | - | - |
-| llada21 | 32 | 75/90 / 5.793 / 18.06% | 71/90 / 4.495 / 15.23% | 71/90 / 4.495 / 15.23% | 75/90 / 5.677 / 15.56% | 75/90 / 7.111 / n/a | - |
+| llada21 | 32 | 75/90 / 5.793 / 18.06% | 71/90 / 4.495 / 15.23% | 71/90 / 4.495 / 15.23% | 75/90 / 5.677 / 15.56% | 75/90 / 7.111 / 17.30% | - |
 | llada21 | 64 | 75/90 / 7.672 / 10.87% | - | 72/90 / 4.397 / 14.56% | - | - | 74/90 / 10.006 / n/a |
 | gemma | 32 | 85/90 / 4.879 / 15.63% | 79/90 / 6.840 / 19.33% | 78/90 / 6.743 / 16.65% | - | - | - |
 | gemma | 64 | 83/90 / 8.176 / 13.96% | 81/90 / 11.050 / 17.65% | 80/90 / 11.116 / 17.78% | - | - | - |
@@ -30,7 +30,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | llada21 | 4 | 25/30 / 1.489 / 37.45% | 23/30 / 1.382 / 33.42% | 18/30 / 1.434 / 36.02% | - | - | - |
 | llada21 | 8 | 24/30 / 2.210 / 29.32% | 25/30 / 2.265 / 28.36% | 23/30 / 2.293 / 26.99% | - | - | - |
 | llada21 | 16 | 25/30 / 3.183 / 23.00% | 23/30 / 3.189 / 19.32% | 24/30 / 3.173 / 19.90% | - | - | - |
-| llada21 | 32 | 26/30 / 5.637 / 17.65% | 25/30 / 4.271 / 13.34% | 25/30 / 4.271 / 13.34% | 26/30 / 5.728 / 15.55% | 26/30 / 7.042 / n/a | - |
+| llada21 | 32 | 26/30 / 5.637 / 17.65% | 25/30 / 4.271 / 13.34% | 25/30 / 4.271 / 13.34% | 26/30 / 5.728 / 15.55% | 26/30 / 7.042 / 17.87% | - |
 | llada21 | 64 | 28/30 / 7.271 / 10.83% | - | 24/30 / 4.228 / 13.74% | - | - | 23/30 / 9.721 / n/a |
 | gemma | 32 | 29/30 / 4.832 / 15.34% | 28/30 / 6.745 / 20.20% | 27/30 / 6.872 / 20.06% | - | - | - |
 | gemma | 64 | 29/30 / 8.030 / 13.62% | 28/30 / 10.918 / 15.55% | 29/30 / 11.007 / 17.24% | - | - | - |
@@ -45,7 +45,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | llada21 | 4 | 47/60 / 1.511 / 37.79% | 46/60 / 1.402 / 36.70% | 41/60 / 1.499 / 36.65% | - | - | - |
 | llada21 | 8 | 48/60 / 2.345 / 30.26% | 47/60 / 2.414 / 29.87% | 46/60 / 2.366 / 28.96% | - | - | - |
 | llada21 | 16 | 50/60 / 3.443 / 27.21% | 49/60 / 3.468 / 21.17% | 49/60 / 3.470 / 20.83% | - | - | - |
-| llada21 | 32 | 49/60 / 5.871 / 18.27% | 46/60 / 4.607 / 16.48% | 46/60 / 4.607 / 16.48% | 49/60 / 5.652 / 15.56% | 49/60 / 7.146 / n/a | - |
+| llada21 | 32 | 49/60 / 5.871 / 18.27% | 46/60 / 4.607 / 16.48% | 46/60 / 4.607 / 16.48% | 49/60 / 5.652 / 15.56% | 49/60 / 7.146 / 17.04% | - |
 | llada21 | 64 | 47/60 / 7.873 / 10.89% | - | 48/60 / 4.481 / 15.02% | - | - | 51/60 / 10.149 / n/a |
 | gemma | 32 | 56/60 / 4.902 / 15.77% | 51/60 / 6.888 / 19.02% | 51/60 / 6.678 / 15.46% | - | - | - |
 | gemma | 64 | 54/60 / 8.249 / 14.13% | 53/60 / 11.116 / 19.07% | 51/60 / 11.170 / 18.05% | - | - | - |
