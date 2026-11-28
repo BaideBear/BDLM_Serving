@@ -36,6 +36,9 @@ def main() -> int:
     parser.add_argument("--q", type=int, default=64)
     parser.add_argument("--eos", default="1,50,106")
     parser.add_argument("--special", default="0,1,50,100,106")
+    parser.add_argument("--tokenizer-json", type=Path,
+                        default=Path("/data1/project_data/gx-erqw-20261123/models/"
+                                     "diffusiongemma-cd40195/tokenizer.json"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[5])
     args = parser.parse_args()
@@ -51,6 +54,10 @@ def main() -> int:
     prompt = arm["encoder"][0][0]
     eos = {int(x) for x in args.eos.split(",") if x}
     special = {int(x) for x in args.special.split(",") if x}
+    if args.tokenizer_json.is_file():
+        tokenizer = json.loads(args.tokenizer_json.read_bytes())
+        special |= {entry["id"] for entry in tokenizer.get("added_tokens", [])
+                    if entry.get("special") is True and isinstance(entry.get("id"), int)}
     bill, states = production.reconcile(
         arm["trace"], arm["decoder"], arm["encoder"], arm["events"], arm["ids"],
         prompt, eos, arm.get("trigger"), arm.get("payment"), args.q)
