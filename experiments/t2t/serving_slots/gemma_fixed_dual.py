@@ -153,7 +153,8 @@ class FixedFamilyRequest(FamilyRequest):
         return self._apply(states, pos, sample, plan.prefix, plan.cold, self.fixed_q,
                            'verify' if verify else 'rebuild' if rebuild else 'sparse')
 
-    def _apply(self, states, pos, sample, prefix, cold, offer, route):
+    def _apply(self, states, pos, sample, prefix, cold, offer, route,
+               prefix_pool=None):
         head = states[0]
         joint_verify = route == 'verify_joint_paid'
         verify, rebuild = route in ('verify', 'verify_paid') or joint_verify, route == 'rebuild'
@@ -196,6 +197,9 @@ class FixedFamilyRequest(FamilyRequest):
             part = dict(ordinal=c.ordinal, phase=phase, rows=list(local), sampled=list(sampled),
                         prefix=list(extra), dirty_before=sorted(rows.dirty),age_before=s.age,
                         admitted=[],edited=[],revoked=[], input_changed=[])
+            if prefix_pool is not None and c.ordinal in prefix_pool:
+                # Read-only strict-eligibility receipt; excluded from trajectory digests.
+                part["prefix_pool"] = list(prefix_pool[c.ordinal])
             if phase == 'verify':
                 if route == 'verify_paid' or (joint_verify and rows.dirty):
                     if ((not joint_verify and len(states) != 1) or self.cursor or not rows.dirty or
@@ -286,7 +290,7 @@ class AblationRequest(FixedFamilyRequest):
             raise ValueError('Unknown opening gate')
         if head_first and ablation != '10':
             raise ValueError('Slack-only selection requires a cross-block arm without dense build')
-        if (prefix_order not in ('right', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool
+        if (prefix_order not in ('right', 'spread', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool
                 or type(fuse_first_verify) is not bool):
             raise ValueError('Unknown prefix ranking or refresh policy')
         self.top_gate, self.head_first = top_gate, head_first
@@ -385,13 +389,14 @@ class AblationRequest(FixedFamilyRequest):
         room_for_tail = self.ordinal+1 < self.max_new_tokens//B
         opened = None
 
-        def run(route, positions, sampled=(), prefix=(), cold=()):
+        def run(route, positions, sampled=(), prefix=(), cold=(), prefix_pool=None):
             pos = tuple(positions)
             limit = B if route == 'build_sample' else q
             if (not 0 < len(pos) <= limit or pos != tuple(sorted(set(pos))) or
                     not set(sorted(debt)[:q]).issubset(pos) or not set(sampled).issubset(pos)):
                 raise RuntimeError('Unpaid writes, invalid positions or physical width')
-            e = self._apply(states, pos, set(sampled), prefix, cold, q, route)
+            e = self._apply(states, pos, set(sampled), prefix, cold, q, route,
+                            prefix_pool=prefix_pool)
             written = {self.origin+B*p['ordinal']+i for p in e['parts']
                        for key in ('input_changed','admitted','revoked') for i in p[key]}
             e.update(opened=opened, head_mask_before=head_masks, head_initialized_before=head_initialized,
@@ -522,7 +527,10 @@ class AblationRequest(FixedFamilyRequest):
             eligible = {c.ordinal for c in active if c.can_sample}
             sample = () if plan.drain_only else tuple(p for p in pos if (p-self.origin)//B in eligible)
             return run('sparse' if sample else 'drain', pos, sample, pref, cold.intersection(pos))
-        plan = choose(q, B, debt, masks, prefix, law=self.law, cold=cold)
+        if len(active) != 1 and self.prefix_order == 'spread':
+            raise ValueError('Spread prefix identity requires one active canvas')
+        plan = choose(q, B, debt, masks, prefix, law=self.law, cold=cold,
+                     prefix_identity=('spread' if self.prefix_order == 'spread' else 'right'))
         eligible = {c.ordinal for c in active if c.can_sample}
         if (self.reuse_paid_masks and self.tail is None and plan.drain_only and
                 head_initialized == B and debt and debt == set(plan.rows)):
@@ -531,4 +539,10 @@ class AblationRequest(FixedFamilyRequest):
                 return run('resample_paid', plan.rows, sample)
         sample = () if plan.drain_only else tuple(p for p in (plan.cold or plan.rows)
                                                   if (p-self.origin)//B in eligible)
-        return run('sparse' if sample else 'drain', plan.rows, sample, plan.prefix, plan.cold)
+        prefix_pool = None
+        if self.prefix_order == 'spread':
+            start = self.origin + B * head.ordinal
+            prefix_pool = {head.ordinal: tuple(i - start for i in prefix
+                                               if start <= i < start + B)}
+        return run('sparse' if sample else 'drain', plan.rows, sample, plan.prefix, plan.cold,
+                   prefix_pool=prefix_pool)

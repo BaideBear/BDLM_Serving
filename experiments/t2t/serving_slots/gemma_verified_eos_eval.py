@@ -1,5 +1,6 @@
 """Matched fixed90_fused sparse runs, with independent physical and EOS tapes."""
 import argparse
+import hashlib
 from collections import Counter
 from contextlib import ExitStack
 import json
@@ -16,7 +17,7 @@ def history(root,q,i):
     return root/"paid-close-1128"/f"C{q}-fuse1-{i:02}.json"
 
 
-def run(model,data,task,q,early):
+def run(model,data,task,q,early,prefix_order='right',collect_events=False):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -35,7 +36,9 @@ def run(model,data,task,q,early):
         proj,pos=stack.enter_context(projectors(model))
         enc=stack.enter_context(encoder_tape(model))
         stack.enter_context(model.register_forward_hook(lambda _,a,out: top.append(out.logits[0].argmax(-1).tolist())))
-        req=VerifiedEOSRequest(model,data,seed=task["seed"],q=q,early=early)
+        req=VerifiedEOSRequest(model,data,seed=task["seed"],q=q,early=early,
+                              prefix_order=prefix_order)
+        events=[] if collect_events else None
         while req.status=="ready":
             tick=len(tape)
             check(tick<4096,"Unbounded request")
@@ -64,7 +67,13 @@ def run(model,data,task,q,early):
             route_f[route]+=1
             route_q[route]+=width
             # Equal fingerprints through the actual EOS chunk include sampling changes and raw argmax.
-            tape.append(digest([{k:v for k,v in e.items() if k!="verified_eos_end"},top[-1]]))
+            digest_event={k:v for k,v in e.items()
+                          if k not in ("verified_eos_end","prefix_pool")}
+            tape.append(digest([digest_event,top[-1]]))
+            if collect_events:
+                argmax_sha256=hashlib.sha256(
+                    repr(top[-1]).encode("ascii")).hexdigest()
+                events.append(dict(e, argmax_sha256=argmax_sha256))
             if route not in ("verify","verify_paid"):
                 check(not sealed and not e["encoded"] and "verified_eos_end" not in e,"Draft short circuit")
                 continue
@@ -94,6 +103,7 @@ def run(model,data,task,q,early):
               and enc==enc_expected and physical==ledger and all(len(v)==len(tape) for v in proj.values()),
               "Final token, measured argmax, encoder input or physical bill mismatch")
     return dict(output_ids=tokens,tape=tape,input_sha256=input_digest(data),hit=hit,encoder_digest=digest(enc),
+                prefix_order=prefix_order,events=events,
                 decoder_F=len(tape),decoder_Q=sum(route_q.values()),encoder_F=len(enc)-1,
                 encoder_Q=B*(len(enc)-1),F=len(tape)+len(enc)-1,route_F=dict(route_f),route_Q=dict(route_q))
 
