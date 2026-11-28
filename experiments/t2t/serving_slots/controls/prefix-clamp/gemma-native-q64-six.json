@@ -1,0 +1,208 @@
+{
+  "source": "gemma-prefix-clamp-q64-a0-ad487d5",
+  "probe": "native-prefix",
+  "sha256": {
+    "case-07.json": "eabf157b6d9e8ae5af98e4ea296074efe38da6e85e838e8898bb826b3db6fab8",
+    "case-13.json": "2ed16fdec7aed7844624088fc99713250f8ba922d8c24f71832a013f9cc91798",
+    "case-25.json": "51886e0a9f57c63ba487a56038f7fdaf0ed8965da5f95a91182fccd0ab904f2a",
+    "case-33.json": "6b5ad2add22facc7799e4e918511866a4cfd211e48d15a42da4284c5e7f633a0",
+    "case-55.json": "cf201d9cef1f72129a8fe5ad2bfe6556caedbc42bccb37c5fee7c2abccda8734",
+    "case-71.json": "bf2d66dbe80c7244b71aab25f43d611278cda0613b6c15508bac044caae8bd7f",
+    "summary.json": "1a816c3daa8cef51b1f24ce3324d934ea11a726c0fb07f6a3162e88040b545f9",
+    "raw.log": "aa896f96af76c22a6fd5f04ebff4226f21267a3893eaa2a27934647fea2cb30b"
+  },
+  "cases": [
+    {
+      "index": 7,
+      "N": 198,
+      "bill": {
+        "D": 16,
+        "E": 0,
+        "F": 16,
+        "Q": 961,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64,
+        "admissions": 219,
+        "paid_rows": 219
+      },
+      "correct": true,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 70,
+      "prefix": 6,
+      "masks": 45,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 3,
+      "p9": 2,
+      "admissions": 2,
+      "accept_up": [
+        31
+      ],
+      "accept_down": [
+        54
+      ],
+      "extra_F": 4,
+      "extra_Q": 262
+    },
+    {
+      "index": 13,
+      "N": 260,
+      "bill": {
+        "D": 19,
+        "E": 1,
+        "F": 20,
+        "Q": 1154,
+        "encoder_Q": 256,
+        "peak_decoder_Q": 64,
+        "admissions": 320,
+        "paid_rows": 320
+      },
+      "correct": true,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 73,
+      "prefix": 9,
+      "masks": 49,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 0,
+      "p9": 0,
+      "admissions": 0,
+      "accept_up": [],
+      "accept_down": [],
+      "extra_F": 4,
+      "extra_Q": 265
+    },
+    {
+      "index": 25,
+      "N": 222,
+      "bill": {
+        "D": 13,
+        "E": 0,
+        "F": 13,
+        "Q": 757,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64,
+        "admissions": 233,
+        "paid_rows": 233
+      },
+      "correct": true,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 104,
+      "prefix": 40,
+      "masks": 40,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 0,
+      "p9": 0,
+      "admissions": 0,
+      "accept_up": [],
+      "accept_down": [],
+      "extra_F": 4,
+      "extra_Q": 296
+    },
+    {
+      "index": 33,
+      "N": 229,
+      "bill": {
+        "D": 14,
+        "E": 0,
+        "F": 14,
+        "Q": 829,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64,
+        "admissions": 235,
+        "paid_rows": 235
+      },
+      "correct": true,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 73,
+      "prefix": 9,
+      "masks": 17,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 1,
+      "p9": 0,
+      "admissions": 0,
+      "accept_up": [],
+      "accept_down": [],
+      "extra_F": 4,
+      "extra_Q": 265
+    },
+    {
+      "index": 55,
+      "N": 248,
+      "bill": {
+        "D": 18,
+        "E": 0,
+        "F": 18,
+        "Q": 1108,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64,
+        "admissions": 256,
+        "paid_rows": 256
+      },
+      "correct": true,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 73,
+      "prefix": 9,
+      "masks": 37,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 13,
+      "p9": 2,
+      "admissions": 2,
+      "accept_up": [],
+      "accept_down": [
+        39,
+        44
+      ],
+      "extra_F": 4,
+      "extra_Q": 265
+    },
+    {
+      "index": 71,
+      "N": 99,
+      "bill": {
+        "D": 7,
+        "E": 0,
+        "F": 7,
+        "Q": 385,
+        "encoder_Q": 0,
+        "peak_decoder_Q": 64,
+        "admissions": 159,
+        "paid_rows": 159
+      },
+      "correct": false,
+      "exposed": true,
+      "tick": 2,
+      "projected": 64,
+      "visible": 108,
+      "prefix": 44,
+      "masks": 44,
+      "control_top1": 0,
+      "control_accept": 0,
+      "top1": 7,
+      "p9": 3,
+      "admissions": 3,
+      "accept_up": [
+        94
+      ],
+      "accept_down": [
+        95,
+        101
+      ],
+      "extra_F": 4,
+      "extra_Q": 300
+    }
+  ]
+}
