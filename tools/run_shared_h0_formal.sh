@@ -17,7 +17,24 @@ export BDLM_LLADA_REFERENCE=$rt/t2t-native-1125/frozen90-native/llada21
 module=experiments.t2t.serving_slots.shared_fixed_shard
 cd "$src"
 exec 9>"$rt/shared-formal-H0.lock"
-if [[ -n ${BDLM_AFTER_H0_FORMAL:-} ]]; then
+if [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
+    [[ $# == 6 && -z ${BDLM_AFTER_H0_FORMAL:-} ]]
+    wait_limit=$((end-$(date +%s)-180))
+    (( wait_limit > 0 ))
+    flock -w "$wait_limit" 9
+    [[ -s $BDLM_AFTER_H0_SCREEN/H0/returned ]]
+    "$py" -B - "$BDLM_AFTER_H0_SCREEN" "$reg" "$6" <<'PY'
+import json, sys
+from pathlib import Path
+from tools.shared_screen_report import MANIFEST, audit
+root, base, panel = map(Path, sys.argv[1:])
+r = audit(root, json.loads(MANIFEST.read_bytes())["samples"],
+          json.loads(base.read_bytes()), json.loads(panel.read_bytes()))
+for model, ledger in r["models"].items():
+    if ledger["by_board"]["n164:H0"] != 60 or any(e.startswith("n164:H0/") for e in ledger["deferred"]):
+        raise ValueError(f"H0 predecessor incomplete: {model}")
+PY
+elif [[ -n ${BDLM_AFTER_H0_FORMAL:-} ]]; then
     [[ $# == 6 ]]
     wait_limit=$((end-$(date +%s)-180))
     (( wait_limit > 0 ))
@@ -60,7 +77,15 @@ print(p)'
 }
 args=(--board n164:H0 --version "$version" --samples "$rt/t2t-native-1125/prefix90/samples.json")
 expected=75
-if [[ $# == 6 ]]; then
+preflight=(run)
+preflight_tail=(--preflight)
+if [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
+    module=tools.shared_prefix_mechanism
+    args+=(--base "$reg")
+    expected=18
+    preflight=(preflight)
+    preflight_tail=()
+elif [[ $# == 6 ]]; then
     module=tools.shared_screen_sweep
     args+=(--base "$reg" --panel "$(realpath "$6")")
     expected=60
@@ -79,7 +104,7 @@ config() {
 }
 for model in gemma llada21; do
     config "$model"
-    "$py" -Bm "$module" run "${args[@]}" --model "$model" --checkpoint "$ckpt" --preflight
+    "$py" -Bm "$module" "${preflight[@]}" "${args[@]}" --model "$model" --checkpoint "$ckpt" "${preflight_tail[@]}"
 done
 initial=$(owner)
 [[ $(pidlist) == "$initial" && $(date +%s) -lt $((end-180)) ]]

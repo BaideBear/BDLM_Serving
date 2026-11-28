@@ -45,7 +45,7 @@
 
 正式比较用 **2H + 4A 共六卡**，每张固定 15 题（每数据集 5 题，其中原 30 合计 5 题），各档、各对照复用相同分配。支持真正合批时按每批实算 Q 约 512 选 batch，显存不够降低；batch-one 执行器不要报成已经合批。禁止 CPU 模型推理。约 20 分钟检查一次 PID、递增记录、退出状态与回执；不把 holder 的 util 当作正在推理。发现异常只处置本任务，保留现场和已付成本。
 
-正式启动和验收分别见[注册与 worker 命令](../experiments/t2t/serving_slots/controls/shared-request/README.md)、[六卡分片和存储规则](cluster-storage.md)、[计费核对](../experiments/t2t/serving_slots/shared_point_metrics.py)。正常归档继续推送 `T2T_experiments`；**仅**忽略 `Verify frozen results` 失败引发的自动重试、修复及相应提交/推送，不扩大成停掉正常维护。多模型讨论用 GLM-5.4、DeepSeek Flash、GPT-6.2 Sol；设备归属先协调，设计建议要靠同题实验验证。
+正式启动和验收分别见[注册与 worker 命令](../experiments/t2t/serving_slots/controls/shared-request/README.md)、[六卡分片和存储规则](cluster-storage.md)、[计费核对](../experiments/t2t/serving_slots/shared_point_metrics.py)。正常归档继续推送 `T2T_experiments`；**仅**忽略 `Verify frozen results` 失败引发的自动重试、修复及相应提交/推送，不扩大成停掉正常维护。按 11 月 28 日修订的目标，多模型设计评议分别使用 `glm-5.3-flash`、`deepseek-flash`、`gpt-6.2-sol`，独立回答同一个问题。原 GLM-5.4 的集群交接不算新模型评议；不要因变更评议模型而重启 GPU。建议需用同题实验验证。
 
 ## 5. 交接记录（北京时间，不代替实时检查）
 
@@ -58,6 +58,7 @@
 | 2026-11-28 15:45 | 六卡实际出数 | `tools.shared_anchor_report` 核验同一注册的 224/900 条，当时六卡分别为 H0 79、H4 15、A0 57、A1 11、A2 50、A3 12。H0 的 Gemma 15 题 × 5 档全部落盘，不等于 Gemma 全 90 完成。 |
 | 2026-11-28 | 下一步：独立筛选 `α` | H0 三题小样本 Q32：`α=0→1/8`，质量均 3/3，TPF `3.60→4.46`，TE `11.17%→14.24%`，纯还账 forward 占 decoder 轮次 `41.1%→4.2%`。改变前缀份额也会改变 MASK 接受的节奏，因此不能把差异全归因于新鲜 KV。冻结[18题四份额面板](../experiments/t2t/serving_slots/controls/shared-request/screen18-prefix.json)，同模型跨五档比较，参照构建不变，单独存至 n164 `results/screen18-prefix-2404af23`；不得将旧三题账本拼入本轮。 |
 | 2026-11-28 16:02 | 正式参照进行中 | n164 逐条审计 **460/900**：H0/H4/A0/A1/A2/A3 分别 `127/53/96/42/89/53`。LLaDA Q4/8/16/32/64 为 `48/47/47/46/47` 条；Gemma 五档各 45 条。没有完成的 90 题档位，不能给出胜负。 |
+| 2026-11-28 16:13 | 正式与筛选分开计数 | 正式参照 **676/900**，H0、H4 各 150 条齐全。独立份额筛选的首个 H0 Gemma 分片 60 条经新审计器验收（3 题 × 5 档 × 4 份额）。H0 两模型机制消融已在集群通过不加载模型的预检；须等本卡两模型份额筛选各 60 条及归还凭证通过，才用同卡运行资格测试，不是正式结果。 |
 
 当前计算授权窗口为 **2026-11-28 15:20 至 2026-11-29 09:20（UTC+8）**，是本轮资源保护时间，不是宣布研究完成的期限。恢复时：先读本页和设计协议，核对远端分支、注册 ID 与 n164 账本，再查两边实际进程，按缺失的 `(版本, 模型, Q, task_id)` 续跑。后续登记、资源变化和封存点要附时间与证据，不覆盖旧的否决结论。
 
@@ -68,6 +69,8 @@
    ```bash
    ssh n164 'cd /data1/project_data/gx-erqw-20261123/runtime/formal90-7a38ffc && env PYTHONPATH=$PWD/src ../venv/bin/python shared_anchor_report.py ../../results/formal90-7a38ffc registration.json'
    ```
+
+   同目录已备好 `metrics.csv`（SHA-256 `4f5bb4dfdb9065e60a4173551dc33cad20ab380222c94577e239266272fc6568`）；上条命令加 `--baselines metrics.csv` 可核对完整档位的差值。份额筛选从该目录运行 `env PYTHONPATH=$PWD/src ../venv/bin/python -Bm tools.shared_screen_report ../../results/screen18-prefix-2404af23 registration.json screen18-prefix.json`，未满 360 条的模型只显示计数。
 
 2. **再查逐卡交接。** 这轮主任务核对 H0 和总账；H4、A0/A1、A2/A3 分别有独立负责人。正式分片每卡两模型各 75 条，接续筛选须核验这 150 条身份齐全。进程可能正在等待同卡锁；不能因某模型一段时间计数不动就再派一份。先确认谁在运行或排队、账本是否增长、是否仍在授权窗口，再做逐卡交接。H800 结束时恢复 holder，A800 结束时必须释放。
 3. **按顺序推进，不让探索回执混入正式结果。** `screen18-prefix` 注册号 `2404af2390fb2fc96e6348f584691c071c77be8c4ee18da3016beec46e51d602`。每模型须收齐 18 题 × 5 档 × 4 份额 = 360 个唯一身份，核对物理 Q 计费后按[预先写定的规则](../experiments/t2t/serving_slots/controls/shared-request/README.md#paired-calibration-separate-from-formal90)选一个跨档 `α`，再登记 `τ` 筛选。筛选用的 18 题与其余 72 题分开报告；其余 72 题也不能自动视为从未参与过历史选模的盲测集。

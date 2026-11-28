@@ -40,7 +40,7 @@ def costs(row):
     return result
 
 
-def audit(root, samples, registration):
+def read_receipts(root, samples, registration):
     if registration["stage"] != "formal90":
         raise ValueError("not a formal90 registration")
     version = identity(registration)
@@ -74,6 +74,11 @@ def audit(root, samples, registration):
                             seen[model, q, idx] = row
                         except (KeyError, TypeError, ValueError) as exc:
                             raise ValueError(f"{path}:{n}: {exc}") from exc
+    return version, seen, deferred
+
+
+def audit(root, samples, registration):
+    version, seen, deferred = read_receipts(root, samples, registration)
     points = []
     boards = Counter(r["board"] for r in seen.values())
     calibration = {r["index"] for b in BOARDS for r in shard_cases(samples, b, "screen18")}

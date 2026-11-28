@@ -71,6 +71,18 @@ than switching rules by tier. This is a conservative promotion rule for
 an exploratory screen, not a statistical non-inferiority test. Physical Q
 roles and pooled TE are reported alongside; they do not mask losses.
 
+`python -m tools.shared_screen_report RESULTS formal90-anchor.json screen18-prefix.json`
+checks each paired identity, registration, arm parameters, decoder peak, row
+roles and post-prefill encoder bill. A partial model exposes counts only.
+Once its own 360 rows are complete, a model gets a dose decision and a table
+of the three metrics, paired corrections/regressions and realized Q. The
+gate and tie-break use exact rational per-request TPFs, not rounded plot
+labels. Pass `--require-complete` before publishing the two-model screen.
+Add `--anchor-root FORMAL_RESULTS` to replay-check each control with the
+same parameters, board, seed and case against its independent formal run.
+This checks status, correctness, N, F, Q, peak and roles, not token-by-token
+equality: the calibration worker does not retain an output fingerprint.
+
 `python -m tools.shared_anchor_report RESULTS formal90-anchor.json` audits
 every complete receipt, including the history-Q partition and measured peak.
 It emits only counts for unfinished points and exposes 90/30/60 scores for
