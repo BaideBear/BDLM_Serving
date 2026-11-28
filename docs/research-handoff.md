@@ -2,7 +2,7 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
-本轮版本入口：[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)，标签 `paid-agreement-admission-20261128`。这是负结果也保留的研究快照，不是十档执行策略的发布。
+最新封存：[固定 Q 下的块内前缀刷新与后块首次构建](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)，标签 `fixed-q-prefix-and-tail-20261128`。内含五组同卡六题、三项指标、实际账单及对照，不把历史 90 题轨迹的选位回放计为处理组成绩。上一版[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)仍由 `paid-agreement-admission-20261128` 独立定位。两者均非十档默认策略。
 
 **归档后的独立试验：[固定刷新数量时如何选前缀位置](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)。** 历史 LLaDA Q8 右端策略 90 题中，分散选择会在 88 题、2,486 步改变行，尚不是新策略的 90 题结果；此前 Gemma Q512 用当轮 EOS 推测可省 1,280 Q 不成立，改用上轮已知信号后六题零机会。另外，[Gemma Q64 满额时用一个前缀换出暖 MASK](../experiments/t2t/serving_slots/controls/prefix-clamp/fixed-budget-checkpoint.md)六题均真实换位，仍 5/6，TPF 14.455→11.586，TE 24.18%→12.86%，不扩 90。[LLaDA Flow W1 完整基线图表](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)已从逐调用账单补上 17.30% TE。
 
