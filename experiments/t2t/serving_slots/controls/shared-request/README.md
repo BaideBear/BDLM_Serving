@@ -21,3 +21,28 @@ one post-prefill encoder forward per run. **LLaDA Q32 on H4 failed** at the
 terminal successor check: no valid completion, and no quality/TPF/TE score.
 The adapter change needs a GPU retest on this same input before freezing it.
 Failure log SHA-256: `2deaff5bbb8f011432a98b45887c4f07b255d44c600bf72432a332da354b51df`.
+In the renewed November 28 window, the same H4 Q32 input after the EOS fix
+completed correctly with N=265, F=45, Q=1181. Q4 on the same input completed
+incorrectly (N=233, F=199, Q=785). These are qualifications, not formal90 rows.
+The initial formal anchor is `prefix_share=1/8, open_at=1/4` on both models;
+this is a reference for independent tuning, not an optimized setting.
+
+## Operational comparison
+
+`shared_fixed_shard register --stage formal90 --llada21 ALPHA TAU --gemma ALPHA TAU`
+(invoke with `python -m experiments.t2t.serving_slots.shared_fixed_shard`)
+prints the parameter/source registration to stdout and its ID to stderr. Freeze
+the registration before looking at formal scores. Transfer its exact source
+revision. Use `run --registration FILE --version ID --model MODEL --board BOARD
+--samples FROZEN_DATA --checkpoint CHECKPOINT --preflight` to check inputs
+without touching a GPU. `run` without `--preflight` requires a single correct
+unoccupied GPU exposed by UUID, loads weights once, and writes JSONL to stdout.
+External launchers own exclusive handoff, deadline and n164 storage. For LLaDA,
+provide `BDLM_LLADA_REFERENCE`; `tools.pack_shared_prompts` can stream just the 90
+registered prompt-ID records to private tmpfs on A800, without copying outputs.
+
+`screen18` selects one case per dataset on each of the six boards. Its
+registration differs from `formal90`; do not stitch its outcomes into the formal
+table. Checkpoint comparisons use the manifest in `benchmarks/checkpoints/`;
+the supplemental LLaDA SHA-256 list was verified byte-for-byte independently
+on n164 and A800. No generated text is stored in these registrations.
