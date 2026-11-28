@@ -88,3 +88,5 @@
 - 下一版从强对照出发：小预算以同实算上限 IBS 的连续前沿为零改动对照，B 先复现原生完整块的一轮采样，2B 对齐 Flow W2。三者是检验点，不是按预算挑三种算法。拟验证的一条共用规则是：**先保留当前解码前沿及必需写回；只把不挤掉这些行的余量用于其他位置**。模型保留原生采样和停止语义。同一外层预算下先做零改动配对（输出 ID、N/F/Q、停止原因）；每次只加前缀重访或后块其中一项。先完成同题小组逐步回放，值得迭代再锁定双模型各五档、完整 90 题。没有这组证据不晋升、不转混合预算。
 
 2026-11-28 17:06（UTC+8）。n164 H0 的 [Gemma 六题同卡检验](../experiments/t2t/serving_slots/controls/gemma-factors/ibs-prefix-bridge/replay-six-summary.json)已完成，36 次 GPU 请求，12 个原版 IBS/零改动配对全部一致。Q32 加余量前缀的 126 次 F 减少全部出自同一道仍然答错的题；Q64 输出和 F 完全不变。不能据此晋升。单独[冻结 Q32 全90复核](../experiments/t2t/serving_slots/controls/gemma-factors/ibs-prefix-bridge/q32-frozen90.json)，区分原30/新增60、参加过前两次筛选的15/其余75，以及剔除已知高影响题的敏感性分析（主表始终保留全部90）。这是 IBS 内部的 KV **及** self-conditioning 诊断，不是带原生 T2T 的新候选。
+
+H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q4-first-fork/README.md)定位了两例，不将选出的失败题用于估算准确率。在首块完全对齐的 index 67，第一次实际写入分歧在第 4 次 forward：两者均付 3 行欠账，IBS 将最后 1 行还给已投影但尚未解出的 135，本版却跳到冷 MASK 136。该步没有用前缀、没有开后块。首块不对齐的 index 1 在第一次 forward 已有一行 prefill/生成归属差，第二次 forward 首次写入不同 token。下一步优先隔离两个变量：已投影的未解前沿能否继续采样、已付写回的行是否允许原生编辑；不把这两个样本的错因外推到全部 90 题。

@@ -1,8 +1,10 @@
 """Verify a completed GPU replay against raw evidence; print only compact statistics."""
 import argparse
+from collections import defaultdict
 from hashlib import sha1
 import json
 from pathlib import Path
+from random import Random
 from statistics import mean
 
 from bdlm_serving.evaluation import frozen, frozen90
@@ -20,6 +22,27 @@ def aggregate(rows):
         total = {k:sum(x[k] for x in group) for k in ("correct","N","F","decoder_Q","encoder_F","extra_Q")}
         result[arm] = dict(**total, macro_TPF=mean(x["N"]/x["F"] for x in group),
                            pooled_TE=total["N"]/total["decoder_Q"], peak=max(x["peak"] for x in group))
+    return result
+
+
+def paired_uncertainty(rows, repeats=4000):
+    """Paired bootstrap within frozen dataset and original/added strata; descriptive only."""
+    strata = defaultdict(list)
+    for r in rows:
+        a,b = r["off"],r["on"]
+        strata[r["dataset"],r["index"]<30].append((int(b["correct"])-int(a["correct"]),
+                b["N"]/b["F"]-a["N"]/a["F"],a["N"],a["decoder_Q"],b["N"],b["decoder_Q"]))
+    rng = Random(20261128)
+    dist = [[],[],[]]
+    for _ in range(repeats):
+        sample = [x for group in strata.values() for x in rng.choices(group,k=len(group))]
+        d_score,d_tpf,n0,q0,n1,q1 = map(sum,zip(*sample))
+        for out, value in zip(dist,(100*d_score/len(sample),d_tpf,100*(n1/q1-n0/q0))):
+            out.append(value)
+    result = {}
+    for key,v in zip(("correct_delta_pp","macro_TPF_delta","pooled_TE_delta_pp"),dist):
+        v.sort()
+        result[key]=[v[int(repeats*.025)],v[int(repeats*.975)-1]]
     return result
 
 
@@ -77,6 +100,9 @@ def verify(out, panel_path, samples, generation_config):
                         ("not_on_these_two_panels75",[r for r in x if r["index"] not in seen]),
                         ("excluding_prior_long_index51",[r for r in x if r["index"] != 51])]
         groups[str(q)] = {tag:aggregate(group) for tag, group in cohorts if group}
+        if "prior_six" in panel:
+            for tag,group in cohorts:
+                groups[str(q)][tag]["paired_stratified_ci95"] = paired_uncertainty(group)
     return dict(panel_sha=reg["panel_sha"], register=marker["reg"], pairs_digest=digest(hashes),
                 gpu=reg["gpu"], torch=reg["torch"], indices=panel["indices"], verified=len(records),
                 executions=3*len(records), cohorts=groups, raw_directory=str(out))
