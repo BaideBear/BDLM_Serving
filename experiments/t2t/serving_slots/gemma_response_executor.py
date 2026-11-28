@@ -19,9 +19,9 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
 
     fixed_fixture = True
 
-    def __init__(self, model, data, *, seed, admission_offer=64, response_offer=512,
+    def __init__(self, model, data, *, seed, admission_offer=64, response_offer=64,
                  early=True, max_new_tokens=2048):
-        if admission_offer not in (32, 64, 128) or response_offer != 2 * B:
+        if admission_offer not in (32, 64, 128) or response_offer not in (64, 2 * B):
             raise ValueError("Response executor requires a small admission offer and exact 2B")
         if type(early) is not bool:
             raise ValueError("early must be explicit")
@@ -47,7 +47,7 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         """Small offer until the response block is open, then exact 2B."""
         if self.status != 'ready':
             raise ValueError('Completed/failed request has no next offer')
-        if self.admission_offer not in (32, 64, 128) or self.response_offer != 2 * B:
+        if self.admission_offer not in (32, 64, 128) or self.response_offer not in (64, 2 * B):
             raise ValueError('Response executor has an unregistered offer schedule')
         if self.tail is None and self.response_admission_tick is None:
             return self.admission_offer
@@ -120,7 +120,7 @@ def run_candidate(model, data, task, *, deadline):
         nonlocal handle
         request = GemmaResponseRequest(
             model, data, seed=task['seed'], admission_offer=64,
-            response_offer=512, early=True)
+            response_offer=response_offer, early=True)
         handle = _ResponseHandle(request)
         return handle
 
@@ -158,7 +158,7 @@ def run_reference(model, data, task, *, deadline):
     return run(model, data, task, 64, True)
 
 
-def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
+def run_gpu_gate(*, checkpoint, samples, references, out, deadline, response_offer=64):
     import torch
     import transformers
     from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
@@ -236,7 +236,7 @@ def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
                   ('index', 'strict_live_replay', 'response_physical', 'delta', 'correct_delta')},
                   separators=(',', ':'), allow_nan=False), flush=True)
     summary = dict(schema='gemma-response-executor-a0-gate-v1', gpu=expected_gpu,
-                   cases=list(range(7, 72)), admission_offers=[64], response_offer=512,
+                   cases=list(range(7, 72)), admission_offers=[64], response_offer=response_offer,
                    strict_live_profile='dense_stop_joint_verified_eos_q64',
                    cases_measured=len(cases), case_indices=[c["index"] for c in cases], transformers=transformers.__version__)
     (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')

@@ -9,7 +9,7 @@ def make_request(**changes):
     r.tail = None
     r.tick = 7
     r.admission_offer = 64
-    r.response_offer = 512
+    r.response_offer = 64
     r.response_admission_tick = None
     r.response_schedule = []
     for k, v in changes.items(): setattr(r, k, v)
