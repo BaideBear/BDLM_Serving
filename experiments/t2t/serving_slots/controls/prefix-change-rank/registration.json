@@ -1,0 +1,15 @@
+{
+  "study":"llada-ibs-q8-prefix-change-rank-h4-six-v1",
+  "cases":[7,13,25,33,55,71],
+  "arms":["none","right","change"],
+  "board":"n164:H4",
+  "q":8,"cap":2048,"quota":2,"block":32,"deadline":1795915200,
+  "history":"llada21-q8-ibs-prefix-gpu90-v1",
+  "historical_run_sha256":"aac42b672105e015ea16e246ba0da9e66f4b3886b8fe62eda2957f6ab19334c0",
+  "panel_sha256":"bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "matched_count":"k=min(2,8-number of ordinary IBS rows,eligible row count); none picks zero, right and change pick exactly k; absolute ascending projection, original sampling only.",
+  "eligibility":"Inside current physical B32's frozen generated prefix, within requested cap, initialized, clean, unmasked, not an ordinary row and before largest ordinary row. No extra rows on prefill or certificate payment.",
+  "rank":"For candidate i sum 1/(1+abs(i-j)) once per distinct valid generated j in the current physical block with an actual token-ID change strictly after the last physical projection of i. All B32 distances, exact integer weights with lcm(1..32), higher absolute i wins ties. Only past actual writes, including later writes of the same forward. Repeated changes count once even if reverted; no mask scores, logits, future tokens or projections.",
+  "exposure":"Before any GPU, reconstruct actual histories of the sealed no-refresh and rightmost arms separately. Stop accounting at first certified frozen EOS (including its ordinary tick). Compare right and change sets on each common historical state, never simulate either branch's KV. Zero different sets across both histories = archive no-go; any real set difference qualifies the pre-fixed six only.",
+  "verification":"On H4 rotate arms by case ordinal. Both references reproduce historical ordinary states through fair EOS, all arms use the same EOS after freeze and pay exact remaining debt without sampling. Independently reconcile versions, eligibility, token writes, physical rows at all 20 layers, and masked/visible keys. Right/change share count on any common state, identical prior rows and inputs to their first set fork. Report aggregate differences and failures without inferring final quality. No 90."
+}
