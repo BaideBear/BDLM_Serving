@@ -105,7 +105,7 @@ def run_candidate(model, data, task, *, deadline):
     handle = _ResponseHandle(request)
     old_open = qualify.open_strict_gemma
 
-    def open_response(**_kwargs):
+    def open_response(model, data, **_kwargs):
         return handle
 
     setattr(qualify, 'open_strict_gemma', open_response)
