@@ -1,0 +1,693 @@
+{
+  "schema": "gemma-provisional-recheck-six-v1",
+  "start": {
+    "kind": "start",
+    "pid": 807369,
+    "gpu": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+    "q": 128,
+    "cases": [
+      7,
+      13,
+      25,
+      33,
+      55,
+      71
+    ],
+    "pins": {
+      "/gs/work/gemma-equal-dose-a3-v1/bdlm_serving/runtime/diffusiongemma_optimus.py": "a09d04477361cb2a260dac85ce2195c0bfee9218306b7cfb96d7ddf4f1dba9af",
+      "/gs/work/gemma-equal-dose-a3-v1/bdlm_serving/evaluation/scoring.py": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+      "/gs/work/gemma-equal-dose-a3-v1/bdlm_serving/runtime/optimus_limits.py": "842f078e06b5f79b336165b060d1212e947e01182e167379a1d1dbb9f62b5376",
+      "/gs/work/gemma-equal-dose-a3-v1/bdlm_serving/methods/optimus/upstream.py": "f21a4704697cace53b19dfbbbf94bbabc877241b9c979e15b0d40e9a2ea0d223",
+      "/gs/code/samples.json": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+      "/gs/work/gemma-equal-dose-a3-v1/benchmarks/checkpoints/diffusiongemma.json": "ceb951734eb354728d7ba984093739119addbeda981b554af46d5dc105071f53"
+    },
+    "references": {
+      "7": "444f2ab0e9028c8d4d4fe414976f3d708d0c8ee241d3060f77347b9879f4ada5",
+      "13": "22279bfbd51eddeb5515e33148916dcaeb4bb185d9967ed624e74098e867b580",
+      "25": "606ffeefb088c891bb67642f00f29544667d97c5579defb53ac55599c63c80bb",
+      "33": "aaa5a56af8b3284523ae090d1b028e4a0fa400026c8a7263c0329b4fb8175a64",
+      "55": "b4f2247a879bf4b0a52d1949e2487930c746f5278ed1fd20241f927078b1908c",
+      "71": "e7528b099442515048514c36ff4f3da1a08abee8bba974c072bce0b9f1a647a5"
+    }
+  },
+  "release": "RELEASE rc=0 launcher=807339 gpu=GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c memory_mib=0 apps='' locks=closed date=2026-11-28T20:37:26+08:00",
+  "source_sha256": {
+    "gemma_paid_agreement_eval.py": "651b34ef30ba08e0eb73c6a26e6a82648c42423c1c3ea6750f846fdd41e5224d",
+    "gemma_provisional_recheck.py": "9dc4dbe2706d526851bc5e1ec7c38cb60e180ae998abbdbf7a058e3ac780bf06",
+    "launch.sh": "51c6c9d0a083c486929a4331b77ac523a3d5879e79ee541a4ff086e397620c19",
+    "run.py": "1133515ec28c70a1c5c9c70f31338fea50ee2bf531534ab20918b6f7df6cd532"
+  },
+  "raw_sha256": "2d5bd2b2b16e2c9b396e4b368c848e05efe7b540c7137f65c7af460b8b3dd162",
+  "repeat_candidates": 3,
+  "totals": {
+    "repeat": {
+      "D": 77,
+      "E": 2,
+      "F": 79,
+      "Q": 8252,
+      "encoder_Q": 512,
+      "admissions": 1878,
+      "paid_rows": 1878,
+      "N": 1375,
+      "correct": 6,
+      "macro_TPF": 18.034447738252087,
+      "pooled_TE": 0.16662627241880756,
+      "peak_decoder_Q": 128
+    },
+    "observer": {
+      "D": 77,
+      "E": 2,
+      "F": 79,
+      "Q": 8252,
+      "encoder_Q": 512,
+      "admissions": 1878,
+      "paid_rows": 1878,
+      "N": 1375,
+      "correct": 6,
+      "macro_TPF": 18.034447738252087,
+      "pooled_TE": 0.16662627241880756,
+      "peak_decoder_Q": 128
+    },
+    "recheck": {
+      "D": 76,
+      "E": 3,
+      "F": 79,
+      "Q": 8238,
+      "encoder_Q": 768,
+      "admissions": 1992,
+      "paid_rows": 1995,
+      "N": 1378,
+      "correct": 6,
+      "macro_TPF": 17.835948773448774,
+      "pooled_TE": 0.16727361009953873,
+      "peak_decoder_Q": 128
+    }
+  },
+  "cases": [
+    {
+      "index": 7,
+      "order": [
+        "repeat",
+        "observer",
+        "recheck"
+      ],
+      "original_reference_sha256": "6ef56d6a9ee27dbea0caf25dfaabb56239b4f8309287ae19965f5adf4ac04ea6",
+      "ids_recheck_equal": true,
+      "arms": {
+        "repeat": {
+          "bill": {
+            "D": 11,
+            "E": 0,
+            "F": 11,
+            "Q": 1267,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 182,
+          "correct": true,
+          "ids_sha256": "0c232284517ae92cc805507334570be32e5253b5b11e6ffb19406146f01627ad",
+          "trigger": null,
+          "payment": null
+        },
+        "observer": {
+          "bill": {
+            "D": 11,
+            "E": 0,
+            "F": 11,
+            "Q": 1267,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 182,
+          "correct": true,
+          "ids_sha256": "0c232284517ae92cc805507334570be32e5253b5b11e6ffb19406146f01627ad",
+          "trigger": null,
+          "payment": null
+        },
+        "recheck": {
+          "bill": {
+            "D": 11,
+            "E": 0,
+            "F": 11,
+            "Q": 1267,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 182,
+          "correct": true,
+          "ids_sha256": "0c232284517ae92cc805507334570be32e5253b5b11e6ffb19406146f01627ad",
+          "trigger": null,
+          "payment": null
+        }
+      },
+      "corrections": [],
+      "terminal_payments": []
+    },
+    {
+      "index": 13,
+      "order": [
+        "recheck",
+        "observer",
+        "repeat"
+      ],
+      "original_reference_sha256": "450e03399320d31dc62f26424ff37abc0c4e6dba9bb18203c31d7beedfeb9caa",
+      "ids_recheck_equal": false,
+      "arms": {
+        "recheck": {
+          "bill": {
+            "D": 13,
+            "E": 1,
+            "F": 14,
+            "Q": 1376,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 386
+          },
+          "N": 257,
+          "correct": true,
+          "ids_sha256": "2dc2d01862b6a4bdbc62ccad047cb695e1727e3b30dfc24a8e9458b32dd1e52a",
+          "trigger": {
+            "kind": "clean",
+            "tick": 12,
+            "block": 1,
+            "ready": 128,
+            "eos_index": 3,
+            "eos_id": 106,
+            "debt": []
+          },
+          "payment": null
+        },
+        "observer": {
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1150,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 251,
+          "correct": true,
+          "ids_sha256": "4d617f67921cbe3cbfa55a82d51b67f69be6601867593be93442d708902fd7d3",
+          "trigger": null,
+          "payment": null
+        },
+        "repeat": {
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1150,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 251,
+          "correct": true,
+          "ids_sha256": "4d617f67921cbe3cbfa55a82d51b67f69be6601867593be93442d708902fd7d3",
+          "trigger": null,
+          "payment": null
+        }
+      },
+      "corrections": [
+        {
+          "role": "extra",
+          "pos": 127,
+          "write": 3,
+          "payment": 4,
+          "old": 1420,
+          "top": 31836,
+          "top_p": 0.9935996532440186,
+          "written_p": 0.0025543919764459133,
+          "ordinary": true,
+          "stage": "ordinary",
+          "prior_ready": 24,
+          "repayment": 5,
+          "payment_Q": 128,
+          "repayment_Q": 128
+        },
+        {
+          "role": "extra",
+          "pos": 133,
+          "write": 3,
+          "payment": 4,
+          "old": 2160,
+          "top": 958,
+          "top_p": 0.9922675490379333,
+          "written_p": 0.006057914812117815,
+          "ordinary": true,
+          "stage": "ordinary",
+          "prior_ready": 24,
+          "repayment": 5,
+          "payment_Q": 128,
+          "repayment_Q": 128
+        }
+      ],
+      "terminal_payments": [],
+      "first": {
+        "tick": 4,
+        "width": 128,
+        "positions": [
+          127,
+          133
+        ],
+        "sampled_rows": 30,
+        "identical_base_sample_and_rng": true
+      }
+    },
+    {
+      "index": 25,
+      "order": [
+        "repeat",
+        "observer",
+        "recheck"
+      ],
+      "original_reference_sha256": "6662f325cac296b404587600f2c18ca053456e8cbfd95331c7b80a4724e4c457",
+      "ids_recheck_equal": true,
+      "arms": {
+        "repeat": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 224,
+          "correct": true,
+          "ids_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80",
+          "trigger": null,
+          "payment": null
+        },
+        "observer": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 224,
+          "correct": true,
+          "ids_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80",
+          "trigger": null,
+          "payment": null
+        },
+        "recheck": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "N": 224,
+          "correct": true,
+          "ids_sha256": "e5e9b325aa4471fdd6c09bd3ae60148a9f9c742a24cb76e81f6f315e6dc43c80",
+          "trigger": null,
+          "payment": null
+        }
+      },
+      "corrections": [],
+      "terminal_payments": []
+    },
+    {
+      "index": 33,
+      "order": [
+        "recheck",
+        "observer",
+        "repeat"
+      ],
+      "original_reference_sha256": "fd6b354076f4182b017b7ed998e6af9a3149b8a756258c44fa3bce0af505fc7e",
+      "ids_recheck_equal": true,
+      "arms": {
+        "recheck": {
+          "bill": {
+            "D": 15,
+            "E": 1,
+            "F": 16,
+            "Q": 1599,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "N": 254,
+          "correct": true,
+          "ids_sha256": "38e67af7f8121bfbf5073fd5dba236cec35284722bd92288ad0d2d13ccaf9af7",
+          "trigger": {
+            "kind": "clean",
+            "tick": 14,
+            "block": 1,
+            "ready": 128,
+            "eos_index": 0,
+            "eos_id": 106,
+            "debt": []
+          },
+          "payment": null
+        },
+        "observer": {
+          "bill": {
+            "D": 15,
+            "E": 1,
+            "F": 16,
+            "Q": 1599,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "N": 254,
+          "correct": true,
+          "ids_sha256": "38e67af7f8121bfbf5073fd5dba236cec35284722bd92288ad0d2d13ccaf9af7",
+          "trigger": {
+            "kind": "clean",
+            "tick": 14,
+            "block": 1,
+            "ready": 128,
+            "eos_index": 0,
+            "eos_id": 106,
+            "debt": []
+          },
+          "payment": null
+        },
+        "repeat": {
+          "bill": {
+            "D": 15,
+            "E": 1,
+            "F": 16,
+            "Q": 1599,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "N": 254,
+          "correct": true,
+          "ids_sha256": "38e67af7f8121bfbf5073fd5dba236cec35284722bd92288ad0d2d13ccaf9af7",
+          "trigger": {
+            "kind": "clean",
+            "tick": 14,
+            "block": 1,
+            "ready": 128,
+            "eos_index": 0,
+            "eos_id": 106,
+            "debt": []
+          },
+          "payment": null
+        }
+      },
+      "corrections": [],
+      "terminal_payments": []
+    },
+    {
+      "index": 55,
+      "order": [
+        "repeat",
+        "observer",
+        "recheck"
+      ],
+      "original_reference_sha256": "e49150bacb90378b713824289e1022a093fb3483a230aacb8b065c528fdd52e2",
+      "ids_recheck_equal": false,
+      "arms": {
+        "repeat": {
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2249,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 496,
+            "paid_rows": 496
+          },
+          "N": 365,
+          "correct": true,
+          "ids_sha256": "7a17225480cf0abc949a61a9c2daaaa8b9175df63c0ef9dd426a7345bb62ffac",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 20,
+            "block": 1,
+            "ready": 239,
+            "eos_index": 111,
+            "eos_id": 106,
+            "debt": [
+              495
+            ]
+          },
+          "payment": {
+            "tick": 21,
+            "positions": [
+              495
+            ],
+            "Q": 1
+          }
+        },
+        "observer": {
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2249,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 496,
+            "paid_rows": 496
+          },
+          "N": 365,
+          "correct": true,
+          "ids_sha256": "7a17225480cf0abc949a61a9c2daaaa8b9175df63c0ef9dd426a7345bb62ffac",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 20,
+            "block": 1,
+            "ready": 239,
+            "eos_index": 111,
+            "eos_id": 106,
+            "debt": [
+              495
+            ]
+          },
+          "payment": {
+            "tick": 21,
+            "positions": [
+              495
+            ],
+            "Q": 1
+          }
+        },
+        "recheck": {
+          "bill": {
+            "D": 20,
+            "E": 1,
+            "F": 21,
+            "Q": 2009,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 482,
+            "paid_rows": 483
+          },
+          "N": 362,
+          "correct": true,
+          "ids_sha256": "9c7c64db7c15a140fe32d2176c372dac66f64f58dcba49337e034b50758c5e74",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 18,
+            "block": 1,
+            "ready": 225,
+            "eos_index": 108,
+            "eos_id": 106,
+            "debt": [
+              481
+            ]
+          },
+          "payment": {
+            "tick": 19,
+            "positions": [
+              481
+            ],
+            "Q": 1
+          }
+        }
+      },
+      "corrections": [
+        {
+          "role": "extra",
+          "pos": 236,
+          "write": 9,
+          "payment": 10,
+          "old": 21204,
+          "top": 20416,
+          "top_p": 0.9112954139709473,
+          "written_p": 0.08600758016109467,
+          "ordinary": true,
+          "stage": "ordinary",
+          "prior_ready": 216,
+          "repayment": 11,
+          "payment_Q": 40,
+          "repayment_Q": 20
+        }
+      ],
+      "terminal_payments": [
+        {
+          "tick": 19,
+          "positions": [
+            481
+          ],
+          "Q": 1,
+          "debt_after": []
+        }
+      ],
+      "first": {
+        "tick": 10,
+        "width": 40,
+        "positions": [
+          236
+        ],
+        "sampled_rows": 2,
+        "identical_base_sample_and_rng": true
+      }
+    },
+    {
+      "index": 71,
+      "order": [
+        "recheck",
+        "observer",
+        "repeat"
+      ],
+      "original_reference_sha256": "d7168ba6eb88598b9ad3c06e64d69a101116ce752be393f2570aa28dff7993fb",
+      "ids_recheck_equal": true,
+      "arms": {
+        "recheck": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "N": 99,
+          "correct": true,
+          "ids_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          }
+        },
+        "observer": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "N": 99,
+          "correct": true,
+          "ids_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          }
+        },
+        "repeat": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "N": 99,
+          "correct": true,
+          "ids_sha256": "885ee6cdbde9baf476003f76a1c8b4f8fd9dbb7dcd3c527e8ec8121a4ddea9d2",
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          }
+        }
+      },
+      "corrections": [],
+      "terminal_payments": [
+        {
+          "tick": 8,
+          "positions": [
+            229
+          ],
+          "Q": 1,
+          "debt_after": []
+        }
+      ]
+    }
+  ]
+}
