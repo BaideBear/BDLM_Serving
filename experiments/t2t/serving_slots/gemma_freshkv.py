@@ -289,12 +289,16 @@ def _loop(rt, prefix=False):
     body = body.replace(rep._UNMASK, """\
                 updated = _ibs_agreement.observe(unmask, raw, proposal, prior, sel, width, start, tick)
 """)
-    body = body.replace(logits, logits + (
-        "                _ibs_fresh.observe(logits=logits, prior=prior, local=local, width=width,\n"
-        "                    start=start, ids=ids, cache=cache, masks=masks, plen=plen, kw=kw,\n"
-        "                    sc_bank=sc_bank, seen=seen, bank=bank, device=device, tick=tick,\n"
-        "                    model=model, unmask=unmask" +
-        (", ready=ctl.cached_prefix_len, dirty=dirty" if prefix else "") + ")\n"))
+    # The sparse call's self-conditioning hook is scoped to its selected width.
+    # Invoke the counterfactual after that ExitStack closes, before updating SC.
+    checked = "            if len(bank.visited) != len(model.model.decoder.layers):\n"
+    require(body.count(checked) == 1 and body.index(checked) > body.index(logits), "Wrong hook scope")
+    body = body.replace(checked, (
+        "            _ibs_fresh.observe(logits=logits, prior=prior, local=local, width=width,\n"
+        "                start=start, ids=ids, cache=cache, masks=masks, plen=plen, kw=kw,\n"
+        "                sc_bank=sc_bank, seen=seen, bank=bank, device=device, tick=tick,\n"
+        "                model=model, unmask=unmask" +
+        (", ready=ctl.cached_prefix_len, dirty=dirty" if prefix else "") + ")\n") + checked)
     namespace = {}
     source = "\n" * src[0].count("\n") + rep._SIG[:-2] + ", _ibs_eos, _ibs_agreement, _ibs_fresh):" + body
     exec(compile(source, f"<freshkv {Path(rt.__file__)}>", "exec"), vars(rt), namespace)
