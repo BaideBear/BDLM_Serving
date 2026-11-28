@@ -23,3 +23,21 @@ real writeback in the normal paid debt ledger. Report N, paid F, selected decode
 Q, correctness, seat identities and the first trace fork. The six cases are only
 a screening pair: no 90 expansion, profile default, TPF claim, or quality claim
 without a separately registered full cohort.
+
+## Launch gate after the failed instrumentation attempts
+
+No prefix-seat case is audited as valid yet. The retained
+`gemma-ibs-certified-eos-a0-q64-20261128T110532Z/raw.log` case 7 stock record is
+an interface smoke only; it is not prefix-seat evidence. It was replayed through
+the production `RECEIPT(kind=case).arms.stock ->
+tools.run_gemma_ibs_certified_eos.reconcile` interface on n164 and validated
+N=205, F=18, Q=1088, and `admissions == paid_rows == 256`. The compact receipt is
+on n164 at
+`results/gemma-q64-prefix-seat-a0-interface-smoke-v1/case-07-interface.json`.
+
+Before another A0 launch, the worker must serialize this same production arm
+record; the CPU reducer must report the retained smoke as an interface pass and
+the prefix-seat reducer must require complete matched rows. Do not retry the
+failed six solely to recover lost tickets. Any follow-up remains a fixed-budget,
+one-physical-row selection exchange; do not modify confidence or acceptance
+thresholds.
