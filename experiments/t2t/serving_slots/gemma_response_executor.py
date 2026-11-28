@@ -63,6 +63,7 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         if event.get('decoder_Q', 0) > offer:
             raise RuntimeError('Response executor exceeded its registered step cap')
         event['response_schedule_offer'] = offer
+        event['history_Q'] = event['decoder_Q']
         event['response_block_opened'] = (before_tail is None and self.tail is not None)
         self.response_schedule.append(offer)
         return event
