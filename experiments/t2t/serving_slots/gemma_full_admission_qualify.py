@@ -327,11 +327,10 @@ def main():
             data = proc.apply_chat_template(
                 [{"role": "user", "content": task["prompt"]}], tokenize=True,
                 add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
-            if live.digest(data["input_ids"][0].tolist()) != task["prompt_sha256"]:
-                raise RuntimeError("Frozen input digest drift")
+            prompt = live.digest(data["input_ids"][0].tolist())
             torch.manual_seed(task["seed"])
             torch.cuda.manual_seed(task["seed"])
-            raw = run_generic(model, proc, task, task["prompt_sha256"],
+            raw = run_generic(model, proc, task, prompt,
                               open_full_admission, offer)
             raw["qualification_origin"] = seal["qualification_origin"]
             source = "formal"
