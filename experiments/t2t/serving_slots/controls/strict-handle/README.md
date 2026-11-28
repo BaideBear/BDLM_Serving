@@ -144,10 +144,11 @@ cd /gs/runtime/single512-api-1128/repo
 /usr/bin/python3 -B -m experiments.t2t.serving_slots.strict_handle_report \
     gemma /gs/results/qualify-single512-api-1128 benchmarks/frozen90/manifest.json
 ```
-# Experimental LLaDA active-window qualification
+## LLaDA active-window qualification
 
-`quarter_edit_window` is an opt-in candidate, **not a qualified replacement**
-for `quarter_edit_warm`. Fixed 4/8/16 must reproduce the independent head-only
+`quarter_edit_window` is a functionally qualified opt-in candidate,
+**not a quality-validated replacement** for `quarter_edit_warm`.
+Fixed 4/8/16 must reproduce the independent head-only
 window arms' physical row sequence, output IDs, F and Q on the original
 0/10/20 anchors (no half-block borrowing). Fixed 32/64 must reproduce the
 previous terminal-edit and quarter-gated warm-head arms. The five-offer
@@ -156,3 +157,13 @@ debt. A separate `park` test waits for a measured write to the successor at
 64, then pays it at 4 and returns to 64. No small offer may sample the parked
 tail or project any clean parked row. Do not interpret these boundary tests
 as a quality ranking for mixed budgets.
+
+[A800 GPU7 result](llada-quarter-edit-window.json): 15/15 constant-offer
+replays matched, including at 4/8/16 (160/167/316 forwards actually changed
+window selection in those suites). All 25 directed transitions occurred.
+The general cycle recorded 87 downshifts carrying debt. In the targeted park
+test, all three requests used 64→4→64; 14 dirty successor rows were paid while
+parked (9 on the immediate drop and 5 on later small calls). Receipts:
+`/gs/results/llada-switch-window-api-replay-1128`, source `c16a6d5`. The first
+package lacked the frozen30 identity manifest and exited before any request;
+the replay used the missing manifest from the same commit, not different tasks.

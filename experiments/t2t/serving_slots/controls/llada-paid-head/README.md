@@ -178,3 +178,42 @@ any incumbent MASK, relax thresholds, or introduce a new sampling forward.
 The three arms are independent full request trajectories; work and final
 output may diverge after the first treatment. See `llada_frontier_seat.py
 --factor successor` and `tools/run_llada_small_geometry_a800.sh successor DEADLINE 64`.
+
+**Result: leave the spare clean successor seats alone.** Same physical A1,
+all original30, 27 genuinely exposed; the first change checks the same
+pre-state, head rows, incumbent MASKs and clock. Only the third arm may
+edit added rows. Every physical decoder width was at most 64.
+
+| Fixed Q64, original30 | Correct | Macro TPF | TE | Paid F | Selected Q |
+|---|---:|---:|---:|---:|---:|
+| Quarter gate + warm-head control | 25 | 6.387 | 9.09% | 3,223 | 145,807 |
+| Also project clean successor rows | 23 | 6.252 | 8.62% | 3,402 | 156,376 |
+| Also allow edits on those same rows | 22 | 6.186 | 7.86% | 3,981 | 183,327 |
+
+[Paired results and hashes](../llada-slot-allocation/c64-successor-original30.json).
+Read-only rescued 1/lost 3 versus control. Editing rescued 2/lost 3
+versus read-only; 154 T2T on 4,937 supplemental projections, no revocations
+on those rows. Longer trajectories also changed other work. These small
+paired differences do not establish a universal harm, but there is no
+reason to expand either variant. Flow W2 on the same original30 was
+23 correct, macro TPF 9.721 (external, no comparable TE).
+
+**Next fixed Q64 registration: two paid proposals.** Keep the quarter gate,
+full head, warm-head sampling, strict cap, current fallback and T2T rule.
+Change only M2T admission on the resident current head: in addition to the
+native threshold and fallback, accept an unresolved row when the preceding
+physical forward in this same head also sampled that unresolved row and both
+proposals named the same non-MASK token at measured confidence >0.5. Both
+passes must have started with the full valid head resident; a drain, head
+change, missed row or different proposal breaks agreement. No second full
+logits buffer or new projection. The memo holds at most 32 token IDs.
+
+Run a separate constant-Q arm for every complete request on A7, alternating
+arm order. Gate on real change and exact original-control replays on 0/10/20,
+then finish original30 and new60 on the frozen90 manifest. Validate every
+M2T on both arms from the paid proposals; the first difference must preserve
+rows, proposals, clock, debt before the call, and incumbent edits. Count
+nonconvergence as failure, never replace tasks. Compare frozen90 quality,
+macro TPF and pooled TE; do not promote over the present profile if quality
+falls or the forward-rate gain does not repeat on new60. `tools/run_llada_agreement_a800.sh`
+starts only after the switch smoke test is valid and A7 is vacant.

@@ -601,6 +601,9 @@ class LLaDABudgetRequest:
                 group = unresolved & (idx//B == block)
                 if group.any() and not (accept & group).any():
                     accept[0,conf.masked_fill(~group, -torch.inf)[0].argmax()] = True
+            confirm = getattr(self, "_additional_admissions", None)
+            if confirm is not None:
+                accept |= confirm(idx, old, draft, conf, accept)
             change = ~unresolved & (conf > self.edit_threshold) & (draft != old)
             write = (change | accept) & (draft != old)
             self.x[0,idx[write[0]]] = draft[write]

@@ -1,0 +1,169 @@
+{
+  "arms": {
+    "fixed16": {
+      "F": 451,
+      "decoder_F": 451,
+      "decoder_Q": 4641,
+      "directed_pairs": {
+        "16>16": 448
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "window_F": 316
+      },
+      "requests": 3
+    },
+    "fixed32": {
+      "F": 215,
+      "decoder_F": 215,
+      "decoder_Q": 4896,
+      "directed_pairs": {
+        "32>32": 212
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "edit_once_F": 32,
+        "terminal_writes": 5
+      },
+      "requests": 3
+    },
+    "fixed4": {
+      "F": 555,
+      "decoder_F": 555,
+      "decoder_Q": 2114,
+      "directed_pairs": {
+        "4>4": 552
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "window_F": 160
+      },
+      "requests": 3
+    },
+    "fixed64": {
+      "F": 128,
+      "decoder_F": 128,
+      "decoder_Q": 5636,
+      "directed_pairs": {
+        "64>64": 125
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "quarter_open_F": 24,
+        "warm_sample_rows": 78
+      },
+      "requests": 3
+    },
+    "fixed8": {
+      "F": 386,
+      "decoder_F": 386,
+      "decoder_Q": 2635,
+      "directed_pairs": {
+        "8>8": 383
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "window_F": 167
+      },
+      "requests": 3
+    },
+    "park": {
+      "F": 138,
+      "decoder_F": 138,
+      "decoder_Q": 5729,
+      "directed_pairs": {
+        "4>4": 9,
+        "4>64": 3,
+        "64>4": 3,
+        "64>64": 120
+      },
+      "downshifts_with_debt": 3,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 9,
+      "policy_checks": {
+        "parked_dirty_Q": 14,
+        "quarter_open_F": 25,
+        "warm_sample_rows": 83,
+        "window_F": 1
+      },
+      "requests": 3
+    },
+    "switch25": {
+      "F": 237,
+      "decoder_F": 237,
+      "decoder_Q": 4022,
+      "directed_pairs": {
+        "16>16": 9,
+        "16>32": 9,
+        "16>4": 10,
+        "16>64": 9,
+        "16>8": 10,
+        "32>16": 9,
+        "32>32": 8,
+        "32>4": 10,
+        "32>64": 7,
+        "32>8": 10,
+        "4>16": 10,
+        "4>32": 10,
+        "4>4": 10,
+        "4>64": 10,
+        "4>8": 10,
+        "64>16": 10,
+        "64>32": 9,
+        "64>4": 7,
+        "64>64": 7,
+        "64>8": 10,
+        "8>16": 10,
+        "8>32": 10,
+        "8>4": 10,
+        "8>64": 10,
+        "8>8": 10
+      },
+      "downshifts_with_debt": 87,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 40,
+      "policy_checks": {
+        "edit_once_F": 9,
+        "quarter_open_F": 13,
+        "terminal_writes": 0,
+        "warm_sample_rows": 36,
+        "window_F": 32
+      },
+      "requests": 3
+    }
+  },
+  "gpu": [
+    "NVIDIA A800-SXM4-80GB"
+  ],
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "metric": "functional GPU qualification; no mixed-budget quality ranking",
+  "model": "llada",
+  "profile": "quarter_edit_window",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}

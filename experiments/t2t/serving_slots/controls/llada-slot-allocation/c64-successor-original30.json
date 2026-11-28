@@ -1,0 +1,124 @@
+{
+  "cohorts": {
+    "original30": {
+      "arms": {
+        "edit": {
+          "F": 3981,
+          "N": 14414,
+          "Q": 183327,
+          "TE": 0.07862453430209407,
+          "correct": 22,
+          "failed": 0,
+          "macro_TPF": 6.1858241409307375,
+          "supp_Q": 4937,
+          "supp_T2T": 154,
+          "supp_calls": 864,
+          "supp_revoke": 0
+        },
+        "old": {
+          "F": 3223,
+          "N": 13247,
+          "Q": 145807,
+          "TE": 0.09085297688039669,
+          "correct": 25,
+          "failed": 0,
+          "macro_TPF": 6.38705236514118,
+          "supp_Q": 0,
+          "supp_T2T": 0,
+          "supp_calls": 0,
+          "supp_revoke": 0
+        },
+        "read": {
+          "F": 3402,
+          "N": 13478,
+          "Q": 156376,
+          "TE": 0.08618969662863867,
+          "correct": 23,
+          "failed": 0,
+          "macro_TPF": 6.251656819175338,
+          "supp_Q": 3841,
+          "supp_T2T": 0,
+          "supp_calls": 682,
+          "supp_revoke": 0
+        }
+      },
+      "changes": {
+        "old_to_read": {
+          "different_ids": 22,
+          "losses": 3,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.2,
+              0.06667
+            ],
+            "macro_TPF": [
+              -0.40661,
+              0.10829
+            ]
+          },
+          "rescues": 1
+        },
+        "read_to_edit": {
+          "different_ids": 16,
+          "losses": 3,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.16667,
+              0.1
+            ],
+            "macro_TPF": [
+              -0.40349,
+              0.30347
+            ]
+          },
+          "rescues": 2
+        }
+      },
+      "exposed": 27,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "planner": "00b1987f6485e82ff99fb898e685590bab4beb778c384332fecf37b49df23bfc",
+    "protocol": "llada-warm-successor-q64-v1",
+    "q": 64,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "successor_sha256": "23deb3811949686c8770a811bc29f4f786bec264789dc5b829f15b3a5f1cb95a"
+  },
+  "rows_sha256": "1b1d37b28ec796233ba7587ba140493f4b9360c984610fbe4c5bf2f621d80bb1"
+}
