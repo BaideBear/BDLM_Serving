@@ -1,5 +1,45 @@
 # Two paid observations on the same unresolved row
 
+## First full confirmation: DiffusionGemma Q128
+
+Fixed Q128, same A3, same prompt/seed/scorer and paid IBS stopping rule in
+both arms. No change to which rows the planner selects before the first
+additional admission. Native resolved-row T2T is not implemented by the IBS
+adapter. This is a sampler result, not a complete ten-tier request kernel.
+
+| Cohort | Correct, IBS / candidate | Request TPF | Pooled token efficiency |
+|---|---:|---:|---:|
+| Original 30 | 27 / 28 | 16.419 / 19.166 | 13.79% / 16.79% |
+| Additional 60 | 51 / 51 | 16.467 / 18.537 | 15.04% / 17.20% |
+| All 90 | 78 / 79 | 16.451 / 18.747 | 14.63% / 17.07% |
+| Excluding the six screening cases (84) | 72 / 73 | 16.508 / 18.797 | 14.69% / 17.09% |
+
+N: 32,931 to 34,166; actual F (decoder plus generation encoder): 2,234 to
+1,991; decoder Q: 225,115 to 200,177. 59 requests took fewer calls, 16 the
+same and 15 more. Five answers changed to correct and four to incorrect.
+This is an efficiency result on this workload, not evidence of general quality
+improvement. For each paired N/F, symmetrically averaging the two possible
+orders of changing N and F attributes +0.752 macro TPF to output length and
++1.544 to call count. This arithmetic attribution is not a causal model.
+Historical Live Q128 got 88/90 at 13.047 TPF, a different point on the
+quality-throughput trade-off, not an arm of this experiment.
+
+[Verified cohorts, flips and receipt hashes](gemma-q128-frozen90.json) ·
+[Figure](gemma-q128-frozen90.png) · [Plotter](plot.py) ·
+[Independent scorer of the completed paired bills](../../../../../tools/agreement_fixed90_comparison.py).
+The original 90 A3 receipts are on n164 in `results/gemma-paid-agreement-q128-frozen90-01`.
+Its original controller's aggregate reader failed after all three arms were
+measured. Four first-fork checks also used absolute positions to look up
+block-local sampler rows (indices 26, 80, 83, 89). These are **not** decoder
+failures. All failed checks were rerun on A3 at the original seeds and arm
+order. A failed first repair compared Python tuples with JSON arrays; that
+attempt remains separate and is not scored. The four successful replays in
+`results/gemma-q128-fork-audit-v3` verified the local-to-absolute map, raw
+proposals/probabilities, RNG, input IDs, unchanged base admissions and ensuing
+payment. All arm bills, scores and original compact arm objects agreed exactly.
+Use `--replay-dir` with that directory for the independent comparison. Replay
+compute is validation overhead, not a free generator step or a fourth arm.
+
 This experiment asks whether a repeated measured proposal can earn acceptance
 before the strict IBS confidence threshold fires. It does **not** predict
 T2T from unobserved logits, change the selection of Q at the first differing

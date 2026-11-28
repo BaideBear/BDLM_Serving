@@ -1,5 +1,6 @@
 from tools.audit_agreement_dose import selection, tally
 import pytest
+from tools.agreement_fixed90_comparison import cohorts, decompose
 
 
 def step(tick, block, votes, probs, native, ids):
@@ -27,3 +28,17 @@ def test_future_labels_count_only_the_next_native_admission_in_the_same_block():
 def test_ties_break_by_absolute_position_without_separating_same_sets():
     s = step(0, 0, [0, 1], [.8]*3, [0]*3, [3, 4, 5])
     assert tally([s], set(), full_tape=False)["different_set_steps"] == 0
+
+
+def test_paired_tpf_breakdown_and_failed_requests_are_retained():
+    a = dict(N=40, F=8, Q=100, correct=True)
+    b = dict(N=30, F=4, Q=90, correct=False)
+    n, f = decompose(a, b)
+    assert n < 0 < f and n+f == 2.5
+    pairs = {i: dict(stock=a, apply=a) for i in range(90)}
+    pairs[55] = dict(stock=a, apply=b)
+    s = cohorts(pairs)
+    assert s["frozen90"]["lost"] == [55] and s["frozen90"]["F_less"] == 1
+    assert s["original30"]["lost"] == [] and s["outside84"]["requests"] == 84
+    with pytest.raises(ValueError):
+        cohorts(dict(list(pairs.items())[:-1]))

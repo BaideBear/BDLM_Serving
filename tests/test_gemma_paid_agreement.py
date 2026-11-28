@@ -8,6 +8,24 @@ import torch
 from bdlm_serving.methods.t2t.paid_agreement import EvidenceLedger
 from experiments.t2t.serving_slots.gemma_ibs_certified_eos import _AFTER, _PLAN, _SIG
 from experiments.t2t.serving_slots.gemma_paid_agreement import Agreement, _UNMASK
+from experiments.t2t.serving_slots.gemma_paid_agreement_eval import check_fork
+
+
+@pytest.mark.parametrize("block", [0, 1])
+def test_first_fork_converts_sampler_rows_and_preserves_other_decisions(block):
+    offset = 256 * block
+    pos = [offset+17, offset+133]
+    first = dict(tick=2, block=block, extra=[pos[1]])
+    base = dict(block=block, positions=pos, offer=128, q=2, admitted=[pos[0]])
+    applied = dict(base, admitted=pos)
+    obs = dict(first, positions=pos, proposals=[10, 11], native=[True, False],
+               probabilities=[.95, .7])
+    raw = dict(ids=[1, 2], pos=pos, rng="same",
+               sample=dict(rows=[17, 133], proposal=[10, 11], take=[1, 0]))
+    modified = dict(raw, sample=dict(raw["sample"], take=[1, 1]))
+    check_fork(first, applied, base, modified, raw, obs, obs)
+    with pytest.raises((RuntimeError, ValueError)):
+        check_fork(first, applied, base, modified, dict(raw, rng="not the same"), obs, obs)
 
 
 class FakeUnmask:

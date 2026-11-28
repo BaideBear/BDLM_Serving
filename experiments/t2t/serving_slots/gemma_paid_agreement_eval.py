@@ -88,6 +88,25 @@ def stable(a):
     return {k: v for k, v in a.items() if k != "agreement"}
 
 
+def check_fork(first, a, b, da, db, oa, ob):
+    """The sampler numbers rows inside a block; the ledger numbers generated positions."""
+    require(a["block"] == b["block"] == first["block"] and oa == ob and
+            oa["block"] == first["block"] and oa["tick"] == first["tick"] and
+            list(oa["extra"]) == list(first["extra"]), "First paid observations drifted")
+    require(a["positions"] == b["positions"] and a["offer"] == b["offer"] and
+            a["q"] == b["q"] and all(da[k] == db[k] for k in ("ids","pos","rng")),
+            "First extra changed model input or RNG")
+    sa, sb = da["sample"], db["sample"]
+    require(sa["rows"] == sb["rows"] and sa["proposal"] == sb["proposal"] == oa["proposals"] and
+            list(map(bool, sb["take"])) == oa["native"], "First sampler input or base decision drifted")
+    absolute = [first["block"] * B + row for row in sa["rows"]]
+    extra = set(first["extra"])
+    require(absolute == oa["positions"] and extra <= set(absolute) and
+            not (extra & set(b["admitted"])) and set(a["admitted"]) == set(b["admitted"]) | extra
+            and list(map(bool, sa["take"])) == [v or p in extra for p,v in zip(absolute,oa["native"],strict=True)],
+            "First extra admission differs from the paid row set")
+
+
 def match(arms):
     stock, observer, apply = (arms[k] for k in ("stock", "observer", "apply"))
     require(stable(stock) == stable(observer), "Stock and observer-only paid-close diverged")
@@ -100,20 +119,10 @@ def match(arms):
             and apply["decoder"][:end] == observer["decoder"][:end]
             and apply["states"][:end] == observer["states"][:end],
             "Apply diverged before the first extra admission")
-    a, b = apply["trace"][end], observer["trace"][end]
-    require(a["positions"] == b["positions"] and a["offer"] == b["offer"]
-            and a["q"] == b["q"], "First extra changed rows, offer or Q")
-    require(set(a["admitted"]) == set(b["admitted"]) | set(first["extra"]),
-            "First extra is not exactly the added admission")
-    sample_a = apply["decoder"][end]["sample"]
-    sample_b = observer["decoder"][end]["sample"]
-    require(sample_a["rows"] == sample_b["rows"]
-            and sum(sample_a["take"]) == sum(sample_b["take"]) + len(first["extra"]),
-            "Extra take count mismatch")
-    for pos in first["extra"]:
-        j = sample_a["rows"].index(pos)
-        require(sample_a["take"][j] == 1 and sample_b["take"][j] == 0,
-                "Extra row not accepted exactly once")
+    observations = [next(o for o in v["agreement"]["observations"] if o["tick"] == end)
+                    for v in (apply, observer)]
+    check_fork(first, apply["trace"][end], observer["trace"][end], apply["decoder"][end],
+               observer["decoder"][end], *observations)
     return first
 
 
