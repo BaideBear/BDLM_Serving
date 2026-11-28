@@ -18,6 +18,8 @@ TPF is the mean of each request's final non-special token count divided by its a
 
 [Budget plot with exact readings](llada21-full-admission-frozen90.png) · [Machine-readable verdicts, originals and held-out additions](full-admission-status.json) · [Render the figure](../../../../../tools/plot_full_admission.py).
 
+Separate diagnostics, not candidate scores: [six paired LLaDA requests per small budget, three first-admission widths](../llada-small-admission-width/README.md) and [Gemma strict-parent first-successor exposure on all 90 requests](../gemma-parent-first-projection/README.md).
+
 Q32 used three disjoint GPU shards of 30 tasks. All 90 physical tapes and seals passed verification, and independent reconstruction of emitted IDs and rescoring matched 90/90. The third producer and receiver both emitted exhaustive terminal receipts, but the orchestrating local shell exited 2 after the pipeline and did not persist its per-stage exit codes. [The reconciliation](llada-q32-shard-reconciliation.json) leaves those codes null; they were not synthesized. Q4 uses two attempts reconciled per index; Q8 preserves both received and reconstructed producer digests where serialization order differed.
 
 ## Q16 paired detail
