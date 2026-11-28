@@ -16,3 +16,14 @@ LLaDA 2.1，A800，`gsm8k/167`，seed 17000。先用 Q16 重放到指定真实�
 A 在原轨迹的第 5 步后，已不可撤销交付 6 个有效 token；B 在第 25 步后，已交付 38 个。这两个步数只用于重放定位，不进入预测特征。Q16 保持不变时两个分叉终点都是相同的 306 个有效 token。Q16→Q64 相对保持 Q16，在 A 降低后缀 TPF，在 B 提高后缀 TPF。它说明状态可能改变预算排序；不能从中单独归因给 MASK、欠账或驻留行数，不能证明 Q64 一般更好或更坏，也不能用它评估在其他题上的预测误差。
 
 [紧凑的实测输入](llada-first-two.jsonl)包含条件、每个分叉的实际 Q/F、终点有效长度、得分和内容摘要；不含题目、生成文本或原始 KV。重现：在 n164 的 `results/llada-response-forks-a1/migrated-live-strict-frontier32/attempt-20261128T155055Z-live/`，用 `python -m tools.llada_response_seals worker.ndjson --limit 2` 提取。`python -m tools.request_response_eval experiments/t2t/serving_slots/controls/request-q-response/llada-first-two.jsonl` 给出 2 个决策点、1 道独立题、0 个有训练支持的留题预测；此时报告 MAE 或“胜率”没有意义。
+
+## 不同版本：全块 admission 执行资格
+
+[LLaDA 新入口](../../llada_response_executor.py)与以上五臂的 strict 版本不同。H800 卡 4，冻结题 #7，seed 17007，保持父算法的开块时机，仅补全首次进入的后续物理块的有效 MASK 并允许同轮采样。[终点和首个 admission](llada-admission-gate.json)；[按真实投影拆账](llada-admission-bills.json)。严格参照从头重放一致。源文件 SHA-256 为 `7c584c5426d77fad3eec4aa397c1f58a86b7ea093ccded2574ee8b76fa44c993`。
+
+| 固定预算 | 旧→新有效输出 N | 旧→新生成 F | 旧→新实际 decoder Q | 新块 Q（建块 F） | 建块同次的其他行 Q |
+|---|---:|---:|---:|---:|---:|
+| Q16 | 238→210 | 81→84 | 944→1,065 | 192（6） | 0 |
+| Q64 | 231→231 | 58→58 | 2,403→2,403 | 224（7） | 188 |
+
+两档两种执行都答对。Q16 的第一次建块原本只投影 16 行，新版实际投影 32 行，当轮写出 7 个 token，七行随即成为待偿还写回；六次 admission 总超额 96 Q。Q64 的输出 ID、账单及所查逐轮物理计划与提案没有变化。Q64 全部建块调用共投影 412 行，其中只有 **224** 行属于新块；紧凑终点文件的 `admission_Q` 是建块调用总宽，不能替代拆账文件的 `new_block_Q`。这一题只验证语义，且 Q16 的 N/F 下降，不宣称新版本不劣。
