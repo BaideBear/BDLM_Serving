@@ -1,0 +1,47 @@
+{
+  "canonical_TE": "sum(N)/sum(selected history-reading decoder Q)",
+  "checkpoint": {
+    "pairs_per_tier": 90,
+    "registration": "f73629cd140931bbfd4847a7d7961d77f6feadaae4820d96106c032fb1c35a00",
+    "tiers": [
+      32,
+      64
+    ]
+  },
+  "pair_files_sha256": "2045a4c2b60eda408955ddae03848fb680edec9cacb24034552835a75d6a477b",
+  "raw": "/gs/results/cold-frontier-last-a1-1128",
+  "registration": {
+    "base": {
+      "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+      "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+      "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_verified_eos": "1469ba441c9075ae92f90f71d9cf8eb459344fb2a2beab22e6ee8eccc2133177",
+      "gemma_verified_eos_eval": "df658f981898afad9adcf94fd8dab6703be12d02e3f87c0b22053629785b1aa1"
+    },
+    "boot_id": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "checkpoint_metadata": {
+      "config.json": "13b11d2fe87302cc2332c64eb9eb4ac305d9b8a123ffe9c5cb5b1920fc70c506",
+      "generation_config.json": "99334f763c3dbe8b161aeaca1c150a05344299fda2d2e4a0e1d342c744461200",
+      "model.safetensors.index.json": "6e33e8465d55fe6c7bc0a5453c7a4b341e6467d032c6ded82aaf439f61dac69a"
+    },
+    "deadline": 1795843443,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "manifest": "2e67d12f5045d486d1676a4b9cd35718b0791ad1b2a3c81fdec86a27bd773e62",
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 185042,
+    "policy": "ccc2db827fd9704cb02a4446f67c22eca10025d4a4ad937f0e0059ee83133e5d",
+    "reference_digest": "40bc16fc9877cc16881a1078f01ee6d8c1dcab624c805d284c6ff36198a84680",
+    "schema": "cold-frontier-last-a1-v1",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "source": {
+      "gemma_cold_frontier_last": "6bfd1587cf2ef999e48a6e787a99a2b22ec7d8987bf91d137bd1118933ec1313",
+      "gemma_cold_frontier_last_eval": "48d89c652449f7d0bd800598cd1b418589898f703ed0be766e50efe35c76e616"
+    },
+    "start_ticks": "34618767"
+  },
+  "report_sha256": "793f7070b03772eccd01e6bc791ce4cd04bc262d7cac530b6358f0a7d0afc28b"
+}
