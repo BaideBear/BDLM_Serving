@@ -88,3 +88,11 @@ every complete receipt, including the history-Q partition and measured peak.
 It emits only counts for unfinished points and exposes 90/30/60 scores for
 complete points. Add `--baselines <fixed-request-comparison/metrics.csv>` for
 matched reference differences and `--require-complete` for the final release.
+
+After all ten points are sealed, run `python -m tools.shared_anchor_figures
+RESULTS formal90-anchor.json BASELINE_METRICS.csv OUTPUT_DIRECTORY` on n164
+from a separate reporting checkout, not by replacing code in a live worker's
+registered source tree. It writes the combined plot with numeric labels,
+the 90/30/60 CSV, the physical-Q breakdown and baseline deltas. Rendering a
+partial matrix is refused; Flow efficiency with no measured denominator
+remains blank, and sparse endpoints are not extended across untested offers.

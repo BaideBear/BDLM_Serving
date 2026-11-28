@@ -294,7 +294,7 @@ def render(rows, *, ablations=False):
     return "\n".join(lines)
 
 
-def draw(rows, *, ablations=False):
+def draw(rows, *, ablations=False, shared_output=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -303,7 +303,13 @@ def draw(rows, *, ablations=False):
              "Paid repeat":("#b33576","d"),"Active window":("#475477","P"),
              "IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
              "Native":("#393d43","s"),"Flow W1":("#b75827","+"),"Flow W2":("#aa3159","D")}
-    methods=ABLATIONS if ablations else MAIN
+    if shared_output is not None and ablations:
+        raise ValueError("The common planner is not a Live-profile ablation")
+    main_candidate="Live profile" if shared_output is None else "Shared planner"
+    if shared_output is not None:
+        styles[main_candidate]=("#0f6958","o")
+        styles["Live profile"]=("#895399","x")
+    methods=ABLATIONS if ablations else MAIN if shared_output is None else (main_candidate, *MAIN)
     models=("llada21",) if ablations else tuple(MODELS)
     fig,axes=plt.subplots(len(models),3,figsize=(16.8,5.9 if ablations else 10.2),squeeze=False)
     fig.subplots_adjust(left=.055,right=.985,bottom=.37 if ablations else .215,top=.77 if ablations else .875,hspace=1.27,wspace=.22)
@@ -325,7 +331,7 @@ def draw(rows, *, ablations=False):
                              str(vals[q]) if metric=="correct" else f"{vals[q]*scale:.2f}" for q in tiers]])
                 if not vals:continue
                 x=list(range(5));y=[vals.get(q,nan)*scale for q in tiers]
-                candidate=name=="Live profile" or ablations
+                candidate=name==main_candidate or ablations
                 line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if candidate else "--",
                               lw=2 if candidate else 1.3,ms=6,alpha=.95)
                 handles[name]=line
@@ -340,13 +346,16 @@ def draw(rows, *, ablations=False):
                 elif j==0:cell.get_text().set_color(colors[i-1])
             if col==0:
                 ax.set_ylabel("LLaDA 2.1" if model=="llada21" else "DiffusionGemma",weight="bold")
-    fig.suptitle(("LLaDA 2.1 ablations" if ablations else "One executable profile vs measured baselines")+
+    title=("Shared planner vs measured baselines" if shared_output is not None else
+           "LLaDA 2.1 ablations" if ablations else "One executable profile vs measured baselines")
+    fig.suptitle(title+
                   "  |  fixed Q, frozen 90",x=.05,ha="left",fontsize=18)
     fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.933 if ablations else .95),ncol=len(methods),frameon=False)
     fig.text(.055,.015,("Each experimental arm has its own series; never combine the best points across rows."
              if ablations else "Dashed = baseline. Native/W1/W2 are actual endpoints, not constant reference lines. "
              "Nominal IBS is not necessarily capped. Missing history-row counts are not zero."),fontsize=9)
-    fig.savefig(DEST/("ablations.png" if ablations else "frozen90.png"),dpi=150,facecolor="white")
+    fig.savefig(shared_output if shared_output is not None else DEST/("ablations.png" if ablations else "frozen90.png"),
+                dpi=150,facecolor="white")
     plt.close(fig)
 
 

@@ -2,7 +2,7 @@
 
 Companion to the [prefix-dose screen](README.md#paired-calibration-separate-from-formal90). Not a formal90 arm. Background: in the three-case H0 Gemma Q32 pilot, increasing the fraction from zero to one eighth reduced drain-only decoder calls from 41.1% to 4.2%. Changing the fraction changes both the number of MASK rows and the treatment of clean history. The earlier pilot alone cannot identify which mattered.
 
-Status (2026-11-28): [registration](mechanism18-prefix.json) `c6275852e01e1117d656bbd2ed7fa8a117ed137a37ca0e77cde4e98ce329d015`. This freezes the wrapper for the three-case GPU qualification; it does not certify either adapter on GPU or supply any experiment results. Run after higher-priority registered work.
+Status (2026-11-28): [registration](mechanism18-prefix.json) `c6275852e01e1117d656bbd2ed7fa8a117ed137a37ca0e77cde4e98ce329d015`. The H0 Gemma qualification below is complete. It is not the 18-case mechanism panel or the formal90 comparison.
 
 ## Paired intervention
 
@@ -19,3 +19,18 @@ Compare `reserve_idle - all_mask` for the effect of withholding MASK seats, and 
 Require common seed, board, case, state-dependent prefix identities and MASK allotment at the first eligible step; compare the preceding ordinary-plan digest. Record how many seats were reserved and how many MASKs were actually displaced: a spare prefix row need not displace anything. Report physical decoder Q, macro TPF, pooled TE, paired correctness, drain F, prefix edits and revocations, encoder F and final output digests. At LLaDA Q4 the one-eighth floor is always zero: all three arms must replay the same unexposed plan, output and bill. A native terminal verification, build or writeback is never skipped to make an arm look cheaper.
 
 Use `python -m tools.shared_prefix_mechanism register --base formal90-anchor.json` to freeze the wrapper against the existing worker registration. Run `preflight` and then `run` with `--base`, `--version`, `--board`, `--model`, `--samples` and `--checkpoint`. The wrapper temporarily replaces only the shared row-selector function in a serial experiment process. It also reads already measured sampling changes; native projection, masked attention and score computation are unchanged. Raw logs stay on n164. Complete verified triplets alone reach the study ledger; an error aborts the probe and does not trigger config changes for that case.
+
+## H0 qualification: three paired Gemma cases
+
+Source: n164 `results/mechanism18-c6275852-H0/gemma.ndjson`, 18 receipts, November 28, 16:23 CST (UTC+8). TPF is the mean of request-level N/F. TE is pooled N over physical decoder Q reading history. T2T is the sum of observed prefix edits, not extra output tokens. These are the same three H0 identities used in the dose calibration; they are not independent confirmation.
+
+| Fixed Q | Arm | Correct | TPF | TE | Prefix T2T |
+|---:|---|---:|---:|---:|---:|
+| 32 | all_mask | 3/3 | 3.599 | 11.17% | 0 |
+| 32 | reserve_idle | 3/3 | 4.257 | 14.13% | 0 |
+| 32 | prefix | 3/3 | 4.464 | 14.24% | 8 |
+| 64 | all_mask | 2/3 | 5.987 | 9.55% | 0 |
+| 64 | reserve_idle | 2/3 | 6.176 | 10.66% | 0 |
+| 64 | prefix | 1/3 | 6.282 | 10.15% | 6 |
+
+At Q32 much of the observed TPF difference from `all_mask` was already present when prefix rows were withheld entirely. At Q64 enabling the prefix cost an observed correct answer relative to the idle arm. Neither three-case comparison establishes an optimal fraction or identifies a benefit of KV freshness alone.
