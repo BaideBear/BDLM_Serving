@@ -108,3 +108,7 @@ H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q
 [LLaDA Q64，同卡原版与紧凑 Flow W2](../experiments/t2t/serving_slots/controls/llada-flow-active-w2/README.md) 已完成冻结 90 题：74→78/90、TPF 10.006→9.988、TE 11.61%→16.73%，真实 Q 少 116,064。原30为23→27，新60为51→51，只有19题交付ID完全一致。六题的首轮探针：64宽不变而清零未开槽输入没有改变头块 logits；改32宽，192/192头块行有差异，其中3个首次采样决策不同。不能据此认定某个精度、算子或最终质量变化的原因。此紧凑版本是上档的强对照，不是跨档统一方法。
 
 [只提前开后块的信号](../experiments/t2t/serving_slots/controls/flow-admission-lead/exposure.md) 在旧紧凑 W2 的 50/90 请求触发。194个不同头块首次触发，103个下一轮达到旧门槛，3个最终以EOS结束。这个信号不读未来；上档实测只改开块时机，不能用回放预测代替质量和TPF。若有效，还应与同开块频率的静态阈值作对比。
+
+2026-11-28 18:52（UTC+8）。[跨块末轮与小档真实空位审计](../experiments/t2t/serving_slots/controls/flow-writeback/README.md)：LLaDA Q64 原版/紧凑 W2 的 1,389/1,357 个已提交块均无未重算的 ID 改写；紧凑版 1,292 次提交 forward 中，1,075 次还写了下一轮继续使用的后块，52 次后块写入因前块 EOS 同轮作废。Q8 限额 IBS 旧 90 题有 1,062 次无编辑晋升留下合计 5,294 个 Q 空位，均与后块实际首轮的部分位置吻合，但没有一个覆盖后块整个首轮。独立六题 GPU 原型只测是否值得提前做这部分工作；计入改写、后块作废和全部投影。Gemma 要额外验证 encoder 边界。以上是已有 GPU 轨迹回放，不是新质量/TPF 提升；旧统一方法仍未过关。
+
+[A2 IBS4 换位只封存部分负结果](../experiments/t2t/serving_slots/controls/llada-ibs4-frontier-swap-partial19/README.md)：第二次独立流完成 19/90，原 16/30、新 3/60；同卡正确 18→17，输出 ID 不同 18/19，F 增 863、Q 增 3335。没有覆盖历史风险六题，不补齐、不续跑、不与首轮混算。[独立采样端点审读与两例回放](../experiments/t2t/serving_slots/controls/llada-sampler-endpoints/README.md)只提出同槽已有 T2T 时是否仍需强制 M2T，不涉及提交、写回或换位，未启动。
