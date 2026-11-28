@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from experiments.t2t.serving_slots.llada_agreement import confirmation, inspect_trace
+from experiments.t2t.serving_slots.llada_agreement_eval import setup, transfer_gate
 
 
 def test_temporal_votes_are_per_head_address_and_not_extra_edits():
@@ -51,3 +52,21 @@ def test_retained_decoded_or_unchanged_mask_cannot_supply_temporal_vote():
     assert inspect_trace([other,e],0,True)[0]==[[],[]]
     other["proposals"][0]=(0,0,.81,True,False)
     assert inspect_trace([other,e],0,True)[0]==[[],[]]
+
+
+def test_fixed_source_and_transfer_require_independent_confirmation():
+    assert setup(16)[1:4]==("llada-fixed-width-window-v1","window",90)
+    assert setup(64)[1:4]==("llada-warm-successor-q64-v1","old",30)
+    old=dict(correct=23,macro_TPF=5.,TE=.1,failed=0)
+    def cohort():
+        return dict(old=old.copy(),repeat=dict(old,macro_TPF=5.2),original_reference_mismatches=[])
+    r=dict(registration=dict(q=64,protocol=setup(64)[0]),finished=90,
+           cohorts={k:cohort() for k in ("original30","new60","frozen90")})
+    assert transfer_gate(r)
+    for arm,change in (("new60",dict(correct=22)),("new60",dict(macro_TPF=5.)),
+                       ("frozen90",dict(TE=.09)),("original30",dict(failed=1))):
+        bad=deepcopy(r)
+        bad["cohorts"][arm]["repeat"].update(change)
+        assert not transfer_gate(bad)
+    with pytest.raises(ValueError,match="unsealed"):
+        transfer_gate(dict(r,finished=30))

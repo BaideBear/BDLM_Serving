@@ -1,4 +1,4 @@
-"""Research-only Q64: two consecutive paid warm-head proposals for one MASK."""
+"""Two consecutive paid proposals on the same resident current-head MASK."""
 import torch
 
 
@@ -14,11 +14,14 @@ def confirmation(head, idx, old, draft, conf, accepted, previous, mask_id):
     return extra[None], memo
 
 
-def request_class(control):
+def request_class(control, *, fixed_q=64):
+    if fixed_q not in (8,16,64):
+        raise ValueError("No fixed-window repeat control at this offer")
     class Agreement(control):
         def _step(self, q):
-            if q != 64 or self.cross != "quarter" or not self.warm_head_sample:
-                raise ValueError("Only fixed Q64 quarter-gated warm-head registered")
+            if q!=fixed_q or (q==64 and (self.cross!="quarter" or not self.warm_head_sample)) or (
+                    q!=64 and (self.cross!="head" or self.borrow or self.warm_head_sample)):
+                raise ValueError("Mismatch with registered fixed-offer control")
             self._warm_now = self.bank.last_end >= min(self.head+32,self.end)
             return super()._step(q)
 
@@ -82,7 +85,8 @@ def first_change(old,new,mask):
         added=set(trial[i])
         require(control[i]==trial[i] and all(a[k]==b[k] for k in
                 ("pre_state","rows","q","layer_physical_q","sampled","proposals","sample_clock",
-                 "dirty_before","edited","revoked","tail_opened","phase","warm_head_rows"))
+                 "dirty_before","edited","revoked","tail_opened","phase"))
+                and a.get("warm_head_rows")==b.get("warm_head_rows")
                 and a["layer_physical_q"]==[a["q"]]*20 and not (added & set(a["admitted"]))
                 and set(b["admitted"])==set(a["admitted"])|added
                 and set(b["dirty_after"])==set(a["dirty_after"])|added,

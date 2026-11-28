@@ -237,3 +237,18 @@ cohort is still required by the preregistration. This is a positive early
 signal relative to the matched control, not a win on both metrics over
 Flow W2 and not yet a reason to change the default profile. Only M2T
 acceptance changed; no T2T or native fallback threshold was relaxed.
+
+**Prospective transfer gate, fixed Q16.** Only if the unchanged Q64
+original30 controls all replay, neither original30 nor new60 loses net
+quality, both arms have no failures, macro TPF increases on new60 and
+frozen90, and pooled TE does not decrease on frozen90, follow on A7 with
+a separate Q16 trial. The source control is the sealed, same-manifest Q16
+active window (A5), not the old sparse head or the tail-borrowing family.
+Repeat the exact Q64 consecutive-proposal rule, including its fully
+resident current-head requirement; no new seats, change in cold sampling,
+or threshold tuning. Both fixed Q16 arms run on A7, alternating order;
+test out-of-device control replay on all 90, and stop if the 0/10/20
+anchors differ or have no actual intervention. Report exposed requests,
+admissions and complete paired results. This is not a mixed-budget test.
+`bash tools/run_llada_repeat_transfer_a800.sh DEADLINE` will not claim or
+hold a GPU when the qualification fails.

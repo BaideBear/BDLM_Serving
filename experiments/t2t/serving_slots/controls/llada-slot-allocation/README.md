@@ -214,6 +214,17 @@ of the single-seat factor on this evidence.
 arms must exactly replay the input, first change, outputs and bills on
 0/10/20 before inheriting the 27 other original pairs. Use
 `tools/run_llada_small_geometry_a800.sh window90 DEADLINE 8` or `16`.
+The [sealed Q16 extension](c16-window-frozen90.json) reproduced the improvement
+on new60: 35 to 49 correct, 2.712 to 2.999 macro TPF and 12.71% to 21.34% TE.
+Across frozen90 it moved from **49 to 70 correct**, **2.639 to 2.933** TPF,
+**12.48% to 21.05%** TE; F fell from 33,477 to 21,720, Q from 400,510 to
+218,267. There were 25 rescues, 4 losses and no failed requests. Strict
+IBS16 still leads on quality/TPF (72/90, 3.375, 20.54% TE). In the
+window-minus-IBS paired comparison there were 6 rescues, 8 losses; the
+descriptive 95% interval was [-11.11,+5.56] pp for accuracy and
+[-0.636,-0.213] for macro TPF. On new60 alone the quality comparison was
+49 vs 49, but TPF still trailed by 0.469. No demonstrated baseline parity.
+
 Q4 is a separate 90-pair run without inherited cases, unchanged 1/8 law
 (flooring to zero optional prefix seats), same window algorithm and three
 exercised anchors before continuing. A0 must first finish the Q8 frontier
@@ -248,3 +259,9 @@ with worse quality or a large increase in total work is not an automatic
 promotion. `bash tools/run_llada_window_spare_a800.sh Q DEADLINE` waits for
 the known window job, checks the sealed parent, and exits on unrelated GPU
 occupants; no holder or retry. Full requests and next-step budgets are fixed.
+
+The first A5 launch of this idle-read factor exited before creating a run
+directory or loading the model: its copied parent environment lacked the
+current `paired` report helper. The restored helper is the repository version
+at `3f39db8`; startup import was checked before the same registration was
+relaunched. No requests or outcomes were replaced.
