@@ -109,6 +109,8 @@ H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q
 
 [两模型共用的停止函数与六题实测轨迹复核](../experiments/t2t/serving_slots/controls/ibs-frozen-eos/README.md#shared-stop-predicate-on-the-six-registered-gpu-pairs-per-model)：LLaDA Q4 的 1,814 个、Gemma Q32 的 289 个普通 decoder 轮均已复核；处理组实际额外偿还的后缀分别是 2 F / 3 Q、4 F / 20 Q。Gemma 一题是自然整块结束。此结果只限定在冻结前缀的 IBS，不能用于还可能编辑前缀的原生执行器；十档统一算法仍未通过。
 
+[冻结 90 题的同卡停止基线](../experiments/t2t/serving_slots/controls/ibs-frozen-eos/README.md#same-device-frozen90-results-gemma-q32-q64-and-q128)已封存 Gemma Q32/Q64/Q128，并同图展示独立配对的 LLaDA Q4。Gemma 各档内四臂交付 ID、N 与正确性完全一致；实算后缀欠账后分别净省 1,067、508、238 F。图表仅用各档同卡 stock，不混历史对照，不把共同停止规则的收益计入候选。
+
 [LLaDA Q64，同卡原版与紧凑 Flow W2](../experiments/t2t/serving_slots/controls/llada-flow-active-w2/README.md) 已完成冻结 90 题：74→78/90、TPF 10.006→9.988、TE 11.61%→16.73%，真实 Q 少 116,064。原30为23→27，新60为51→51，只有19题交付ID完全一致。六题的首轮探针：64宽不变而清零未开槽输入没有改变头块 logits；改32宽，192/192头块行有差异，其中3个首次采样决策不同。不能据此认定某个精度、算子或最终质量变化的原因。此紧凑版本是上档的强对照，不是跨档统一方法。
 
 [只提前开后块的信号](../experiments/t2t/serving_slots/controls/flow-admission-lead/exposure.md) 在旧紧凑 W2 的 50/90 请求触发。194个不同头块首次触发，103个下一轮达到旧门槛，3个最终以EOS结束。这个信号不读未来；上档实测只改开块时机，不能用回放预测代替质量和TPF。若有效，还应与同开块频率的静态阈值作对比。
