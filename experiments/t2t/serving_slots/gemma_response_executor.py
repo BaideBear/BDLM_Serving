@@ -218,7 +218,7 @@ def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
             case = dict(index=index, task_id=task['task_id'], dataset=task['dataset'],
                         seed=task['seed'], strict_live_replay=replay, reference=reference,
                         response=candidate, response_physical=physical,
-                        response_raw=row, delta={k: candidate[k] - reference[k] for k in
+                        response_raw=candidate_row, delta={k: candidate[k] - reference[k] for k in
                                                  ('N', 'F', 'decoder_F', 'decoder_Q',
                                                   'encoder_F', 'encoder_Q')},
                         correct_delta=int(candidate['correct']) - int(reference['correct']))
