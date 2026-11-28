@@ -1,6 +1,6 @@
 from tools.audit_agreement_dose import selection, tally
 import pytest
-from tools.agreement_fixed90_comparison import cohorts, decompose
+from tools.agreement_fixed90_comparison import cohorts, decompose, paired_intervals
 
 
 def step(tick, block, votes, probs, native, ids):
@@ -42,3 +42,15 @@ def test_paired_tpf_breakdown_and_failed_requests_are_retained():
     assert s["original30"]["lost"] == [] and s["outside84"]["requests"] == 84
     with pytest.raises(ValueError):
         cohorts(dict(list(pairs.items())[:-1]))
+
+
+def test_paired_intervals_keep_the_two_arms_together_and_preserve_dataset_size():
+    ds=[{"index":i,"dataset":str(i%3)} for i in range(90)]
+    rows={}
+    for i in range(90):
+        a=dict(N=i+7,F=3+i%5,Q=33+i,correct=bool(i%2))
+        rows[i]=dict(stock=a,apply=a.copy())
+    assert all(v==[0.,0.] for v in paired_intervals(rows,ds,count=101)["ci95"].values())
+    ds[-1]["dataset"]=ds[-2]["dataset"]
+    with pytest.raises(ValueError):
+        paired_intervals(rows,ds,count=101)

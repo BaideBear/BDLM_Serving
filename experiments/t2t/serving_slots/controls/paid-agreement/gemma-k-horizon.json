@@ -1,0 +1,162 @@
+[
+  {
+    "fixed_q": 32,
+    "requests": 90,
+    "decoder_calls": {
+      "sampling": 5168,
+      "payment": 213
+    },
+    "affected_requests": 5,
+    "events": [
+      {
+        "index": 25,
+        "tick": 227,
+        "block": 3,
+        "kind": "payment",
+        "rows": 29,
+        "paid_resolved": 11,
+        "pending": 0,
+        "unresolved": 18,
+        "last_decoder": true
+      },
+      {
+        "index": 31,
+        "tick": 28,
+        "block": 0,
+        "kind": "payment",
+        "rows": 1,
+        "paid_resolved": 1,
+        "pending": 0,
+        "unresolved": 0,
+        "last_decoder": true
+      },
+      {
+        "index": 46,
+        "tick": 54,
+        "block": 1,
+        "kind": "payment",
+        "rows": 11,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 11,
+        "last_decoder": true
+      },
+      {
+        "index": 64,
+        "tick": 56,
+        "block": 1,
+        "kind": "payment",
+        "rows": 8,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 8,
+        "last_decoder": true
+      },
+      {
+        "index": 70,
+        "tick": 16,
+        "block": 0,
+        "kind": "payment",
+        "rows": 5,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 5,
+        "last_decoder": true
+      }
+    ],
+    "receipt_folder": "gemma-ibs-certified-eos-a0-20261128T100436Z",
+    "sha256": "70af4393de68fb2e8e2fae51afae6555ac768f58fbcad7181c7a0f0d91be14d2"
+  },
+  {
+    "fixed_q": 64,
+    "requests": 90,
+    "decoder_calls": {
+      "sampling": 2658,
+      "payment": 177
+    },
+    "affected_requests": 3,
+    "events": [
+      {
+        "index": 17,
+        "tick": 64,
+        "block": 2,
+        "kind": "payment",
+        "rows": 51,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 51,
+        "last_decoder": true
+      },
+      {
+        "index": 67,
+        "tick": 85,
+        "block": 3,
+        "kind": "payment",
+        "rows": 40,
+        "paid_resolved": 38,
+        "pending": 0,
+        "unresolved": 2,
+        "last_decoder": true
+      },
+      {
+        "index": 70,
+        "tick": 8,
+        "block": 0,
+        "kind": "payment",
+        "rows": 1,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 1,
+        "last_decoder": true
+      }
+    ],
+    "receipt_folder": "gemma-ibs-certified-eos-a0-q64-20261128T110532Z",
+    "sha256": "2741ef9c07b95145f49378f35a53ccd317abf35ae582735169eef4d7ac30657c"
+  },
+  {
+    "fixed_q": 128,
+    "requests": 90,
+    "decoder_calls": {
+      "sampling": 1867,
+      "payment": 176
+    },
+    "affected_requests": 3,
+    "events": [
+      {
+        "index": 1,
+        "tick": 4,
+        "block": 0,
+        "kind": "payment",
+        "rows": 37,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 37,
+        "last_decoder": true
+      },
+      {
+        "index": 27,
+        "tick": 8,
+        "block": 0,
+        "kind": "payment",
+        "rows": 58,
+        "paid_resolved": 58,
+        "pending": 0,
+        "unresolved": 0,
+        "last_decoder": true
+      },
+      {
+        "index": 80,
+        "tick": 98,
+        "block": 5,
+        "kind": "payment",
+        "rows": 31,
+        "paid_resolved": 0,
+        "pending": 0,
+        "unresolved": 31,
+        "last_decoder": true
+      }
+    ],
+    "receipt_folder": "gemma-ibs-certified-eos-a0-q128-20261128T110532Z",
+    "sha256": "7cb5aab068c58068d1a74e19e1a76d776e82a712622cac5f46eb082043be3ab1"
+  }
+]

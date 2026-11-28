@@ -2,6 +2,8 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+**11 月 28 日 20:49 更新：不把连续同提案提前采纳定为统一算法。** [三项正式 90 题、原 30 / 新 60、图和物理账单](../experiments/t2t/serving_slots/controls/paid-agreement/README.md)。Gemma Q64 在同卡从 83 降至 77，7 改错、1 改对，全部在新增 60；TPF 升但 F、Q 均增加。Gemma Q128 是效率收益而不是已证实的质量提升；LLaDA Q16 同卡 72→72，F 少 1,257、新增 60 少对两题。三档不能拼成预算策略。A0 三档的 9,693 个采样步均未截掉已建右侧 K，暂不试扩张右侧可见范围。继续按固定预算做单请求，保留已有强基线；先验证后块开启时头块实际编辑是否值得短暂延迟开块。对同设备 Live 的复核是为了区分设备与方法，不用于宣称采样器的单因素效应。
+
 **11 月 28 日 19:35 决策：** [LLaDA Q64 提前开块的完整 90 题](../experiments/t2t/serving_slots/controls/flow-admission-lead/README.md)质量 78→75，额外 669 F、32,928 Q，拒绝这条提前开块规则。[同一块内重复候选的六题](../experiments/t2t/serving_slots/controls/paid-agreement/README.md)在 LLaDA Q16 和 Gemma Q128 都真正降低了 F、Q；两边对照也都是 6/6，只够支持分别扩到 90，不能认定质量不降。先固定该唯一变化，不混预算、不拼档位。
 
 ## 1. 用户定下的目标与边界

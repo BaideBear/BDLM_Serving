@@ -1,5 +1,66 @@
 # Two paid observations on the same unresolved row
 
+## Fixed-offer decision: reject this as the unified default
+
+The treatment admits a usually rejected ordinary MASK proposal after two
+consecutive measured votes above 0.5 for the same token on the same row.
+Each new ID still incurs a real writeback. Each arrow compares stock paid
+IBS to this treatment at the same fixed offer on the same device.
+
+| Model, physical Q | Correct / 90 | Macro TPF | Pooled TE | Total F | Selected decoder Q | Rescues / losses |
+|---|---:|---:|---:|---:|---:|---:|
+| LLaDA 2.1, 16 (H0) | 72 → 72 | 3.406 → 3.833 | 20.65% → 23.39% | 15,407 → 14,150 | 205,841 → 187,569 | 6 / 6 |
+| Gemma, 64 (A2) | 83 → 77 | 12.704 → 13.635 | 20.84% → 21.61% | 2,930 → 2,997 | 161,762 → 164,152 | 1 / 7 |
+| Gemma, 128 (A3) | 78 → 79 | 16.451 → 18.747 | 14.63% → 17.07% | 2,234 → 1,991 | 225,115 → 200,177 | 5 / 4 |
+
+| Model, Q | Original 30: correct; TPF; TE (%) | Added 60: correct; TPF; TE (%) |
+|---|---|---|
+| LLaDA, 16 | 23 → 25; 3.226 → 3.712; 19.42 → 23.22 | 49 → 47; 3.496 → 3.894; 21.28 → 23.48 |
+| Gemma, 64 | 29 → 29; 12.674 → 13.386; 20.89 → 22.59 | 54 → 48; 12.718 → 13.759; 20.81 → 21.24 |
+| Gemma, 128 | 27 → 28; 16.419 → 19.166; 13.79 → 16.79 | 51 → 51; 16.467 → 18.537; 15.04 → 17.20 |
+
+On Gemma Q64, N increased from 33,704 to 35,467. The symmetric per-request
+decomposition of TPF attributes +1.054 to output length and -0.122 to call
+count: the +0.931 does **not** mean less work. Seven scores were lost and only
+one rescued, all on the added 60. The stratified paired 95% interval for
+accuracy is [-12.22, -1.11] percentage points (descriptive, not adjusted for
+multiple comparisons). LLaDA Q16 instead saved 1,257 calls and 18,272 rows;
+the +0.428 macro TPF decomposes into +0.085 from length and +0.343 from calls.
+Its net score conceals twelve flips; #75 failed to converge in all three arms
+and remains charged with zero delivery. Historical Live got 75/90 at Q16 and
+88/90 at Gemma Q128; neither is a matched arm here. These three registrations
+are not a ten-tier curve or evidence for a mixed-budget policy.
+
+[Budget figure with numeric values](fixed-budget90.png) ·
+[Replot script](../../../../../tools/plot_paid_budget_points.py) ·
+[LLaDA Q16](llada-q16-frozen90.json) · [Gemma Q64](gemma-q64-frozen90.json) ·
+[Gemma Q128](gemma-q128-frozen90.json). The per-model panel includes the
+historical nominal IBS, native and Flow W1/W2 where measured. No estimate is
+filled in for an unmeasured offer. Clean Q64 receipts match all six A2 pilot
+triples as well as all 90 tokenized inputs from the archived A0 Q64 encoder
+prefills. Only the inputs, not outputs or scores, are borrowed from A0.
+
+### Can the right edge of Q hide already built K on a sampling tick?
+
+On the A0 paid-IBS control (same 90 questions at each offer) compare the
+largest projected row to the set previously initialized in that physical
+block. Read the actual sampler event; do not classify every decoder call as
+sampling. Resolved and paid rows are separate from unresolved rows, which can
+change noise even without admission debt.
+
+| Gemma Q | Sampling ticks hiding any initialized right K / all sampling ticks | Payment-only ticks hiding such K / all payment-only ticks |
+|---:|---:|---:|
+| 32 | 0 / 5,168 | 5 / 213 |
+| 64 | 0 / 2,658 | 3 / 177 |
+| 128 | 0 / 1,867 | 3 / 176 |
+
+**All eleven retreats were the final decoder call of the request**: no later
+sampler used its writes. Extending this particular read horizon cannot change
+an earlier sampling decision on these tapes. This is not proof that the
+existing KV is always current, or applies to Live or OBS. No treatment GPU
+run is justified for this rule. [Counters and raw hashes](gemma-k-horizon.json) ·
+[Audit code](../../../../../tools/audit_gemma_resident_horizon.py).
+
 ## First full confirmation: DiffusionGemma Q128
 
 Fixed Q128, same A3, same prompt/seed/scorer and paid IBS stopping rule in
@@ -97,6 +158,14 @@ Both Live failures remained failures under both A3 arms. These are outcome
 overlaps across executors and devices, not causal evidence about T2T.
 [Join and per-task counts](q128-live-gap.json) ·
 [Same-dose A3 placement ablation](equal-dose.md).
+
+Resampling the **same paired requests** within each of the three datasets
+(4,000 draws, [reproducible intervals](q128-paired-intervals.json)) gives
+descriptive 95% intervals for candidate minus same-card IBS: accuracy
+**−5.56 to +7.78 percentage points**, macro TPF **+1.66 to +2.90**,
+pooled TE **+1.28 to +3.47 points**. Mean F/request has a wider interval
+of **−6.06 to +0.16** despite the measured total F falling. The intervals
+reflect case variability on this frozen panel, not device or seed variability.
 
 ## Is the repeat signal picking different positions from confidence alone?
 
