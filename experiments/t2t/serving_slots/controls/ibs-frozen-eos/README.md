@@ -83,3 +83,22 @@ a stronger *IBS baseline*, not candidate Q selection beating IBS.
 [Figure](measured/frozen90.png) · [Plot data by cohort](measured/cohorts.csv)
 · [Paired compact receipt](../gemma-factors/ibs-certified-eos/q32-frozen90-summary.json)
 · [Plot script](../../../../../tools/plot_certified_ibs.py).
+
+## Same-device frozen90 result: LLaDA Q4
+
+The same certificate on n164 H0 preserves all 90 delivered ID sequences
+(including six unchanged failed requests), with exactly 37,754 nonspecial
+output tokens in both arms. It skips 556 ordinary decoder forwards but
+incurs 31 real suffix payments (51 Q), for a **net 525 fewer F**.
+
+| LLaDA strict capped IBS | Correct | Macro TPF | Pooled TE | F | Decoder Q |
+|---|---:|---:|---:|---:|---:|
+| Stock / observation only | 69/90 | 1.395 | 35.66% | 27,397 | 105,885 |
+| Pay suffix debt and stop | 69/90 | 1.445 | 36.35% | 26,872 | 103,853 |
+
+The [two-model figure](measured/frozen90.png) uses a dashed stock reference
+in each panel. This result strengthens the comparator; it does not validate
+any candidate selector or solve the six progress failures.
+The compact input for redrawing the LLaDA panel is
+`n164:/data1/project_data/gx-erqw-20261123/results/llada-ibs-certified-eos-h0-v1/receipts.ndjson`
+(SHA-256 `fce9fdaa933815010cee6b5009de2bdff2de535e07ee64e96ab80b52ea3382a4`).
