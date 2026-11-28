@@ -14,7 +14,9 @@ SIX = (7, 13, 25, 33, 55, 71)
 
 def metric(n=10, correct=True):
     return dict(N=n, correct=correct, scoring="pass", rng_after="rng",
-                output_sha256="sha", bill=dict(F=2, Q=64, encoder_Q=0))
+                output_sha256="sha",
+                bill=dict(F=2, Q=64, encoder_Q=0, peak_decoder_Q=64,
+                          admissions=n, paid_rows=n))
 
 
 def arm(n=10, correct=True, exchanges=(), tick=None):

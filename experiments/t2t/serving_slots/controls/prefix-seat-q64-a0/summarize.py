@@ -15,7 +15,7 @@ from typing import Optional
 SIX = (7, 13, 25, 33, 55, 71)
 ARMS = ("stock", "observer", "seat")
 _METRIC_KEYS = ("N", "correct", "scoring", "rng_after", "output_sha256")
-_BILL_KEYS = ("F", "Q", "encoder_Q")
+_BILL_KEYS = ("F", "Q", "encoder_Q", "peak_decoder_Q", "admissions", "paid_rows")
 
 
 def _digest(path: Path) -> Optional[str]:
