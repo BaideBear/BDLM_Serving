@@ -1,6 +1,6 @@
 import pytest
 
-from bdlm_serving.methods.t2t.request_response import curve, read_fork
+from bdlm_serving.methods.t2t.request_response import curve, read_fork, recommend_adjacent
 from tools.request_response_eval import evaluate
 
 
@@ -60,3 +60,28 @@ def test_versions_and_continuations_never_mixed():
     c["continuation_q"] = 32
     reports = evaluate([a, b, c], min_requests=1)
     assert len(reports) == 3 and all(r["supported_decisions"] == 0 for r in reports)
+
+
+def test_switch_guard_both_signs_and_imposed_outer_menu():
+    a, b = data(), data("two")
+    train = list(map(read_fork, (a, b)))
+    c = curve(train, train[0].family, a["state"], min_requests=2, allowed_q=[4, 8, 16, 32, 64])
+    assert recommend_adjacent(c, 4, [4, 8])["q"] == 8
+    assert recommend_adjacent(c, 32, [16, 32])["q"] == 16
+    assert recommend_adjacent(c, 4, [4, 16])["q"] == 4  # cannot skip a tier
+    assert recommend_adjacent(c, 32, [4, 8])["q"] is None
+    c["adjacent"][0]["paired_se"] = 2.
+    assert recommend_adjacent(c, 4, [4, 8])["q"] == 4
+
+
+def test_unobserved_feature_cannot_authorize_a_switch_or_erase_quality_gate():
+    a = data()
+    r = read_fork(a)
+    unknown = dict(a["state"], recent_m2t=None)
+    c = curve([r], r.family, unknown, min_requests=1, allowed_q=[4])
+    assert c["status"] == "unsupported" and c["reason"] == "incomplete_state"
+    assert recommend_adjacent(c, 4, [4, 8])["q"] == 4
+    assert recommend_adjacent(c, 8, [4, 8])["q"] is None
+    a["state"] = unknown
+    report, = evaluate([a, data("other")], min_requests=1)
+    assert report["total_decisions"] == 2 and report["supported_decisions"] == 0

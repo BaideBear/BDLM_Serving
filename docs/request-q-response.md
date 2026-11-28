@@ -33,3 +33,5 @@
 在已收齐且通过物理状态核验的紧凑五臂 JSONL 上运行 `python -m tools.request_response_eval <forks.jsonl>`，分别对每个执行器版本和 continuation 做留一题验证，并在**同一批有支持的决策点**比较状态模型和仅按档估计。`total_decisions` 与 `supported_decisions` 同报；没有足够数据时不产生指标。输入字段与边界案例见[测试](../tests/test_request_response.py)。这些单元测试使用构造数据，不是 GPU 结果。
 
 [LLaDA 首批两个同题状态的 GPU 五臂](../experiments/t2t/serving_slots/controls/request-q-response/README.md)已核对真实 KV、RNG 和各阶段账单。另有一项冻结前的选择依据：[Gemma Q128 前缀减配正式 90 题](../experiments/t2t/serving_slots/controls/frontier-dose/formal90-summary.json)。与原 Live 相比 88→86 题、TPF 13.047→12.835、TE 11.97%→11.77%；原 30 是 30→30、新 60 是 58→56。六题的小幅提升未复现，减配不进入冻结候选。
+
+`recommend_adjacent` 是用于比较策略的保守接口，不是调度器：仅在外层可行且另经质量验证的相邻档中，选择预期 TPF 提升超过一份成对标准误的档。没超过、无历史支持或无可比观测时维持原档；原档本身不再可行/合格时返回无建议，交由外层处理。标准误阈值是实验参数，不是质量保证；须与同实际预算的真实混合路径对照后再用于服务。
