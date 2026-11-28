@@ -25,3 +25,16 @@ python -m experiments.t2t.serving_slots.coverage_confirmation /gs/results benchm
 ```
 
 By default this rejects any unsealed tier. An explicit `--interim` returns only the identical subset of confirmation IDs finished by **all** offers; it does not extrapolate missing cases or mix the nine screening cases into an interim line. With all five tiers sealed, the report includes the separate 81, original30, new60 and frozen90, paired rescues/losses, and descriptive paired intervals stratified by dataset. The macro TPF change is also split exactly into the output-length term `mean(delta N * mean(1/F))` and the forward-count term `mean(mean(N) * delta(1/F))`, with inner means taken over the two arms of the same case. This arithmetic describes the observed trajectories; it is not a causal experiment that holds output length fixed.
+
+`--sealed-tiers` returns those full cohorts **only** for offers whose 81 new
+pairs and completion marker validate. In the [first two sealed offers](first-sealed.json),
+the candidate gained TPF but lost 12 correct responses at **each** offer:
+
+| Fixed Q | Correct / 90, live → covered | Macro TPF | Pooled token efficiency | Confirm81 rescues / losses |
+|---:|---:|---:|---:|---:|
+| 32 | 75 → 63 | 5.793 → 6.694 | 18.06% → 13.42% | 5 / 16 |
+| 64 | 75 → 63 | 7.672 → 8.603 | 10.87% → 14.22% | 2 / 14 |
+
+This rules out replacing the five-tier live profile with this candidate.
+The confirmation compares whole algorithms, not just the threshold. It was
+recomputed from archived n164 files [at the new storage root](../../../../../docs/cluster-storage.md).

@@ -34,7 +34,8 @@ def summarize(rows, arm, *, intervals=False):
     return out
 
 
-def report(root, manifest, *, interim=False, refs=None):
+def report(root, manifest, *, interim=False, refs=None, sealed_tiers=False):
+    check(not (interim and sealed_tiers), "choose one snapshot mode")
     pilot = audit(root, manifest)
     arm = decide(pilot)["expand"]
     check(arm is not None, "no candidate qualified")
@@ -58,7 +59,7 @@ def report(root, manifest, *, interim=False, refs=None):
         if completed[q]:
             check(ids==set(order) and json.loads(marker.read_bytes())==dict(q=q,indices=order,winner=arm),
                   "invalid completion marker")
-        elif not interim:
+        elif not interim and not sealed_tiers:
             raise ValueError(f"Q{q} not sealed; use --interim for a registered snapshot")
         records[q], counts[q], digest = {}, len(ids), sha256()
         for f in [*(p/f"{i:02}.json" for i in ANCHORS), *files]:
@@ -85,12 +86,13 @@ def report(root, manifest, *, interim=False, refs=None):
     common=set.intersection(*(set(r) for r in records.values()))-set(ANCHORS)
     sealed=all(completed.values())
     groups={"confirm81" if sealed else "interim_common":sorted(common)}
-    if sealed:
-        groups.update(original30=list(range(30)),new60=list(range(30,90)),frozen90=list(range(90)))
+    if sealed or sealed_tiers:
+        groups=dict(confirm81=sorted(order),original30=list(range(30)),new60=list(range(30,90)),frozen90=list(range(90)))
     return dict(candidate=arm, complete=sealed, observed_new_pair_counts=counts, cohort_indices=groups,
-                receipt_digests=digests, results={
-                    q:{key:summarize([recs[i] for i in g],arm,intervals=sealed)
-                       for key,g in groups.items() if g} for q,recs in records.items()})
+                sealed_offers=[q for q in TIERS if completed[q]],receipt_digests=digests, results={
+                    q:{key:summarize([recs[i] for i in g],arm,intervals=sealed or sealed_tiers)
+                       for key,g in groups.items() if g} for q,recs in records.items()
+                    if not sealed_tiers or completed[q]})
 
 
 if __name__=="__main__":
@@ -98,6 +100,8 @@ if __name__=="__main__":
     ap.add_argument("root",type=Path)
     ap.add_argument("manifest",type=Path)
     ap.add_argument("--reference",type=Path)
-    ap.add_argument("--interim",action="store_true")
+    modes=ap.add_mutually_exclusive_group()
+    modes.add_argument("--interim",action="store_true")
+    modes.add_argument("--sealed-tiers",action="store_true",help="only tiers with 81 registered pairs and the validated completion marker")
     a=ap.parse_args()
-    print(json.dumps(report(a.root,a.manifest,interim=a.interim,refs=a.reference),indent=2))
+    print(json.dumps(report(a.root,a.manifest,interim=a.interim,refs=a.reference,sealed_tiers=a.sealed_tiers),indent=2))

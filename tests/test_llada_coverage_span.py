@@ -64,6 +64,15 @@ def test_confirmation_uses_common_unseen_ids_and_rejects_unsealed_results(tmp_pa
     assert g["delta_macro_TPF"]==1.25 and g["output_length_term"]<0<g["forward_count_term"]
     with pytest.raises(ValueError,match="not sealed"):
         c.report(tmp_path,m)
+    assert c.report(tmp_path,m,sealed_tiers=True)["results"]=={}
+    # Q64 completes first. Its full cohorts must not implicitly upgrade the other offers.
+    for i in order[2:]:
+        (d/f"{i:02}.json").write_text(json.dumps(dict(**meta[i],input=f"{i:064x}",live=a,covered=a)))
+    (d/"complete.json").write_text(json.dumps(dict(q=64,indices=order,winner="covered")))
+    monkeypatch.setattr(c,"paired",lambda *args: {})
+    completed=c.report(tmp_path,m,sealed_tiers=True)
+    assert completed["sealed_offers"]==[64] and set(completed["results"])=={64} and not completed["complete"]
+    assert completed["results"][64]["frozen90"]["n"]==90 and completed["results"][64]["confirm81"]["n"]==81
     row=d/"00.json"
     row.write_text(row.read_text().replace(f'{0:064x}','e'*64))
     with pytest.raises(ValueError,match="identity mismatch"):

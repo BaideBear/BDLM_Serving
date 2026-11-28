@@ -1,5 +1,7 @@
 # 单请求 Serving 槽位：固定曲线与运行中切档
 
+[集群用卡与存储：A800 实验后立即释放，原始结果在 n164](../../../docs/cluster-storage.md)。
+
 [2026-11-28：预算不足与富余的逐轮执行规则、双块开门消融及任意切档准入](design_race/README.md)。新组按实际 decoder 行硬限额登记，旧实验与 attention 预算的口径保留在各自报告中。
 
 [2026-11-28：当前块全算、选行读历史 KV。两模型各五档，与原生、Optimus IBS、FlowBlock 和 B3 的 frozen90 对照](BLOCK_LOCAL_HISTORY_ROW_PLAN.md)。
