@@ -34,3 +34,23 @@ Source: n164 `results/mechanism18-c6275852-H0/gemma.ndjson`, 18 receipts, Novemb
 | 64 | prefix | 1/3 | 6.282 | 10.15% | 6 |
 
 At Q32 much of the observed TPF difference from `all_mask` was already present when prefix rows were withheld entirely. At Q64 enabling the prefix cost an observed correct answer relative to the idle arm. Neither three-case comparison establishes an optimal fraction or identifies a benefit of KV freshness alone.
+
+The other half of the same qualification, LLaDA, completed at 16:28 UTC+8.
+Q4 had identical selected-row histories, output digests and bills in all
+three arms on every case. Q8 had no observed prefix T2T in these three
+requests despite projecting eight clean prefix rows in the `prefix` arm.
+
+| Fixed Q | Arm | Correct | TPF | TE | Prefix T2T |
+|---:|---|---:|---:|---:|---:|
+| 4 | all_mask | 2/3 | 1.489 | 36.64% | 0 |
+| 4 | reserve_idle | 2/3 | 1.489 | 36.64% | 0 |
+| 4 | prefix | 2/3 | 1.489 | 36.64% | 0 |
+| 8 | all_mask | 2/3 | 2.592 | 28.49% | 0 |
+| 8 | reserve_idle | 2/3 | 2.563 | 28.65% | 0 |
+| 8 | prefix | 3/3 | 2.471 | 28.20% | 0 |
+
+`python -m tools.shared_mechanism_report BASE_REG RESULTS --board n164:H0
+--require-complete` rechecks the entire qualification. Omit `--board` to
+audit the 216-request panel; a three-case qualification must not be released
+as an 18-case score. H0 is linked into the n164 panel directory so those
+specific requests are counted once only.

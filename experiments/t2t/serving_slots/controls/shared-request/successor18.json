@@ -1,0 +1,26 @@
+{
+  "arms": [
+    "head_only",
+    "allow_successor"
+  ],
+  "cap": 2048,
+  "cases": "screen18",
+  "format": "shared-successor-v1",
+  "offers": {
+    "gemma": 512,
+    "llada21": 64
+  },
+  "params": {
+    "gemma": {
+      "open_at": "1/4",
+      "prefix_share": "1/8"
+    },
+    "llada21": {
+      "open_at": "1/4",
+      "prefix_share": "1/8"
+    }
+  },
+  "source": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "stage": "successor18",
+  "wrapper": "58855834db3c31d4c922ea0813d0e0d9d06d7eaa63a495b75fb29b0d44996b97"
+}

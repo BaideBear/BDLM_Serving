@@ -96,3 +96,25 @@ registered source tree. It writes the combined plot with numeric labels,
 the 90/30/60 CSV, the physical-Q breakdown and baseline deltas. Rendering a
 partial matrix is refused; Flow efficiency with no measured denominator
 remains blank, and sparse endpoints are not extended across untested offers.
+
+### Fixed 2B: does the successor help?
+
+[Registered diagnostic](successor18.json), using the untuned engineering
+reference (`prefix_share=1/8`, `open_at=1/4`). Keep the *offered* Q at
+LLaDA 64 or Gemma 512 for the entire request. `allow_successor` is the
+unchanged planner; `head_only` withholds the unopened successor from the
+same selector. Nothing is substituted for spare seats. An opened tail or
+unpaid write must never be silently suppressed. Same physical mask,
+checkpoint, seed, sampler, row priorities and terminal logic in both arms.
+The experiment is not `open_at=0`: that setting still opens a successor
+at 2B. It is also not equal physical compute; record the actual difference.
+
+`tools.shared_successor_probe` measures ordinary Q separately in the head
+and tail and checks their sum against the decoder bill after verify/rebuild.
+Record dual-block forwards, sampled tail Q and tail debt paid alongside
+correctness, macro TPF and pooled TE. Quantifying which tail tokens survive
+to delivery requires an additional token-identity trace, not the tail Q count.
+Use `register`, `preflight` and then `run` with the same base registration,
+devices and frozen `screen18` cases. Qualification is 3 cases per model
+on H0; the full paired design is 18 cases x 2 arms x 2 models = 72
+requests. The unchanged arm must reproduce its formal control metrics.

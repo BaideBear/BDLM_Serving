@@ -17,7 +17,14 @@ export BDLM_LLADA_REFERENCE=$rt/t2t-native-1125/frozen90-native/llada21
 module=experiments.t2t.serving_slots.shared_fixed_shard
 cd "$src"
 exec 9>"$rt/shared-formal-H0.lock"
-if [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
+if [[ -n ${BDLM_AFTER_H0_MECHANISM:-} ]]; then
+    [[ $# == 5 && -z ${BDLM_AFTER_H0_FORMAL:-} && -z ${BDLM_AFTER_H0_SCREEN:-} ]]
+    wait_limit=$((end-$(date +%s)-180))
+    (( wait_limit > 0 ))
+    flock -w "$wait_limit" 9
+    [[ -s $BDLM_AFTER_H0_MECHANISM/H0/returned ]]
+    "$py" -Bm tools.shared_mechanism_report "$reg" "$BDLM_AFTER_H0_MECHANISM" --board n164:H0 --require-complete >/dev/null
+elif [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
     [[ $# == 6 && -z ${BDLM_AFTER_H0_FORMAL:-} ]]
     wait_limit=$((end-$(date +%s)-180))
     (( wait_limit > 0 ))
@@ -79,7 +86,13 @@ args=(--board n164:H0 --version "$version" --samples "$rt/t2t-native-1125/prefix
 expected=75
 preflight=(run)
 preflight_tail=(--preflight)
-if [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
+if [[ -n ${BDLM_AFTER_H0_MECHANISM:-} ]]; then
+    module=tools.shared_successor_probe
+    args+=(--base "$reg")
+    expected=6
+    preflight=(preflight)
+    preflight_tail=()
+elif [[ -n ${BDLM_AFTER_H0_SCREEN:-} ]]; then
     module=tools.shared_prefix_mechanism
     args+=(--base "$reg")
     expected=18
