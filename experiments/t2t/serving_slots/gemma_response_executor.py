@@ -97,6 +97,7 @@ class _ResponseHandle:
 def run_candidate(model, data, task, *, deadline):
     """Audit one response request through the established frozen90 physical drive."""
     import json
+    from collections import Counter
     from types import SimpleNamespace
     from experiments.t2t.serving_slots import strict_handle_qualify as qualify
     from bdlm_serving.evaluation import scoring
@@ -118,6 +119,12 @@ def run_candidate(model, data, task, *, deadline):
             profile='fixed90_candidate')
     finally:
         setattr(qualify, 'open_strict_gemma', old_open)
+    route_f=Counter(e["route"] for e in row["events"])
+    route_q=Counter()
+    for e in row["events"]:
+        route_q[e["route"]] += e["decoder_Q"]
+    row["route_F"]=dict(route_f)
+    row["route_Q"]=dict(route_q)
     return row, ids, handle._request
 
 
