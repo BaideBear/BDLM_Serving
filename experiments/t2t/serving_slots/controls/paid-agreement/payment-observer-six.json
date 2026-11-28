@@ -1,0 +1,115 @@
+{
+  "q": 128,
+  "device": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "total": {
+    "native": {
+      "payments": 1853,
+      "changed_top": 11,
+      "ordinary_changed_above_09": 7
+    },
+    "extra": {
+      "payments": 25,
+      "changed_top": 4,
+      "ordinary_changed_above_09": 3
+    }
+  },
+  "exposed": [
+    13,
+    55
+  ],
+  "eligible_for_followup": true,
+  "rows": [
+    {
+      "index": 7,
+      "roles": {
+        "native": {
+          "payments": 253,
+          "changed_top": 2,
+          "ordinary_changed_above_09": 1
+        },
+        "extra": {
+          "payments": 3,
+          "changed_top": 0,
+          "ordinary_changed_above_09": 0
+        }
+      },
+      "sha256": "444f2ab0e9028c8d4d4fe414976f3d708d0c8ee241d3060f77347b9879f4ada5"
+    },
+    {
+      "index": 13,
+      "roles": {
+        "native": {
+          "payments": 246,
+          "changed_top": 1,
+          "ordinary_changed_above_09": 0
+        },
+        "extra": {
+          "payments": 10,
+          "changed_top": 3,
+          "ordinary_changed_above_09": 2
+        }
+      },
+      "sha256": "22279bfbd51eddeb5515e33148916dcaeb4bb185d9967ed624e74098e867b580"
+    },
+    {
+      "index": 25,
+      "roles": {
+        "native": {
+          "payments": 251,
+          "changed_top": 1,
+          "ordinary_changed_above_09": 0
+        },
+        "extra": {
+          "payments": 5,
+          "changed_top": 0,
+          "ordinary_changed_above_09": 0
+        }
+      },
+      "sha256": "606ffeefb088c891bb67642f00f29544667d97c5579defb53ac55599c63c80bb"
+    },
+    {
+      "index": 33,
+      "roles": {
+        "native": {
+          "payments": 381,
+          "changed_top": 3,
+          "ordinary_changed_above_09": 2
+        },
+        "extra": {
+          "payments": 3,
+          "changed_top": 0,
+          "ordinary_changed_above_09": 0
+        }
+      },
+      "sha256": "aaa5a56af8b3284523ae090d1b028e4a0fa400026c8a7263c0329b4fb8175a64"
+    },
+    {
+      "index": 55,
+      "roles": {
+        "native": {
+          "payments": 492,
+          "changed_top": 1,
+          "ordinary_changed_above_09": 1
+        },
+        "extra": {
+          "payments": 4,
+          "changed_top": 1,
+          "ordinary_changed_above_09": 1
+        }
+      },
+      "sha256": "b4f2247a879bf4b0a52d1949e2487930c746f5278ed1fd20241f927078b1908c"
+    },
+    {
+      "index": 71,
+      "roles": {
+        "native": {
+          "payments": 230,
+          "changed_top": 3,
+          "ordinary_changed_above_09": 3
+        },
+        "extra": {}
+      },
+      "sha256": "e7528b099442515048514c36ff4f3da1a08abee8bba974c072bce0b9f1a647a5"
+    }
+  ]
+}
