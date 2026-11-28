@@ -67,12 +67,45 @@ def classify(tape):
     return dict(roles=costs,edit_positions=edits,dirty_positions=paid,placement=phase)
 
 
-def audit(root, pair_csv, manifest):
+def tail_edit_overlap(trace):
+    """Eligibility only; no counterfactual token, score, or saved work is inferred."""
+    count, visited = Counter(), set()
+    prev_head = None
+    for e in trace:
+        head = e["ordinal"]
+        if head != prev_head:
+            visited.clear()  # Encoder epoch changed.
+            prev_head = head
+        parts = {p["ordinal"]: p for p in e["parts"]}
+        hp, tail = parts.get(head), parts.get(head + 1)
+        edited = len(hp["edited"]) if hp else 0
+        count["head_t2t_rows"] += edited
+        count["head_t2t_calls"] += bool(edited)
+        if tail is not None:
+            warm = len(visited) == 256
+            sampled = bool(tail["sampled"])
+            state_write = any(tail[k] for k in ("input_changed", "admitted", "revoked", "edited"))
+            check(not state_write or sampled, "tail changed without a sampler call")
+            count["warm_tail_sample_calls"] += warm and sampled
+            if edited and sampled:
+                count["head_edit_plus_tail_sample_calls"] += 1
+                if warm:
+                    count["head_edit_plus_warm_tail_sample_calls"] += 1
+                    count["head_edit_plus_warm_tail_write_calls"] += state_write
+            visited.update(tail["rows"])
+        if e["discarded"]:
+            visited.clear()
+    return count
+
+
+def audit(root, pair_csv, manifest, tail_exposure=False):
     with pair_csv.open(newline="") as fh:
         pairs={int(r["index"]):r for r in csv.DictReader(fh)}
     m=json.loads(manifest.read_bytes())
     check(set(pairs)==set(range(90)), "expected 90 prior pairs")
     cohorts={}
+    overlap = Counter()
+    exposed = []
     for i in range(90):
         r=json.loads((root/f"C512-single1-{i:02d}.json").read_bytes())
         raw=(root/f"C512-single1-{i:02d}.ledger.json.gz").read_bytes()
@@ -81,7 +114,13 @@ def audit(root, pair_csv, manifest):
               and all(r[k]==m["samples"][i][k] for k in ("index","task_id","dataset","seed"))
               and r["index"]==i and digest==r["ledger_sha256"]==pairs[i]["on_ledger_sha256"]
               and r["layers"]==30 and r["projections"]==85, "not the qualified Q512 receipt")
-        st=classify(json.loads(gzip.decompress(raw)))
+        tape=json.loads(gzip.decompress(raw))
+        st=classify(tape)
+        if tail_exposure:
+            counts = tail_edit_overlap(tape["trace"])
+            overlap.update(counts)
+            if counts["head_edit_plus_warm_tail_write_calls"]:
+                exposed.append(i)
         check(sum(st["roles"].values())==r["decoder_Q"]==int(pairs[i]["on_decoder_Q"])
               and sum(st["dirty_positions"].values())==int(pairs[i]["on_refresh_rows"]),
               "roles or total physical refresh disagree with existing audit")
@@ -96,12 +135,22 @@ def audit(root, pair_csv, manifest):
     for c in cohorts.values():
         for col in ("roles","edit_positions","dirty_positions"):
             c[col]={k:c[col][k] for k in ROLES}
-    return dict(source_pair_csv_sha256=sha256(pair_csv.read_bytes()).hexdigest(),cohorts=cohorts)
+    result = dict(source_pair_csv_sha256=sha256(pair_csv.read_bytes()).hexdigest(),cohorts=cohorts)
+    if tail_exposure:
+        result["tail_edit_overlap"] = dict(
+            matching_calls={k:overlap[k] for k in (
+                "head_t2t_calls", "head_edit_plus_tail_sample_calls",
+                "head_edit_plus_warm_tail_sample_calls", "head_edit_plus_warm_tail_write_calls",
+                "warm_tail_sample_calls")}, head_t2t_rows=overlap["head_t2t_rows"],
+            requests=90, exposed_indices=exposed, proceed_at=10,
+            meets_exposure_gate=len(exposed)>=10)
+    return result
 
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser(description=__doc__)
     for k in ("root","pair_csv","manifest"):
         ap.add_argument(k,type=Path)
+    ap.add_argument("--tail-edit-exposure",action="store_true")
     a=ap.parse_args()
-    print(json.dumps(audit(a.root,a.pair_csv,a.manifest),indent=2,sort_keys=True))
+    print(json.dumps(audit(a.root,a.pair_csv,a.manifest,a.tail_edit_exposure),indent=2,sort_keys=True))

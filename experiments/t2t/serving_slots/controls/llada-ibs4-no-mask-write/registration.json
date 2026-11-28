@@ -1,0 +1,20 @@
+{
+  "study": "llada-ibs4-no-mask-paid-write-h4-v1",
+  "purpose": "Attribution only. Keep is the native hard-capped IBS4 candidate. Block is a negative control, not a deployment proposal.",
+  "board": "n164:H4",
+  "uuid": "GPU-d3bdc2bc-d19d-e98f-ac79-ab9c6e887e0e",
+  "deadline": 1795915200,
+  "cases": [7, 13, 25, 33, 55, 71],
+  "sampling": "First index in each original30/new60 x dataset cell of the frozen H4 shard after excluding the independently inspected cases 1 and 67. No outcome, length or exposure filter. No replacement. Alternate arm order by case ordinal, keep first on even ordinals.",
+  "release": "7a38ffc",
+  "base": "a18f108aef1dbc607f3b21b2a4d169b04f5ae5dab01be400d015d07249d406f3",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "reference_ledger_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+  "fixed_source_sha256": "b95003b5f8867bd6ef7d5126c9814e08fb6d03bab57f67642618028d8a1960d4",
+  "q": 4,
+  "cap": 2048,
+  "rule": "Immediately before applying the unchanged native edited mask: only on a call with zero selected unresolved MASKs, block native edits intersecting the projected incoming dirty positions. Do not change any proposal, other edit, sampler call, forward, visibility, prefix decision, payment or termination rule; subsequent states may differ.",
+  "prediction": "At first veto, the same physical rows, inputs, KV horizon, pre-state, measured proposals and native edit mask must produce different writes exactly on debt. Native edits may matter for later output, but have no guaranteed direction on quality or work.",
+  "acceptance": "Keep must reproduce the archived per-case trajectory, IDs, score and bill. Both arms: all layers, native progress failures charged, per-call debt revalidated, no uncharged changes to MASK. Full common tape through first veto, or identical outputs/trajectory if none. Stop on mismatch; do not replace cases or count partials as six pairs.",
+  "report": "Per-index first veto with real token IDs, edit/exposure denominators, quality/N/F/decoder Q/TPF/TE, output identity, EOS and failures. Original30 and new60 strata are 3 pairs each, not full cohorts."
+}

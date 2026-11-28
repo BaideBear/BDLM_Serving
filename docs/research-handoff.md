@@ -92,3 +92,7 @@
 H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q4-first-fork/README.md)定位了两例，不将选出的失败题用于估算准确率。在首块完全对齐的 index 67，第一次实际写入分歧在第 4 次 forward：两者均付 3 行欠账，IBS 将最后 1 行还给已投影但尚未解出的 135，本版却跳到冷 MASK 136。该步没有用前缀、没有开后块。首块不对齐的 index 1 在第一次 forward 已有一行 prefill/生成归属差，第二次 forward 首次写入不同 token。下一步优先隔离两个变量：已投影的未解前沿能否继续采样、已付写回的行是否允许原生编辑；不把这两个样本的错因外推到全部 90 题。
 
 2026-11-28 17:31（UTC+8）。[Gemma Q32 余量前缀正式复核](../experiments/t2t/serving_slots/controls/gemma-factors/ibs-prefix-bridge/README.md#fixed-q32-confirmation)：同卡 90 个三臂配对全部验收，不保留为默认策略。相对硬上限 IBS，全 90：79→80，TPF 6.840→6.821，TE 19.33%→19.43%；两次筛选以外的 75 题：67→68，6.849→6.769，19.17%→18.60%，多花 211 F。#78 是唯一改对题，反而多花 22 F；全表节省的 139 F 中有 126 F 来自仍然答错的 #51。去掉 #51 仅作敏感性分析，TE 即由正转负。这不排除其他前缀选择规则有效，也不能说明 Gemini 系列或 DiffusionGemma 不支持 T2T；干预本身只刷新 KV 和 self-conditioning，不在新增行采样。报告的 TPF 区间为逐题差的**平均值**的 bootstrap，不是其和。
+
+2026-11-28 17:40（UTC+8）。[LLaDA Q4，无选中 MASK 时对写回行保留/屏蔽原生 T2T](../experiments/t2t/serving_slots/controls/llada-ibs4-no-mask-write/README.md)：六题都是 5/6；保留/屏蔽为 1.5055/1.4432 TPF、38.02%/35.20% TE，88 F 差额全来自 #13。五个未命中题逐步相同。保留原生行为；不要把这六题的差值外推到全 90，或让模型纯写回轮额外推进采样时钟。
+
+三方评议后，对跨块只保留一条可检验假设：保护当前块的必刷行与有效解码前沿，后块用真实余量推进，仍按物理块施加因果掩码。没有证据支持为凑满 `2B` 刷新已解干净行，也不采纳“一律禁止后块采样”。[Gemma Q512 控制轨迹的交集核验](../experiments/t2t/serving_slots/controls/gemma-factors/single512-stop/README.md#should-a-current-head-t2t-defer-an-active-successors-sample)显示 225 个暖后块采样轮中，只有 #51 的一个轮次同时发生前块 T2T 与后块写入；没过 10/90 请求的暴露门槛，不开该门控试验。不要在淘汰版继续扫跨块阈值。大档除原版 Flow W2，应**另标实算紧凑版**：Gemma 原版 84/90、25.390；只投影活跃块 85/90、26.250。后者并非原论文对照，也不是本次新测。

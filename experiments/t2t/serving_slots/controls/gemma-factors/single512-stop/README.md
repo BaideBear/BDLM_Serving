@@ -110,3 +110,23 @@ remote SHA-256 checksums after transfer.
 for separate opt-in qualification, not evidence for generalizing the gate
 to 512->lower transitions, resident successors or sampled rebuilds. Observed
 unchanged scores on 90 fixed tasks do not establish quality noninferiority.
+
+## Should a current-head T2T defer an active successor's sample?
+
+Only one of these 90 Live Q512 trajectories would have met the proposed
+gate on an already fully projected successor: **index 51, one call**.
+The 90 requests had 17 actual head T2T writes on 17 calls. Two coincided
+with any successor sample, one with a warm successor sample, and that one
+also changed the successor's input or acceptance state. In total there
+were 225 calls sampling an already warm successor. Warm means all 256
+successor rows had been physically projected **before** this tick in the
+same head/encoder epoch. First projections, admissions on the head, and
+hypothetical argmax differences are not head T2T.
+
+The screening threshold was 10 distinct exposed requests per model.
+Do **not** run this GPU intervention: 1/90 on Gemma is sufficient to
+reject this test for the shared rule. This is an exposure count on a fixed
+control, not an estimate of accuracy or of counterfactual forwards, and
+not evidence against cross-block decoding generally. Reproduce with
+`gemma_top_roles.py ROOT pairs.csv MANIFEST --tail-edit-exposure` using
+the same hash-verified 90 ledgers that generated `row-roles.json`.
