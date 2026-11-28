@@ -18,6 +18,9 @@ case "${2:-admission16}" in
   paid8) dir=$rt/llada-window-paid-q8-1128
     module=experiments.t2t.serving_slots.llada_frontier_seat
     opts=(--offer 8 --factor paid --limit 90) ;;
+  fallback8) dir=$rt/llada-window-fallback-q8-1128
+    module=experiments.t2t.serving_slots.llada_window_fallback
+    opts=(run --parent "$rt/llada-window-paid-q8-1128/results") ;;
   *) exit 2 ;;
 esac
 [[ ! -e $dir/results ]]

@@ -181,6 +181,7 @@ def planner(origin=58, end=131, top_gate="eager", lower_borrow=True, accept=Fals
     """Planner-only request: the fake project checks hole-free contiguous KV."""
     r = object.__new__(LLaDABudgetRequest)
     r.ablation, r.law, r.tail_rule = None, Law(1, 8), "eager"
+    r.audit_admission = False
     r.cross, r.borrow = None, False
     r.switchable, r.top_gate, r.lower_borrow = True, top_gate, lower_borrow
     r._cross_evidence = r._switch_evidence = None

@@ -305,3 +305,14 @@ warm MASKs. Total F 24,290 → 21,623 and selected Q 164,184 → 146,571.
 Paired descriptive 95% intervals: Δ macro TPF [+0.0482,+0.1744],
 Δ correct rate [−7.78,+6.67] percentage points. This does not establish
 quality noninferiority. The H0 control is not the A6 window cohort.
+
+**Preregistered follow-up, H0 Q8.** Starting from the H0 *paid* sampler,
+keep high-confidence acceptances on all the same measured MASKs. Only
+when none pass 0.9, restrict the fallback contest on mixed calls to the
+incumbent cold rows. All other calls, T2T, and all physical positions
+are unchanged at the intervention. This tests whether low-confidence
+competition, not merely extra proposals, matters. Reproduce the 90 H0
+paid controls (token digest and bill), audit both samplers from their
+actual proposals, and require at least one real first exchange among
+fixed anchors 0/10/20 before expansion. If no exchange occurs the pilot
+ends; never replace an anchor or count an ongoing run as evidence.

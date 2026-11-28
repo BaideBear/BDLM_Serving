@@ -600,7 +600,9 @@ class LLaDABudgetRequest:
             for block in sorted({p//B for p in sampled}):
                 group = unresolved & (idx//B == block)
                 if group.any() and not (accept & group).any():
-                    accept[0,conf.masked_fill(~group, -torch.inf)[0].argmax()] = True
+                    restrict = getattr(self, "_fallback_group", None)
+                    candidates = restrict(idx, group) if restrict is not None else group
+                    accept[0,conf.masked_fill(~candidates, -torch.inf)[0].argmax()] = True
             confirm = getattr(self, "_additional_admissions", None)
             if confirm is not None:
                 accept |= confirm(idx, old, draft, conf, accept)
