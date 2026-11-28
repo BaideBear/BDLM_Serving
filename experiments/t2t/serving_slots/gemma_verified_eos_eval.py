@@ -69,6 +69,8 @@ def run(model,data,task,q,early,prefix_order='right',collect_events=False):
             # Equal fingerprints through the actual EOS chunk include sampling changes and raw argmax.
             digest_event={k:v for k,v in e.items()
                           if k not in ("verified_eos_end","prefix_pool")}
+            digest_event["parts"]=[{k:v for k,v in part.items() if k != "prefix_pool"}
+                                   for part in digest_event["parts"]]
             tape.append(digest([digest_event,top[-1]]))
             if collect_events:
                 argmax_sha256=hashlib.sha256(

@@ -154,6 +154,7 @@ def main() -> int:
                 and sealed["samples_sha256"] == "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
                 f"Wrong sealed reference {index}")
         error = None
+        fork = None
         try:
             data = handle["proc"].apply_chat_template(
                 [{"role": "user", "content": task["prompt"]}], tokenize=True,
@@ -174,6 +175,11 @@ def main() -> int:
                                                       "control_prefix_pool",
                                                       "treatment_prefix_pool")},
                        control=control, treatment=treatment)
+        if fork is not None:
+            row["first_fork"] = {
+                key: fork[key] for key in ("kind", "tick", "control_prefix",
+                                           "treatment_prefix", "control_prefix_pool",
+                                           "treatment_prefix_pool")}
         except Exception as exc:
             import traceback
             traceback.print_exc()
