@@ -122,8 +122,8 @@ def run_candidate(model, data, task, *, deadline):
             profile='fixed90_candidate')
     finally:
         setattr(qualify, 'open_strict_gemma', old_open)
-    row["route_F"]=dict(request.route_F)
-    row["route_Q"]=dict(request.route_Q)
+    row["route_F"]=dict(handle._request.route_F)
+    row["route_Q"]=dict(handle._request.route_Q)
     return row, ids, handle._request
 
 
