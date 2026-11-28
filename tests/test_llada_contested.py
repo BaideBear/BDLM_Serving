@@ -34,3 +34,29 @@ def test_receipt_reconstructs_prefix_and_cannot_skip_nearer_waiting_mask():
     assert audit(3)["mask_admits"] == 1 and audit(3)["extra_Q"] == 0
     with pytest.raises(ValueError,match="same-width"):
         audit(4)
+
+
+def test_saturated_interior_swap_keeps_prefix_dirty_and_nearest_interior():
+    plan = Plan((1,2,3,4,5), (4,), (), (2,), (1,), False)
+    masks, resident = {2,6,7}, set(range(7))
+    new,sampled,pair = exchange(plan,plan.rows,masks,resident,5,interior=True)
+    assert pair == (5,6) and sampled == new.rows == (1,2,3,4,6)
+    assert new.dirty == (4,) and new.prefix == (1,) and new.mask == (2,6)
+    assert exchange(plan, plan.rows, masks, resident, 8, interior=True)[2] is None
+    assert exchange(replace(plan,dirty=(3,4,5)),plan.rows,masks,resident,5,interior=True)[2] is None
+
+
+def test_interior_receipt_replays_actual_frontier_and_keeps_supplemental_width_zero():
+    st = dict(origin=0,head=0,last_end=8,end=32)
+    def event(rows,prev,admitted,masks,**tags):
+        return dict(rows=rows,sampled=rows,proposals=[[p] for p in prev],admitted=admitted,mask=masks,
+                    pre_state=st,q=len(rows),layer_physical_q=[len(rows)]*20,visible_kv=8,
+                    sample_clock=1,phase="sample",cold=[],dirty=[],prefix=[],revoked=[],**tags)
+    init=event([0,2,3],[99]*3,[0,2,3],[0,2,3])
+    ctrl=event([1,2,3],[99,77,88],[],[1])
+    swap=event([1,2,4],[99,77,99],[4],[1,4],contest=(3,4))
+    def audit(candidate):
+        return analyze({"trace":[init,ctrl]},{"trace":[init,candidate]},3,99,interior=True)
+    assert audit(swap)["swapped_seats"] == 1 and audit(swap)["extra_Q"] == 0
+    with pytest.raises(ValueError, match="same-width"):
+        audit(event([1,3,4],[99,88,99],[],[1,4],contest=(2,4)))

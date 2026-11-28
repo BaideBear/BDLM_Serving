@@ -1,0 +1,39 @@
+{
+  "registration": {
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "deadline": 1795843443,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "launcher": "f12fceaab62baa06e63397034d3813e73136047084095ed2e286bb412f0c333e",
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 272603,
+    "policy": "55d6a493c0b809d7a4b90923f2f9bb60d762c0e03aef97343bf4243b19c5ec74",
+    "prior": "e31e12ee17cd21c7fbff90ce66129b5dc0355bed1e7c6692a7e5d428ae95d7f4",
+    "ref": "75e4cde129773b93c158d8ddf687bdc9ff1c35900ae45855896d5f35212f00ef",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "source": {
+      "gemma_continuous_rng_eval.py": "0a2b68e9449aba42d9c3667a0b38257f9087efc9e3a8b8ea99033905fc1c3b4a",
+      "gemma_fixed_dual.py": "94137d48feb4aec61a07cb19d9f91d1f559dd569d49a9360c867360622c7f23d",
+      "gemma_fullstop.py": "4c9fad92ebecf37158b0921abef954f8fe0337484929f43442efbd66b42e4061",
+      "gemma_native_visibility_eval.py": "81745f22bbc454fc4e5d77f39846af6a7fb3b2fc362fcb62edec979e2c0f3742",
+      "gemma_predicate_only.py": "427fdeff65303ca9aed303cc24d2c0665d8d3fdb9cecb02f4531aad29bbeb1c2",
+      "gemma_predicate_only_eval.py": "fc80bc4d05517b04a1e424e6eaada5b677e3d3b45bd458ef4ef6890527e6d436",
+      "serving_profiles.py": "ebf8211cb2e1b8a4781263f7866441b174ea8cad11b8a2a0c15ed7635c5627c0"
+    },
+    "start": 1795833725.7884252,
+    "start_ticks": "35363008",
+    "tf": "5.12.0",
+    "torch": "2.6.0+cu124"
+  },
+  "complete": {
+    "n": 90,
+    "pid": 272603,
+    "registration": "697974a7e71d8c64200d09d2c8704534c1722c33e72401aa4046cf92927acd7a"
+  },
+  "raw": "/gs/results/gemma-predicate-only-a1-1128",
+  "control": "/gs/results/gemma-continuous-rng-a1-1128",
+  "native": "/gs/results/gemma-native-visibility-a1-1128",
+  "reducer": "c750731eceeb3628f8447cff35e71f2565c2894b033354de7a14bf3914f4e68f",
+  "test": "2ab86c287bb850c16bb56fcc4da73c844e7fc69425c6d6ed8c2e532d3bdb1dbe"
+}

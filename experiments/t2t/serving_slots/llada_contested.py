@@ -4,29 +4,37 @@ from dataclasses import replace
 from .llada_fixed_family_eval import require
 
 
-def exchange(plan, sampled, masks, resident, q):
-    if (not plan.prefix or plan.cold or plan.drain_only or len(plan.rows) != q
+def exchange(plan, sampled, masks, resident, q, *, interior=False):
+    if (not masks or (not interior and not plan.prefix) or plan.cold or plan.drain_only or len(plan.rows) != q
             or sampled != plan.rows):
         return plan, sampled, None
     pool = sorted((masks & resident) - set(plan.rows))
     if not pool:
         return plan, sampled, None
-    drop, take = min(plan.prefix), pool[0]
-    require(drop < min(masks) <= take and drop // 32 == take // 32
-            and drop not in plan.dirty, "not clean head prefix vs waiting MASK")
+    if interior:
+        candidates=(set(plan.rows)&resident)-masks-set(plan.prefix)-set(plan.dirty)
+        candidates={p for p in candidates if p>min(masks)}
+        if not candidates:
+            return plan,sampled,None
+        drop=max(candidates)
+    else:
+        drop=min(plan.prefix)
+    take=pool[0]
+    require((drop>min(masks) if interior else drop<min(masks)) and min(masks)<=take
+            and drop // 32 == take // 32 and drop not in plan.dirty, "wrong clean-row replacement")
     rows = tuple(sorted((set(plan.rows) - {drop}) | {take}))
     return replace(plan, rows=rows, prefix=tuple(p for p in plan.prefix if p != drop),
                    mask=tuple(sorted((*plan.mask, take)))), rows, (drop, take)
 
 
-def variant(control):
+def variant(control, *, interior=False):
     class Contested(control):
         def _cross_plan(self, q):
             p, s, phase, cap = super()._cross_plan(q)
             self.contest = None
-            if p.prefix and self.cross == "head" and not self.borrow:
+            if (interior or p.prefix) and self.cross == "head" and not self.borrow:
                 masks, _, _ = self._inputs(32)
-                p, s, self.contest = exchange(p, s, masks, self.bank.initialized, q)
+                p, s, self.contest = exchange(p, s, masks, self.bank.initialized, q, interior=interior)
             return p, s, phase, cap
 
         def _step(self, q):
@@ -37,7 +45,7 @@ def variant(control):
     return Contested
 
 
-def analyze(a, b, q, mask_id):
+def analyze(a, b, q, mask_id, *, interior=False):
     decoded, first, swaps, accepts = set(), None, 0, 0
     for i, y in enumerate(b["trace"]):
         if "contest" in y:
@@ -47,8 +55,11 @@ def analyze(a, b, q, mask_id):
             left = next(p for p in range(lo, hi) if p not in decoded)
             pre_rows = (set(y["rows"]) - {take}) | {drop}
             pool = sorted(set(range(lo, min(st["last_end"], hi))) - decoded - pre_rows)
-            require(lo <= drop < left <= take < hi and drop in decoded and drop not in y["dirty"]
-                    and all(p > drop for p in y["prefix"]) and pool and take == pool[0]
+            proper_drop=(left<drop<hi and drop==max(p for p in (pre_rows & decoded)-set(y["dirty"])
+                            if p>left) and drop not in y["prefix"]) if interior else (
+                            lo <= drop < left and all(p > drop for p in y["prefix"]))
+            require(proper_drop and left<=take<hi and drop in decoded and drop not in y["dirty"]
+                    and pool and take == pool[0]
                     and take in y["mask"] and y["sampled"] == y["rows"]
                     and y["proposals"][y["sampled"].index(take)][0] == mask_id
                     and not y["cold"] and y["q"] == q and y["layer_physical_q"] == [q]*20,
@@ -62,7 +73,7 @@ def analyze(a, b, q, mask_id):
                 require(all(x[k] == y[k] for k in ("pre_state","cold","dirty","phase","visible_kv",
                             "sample_clock","q","layer_physical_q")) and x["sampled"] == x["rows"]
                         and set(x["rows"]) == pre_rows and set(y["mask"]) == set(x["mask"]) | {take}
-                        and set(x["prefix"]) == set(y["prefix"]) | {drop}
+                        and set(x["prefix"]) == (set(y["prefix"]) if interior else set(y["prefix"]) | {drop})
                         and x["proposals"][x["sampled"].index(drop)][0] != mask_id,
                         "additional first-state change")
                 first = dict(tick=i, drop=drop, take=take, q=q)

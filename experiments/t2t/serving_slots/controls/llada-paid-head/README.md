@@ -1,5 +1,24 @@
 # LLaDA Q64: projected but unsampled unresolved head positions
 
+**Fixed Q32 and Q64: one paid frontier admission rule.** On a physically
+resident current head, start at its first actual MASK, and inspect this
+call's *sampled* rows in order. Accept the contiguous run of unresolved
+positions with a non-MASK proposal and confidence strictly above 0.5.
+An unsampled position, weak proposal, decoded position or block boundary
+ends this run. Existing native admissions/fallback and Q64 consecutive
+head confirmation remain, as do all T2T and writeback rules. No cached
+logits, extra Q, look-ahead, new clock, or earlier successor opening.
+Q32 uses the real `edit_once` fixed control on A4; Q64 uses the real
+quarter-gated paid-repeat control on A7. Every old arm must exactly replay
+its independently frozen receipt; the anchor gate requires at least one
+additional admission on 0/10/20, not a favorable score. The evaluator
+reconstructs all admissions including natural fallbacks and proves the
+first changed write is the proposed run on identical rows and proposals.
+Launch `bash tools/run_llada_frontier_accept_a800.sh {32|64} DEADLINE`;
+compact metrics use original30/new60/frozen90. The 0.5 condition on
+adjacent measured rows is a hypothesis, not a recommendation to lower
+the global admission threshold.
+
 **Transfer to Q16, not the Q16 paid-waiting sampler.** [Sealed A7 fixed90](q16-agreement-frozen90.json).
 Add only Q64's two-consecutive-paid-proposals acceptance to the original
 Q16 active-window control. Every historical control matched. On 55 exposed

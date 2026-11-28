@@ -5,6 +5,22 @@
 
 ## 预算决策摘要
 
+**先看本轮还剩多少可用行，而不是只看档位。** 一个 Q64 若有 64 个待写回位置，
+并不比没有欠账的 Q8 更有余量。已缓存且 token 未变的位置可以继续作为 KV 被读；
+是否把它重新选为 Q 是另一个决定。预算是上限，不能靠重算干净位置填满来证明利用率。
+
+- **不能省**：对结果仍有效的 MASK→token、T2T、token→MASK 变更，用新输入写回；
+  低档放不下就分轮，暂停后块的账继续保留。新块还没建过的 KV 不能冒充有效行；
+  不能用未实算行的旧 logits 当本轮采样或停止的证据。块内双向、块间因果；
+  Gemma 继续生成前的 encoder 输入必须来自真实验证过的块。
+- **尽量合并**：若本轮实算行既能还账又能在该阶段合法参与采样，一次投影只计一行；
+  不是每一行写回都需要独立 forward。Q16 的等待 MASK 是正例。
+  Gemma 的有序终检能与同输入的末次写回合并；在本执行器里，测到首个有效 EOS 后才可停止后续分片。
+- **可取舍**：紧档先保住首个未解 MASK 附近可推进的位置；干净前缀从物理块内选，
+  必须说明它是填空还是挤掉了 MASK。宽档先保证当前块，再把有用的余量给相邻块；
+  当前块已经 EOS 或后块不合格时，允许留空。比较新增投影、允许已投影行编辑、提前接受 MASK
+  时分别做实验，不能把三者的收益相加。
+
 接口在 `bdlm_serving.methods.t2t.serving_profiles`。LLaDA 用
 `open_strict_llada(..., profile="quarter_window_repeat64_paid16")`，Gemma 用
 `open_strict_gemma(..., initial_offer=C, profile="dense_stop_joint_verified_eos")`。
@@ -30,6 +46,12 @@ LLaDA 五个固定档各三题逐位置复现独立实现；混合循环覆盖�
 二者都保留真实终检与 encoder；提高与原生的一致性，不等于同时胜过原生 TPF。
 见[掩码单因素](../experiments/t2t/serving_slots/controls/gemma-factors/native-visibility-a1/README.md)
 和[RNG 单因素](../experiments/t2t/serving_slots/controls/gemma-factors/continuous-rng-a1/README.md)。
+
+[Gemma Q256，额外等待原生停止谓词](../experiments/t2t/serving_slots/controls/gemma-factors/predicate-only-a1/README.md)：
+在上面的连续 RNG 对照上，仅取消“全部位置已接受即可转入终检”，36/90 题实际触发。
+等待额外确认使与原生逐 token 相同的输出由 68 增到 71，但正确数仍是 85/90、逐题对错无变化；
+多付了 57 F，TPF 23.535→22.330、TE 8.84%→8.48%。不作为默认改动。
+这不是说终检可以删：进入后续 encoder 的 78 个已验证块中，有 5 个与验证前的草稿不同。
 
 **最紧的一档已经有同题实测。** [LLaDA 固定 Q4，首个未解 MASK 附近的活动窗口](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c4-window-frozen90.json)
 在原30、新60分别为 **25/30、47/60**，严格限宽 IBS4 为 **23/30、46/60**。全90三项为
@@ -75,7 +97,12 @@ TE 32.08%→29.90%。原30少对一题、新60多对一题；不把这样一个�
 在 73/90 题实际触发，72→67 题、TPF 2.300→2.284、TE 29.94%→28.57%；
 [Q16](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c16-spare-read-frozen90.json)
 为 70→69 题、2.933→2.877、21.05%→20.43%。这两个对照不支持把空位填给干净的块内行，
-也不能据此否定首个 MASK **左侧**的真前缀。小档优先留给能解码的位置；若无此类位置，不强填。
+但不能据此判断首个 MASK **左侧**的真前缀。为此另做了
+[H0 固定 Q8 真前缀实验](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c8-spare-prefix-frozen90.json)：
+不挤占任何已有席位，每个有余量的采样轮最多为右端两个真前缀重算 KV，不许它们额外采样。
+88/90 题实际触发，直接多投影 10,073 行；冻90 **71→71，TPF 2.315→2.293，
+TE 29.21%→27.37%**。原30为 22→21，新60为 49→50；救回与丢失各五题。
+这不支持把空位固定给前缀，也不证明前缀在所有模型或请求状态都无用。
 
 ## 一轮怎么决策
 

@@ -432,3 +432,23 @@ The first launch stopped before loading the model: the re-exported baseline
 report adds macro averages and expands its order metadata. V2 verifies
 all 90 per-case summary records and the independent raw-row digest, as well
 as the original device, source, sample and scorer checks.
+
+**Q8 spare read-only prefix on H0, [sealed 90](c8-spare-prefix-frozen90.json).**
+On the paired original H0 window, 88/90 exposed, 10,073 added row projections
+on intervened calls. Original30 was 22→21, new60 49→50, frozen90 71→71
+(five rescues and five losses). Macro TPF 2.315→2.293, TE 29.21%→27.37%;
+no failures. The net full-request difference was +1,985 Q and −1,169 F.
+Final nonspecial output count changed as well: 47,957→45,482. Do not adopt.
+The H0 control is not the 72/90 A800 active-window report.
+
+**H0 fixed Q8 saturated interior-versus-MASK pilot, registered before launch.**
+Control: the same original H0 window. Exchange one seat only on a warm,
+already full and fully sampled active-head call: rightmost selected clean
+decoded row *after* the first unresolved MASK for the leftmost unselected
+resident MASK. Preserve mandatory rows, prefix, sampling clock, physical
+width and visible KV; no wider attention and no old logits. Check first
+exposure against the actual aligned control and reconstruct all later
+exchanges using admissions and revocations. Same frozen anchors 0/10/20;
+stop if none expose the exchange, otherwise complete all 90, no replacement.
+This is not the zero-exposure prefix displacement or the spare read-only
+intervention. Launcher mode `swap_interior8`.

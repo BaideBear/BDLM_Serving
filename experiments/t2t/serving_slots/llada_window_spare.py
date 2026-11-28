@@ -132,10 +132,11 @@ def run(a):
     refmeta=json.loads((a.parent/"run.json").read_bytes())
     uuid=os.environ["CUDA_VISIBLE_DEVICES"]
     gb=Path(geometry.__file__).read_bytes()
-    extra_mask=a.factor=="waiting"; head_orig=a.factor=="prefix"; h0=extra_mask or head_orig
+    extra_mask=a.factor=="waiting"; interior_swap=a.factor=="interior_swap"
+    head_orig=a.factor=="prefix"; h0=extra_mask or head_orig or interior_swap
     protocol="llada-window-paid-mask-v1" if h0 else "llada-fixed-width-window-v1"
-    contested=a.factor=="contested"
-    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
+    contested=a.factor=="contested" or interior_swap
+    old,new=("old","swap") if interior_swap else ("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
     # Older controls differ only by not entering this branch at Q4.
     hashes={sha256(b).hexdigest() for b in (gb,gb.replace(b"q in (4,8,16)",b"q in (8,16)"))}
     require(a.q in (8,16) and torch.cuda.is_available() and torch.cuda.device_count()==1
@@ -173,7 +174,7 @@ def run(a):
                 time.sleep(.2)
     tok,model=load_gpu(a,ready)
     mask_id=tok.convert_tokens_to_ids("<|mask|>") if extra_mask or contested else None
-    arms={old:control,new:llada_contested.variant(control) if contested else with_spare(control,a.factor)}
+    arms={old:control,new:llada_contested.variant(control,interior=interior_swap) if contested else with_spare(control,a.factor)}
     exposed=0
     for j,i in enumerate(ORDER):
         require(time.time()<a.deadline-60,"stop")
@@ -181,7 +182,7 @@ def run(a):
         require(ref["index"]==i and ref["generation_cap"]==CAP,"wrong input")
         res={k:evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.q,Law(),cross=("head",False),
                               request_cls=arms[k],audit_admission=extra_mask or contested) for k in (tuple(arms) if j%2==0 else tuple(reversed(arms)))}
-        r=(llada_contested.analyze(res[old],res[new],a.q,mask_id) if contested else
+        r=(llada_contested.analyze(res[old],res[new],a.q,mask_id,interior=interior_swap) if contested else
            analyze(res[old],res[new],a.q,factor=a.factor,mask_id=mask_id))
         orig_path=a.parent/"rows"/f"{i:02d}.json"
         orig=json.loads(orig_path.read_bytes())
@@ -203,8 +204,11 @@ def report(root,manifest):
     reg=json.loads((root/"run.json").read_bytes())
     extra_mask=reg["protocol"]=="llada-window-spare-waiting-v1"
     head_orig=reg["protocol"]=="llada-window-spare-prefix-v1"
-    contested=reg["protocol"]=="llada-window-spare-contested-v1"
-    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
+    interior_swap=reg["protocol"]=="llada-window-spare-interior_swap-v1"
+    contested=reg["protocol"]=="llada-window-spare-contested-v1" or interior_swap
+    old,new=("old","swap") if interior_swap else ("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
+    if interior_swap:
+        require(reg["q"]==8 and "parent_rows" in reg and "exchange_source" in reg,"invalid Q8 swap parent")
     require((reg["protocol"]=="llada-window-spare-read-v1" or contested or (extra_mask or head_orig) and reg["q"]==8)
             and reg["q"] in (8,16) and reg["order"]==list(ORDER)
             and reg["samples"]==SAMPLES==manifest["samples_sha256"] and reg["scorer"]==SCORER_SHA,"wrong run")
@@ -247,7 +251,7 @@ if __name__=="__main__":
     ev=sub.add_parser("run")
     for k in ("out","samples","reference","checkpoint","parent"): ev.add_argument("--"+k,type=Path,required=True)
     ev.add_argument("--q",type=int,choices=(8,16),required=True)
-    ev.add_argument("--factor",choices=("interior","waiting","prefix","contested"),default="interior")
+    ev.add_argument("--factor",choices=("interior","waiting","prefix","contested","interior_swap"),default="interior")
     ev.add_argument("--handoff",type=Path)
     ev.add_argument("--deadline",type=int,required=True)
     re=sub.add_parser("report");re.add_argument("root",type=Path);re.add_argument("manifest",type=Path)

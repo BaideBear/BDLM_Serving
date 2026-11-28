@@ -50,6 +50,9 @@ case "${2:-admission16}" in
   spare_prefix8) dir=$rt/llada-window-spare-prefix-q8-1128
     module=experiments.t2t.serving_slots.llada_window_spare
     opts=(run --q 8 --factor prefix --parent "$rt/llada-window-paid-q8-1128/results") ;;
+  swap_interior8) dir=$rt/llada-window-interior-swap-q8-1128
+    module=experiments.t2t.serving_slots.llada_window_spare
+    opts=(run --q 8 --factor interior_swap --parent "$rt/llada-window-paid-q8-1128/results") ;;
   *) exit 2 ;;
 esac
 [[ ! -e $dir/results ]]
