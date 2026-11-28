@@ -41,6 +41,7 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         self.response_schedule = []
         self.route_F = {}
         self.route_Q = {}
+        self.events = []
 
     def response_offer_for(self, tick=None):
         """Small offer until the response block is open, then exact 2B."""
@@ -66,6 +67,7 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
             raise RuntimeError('Response executor exceeded its registered step cap')
         event['response_schedule_offer'] = offer
         event['history_Q'] = event['decoder_Q']
+        self.events.append(event)
         self.route_F[event['route']] = self.route_F.get(event['route'], 0) + 1
         self.route_Q[event['route']] = self.route_Q.get(event['route'], 0) + event['decoder_Q']
         event['response_block_opened'] = (before_tail is None and self.tail is not None)
@@ -128,7 +130,7 @@ def run_candidate(model, data, task, *, deadline):
 
 
 def _physical_summary(row, request):
-    events = row['events']
+    events = request.events
     opened = [e for e in events if e.get('response_block_opened')]
     promoted = [e for e in events if e.get('encoded')]
     rebuild = [e for e in events if e.get('route') == 'rebuild']
