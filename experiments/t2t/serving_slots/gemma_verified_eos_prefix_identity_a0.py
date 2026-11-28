@@ -79,6 +79,16 @@ def replay_match(control, sealed):
     return {key: control[key] == sealed[key] for key in keys}
 
 
+def score_delivery(handle, task, delivery):
+    ids = delivery["output_ids"]
+    eos = set(handle["model"].generation_config.eos_token_id)
+    special = (set(handle["proc"].tokenizer.all_special_ids) | eos |
+               {handle["model"].generation_config.pad_token_id})
+    text = handle["proc"].tokenizer.decode(ids, skip_special_tokens=True)
+    delivery["N"] = sum(token not in special for token in ids)
+    delivery["correct"] = bool(handle["scoring"].score(text, task)["correct"])
+
+
 def first_fork(control, treatment):
     for tick, (old, new) in enumerate(zip(control["tape"], treatment["tape"])):
         if old != new:
@@ -149,9 +159,11 @@ def main() -> int:
                 [{"role": "user", "content": task["prompt"]}], tokenize=True,
                 add_generation_prompt=True, return_dict=True, return_tensors="pt").to("cuda:0")
             control = run(handle["model"], data, task, 64, True, "right", True)
+            score_delivery(handle, task, control)
             matches = replay_match(control, sealed["on"])
             require(all(matches.values()), f"Native right replay mismatch: {matches}")
             treatment = run(handle["model"], data, task, 64, True, "spread", True)
+            score_delivery(handle, task, treatment)
             fork = first_fork(control, treatment)
             validate_fork(fork)
             row = dict(index=index, task_id=task["task_id"], dataset=task["dataset"],
