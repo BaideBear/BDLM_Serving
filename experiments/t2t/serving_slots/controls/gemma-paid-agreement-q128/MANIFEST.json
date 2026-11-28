@@ -1,0 +1,40 @@
+{
+  "kind": "gemma-paid-agreement-q128",
+  "gate": "passed",
+  "q": 128,
+  "cases": [
+    7,
+    13,
+    25,
+    33,
+    55,
+    71
+  ],
+  "repo_dir": "experiments/t2t/serving_slots/controls/gemma-paid-agreement-q128/",
+  "n164_archive": "/data1/project_data/gx-erqw-20261123/results/gemma-paid-agreement-q128-01/",
+  "files": {
+    "README.md": {
+      "sha256": "3e7c5e8983fe539381b984e7c243952cd633dd665266e1ed5bb098971e8dc906",
+      "bytes": 5424
+    },
+    "summary.compact.json": {
+      "sha256": "ad08de6a2d50c07c0f100cef97f1e5061af0ae41340db0225237ca62f90c0464",
+      "bytes": 14911
+    },
+    "audit.json": {
+      "sha256": "3adb32babf15f6f15a206b17dead77d502efa7ca06582f40ac80e5d896de7876",
+      "bytes": 17224
+    }
+  },
+  "code": {
+    "paid_agreement_py": "f4ae0deaf51708c168cf1c3453043e535ce5c7318cd47d886288d8698c96f155",
+    "gemma_paid_agreement_py": "11cabca063e902178c5e947447bde5cb5662162762dce0e41df34ea8c6fd6aaf",
+    "gemma_paid_agreement_eval_py": "f88351d84aa40a99b2b44a0ce1d7afc94dddae506fa6a03ea5b211a61375d0ff",
+    "run_gemma_ibs_certified_eos_py": "224d2a66028d48fc17a254435185a5391204b89f65fef4992683e5fb5de7804e",
+    "launch_sh": "6c85a771eb1ebd770350dcc6c78ff890a55739abbce9b3772d2c7ed3b88681a2",
+    "test_gemma_paid_agreement_py": "01ca9cd59d6b2e5ea2199065f8cbf0f00a3becf2bb389cdec7ab8894f4e994a0"
+  },
+  "gpu_run": true,
+  "a3_released": true,
+  "no_commit_push": true
+}

@@ -1,0 +1,738 @@
+{
+  "kind": "gemma-paid-agreement-q128-audit",
+  "gpu": "GPU-94c61e79-d80b-cae2-d85f-6bd2a2c99a1c",
+  "q": 128,
+  "cases": [
+    7,
+    13,
+    25,
+    33,
+    55,
+    71
+  ],
+  "gate": "passed",
+  "stock_observer_identical_cases": 6,
+  "first_fork_positions_total": 12,
+  "apply_extra_admissions_total": 25,
+  "observer_would_be_extra_total": 81,
+  "per_case_full_run_extra": {
+    "7": {
+      "apply": 3,
+      "observer": 9
+    },
+    "13": {
+      "apply": 10,
+      "observer": 40
+    },
+    "25": {
+      "apply": 5,
+      "observer": 5
+    },
+    "33": {
+      "apply": 3,
+      "observer": 6
+    },
+    "55": {
+      "apply": 4,
+      "observer": 21
+    },
+    "71": {
+      "apply": 0,
+      "observer": 0
+    }
+  },
+  "first_extra": {
+    "7": [
+      57
+    ],
+    "13": [
+      26,
+      27,
+      38
+    ],
+    "25": [
+      171,
+      192,
+      193,
+      200,
+      204
+    ],
+    "33": [
+      9
+    ],
+    "55": [
+      42,
+      111
+    ],
+    "71": null
+  },
+  "per_case": [
+    {
+      "index": 7,
+      "task_id": "gsm8k/1057",
+      "dataset": "gsm8k",
+      "seed": 17007,
+      "order": [
+        "stock",
+        "observer",
+        "apply"
+      ],
+      "first_extra": {
+        "tick": 3,
+        "block": 0,
+        "extra": [
+          57
+        ]
+      },
+      "stock_observer_identical": true,
+      "arms": {
+        "stock": {
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1423,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 184,
+          "scoring": "numeric_exact_match",
+          "first_extra": null,
+          "applied": null
+        },
+        "observer": {
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1423,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 184,
+          "scoring": "numeric_exact_match",
+          "first_extra": null,
+          "applied": false
+        },
+        "apply": {
+          "bill": {
+            "D": 11,
+            "E": 0,
+            "F": 11,
+            "Q": 1267,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 182,
+          "scoring": "numeric_exact_match",
+          "first_extra": {
+            "tick": 3,
+            "block": 0,
+            "extra": [
+              57
+            ]
+          },
+          "applied": true
+        }
+      }
+    },
+    {
+      "index": 13,
+      "task_id": "test/geometry/456.json",
+      "dataset": "math500",
+      "seed": 17013,
+      "order": [
+        "apply",
+        "observer",
+        "stock"
+      ],
+      "first_extra": {
+        "tick": 2,
+        "block": 0,
+        "extra": [
+          26,
+          27,
+          38
+        ]
+      },
+      "stock_observer_identical": true,
+      "arms": {
+        "apply": {
+          "bill": {
+            "D": 12,
+            "E": 0,
+            "F": 12,
+            "Q": 1150,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 251,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": {
+            "tick": 2,
+            "block": 0,
+            "extra": [
+              26,
+              27,
+              38
+            ]
+          },
+          "applied": true
+        },
+        "observer": {
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2228,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 405,
+            "paid_rows": 405
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 20,
+            "block": 1,
+            "ready": 148,
+            "eos_index": 20,
+            "eos_id": 1,
+            "debt": [
+              404
+            ]
+          },
+          "payment": {
+            "tick": 21,
+            "positions": [
+              404
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 274,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": null,
+          "applied": false
+        },
+        "stock": {
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2228,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 405,
+            "paid_rows": 405
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 20,
+            "block": 1,
+            "ready": 148,
+            "eos_index": 20,
+            "eos_id": 1,
+            "debt": [
+              404
+            ]
+          },
+          "payment": {
+            "tick": 21,
+            "positions": [
+              404
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 274,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": null,
+          "applied": null
+        }
+      }
+    },
+    {
+      "index": 25,
+      "task_id": "HumanEval/90",
+      "dataset": "humaneval",
+      "seed": 17025,
+      "order": [
+        "stock",
+        "observer",
+        "apply"
+      ],
+      "first_extra": {
+        "tick": 5,
+        "block": 0,
+        "extra": [
+          171,
+          192,
+          193,
+          200,
+          204
+        ]
+      },
+      "stock_observer_identical": true,
+      "arms": {
+        "stock": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 224,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": null,
+          "applied": null
+        },
+        "observer": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 224,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": null,
+          "applied": false
+        },
+        "apply": {
+          "bill": {
+            "D": 8,
+            "E": 0,
+            "F": 8,
+            "Q": 962,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 256,
+            "paid_rows": 256
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 224,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": {
+            "tick": 5,
+            "block": 0,
+            "extra": [
+              171,
+              192,
+              193,
+              200,
+              204
+            ]
+          },
+          "applied": true
+        }
+      }
+    },
+    {
+      "index": 33,
+      "task_id": "gsm8k/498",
+      "dataset": "gsm8k",
+      "seed": 17033,
+      "order": [
+        "apply",
+        "observer",
+        "stock"
+      ],
+      "first_extra": {
+        "tick": 1,
+        "block": 0,
+        "extra": [
+          9
+        ]
+      },
+      "stock_observer_identical": true,
+      "arms": {
+        "apply": {
+          "bill": {
+            "D": 15,
+            "E": 1,
+            "F": 16,
+            "Q": 1599,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 384,
+            "paid_rows": 384
+          },
+          "trigger": {
+            "kind": "clean",
+            "tick": 14,
+            "block": 1,
+            "ready": 128,
+            "eos_index": 0,
+            "eos_id": 106,
+            "debt": []
+          },
+          "payment": null,
+          "correct": true,
+          "N": 254,
+          "scoring": "numeric_exact_match",
+          "first_extra": {
+            "tick": 1,
+            "block": 0,
+            "extra": [
+              9
+            ]
+          },
+          "applied": true
+        },
+        "observer": {
+          "bill": {
+            "D": 18,
+            "E": 1,
+            "F": 19,
+            "Q": 2076,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 396,
+            "paid_rows": 396
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 16,
+            "block": 1,
+            "ready": 139,
+            "eos_index": 11,
+            "eos_id": 106,
+            "debt": [
+              395
+            ]
+          },
+          "payment": {
+            "tick": 17,
+            "positions": [
+              395
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 265,
+          "scoring": "numeric_exact_match",
+          "first_extra": null,
+          "applied": false
+        },
+        "stock": {
+          "bill": {
+            "D": 18,
+            "E": 1,
+            "F": 19,
+            "Q": 2076,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 396,
+            "paid_rows": 396
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 16,
+            "block": 1,
+            "ready": 139,
+            "eos_index": 11,
+            "eos_id": 106,
+            "debt": [
+              395
+            ]
+          },
+          "payment": {
+            "tick": 17,
+            "positions": [
+              395
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 265,
+          "scoring": "numeric_exact_match",
+          "first_extra": null,
+          "applied": null
+        }
+      }
+    },
+    {
+      "index": 55,
+      "task_id": "test/number_theory/847.json",
+      "dataset": "math500",
+      "seed": 17055,
+      "order": [
+        "stock",
+        "observer",
+        "apply"
+      ],
+      "first_extra": {
+        "tick": 3,
+        "block": 0,
+        "extra": [
+          42,
+          111
+        ]
+      },
+      "stock_observer_identical": true,
+      "arms": {
+        "stock": {
+          "bill": {
+            "D": 28,
+            "E": 1,
+            "F": 29,
+            "Q": 3011,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 512,
+            "paid_rows": 512
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 398,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": null,
+          "applied": null
+        },
+        "observer": {
+          "bill": {
+            "D": 28,
+            "E": 1,
+            "F": 29,
+            "Q": 3011,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 512,
+            "paid_rows": 512
+          },
+          "trigger": null,
+          "payment": null,
+          "correct": true,
+          "N": 398,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": null,
+          "applied": false
+        },
+        "apply": {
+          "bill": {
+            "D": 22,
+            "E": 1,
+            "F": 23,
+            "Q": 2249,
+            "encoder_Q": 256,
+            "peak_decoder_Q": 128,
+            "admissions": 496,
+            "paid_rows": 496
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 20,
+            "block": 1,
+            "ready": 239,
+            "eos_index": 111,
+            "eos_id": 106,
+            "debt": [
+              495
+            ]
+          },
+          "payment": {
+            "tick": 21,
+            "positions": [
+              495
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 365,
+          "scoring": "math_verify_0.8.0_last_box",
+          "first_extra": {
+            "tick": 3,
+            "block": 0,
+            "extra": [
+              42,
+              111
+            ]
+          },
+          "applied": true
+        }
+      }
+    },
+    {
+      "index": 71,
+      "task_id": "HumanEval/2",
+      "dataset": "humaneval",
+      "seed": 17071,
+      "order": [
+        "apply",
+        "observer",
+        "stock"
+      ],
+      "first_extra": null,
+      "stock_observer_identical": true,
+      "arms": {
+        "apply": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 99,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": null,
+          "applied": true
+        },
+        "observer": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 99,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": null,
+          "applied": false
+        },
+        "stock": {
+          "bill": {
+            "D": 9,
+            "E": 0,
+            "F": 9,
+            "Q": 1025,
+            "encoder_Q": 0,
+            "peak_decoder_Q": 128,
+            "admissions": 230,
+            "paid_rows": 230
+          },
+          "trigger": {
+            "kind": "suffix_debt",
+            "tick": 7,
+            "block": 0,
+            "ready": 229,
+            "eos_index": 101,
+            "eos_id": 1,
+            "debt": [
+              229
+            ]
+          },
+          "payment": {
+            "tick": 8,
+            "positions": [
+              229
+            ],
+            "Q": 1
+          },
+          "correct": true,
+          "N": 99,
+          "scoring": "humaneval_base_pass1",
+          "first_extra": null,
+          "applied": null
+        }
+      }
+    }
+  ],
+  "invariants": {
+    "stock_observer": "6/6 identical on IDs/trace/decoder/encoder/states/bills/RNG/score",
+    "first_fork": "apply pre-extra trace/decoder/states match observer; first extra is exactly the added admission; extra take count; each extra row accepted exactly once",
+    "debt": "added rows enter the original admission debt; stock reconcile passed for every arm",
+    "rng": "noise draw shape unchanged; pre-extra RNG matches; post-extra trajectory may diverge",
+    "extra_accounting": "12 is the first-fork position count; the apply arm actually applied 25 extra admissions over the six-case run; the observer's would-be extras total 81"
+  },
+  "archive": {
+    "n164": "/data1/project_data/gx-erqw-20261123/results/gemma-paid-agreement-q128-01/",
+    "summary_compact_sha256": "ad08de6a2d50c07c0f100cef97f1e5061af0ae41340db0225237ca62f90c0464",
+    "summary_sha256": "e64094d78fe60aaae0dbbd16d075a3f06151b6ab8a2d2c87a234b12b0942f151",
+    "stdout_sha256": "4a08ce75c4d41ea4ddfbfdd61beaa25643d469528535f0f1285db686a2020e6b",
+    "stderr_sha256": "597db3b2346aa45255341faa61d1103d4bc2473ff24662325df5c6ca514f18b1"
+  },
+  "code": {
+    "paid_agreement_py": "f4ae0deaf51708c168cf1c3453043e535ce5c7318cd47d886288d8698c96f155",
+    "gemma_paid_agreement_py": "11cabca063e902178c5e947447bde5cb5662162762dce0e41df34ea8c6fd6aaf",
+    "gemma_paid_agreement_eval_py": "f88351d84aa40a99b2b44a0ce1d7afc94dddae506fa6a03ea5b211a61375d0ff",
+    "run_gemma_ibs_certified_eos_py": "224d2a66028d48fc17a254435185a5391204b89f65fef4992683e5fb5de7804e",
+    "launch_sh": "6c85a771eb1ebd770350dcc6c78ff890a55739abbce9b3772d2c7ed3b88681a2",
+    "test_gemma_paid_agreement_py": "01ca9cd59d6b2e5ea2199065f8cbf0f00a3becf2bb389cdec7ab8894f4e994a0"
+  },
+  "gpu_run": true,
+  "a3_released": true,
+  "no_commit_push": true
+}
