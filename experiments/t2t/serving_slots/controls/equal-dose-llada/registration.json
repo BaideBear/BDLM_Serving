@@ -1,0 +1,13 @@
+{
+  "id":"llada-ibs-q16-equal-dose-h4-six-v1",
+  "board":"n164:H4","uuid":"GPU-d3bdc2bc-d19d-e98f-ac79-ab9c6e887e0e","q":16,"cap":2048,
+  "indices":[7,13,25,33,55,71],"arms":["stock","repeat","current"],"rotation":"left by case ordinal modulo 3",
+  "deadline":1795915200,"extension":false,
+  "samples_sha256":"bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "q16_source_manifest":"d0f79d66c03c0930f83de0b49a603549e65212177a5d6dd81bebdc8dbdce62a7",
+  "prior_six_registration":"f1d33d0c8be39189f27341688e71ea7e8f6713e61459d4dac1938082888b6f9a",
+  "prior_six_receipts":"2cdf8e9b347e924b9d2cdee8ef10f08575a685f0dfeb8711bbffd726c70a2a2e",
+  "selection":"On each arm's own current measured, in-cap generated MASK positions, call original EvidenceLedger.observe once on untouched native proposals/probabilities/accept bits. k=number eligible this tick. Repeat uses original tuple. Current uses the k highest current probabilities among native rejects with probability strictly above .5 and nonspecial current proposal; exact tie smaller absolute row. Same seed/model/dtype/planner and paid stop; no extra draw. Zero observed MASK on a physical tick means no record, physical clock still expires past evidence. Stock is original paid IBS.",
+  "identification":"Compare full H4 common prefix; first differing selected set must have the same k, input/rows, logits-derived proposals, probabilities, native acceptance and T2T, and only the selected extra writes may differ. Use the original H0 sealed six to check faithful stock/repeat replay, not pool devices. Audit every actual write/re-encoded ID and billed width incl terminal payment. Report each arm's own cumulative k and paired N/F/Q/scores, not an equal-total-dose assertion.",
+  "decision":"Mechanism attribution only on these six. Current matching or beating repeat on physical F and Q without a case loss would motivate discussion of how much repeat identity buys; fewer F with worse quality or longer answers must be reported separately. No full90 or promotion."
+}

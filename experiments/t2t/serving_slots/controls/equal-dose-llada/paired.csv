@@ -1,0 +1,7 @@
+index,dataset,seed,first_tick,first_k,repeat_positions,current_positions,first_output_offset,stock_correct,stock_N,stock_F,stock_Q,stock_extra,stock_paid_D,stock_paid_Q,repeat_correct,repeat_N,repeat_F,repeat_Q,repeat_extra,repeat_paid_D,repeat_paid_Q,current_correct,current_N,current_F,current_Q,current_extra,current_paid_D,current_paid_Q
+7,gsm8k,17007,24,1,138,148,108,True,211,73,943,0,1,6,True,247,65,856,31,0,0,True,238,66,877,16,1,13
+13,math500,17013,7,3,82/83/84,86/87/90,78,True,289,77,1027,0,0,0,True,333,85,1156,30,0,0,True,419,107,1412,49,0,0
+25,humaneval,17025,,,,,,True,206,39,553,0,0,0,True,206,34,479,6,0,0,True,206,34,479,6,0,0
+33,gsm8k,17033,2,6,82/83/84/85/86/89,82/85/86/89/90/92,177,True,263,69,945,0,0,0,True,214,66,871,40,1,1,True,227,50,678,23,1,2
+55,math500,17055,2,2,51/54,56/58,35,True,313,121,1485,0,0,0,True,287,102,1387,43,0,0,True,387,111,1391,48,1,6
+71,humaneval,17071,,,,,,True,97,20,276,0,0,0,True,97,19,261,2,0,0,True,97,19,261,2,0,0
