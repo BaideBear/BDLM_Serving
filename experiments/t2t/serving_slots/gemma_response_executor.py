@@ -202,9 +202,9 @@ def run_gpu_gate(*, checkpoint, samples, references, out, deadline):
             candidate = dict(N=sum(x not in special for x in ids),
                              correct=bool(scoring.score(
                                  proc.tokenizer.decode(ids, skip_special_tokens=True), task)['correct']),
-                             decoder_F=row['decoder_F'], decoder_Q=row['decoder_Q'],
-                             encoder_F=row['encoder_F'], encoder_Q=row['encoder_Q'],
-                             F=row['F'], route_F=row['route_F'], route_Q=row['route_Q'],
+                             decoder_F=candidate_row['decoder_F'], decoder_Q=candidate_row['decoder_Q'],
+                             encoder_F=candidate_row['encoder_F'], encoder_Q=candidate_row['encoder_Q'],
+                             F=candidate_row['F'], route_F=candidate_row['route_F'], route_Q=candidate_row['route_Q'],
                              output_sha256=hashlib.sha256(json.dumps(ids, separators=(',', ':')).encode()).hexdigest())
             physical = _physical_summary(candidate_row, request)
             case = dict(index=index, task_id=task['task_id'], dataset=task['dataset'],
