@@ -40,9 +40,21 @@ export CUDA_VISIBLE_DEVICES="$gpu" TRITON_CACHE_DIR=/dev/shm/triton-a0 \
 export TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=2 PYTHONDONTWRITEBYTECODE=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 base=/gs/work/gemma-paid-agreement-q128
+# The shared pure function is source-controlled beside the adapter, but the
+# pinned base package is a regular package and therefore wins namespace lookup.
+# Install the exact committed file into that package before importing.
+pure_dst="$base/bdlm_serving/methods/t2t/prefix_seat.py"
+if [[ -e $pure_dst ]]; then
+    cmp -s "$src/bdlm_serving/methods/t2t/prefix_seat.py" "$pure_dst" || {
+        echo 'PREFIX SEAT SOURCE MISMATCH in pinned base package'; exit 65
+    }
+else
+    cp "$src/bdlm_serving/methods/t2t/prefix_seat.py" "$pure_dst"
+fi
 export PYTHONPATH="$src:$base:/gs/work/gemma-strict-ibs-shadow-sf:/gs/env/deps:/gs/env/fixed-baseline-deps"
 cd "$base"
 sha256sum "$src"/bdlm_serving/methods/t2t/prefix_seat.py \
+          "$pure_dst" \
           "$src"/experiments/t2t/serving_slots/gemma_prefix_seat.py \
           "$src"/experiments/t2t/serving_slots/gemma_paid_agreement_q64_a0_prefix_seat.py \
           "$src"/tools/launch_gemma_q64_a0_prefix_seat.sh \
