@@ -41,6 +41,8 @@ class GemmaResponseRequest(SwitchableVerifiedEOSRequest):
         """Small offer until the response block is open, then exact 2B."""
         if self.status != 'ready':
             raise ValueError('Completed/failed request has no next offer')
+        if self.admission_offer not in (32, 64, 128) or self.response_offer != 2 * B:
+            raise ValueError('Response executor has an unregistered offer schedule')
         if self.tail is None and self.response_admission_tick is None:
             return self.admission_offer
         return self.response_offer
