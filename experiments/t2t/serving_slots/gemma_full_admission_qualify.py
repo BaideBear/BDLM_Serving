@@ -52,12 +52,13 @@ def guard(stage):
     uuid, memory, util = [x.strip() for x in observed.split(",")]
     if uuid != GPU or os.environ.get("CUDA_VISIBLE_DEVICES") != GPU:
         raise RuntimeError(f"A3 UUID mismatch: {uuid!r}")
-    if stage == "before" and (memory != "0" or util != "0" or apps):
-        raise RuntimeError(f"A3 not idle before launch: {memory} MiB / {util}%, apps={apps!r}")
-    if stage != "before":
-        expected = f"{os.getpid()}, 0"
-        if apps != expected:
-            raise RuntimeError(f"A3 occupancy drift at {stage}: {apps!r}")
+    if stage == "before":
+        if memory != "0" or util != "0" or apps:
+            raise RuntimeError(f"A3 not idle before launch: {memory} MiB / {util}%, apps={apps!r}")
+    else:
+        rows = [line.split(", ") for line in apps.splitlines() if line]
+        if rows != [[str(os.getpid()), str(int(memory))]] or int(memory) <= 0:
+            raise RuntimeError(f"A3 occupancy drift at {stage}: apps={apps!r}, memory={memory}")
 
 
 def source_manifest(manifest, core, script):
