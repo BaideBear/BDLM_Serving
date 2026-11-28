@@ -1,0 +1,249 @@
+{
+  "protocol": "llada-strict-ibs-one-frontier-seat-exposure-v1",
+  "note": "Observation on sealed control paths only; no counterfactual output or gain.",
+  "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "tiers": [
+    {
+      "groups": {
+        "all": {
+          "donor_edited_on_original_call": 2,
+          "eligible_calls": 1402,
+          "eligible_on_final_call": 6,
+          "exposed_requests": 85,
+          "generation_F": 27397,
+          "generation_Q": 105885,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 5604,
+          "other_edits_on_original_call": 327,
+          "requests": 90,
+          "requests_with_donor_edit": 1
+        },
+        "generation_failed": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 364,
+          "eligible_on_final_call": 6,
+          "exposed_requests": 6,
+          "generation_F": 1666,
+          "generation_Q": 6439,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 500,
+          "other_edits_on_original_call": 316,
+          "requests": 6,
+          "requests_with_donor_edit": 0
+        },
+        "new60": {
+          "donor_edited_on_original_call": 2,
+          "eligible_calls": 969,
+          "eligible_on_final_call": 4,
+          "exposed_requests": 55,
+          "generation_F": 18692,
+          "generation_Q": 72241,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 3852,
+          "other_edits_on_original_call": 220,
+          "requests": 60,
+          "requests_with_donor_edit": 1
+        },
+        "original30": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 433,
+          "eligible_on_final_call": 2,
+          "exposed_requests": 30,
+          "generation_F": 8705,
+          "generation_Q": 33644,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 1752,
+          "other_edits_on_original_call": 107,
+          "requests": 30,
+          "requests_with_donor_edit": 0
+        },
+        "success": {
+          "donor_edited_on_original_call": 2,
+          "eligible_calls": 1038,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 79,
+          "generation_F": 25731,
+          "generation_Q": 99446,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 5104,
+          "other_edits_on_original_call": 11,
+          "requests": 84,
+          "requests_with_donor_edit": 1
+        }
+      },
+      "q": 4,
+      "records_sha256": "444ebcf67fa934e7bda89e864e758e5c8112b4802d89da6f42588421a07902d5"
+    },
+    {
+      "groups": {
+        "all": {
+          "donor_edited_on_original_call": 1,
+          "eligible_calls": 622,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 84,
+          "generation_F": 19692,
+          "generation_Q": 145324,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 2340,
+          "other_edits_on_original_call": 22,
+          "requests": 90,
+          "requests_with_donor_edit": 1
+        },
+        "new60": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 410,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 55,
+          "generation_F": 13040,
+          "generation_Q": 96295,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 1604,
+          "other_edits_on_original_call": 17,
+          "requests": 60,
+          "requests_with_donor_edit": 0
+        },
+        "original30": {
+          "donor_edited_on_original_call": 1,
+          "eligible_calls": 212,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 29,
+          "generation_F": 6652,
+          "generation_Q": 49029,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 736,
+          "other_edits_on_original_call": 5,
+          "requests": 30,
+          "requests_with_donor_edit": 1
+        },
+        "success": {
+          "donor_edited_on_original_call": 1,
+          "eligible_calls": 622,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 84,
+          "generation_F": 19692,
+          "generation_Q": 145324,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 2340,
+          "other_edits_on_original_call": 22,
+          "requests": 90,
+          "requests_with_donor_edit": 1
+        }
+      },
+      "q": 8,
+      "records_sha256": "ceb103ced675fe7d520b5373a4984a30983d6e61137ae0aa34b2b9c6cbfb0b9c"
+    },
+    {
+      "groups": {
+        "all": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 245,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 70,
+          "generation_F": 15480,
+          "generation_Q": 206927,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 665,
+          "other_edits_on_original_call": 11,
+          "requests": 90,
+          "requests_with_donor_edit": 0
+        },
+        "generation_failed": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 68,
+          "generation_Q": 363,
+          "no_mask_despite_proposal": 1,
+          "requests": 1,
+          "requests_with_donor_edit": 0
+        },
+        "new60": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 173,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 46,
+          "generation_F": 10202,
+          "generation_Q": 136443,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 472,
+          "other_edits_on_original_call": 10,
+          "requests": 60,
+          "requests_with_donor_edit": 0
+        },
+        "original30": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 72,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 24,
+          "generation_F": 5278,
+          "generation_Q": 70484,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 193,
+          "other_edits_on_original_call": 1,
+          "requests": 30,
+          "requests_with_donor_edit": 0
+        },
+        "success": {
+          "donor_edited_on_original_call": 0,
+          "eligible_calls": 245,
+          "eligible_on_final_call": 0,
+          "exposed_requests": 70,
+          "generation_F": 15412,
+          "generation_Q": 206564,
+          "incoming_mask_previously_projected": 0,
+          "no_mask_despite_proposal": 664,
+          "other_edits_on_original_call": 11,
+          "requests": 89,
+          "requests_with_donor_edit": 0
+        }
+      },
+      "q": 16,
+      "records_sha256": "cf00240b0182627bc1f80254861d2bba0caed5c720b2c2f58b434e8bc7b74f24"
+    },
+    {
+      "groups": {
+        "all": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 12694,
+          "generation_Q": 268170,
+          "requests": 90,
+          "requests_with_donor_edit": 0
+        },
+        "generation_failed": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 171,
+          "generation_Q": 2117,
+          "requests": 2,
+          "requests_with_donor_edit": 0
+        },
+        "new60": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 7595,
+          "generation_Q": 161900,
+          "requests": 60,
+          "requests_with_donor_edit": 0
+        },
+        "original30": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 5099,
+          "generation_Q": 106270,
+          "requests": 30,
+          "requests_with_donor_edit": 0
+        },
+        "success": {
+          "eligible_on_final_call": 0,
+          "exposed_requests": 0,
+          "generation_F": 12523,
+          "generation_Q": 266053,
+          "requests": 88,
+          "requests_with_donor_edit": 0
+        }
+      },
+      "q": 32,
+      "records_sha256": "8c141543e965414c7c2fd4ef51ca966472052534f9337eb3896409eaec31a4f1"
+    }
+  ]
+}

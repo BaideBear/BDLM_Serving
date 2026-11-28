@@ -96,3 +96,5 @@ H4 的 [LLaDA Q4 逐轮回放](../experiments/t2t/serving_slots/controls/llada-q
 2026-11-28 17:40（UTC+8）。[LLaDA Q4，无选中 MASK 时对写回行保留/屏蔽原生 T2T](../experiments/t2t/serving_slots/controls/llada-ibs4-no-mask-write/README.md)：六题都是 5/6；保留/屏蔽为 1.5055/1.4432 TPF、38.02%/35.20% TE，88 F 差额全来自 #13。五个未命中题逐步相同。保留原生行为；不要把这六题的差值外推到全 90，或让模型纯写回轮额外推进采样时钟。
 
 三方评议后，对跨块只保留一条可检验假设：保护当前块的必刷行与有效解码前沿，后块用真实余量推进，仍按物理块施加因果掩码。没有证据支持为凑满 `2B` 刷新已解干净行，也不采纳“一律禁止后块采样”。[Gemma Q512 控制轨迹的交集核验](../experiments/t2t/serving_slots/controls/gemma-factors/single512-stop/README.md#should-a-current-head-t2t-defer-an-active-successors-sample)显示 225 个暖后块采样轮中，只有 #51 的一个轮次同时发生前块 T2T 与后块写入；没过 10/90 请求的暴露门槛，不开该门控试验。不要在淘汰版继续扫跨块阈值。大档除原版 Flow W2，应**另标实算紧凑版**：Gemma 原版 84/90、25.390；只投影活跃块 85/90、26.250。后者并非原论文对照，也不是本次新测。
+
+2026-11-28 17:51（UTC+8）。[限额 IBS 的首个 MASK 换位审计](../experiments/t2t/serving_slots/controls/llada-slot-allocation/ibs-frontier-exposure.md)在 LLaDA 固定 4、8、16、32 四档的冻结 90 题旧轨迹上，找到 1,402、622、245、0 轮不加 Q、不挤写回且不产生 KV 空洞的换位；拟让出的已解行在原轮发生编辑分别为 2、1、0、0 次。Q4 六条原触限请求末轮均可换，但 84 条正常完成请求也有 79 条会变。只证明值得做配对实验，不能据此报提速或质量恢复。Gemma 限额 IBS 已优先保留首 MASK，不能将它称为新增特性。
