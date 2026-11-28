@@ -134,7 +134,7 @@ def _seat_loop(rt):
     """Instrument only the pinned runtime; planning changes stay before bank.select."""
     path = Path(rt.__file__)
     raw = path.read_bytes()
-    require(sha(raw).hexdigest() ==
+    require(hashlib.sha256(raw).hexdigest() ==
             "a09d04477361cb2a260dac85ce2195c0bfee9218306b7cfb96d7ddf4f1dba9af",
             "Unqualified IBS runtime source")
     src = raw.decode().split(_SIG)
