@@ -30,6 +30,8 @@ def test_no_cohort_or_comparison_imputation():
     cell=next(x for x in result["tiers"] if x["status"] == "ready_to_compare")
     assert cell["cohorts"]["new60"]["terminals"]["native_failure"] == 1
     assert cell["comparisons"]["frozen90"]["IBS capped"]["correct"] == 17
+    assert cell["cohorts"]["frozen90"]["mean_decoder_Q"] == pytest.approx(20/9)
+    assert cell["comparisons"]["frozen90"]["IBS capped"]["extra_history_Q"] == 1800-206927
     assert cell["meets_performance"] is False
     assert g.evaluate([fixture()],refs=[])["ready_tiers"] == 0
     with pytest.raises(ValueError,match="duplicate"):
@@ -63,3 +65,16 @@ def test_ten_complete_offers_can_still_lose_and_do_not_replace_missing_te():
     result=g.evaluate(docs,lock=locks,refs=refs)
     assert result["ready_tiers"] == 10 and result["status"] == "ready_to_compare"
     assert not result["meets_performance"] and not result["three_metrics_complete"]
+
+
+def test_peak_evidence_is_not_assumed_from_nominal_budget():
+    doc = fixture()
+    refs = deepcopy(g.collect())
+    for ref in refs:
+        ref["peak_decoder_Q"] = None
+    def compared():
+        cell = next(c for c in g.evaluate([doc], refs=refs)["tiers"] if "comparisons" in c)
+        return cell["comparisons"]["frozen90"]["IBS capped"]["both_observed_within_offer"]
+    assert compared() is None
+    doc["cases"]["0"].update(peak=17, over=1, build_Q=17)
+    assert compared() is False

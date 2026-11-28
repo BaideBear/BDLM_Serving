@@ -33,6 +33,7 @@ def aggregate(rows):
     return dict(n=len(rows), correct=sum(r["correct"] for r in rows), N=n,
                 F=sum(r["F"] for r in rows), decoder_F=sum(r["decoder_F"] for r in rows),
                 encoder_F=sum(r["encoder_F"] for r in rows), history_Q=history,
+                mean_decoder_Q=history/sum(r["decoder_F"] for r in rows),
                 macro_TPF=mean(r["N"]/r["F"] for r in rows), token_efficiency=n/history,
                 peak=max(r["peak"] for r in rows), new_block_Q=sum(r["build_Q"] for r in rows),
                 over_offer_Q=sum(r["over"] for r in rows), terminals=dict(Counter(r["terminal"] for r in rows)))
@@ -102,6 +103,15 @@ def evaluate(docs, *, lock=None, refs=None):
                         macro_TPF=arm["macro_TPF"]-ref["macro_TPF"],
                         TE_pp=None if ref["token_efficiency"] is None else
                         100*(arm["token_efficiency"]-ref["token_efficiency"]), baseline_source=ref["source"])
+                    # The fixed offer is a label, not a physical bill. A trace
+                    # without a measured peak cannot certify a per-call cap.
+                    ref_peak = ref["peak_decoder_Q"]
+                    d.update(baseline_history_Q=ref["history_Q"],
+                             extra_history_Q=(None if ref["history_Q"] is None else
+                                              arm["history_Q"]-ref["history_Q"]),
+                             baseline_peak_Q=None if ref_peak is None else int(ref_peak),
+                             both_observed_within_offer=(False if arm["peak"]>q else
+                                 None if ref_peak is None else int(ref_peak)<=q))
                     if name in required:
                         metrics &= d["TE_pp"] is not None
                         if c == "frozen90":

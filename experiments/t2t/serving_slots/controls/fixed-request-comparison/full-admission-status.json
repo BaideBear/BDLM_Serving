@@ -38,6 +38,7 @@
           "decoder_F": 5093,
           "encoder_F": 0,
           "history_Q": 70135,
+          "mean_decoder_Q": 13.770861967406244,
           "macro_TPF": 3.43569195948858,
           "token_efficiency": 0.20367861980466243,
           "peak": 32,
@@ -56,6 +57,7 @@
           "decoder_F": 10257,
           "encoder_F": 0,
           "history_Q": 139099,
+          "mean_decoder_Q": 13.561372721068539,
           "macro_TPF": 3.7458793093791622,
           "token_efficiency": 0.20342346098821704,
           "peak": 32,
@@ -74,6 +76,7 @@
           "decoder_F": 15350,
           "encoder_F": 0,
           "history_Q": 209234,
+          "mean_decoder_Q": 13.630879478827362,
           "macro_TPF": 3.6424835260823016,
           "token_efficiency": 0.20350898993471425,
           "peak": 32,
@@ -91,19 +94,31 @@
             "correct": 2,
             "macro_TPF": 0.24701545814454295,
             "TE_pp": 1.0443275613072844,
-            "baseline_source": "fixed-family-references.csv"
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 70484,
+            "extra_history_Q": -349,
+            "baseline_peak_Q": 16,
+            "both_observed_within_offer": false
           },
           "IBS nominal": {
             "correct": 1,
             "macro_TPF": 0.26302073582238705,
             "TE_pp": 0.4658126767917242,
-            "baseline_source": "block-history90-matrix.csv"
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 73098,
+            "extra_history_Q": -2963,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           },
           "Live profile": {
             "correct": 0,
             "macro_TPF": 0.252582112526075,
             "TE_pp": -2.6288816592226927,
-            "baseline_source": "llada-window-sample-q16/summary.json"
+            "baseline_source": "llada-window-sample-q16/summary.json",
+            "baseline_history_Q": 67253,
+            "extra_history_Q": 2882,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           }
         },
         "new60": {
@@ -111,19 +126,31 @@
             "correct": -1,
             "macro_TPF": 0.27780747394144534,
             "TE_pp": -0.8240017533949734,
-            "baseline_source": "fixed-family-references.csv"
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 136443,
+            "extra_history_Q": 2656,
+            "baseline_peak_Q": 16,
+            "both_observed_within_offer": false
           },
           "IBS nominal": {
             "correct": -1,
             "macro_TPF": 0.2759073930379694,
             "TE_pp": -0.4871372374505578,
-            "baseline_source": "block-history90-matrix.csv"
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 141775,
+            "extra_history_Q": -2676,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           },
           "Live profile": {
             "correct": -2,
             "macro_TPF": 0.3029953410682591,
             "TE_pp": -6.866020310009915,
-            "baseline_source": "llada-window-sample-q16/summary.json"
+            "baseline_source": "llada-window-sample-q16/summary.json",
+            "baseline_history_Q": 108338,
+            "extra_history_Q": 30761,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           }
         },
         "frozen90": {
@@ -131,19 +158,31 @@
             "correct": 1,
             "macro_TPF": 0.26754346867581136,
             "TE_pp": -0.18774506941065527,
-            "baseline_source": "fixed-family-references.csv"
+            "baseline_source": "fixed-family-references.csv",
+            "baseline_history_Q": 206927,
+            "extra_history_Q": 2307,
+            "baseline_peak_Q": 16,
+            "both_observed_within_offer": false
           },
           "IBS nominal": {
             "correct": 0,
             "macro_TPF": 0.2716118406327759,
             "TE_pp": -0.16307903075684083,
-            "baseline_source": "block-history90-matrix.csv"
+            "baseline_source": "block-history90-matrix.csv",
+            "baseline_history_Q": 214873,
+            "extra_history_Q": -5639,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           },
           "Live profile": {
             "correct": -2,
             "macro_TPF": 0.2861909315541977,
             "TE_pp": -5.244376390802255,
-            "baseline_source": "llada-window-sample-q16/summary.json"
+            "baseline_source": "llada-window-sample-q16/summary.json",
+            "baseline_history_Q": 175591,
+            "extra_history_Q": 33643,
+            "baseline_peak_Q": null,
+            "both_observed_within_offer": false
           }
         }
       },
