@@ -97,6 +97,24 @@ def collect():
                         total["history_Q"] is not None and a["history_Q"]+b["history_Q"]!=total["history_Q"]
                         ) or not isclose((a["macro_TPF"]+2*b["macro_TPF"])/3,total["macro_TPF"],abs_tol=.001):
                     raise ValueError(f"Cohorts do not reconcile: {model} {q} {method}")
+    for q in (4,8,16):
+        name=f"llada-slot-allocation/c{q}-window-frozen90.json"
+        if not (ROOT/name).is_file():
+            if q!=4: raise ValueError(f"Missing sealed {name}")
+            continue
+        result=json.loads((ROOT/name).read_bytes())
+        reg=result["registration"]
+        if (reg["protocol"]!="llada-fixed-width-window-v1" or reg["q"]!=q or
+                sorted(reg["order"])!=list(range(90)) or set(result["cohorts"])!=set(COHORTS)):
+            raise ValueError("Not a complete fixed-window trial")
+        for c,v in result["cohorts"].items():
+            r=v["arms"]["window"]; baseline=rows["llada21",c,q,"IBS capped"]
+            delta=v["window_minus_external_capped_IBS"]
+            if (baseline["correct"]+delta["rescues"]-delta["losses"]!=r["correct"] or
+                    not isclose(baseline["macro_TPF"]+delta["delta_macro_TPF"],r["macro_TPF"],abs_tol=1e-6) or
+                    not isclose(r["TE"],r["N"]/r["Q"],abs_tol=1e-9)):
+                raise ValueError("Window and paired IBS reference disagree")
+            add("llada21",c,q,"Active window",v["pairs"],r["correct"],r["macro_TPF"],r["N"],r["F"],r["Q"],name)
     return list(rows.values())
 
 
@@ -104,7 +122,10 @@ def render(rows):
     lines=["# Fixed offers: published requests versus measured baselines","",
            "One independent request at the same offer from prompt to final output. "
            "`Request` means `quarter_edit_warm` for LLaDA and `dense_stop_joint_verified_eos` for Gemma. "
-           "They are not the best trial chosen separately at each point.","",
+           "They are not the best trial chosen separately at each point. "
+           "`Active window` is the low-offer fixed head-only arm of the qualified LLaDA "
+           "`quarter_edit_window` handle. It is shown only at independently measured, sealed "
+           "90-case budgets. It is not a best-of combination or a mixed-offer run.","",
            "Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. "
            "The Q in the first column is a per-request decoder offer, not mean Q/F. "
            "Native and Flow are shown only at their actual block-size endpoints.","",
@@ -115,7 +136,7 @@ def render(rows):
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "
            "Differences are not claims of statistical significance.",""]
-    methods=("Request","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
+    methods=("Request","Active window","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
     for c in ("frozen90","original30","new60"):
         lines+=[f"## {c}","",f"| Model | Q | {' | '.join(methods)} |","|---|---:|"+"---:|"*len(methods)]
         for model,tiers in MODELS.items():
@@ -146,7 +167,8 @@ def draw(rows):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from math import nan
-    methods={"Request":("#146859","o"),"IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
+    methods={"Request":("#146859","o"),"Active window":("#ba253e","P"),
+             "IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
              "Native":("#393d43","s"),"Flow W1":("#b75827","+"),"Flow W2":("#aa3159","D")}
     fig,axes=plt.subplots(2,3,figsize=(16.8,9.8))
     fig.subplots_adjust(left=.055,right=.985,bottom=.23,top=.88,hspace=1.22,wspace=.22)
@@ -157,16 +179,19 @@ def draw(rows):
             ax=axes[ai,col]
             ax.set(title=title,xticks=range(5),xticklabels=tiers,xlabel="Fixed decoder offer Q",xlim=(-.2,4.2))
             ax.grid(axis="y",alpha=.2);ax.spines[["right","top"]].set_visible(False)
-            cells=[]
+            cells=[]; colors=[]
             for name,(color,marker) in methods.items():
+                if name=="Active window" and model!="llada21":continue
+                colors.append(color)
                 vals={r["budget"]:r[metric] for r in rows if
                       (r["cohort"],r["model"],r["method"])==("frozen90",model,name) and r[metric] is not None}
                 cells.append([name,*["-" if q not in vals else
                              str(vals[q]) if metric=="correct" else f"{vals[q]*scale:.2f}" for q in tiers]])
                 if not vals:continue
                 x=list(range(5));y=[vals.get(q,nan)*scale for q in tiers]
-                line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if name=="Request" else "--",
-                              lw=2 if name=="Request" else 1.3,ms=6,alpha=.95)
+                candidate=name in ("Request","Active window")
+                line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if candidate else "--",
+                              lw=2 if candidate else 1.3,ms=6,alpha=.95)
                 handles[name]=line
                 if len(vals)==1:
                     k=tiers.index(next(iter(vals)));ax.hlines(y[k],k-.14,k+.14,linestyle="--",color=color)
@@ -176,11 +201,11 @@ def draw(rows):
             for (i,j),cell in table.get_celld().items():
                 cell.set_edgecolor("#dadfe1");cell.set_linewidth(.45)
                 if i==0:cell.set_facecolor("#edf1f1")
-                elif j==0:cell.get_text().set_color(list(methods.values())[i-1][0])
+                elif j==0:cell.get_text().set_color(colors[i-1])
             if col==0:
                 ax.set_ylabel("LLaDA 2.1" if model=="llada21" else "DiffusionGemma",weight="bold")
     fig.suptitle("Single-request execution at fixed Q  |  frozen 90",x=.05,ha="left",fontsize=18)
-    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.949),ncol=6,frameon=False)
+    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.949),ncol=7,frameon=False)
     fig.text(.055,.015,"Baselines are dashed. Native/W1/W2 are measured endpoints only; dash in table = unavailable. "
              "Each point is a separate constant-budget run.",fontsize=9)
     fig.savefig(DEST/"frozen90.png",dpi=150,facecolor="white")

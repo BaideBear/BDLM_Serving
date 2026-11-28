@@ -1,0 +1,303 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "arms": {
+        "old": {
+          "F": 24290,
+          "N": 47957,
+          "Q": 164184,
+          "TE": 0.29209301759002093,
+          "actual_rows": {
+            "clean_interior": 20057,
+            "cold_mask": 49234,
+            "dirty": 49325,
+            "waiting_mask": 45568
+          },
+          "correct": 71,
+          "failed": 0,
+          "macro_TPF": 2.3147455702004467,
+          "paid_waiting_admits": 0,
+          "paid_waiting_calls": 0,
+          "paid_waiting_rows": 0,
+          "window_calls": 13820,
+          "window_edits": 54,
+          "window_interior": 20057
+        },
+        "paid": {
+          "F": 21623,
+          "N": 47018,
+          "Q": 146571,
+          "TE": 0.32078651302099326,
+          "actual_rows": {
+            "clean_interior": 7325,
+            "cold_mask": 48373,
+            "dirty": 48414,
+            "waiting_mask": 42459
+          },
+          "correct": 70,
+          "failed": 0,
+          "macro_TPF": 2.4243050044903867,
+          "paid_waiting_admits": 8979,
+          "paid_waiting_calls": 6133,
+          "paid_waiting_rows": 23801,
+          "window_calls": 11517,
+          "window_edits": 6,
+          "window_interior": 7325
+        }
+      },
+      "changes": {
+        "old_to_paid": {
+          "different_ids": 77,
+          "losses": 6,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.07778,
+              0.06667
+            ],
+            "macro_TPF": [
+              0.0482,
+              0.17436
+            ]
+          },
+          "rescues": 5
+        }
+      },
+      "exposed": 88,
+      "pairs": 90
+    },
+    "new60": {
+      "arms": {
+        "old": {
+          "F": 14549,
+          "N": 30604,
+          "Q": 98876,
+          "TE": 0.3095189934867915,
+          "actual_rows": {
+            "clean_interior": 10515,
+            "cold_mask": 31445,
+            "dirty": 31484,
+            "waiting_mask": 25432
+          },
+          "correct": 49,
+          "failed": 0,
+          "macro_TPF": 2.3852013084821833,
+          "paid_waiting_admits": 0,
+          "paid_waiting_calls": 0,
+          "paid_waiting_rows": 0,
+          "window_calls": 7763,
+          "window_edits": 21,
+          "window_interior": 10515
+        },
+        "paid": {
+          "F": 13689,
+          "N": 30427,
+          "Q": 92938,
+          "TE": 0.32739030321289464,
+          "actual_rows": {
+            "clean_interior": 4635,
+            "cold_mask": 31284,
+            "dirty": 31310,
+            "waiting_mask": 25709
+          },
+          "correct": 46,
+          "failed": 0,
+          "macro_TPF": 2.4736204999552243,
+          "paid_waiting_admits": 5482,
+          "paid_waiting_calls": 3722,
+          "paid_waiting_rows": 14149,
+          "window_calls": 7105,
+          "window_edits": 5,
+          "window_interior": 4635
+        }
+      },
+      "changes": {
+        "old_to_paid": {
+          "different_ids": 51,
+          "losses": 4,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.13333,
+              0.01667
+            ],
+            "macro_TPF": [
+              0.01831,
+              0.1598
+            ]
+          },
+          "rescues": 1
+        }
+      },
+      "exposed": 58,
+      "pairs": 60
+    },
+    "original30": {
+      "arms": {
+        "old": {
+          "F": 9741,
+          "N": 17353,
+          "Q": 65308,
+          "TE": 0.2657101733325167,
+          "actual_rows": {
+            "clean_interior": 9542,
+            "cold_mask": 17789,
+            "dirty": 17841,
+            "waiting_mask": 20136
+          },
+          "correct": 22,
+          "failed": 0,
+          "macro_TPF": 2.173834093636973,
+          "paid_waiting_admits": 0,
+          "paid_waiting_calls": 0,
+          "paid_waiting_rows": 0,
+          "window_calls": 6057,
+          "window_edits": 33,
+          "window_interior": 9542
+        },
+        "paid": {
+          "F": 7934,
+          "N": 16591,
+          "Q": 53633,
+          "TE": 0.3093431282978763,
+          "actual_rows": {
+            "clean_interior": 2690,
+            "cold_mask": 17089,
+            "dirty": 17104,
+            "waiting_mask": 16750
+          },
+          "correct": 24,
+          "failed": 0,
+          "macro_TPF": 2.325674013560711,
+          "paid_waiting_admits": 3497,
+          "paid_waiting_calls": 2411,
+          "paid_waiting_rows": 9652,
+          "window_calls": 4412,
+          "window_edits": 1,
+          "window_interior": 2690
+        }
+      },
+      "changes": {
+        "old_to_paid": {
+          "different_ids": 26,
+          "losses": 2,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              -0.1,
+              0.23333
+            ],
+            "macro_TPF": [
+              0.03671,
+              0.27875
+            ]
+          },
+          "rescues": 4
+        }
+      },
+      "exposed": 30,
+      "pairs": 30
+    }
+  },
+  "registration": {
+    "checkpoint": "/data0/ysy/models/LLaDA2.1-mini",
+    "device": "GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb",
+    "geometry_sha256": "c3fe36a6fe092dc63bac8a22d5c7dfacdf0f93d64ac06d6cf09221c9ed53bcd9",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "planner": "d2e24e0811b32bc43b116f0ba60c3d6670e41e4f2b2d0f165c62c969eae0d45d",
+    "protocol": "llada-window-paid-mask-v1",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "sampling_sha256": "2a7cc2a14ca88fa47cd75c27334946cccd287dec52e01af14c4068195a16ff82",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "46b2dabc59cc5aa233a340f556aed81abef96c658e70343b0e73430fd5ad29aa"
+}

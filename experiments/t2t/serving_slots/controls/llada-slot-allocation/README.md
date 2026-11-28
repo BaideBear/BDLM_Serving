@@ -214,6 +214,15 @@ of the single-seat factor on this evidence.
 arms must exactly replay the input, first change, outputs and bills on
 0/10/20 before inheriting the 27 other original pairs. Use
 `tools/run_llada_small_geometry_a800.sh window90 DEADLINE 8` or `16`.
+The [sealed Q8 extension](c8-window-frozen90.json) changed **19 to 48/60**
+on new60 and **30 to 72/90** overall (42 rescued, 0 lost vs the matched A6
+control). Frozen90 macro TPF increased **1.681 to 2.300** and pooled TE
+**16.54% to 29.94%**. Paid F decreased 47,198 to 22,684 and Q decreased
+329,926 to 153,616. Against the external strict IBS8 **72/90, 2.364 TPF,
+29.36% TE**, 6 cases were rescued and 6 lost; the paired TPF difference
+is -0.064 [-0.140,+0.007]. Equal aggregate accuracy is not identical
+answers, and an interval crossing zero is not a proof of equivalence.
+
 The [sealed Q16 extension](c16-window-frozen90.json) reproduced the improvement
 on new60: 35 to 49 correct, 2.712 to 2.999 macro TPF and 12.71% to 21.34% TE.
 Across frozen90 it moved from **49 to 70 correct**, **2.639 to 2.933** TPF,
@@ -265,3 +274,34 @@ directory or loading the model: its copied parent environment lacked the
 current `paired` report helper. The restored helper is the repository version
 at `3f39db8`; startup import was checked before the same registration was
 relaunched. No requests or outcomes were replaced.
+
+**Width versus output per selected Q.** On each of the 90 paired inputs,
+`N/F = (Q/F) * (N/Q)`. Split the product difference symmetrically at the
+two trajectories' means, *then* average over requests. This reconciles the
+macro TPF; the yield in this identity is not the pooled headline TE.
+
+| Window minus capped IBS | Mean Q/F, IBS → window | Width term | Yield term | Δ macro TPF |
+|---|---:|---:|---:|---:|
+| [Q8](c8-width-accounting.json) | 7.415 → 6.905 | −0.15652 | +0.09228 | −0.06424 |
+| [Q16](c16-width-accounting.json) | 13.456 → 10.639 | −0.67691 | +0.23450 | −0.44241 |
+
+At both tiers 88/90 requests ran narrower than their IBS counterparts.
+This is descriptive across different output trajectories; it is neither
+a latency model nor evidence that projecting arbitrary extra rows helps.
+
+**[H0 mixed cold/warm Q8, complete](c8-paid-frozen90.json).** No rows
+were added to the first changed forward. Only the sampler got access to
+resident waiting MASKs whose logits that call already produced. On later
+calls the KV state, number of forwards and selected rows can diverge.
+
+| Same H800 window → allow paid waiting proposals | Correct | Macro TPF | Pooled TE |
+|---|---:|---:|---:|
+| Original 30 | 22 → 24 | 2.174 → 2.326 | 26.57% → 30.93% |
+| New 60 | 49 → 46 | 2.385 → 2.474 | 30.95% → 32.74% |
+| All 90 | 71 → 70 | 2.315 → 2.424 | 29.21% → 32.08% |
+
+No failed requests. 88/90 exposed, 5 rescues and 6 losses, 8,979 accepted
+warm MASKs. Total F 24,290 → 21,623 and selected Q 164,184 → 146,571.
+Paired descriptive 95% intervals: Δ macro TPF [+0.0482,+0.1744],
+Δ correct rate [−7.78,+6.67] percentage points. This does not establish
+quality noninferiority. The H0 control is not the A6 window cohort.
