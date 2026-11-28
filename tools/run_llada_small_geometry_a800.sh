@@ -35,6 +35,13 @@ case "$mode/$q" in
     out=/gs/results/llada-window-q4-1128
     extra=(--factor window --limit 90)
     ;;
+  paid90/4)
+    gpu=0
+    module=llada_frontier_seat
+    parent=/gs/results/llada-window-q4-1128
+    out=/gs/results/llada-window-paid-q4-1128
+    extra=(--factor paid --limit 90 --paired-window "$parent")
+    ;;
   successor/64)
     gpu=1
     module=llada_frontier_seat
@@ -51,6 +58,7 @@ remaining=$((deadline-$(date +%s)))
 (( remaining>120 ))
 uuid=$(nvidia-smi -i "$gpu" --query-gpu=uuid --format=csv,noheader)
 [[ -z $(nvidia-smi -i "$uuid" --query-compute-apps=pid --format=csv,noheader,nounits) ]]
+[[ $(nvidia-smi -i "$uuid" --query-gpu=memory.used --format=csv,noheader,nounits) -lt 100 ]]
 export CUDA_VISIBLE_DEVICES="$uuid" OMP_NUM_THREADS=2 HF_HUB_OFFLINE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH="$PWD:/gs/env/fixed-baseline-deps" TRITON_CACHE_DIR="/gs/runtime/llada-admission-1128/triton-$gpu"
 exec timeout -k 3 "$remaining" /gs/env/venv-llada/bin/python -Bu -m "experiments.t2t.serving_slots.$module" \

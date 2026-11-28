@@ -100,8 +100,7 @@ def collect():
     for q in (4,8,16):
         name=f"llada-slot-allocation/c{q}-window-frozen90.json"
         if not (ROOT/name).is_file():
-            if q!=4: raise ValueError(f"Missing sealed {name}")
-            continue
+            raise ValueError(f"Missing sealed {name}")
         result=json.loads((ROOT/name).read_bytes())
         reg=result["registration"]
         if (reg["protocol"]!="llada-fixed-width-window-v1" or reg["q"]!=q or

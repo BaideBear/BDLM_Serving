@@ -1,0 +1,332 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "arms": {
+        "old": {
+          "F": 57238,
+          "N": 59250,
+          "Q": 215347,
+          "TE": 0.2751373364848361,
+          "actual_rows": {
+            "cold_mask": 60657,
+            "dirty": 60720,
+            "waiting_mask": 93970
+          },
+          "correct": 21,
+          "failed": 0,
+          "macro_TPF": 1.1912140511241671,
+          "window_calls": 0,
+          "window_edits": 0,
+          "window_interior": 0
+        },
+        "window": {
+          "F": 32558,
+          "N": 46556,
+          "Q": 123572,
+          "TE": 0.3767520150195837,
+          "actual_rows": {
+            "clean_interior": 6669,
+            "cold_mask": 47949,
+            "dirty": 48012,
+            "waiting_mask": 20942
+          },
+          "correct": 72,
+          "failed": 0,
+          "macro_TPF": 1.503742925930372,
+          "window_calls": 12798,
+          "window_edits": 42,
+          "window_interior": 6669
+        }
+      },
+      "changes": {
+        "old_to_window": {
+          "different_ids": 84,
+          "losses": 2,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.45556,
+              0.67778
+            ],
+            "macro_TPF": [
+              0.27641,
+              0.34957
+            ]
+          },
+          "rescues": 53
+        }
+      },
+      "exposed": 89,
+      "pairs": 90,
+      "window_minus_external_capped_IBS": {
+        "delta_TE": 0.02019537338006916,
+        "delta_macro_TPF": 0.10863447805522572,
+        "ledger_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+        "losses": 5,
+        "paired_stratified_ci95": {
+          "correct_rate": [
+            -0.04444,
+            0.11111
+          ],
+          "macro_TPF": [
+            0.03339,
+            0.18684
+          ]
+        },
+        "rescues": 8
+      }
+    },
+    "new60": {
+      "arms": {
+        "old": {
+          "F": 37011,
+          "N": 38447,
+          "Q": 139273,
+          "TE": 0.2760549424511571,
+          "actual_rows": {
+            "cold_mask": 39403,
+            "dirty": 39437,
+            "waiting_mask": 60433
+          },
+          "correct": 16,
+          "failed": 0,
+          "macro_TPF": 1.1933092313992475,
+          "window_calls": 0,
+          "window_edits": 0,
+          "window_interior": 0
+        },
+        "window": {
+          "F": 21667,
+          "N": 31130,
+          "Q": 82376,
+          "TE": 0.37790133048460717,
+          "actual_rows": {
+            "clean_interior": 4462,
+            "cold_mask": 32076,
+            "dirty": 32120,
+            "waiting_mask": 13718
+          },
+          "correct": 47,
+          "failed": 0,
+          "macro_TPF": 1.5109625492898269,
+          "window_calls": 8362,
+          "window_edits": 28,
+          "window_interior": 4462
+        }
+      },
+      "changes": {
+        "old_to_window": {
+          "different_ids": 55,
+          "losses": 2,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.38333,
+              0.65
+            ],
+            "macro_TPF": [
+              0.26918,
+              0.36602
+            ]
+          },
+          "rescues": 33
+        }
+      },
+      "exposed": 59,
+      "pairs": 60,
+      "window_minus_external_capped_IBS": {
+        "delta_TE": 0.010949045770940413,
+        "delta_macro_TPF": 0.10938518552251629,
+        "ledger_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+        "losses": 5,
+        "paired_stratified_ci95": {
+          "correct_rate": [
+            -0.08333,
+            0.11667
+          ],
+          "macro_TPF": [
+            0.02063,
+            0.21012
+          ]
+        },
+        "rescues": 6
+      }
+    },
+    "original30": {
+      "arms": {
+        "old": {
+          "F": 20227,
+          "N": 20803,
+          "Q": 76074,
+          "TE": 0.27345742303546544,
+          "actual_rows": {
+            "cold_mask": 21254,
+            "dirty": 21283,
+            "waiting_mask": 33537
+          },
+          "correct": 5,
+          "failed": 0,
+          "macro_TPF": 1.1870236905740064,
+          "window_calls": 0,
+          "window_edits": 0,
+          "window_interior": 0
+        },
+        "window": {
+          "F": 10891,
+          "N": 15426,
+          "Q": 41196,
+          "TE": 0.37445383046897757,
+          "actual_rows": {
+            "clean_interior": 2207,
+            "cold_mask": 15873,
+            "dirty": 15892,
+            "waiting_mask": 7224
+          },
+          "correct": 25,
+          "failed": 0,
+          "macro_TPF": 1.4893036792114627,
+          "window_calls": 4436,
+          "window_edits": 14,
+          "window_interior": 2207
+        }
+      },
+      "changes": {
+        "old_to_window": {
+          "different_ids": 29,
+          "losses": 0,
+          "paired_stratified_ci95": {
+            "correct_rate": [
+              0.5,
+              0.8
+            ],
+            "macro_TPF": [
+              0.25407,
+              0.34904
+            ]
+          },
+          "rescues": 20
+        }
+      },
+      "exposed": 30,
+      "pairs": 30,
+      "window_minus_external_capped_IBS": {
+        "delta_TE": 0.04021890002075501,
+        "delta_macro_TPF": 0.10713306312064456,
+        "ledger_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+        "losses": 0,
+        "paired_stratified_ci95": {
+          "correct_rate": [
+            0.0,
+            0.16667
+          ],
+          "macro_TPF": [
+            -0.00089,
+            0.24598
+          ]
+        },
+        "rescues": 2
+      }
+    }
+  },
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1",
+    "geometry_sha256": "c3fe36a6fe092dc63bac8a22d5c7dfacdf0f93d64ac06d6cf09221c9ed53bcd9",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "planner": "be0fdd6cc90259425bdf7e0c95be46e36b0050fd3a1b14e39fced15405c708df",
+    "protocol": "llada-fixed-width-window-v1",
+    "q": 4,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692"
+  },
+  "rows_sha256": "b1ee572b378a596d392780453eb822bf8625439609b132094aa7696dacf65bce"
+}

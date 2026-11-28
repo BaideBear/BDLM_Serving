@@ -213,7 +213,7 @@ def qualify_extension(factor, old, new):
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor=="window" else (8,16) if a.factor=="paid" else (4,8)
+    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor in ("window","paid") else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES
@@ -237,6 +237,18 @@ def run(a):
         registration["sampling_sha256"]=sha256(Path(__file__).with_name("llada_window_sample.py").read_bytes()).hexdigest()
     if a.factor=="successor":
         registration["successor_sha256"]=sha256(Path(__file__).with_name("llada_successor_seats.py").read_bytes()).hexdigest()
+    replay = a.factor=="paid" and a.offer==4
+    if replay:
+        require(a.paired_window is not None and a.limit==90 and not a.extend_from,"Q4 requires a sealed control")
+        sealed=json.loads(Path(__file__).with_name("controls").joinpath("llada-slot-allocation","c4-window-frozen90.json").read_bytes())
+        reg=json.loads((a.paired_window/"run.json").read_bytes())
+        digest=sha256()
+        for i in range(90):
+            digest.update(sha256((a.paired_window/"rows"/f"{i:02}.json").read_bytes()).digest())
+        require(reg==sealed["registration"] and reg["protocol"]=="llada-fixed-width-window-v1"
+                and all(reg[k]==registration[k] for k in ("order","q","device","checkpoint","samples","scorer","geometry_sha256"))
+                and digest.hexdigest()==sealed["rows_sha256"],"wrong fixed Q4 source")
+        registration.update(paired_window=str(a.paired_window),paired_window_rows=sealed["rows_sha256"])
     if a.extend_from:
         old_reg=json.loads((a.extend_from/"run.json").read_bytes())
         inherited_arm=qualify_extension(a.factor,old_reg,registration)
@@ -294,6 +306,11 @@ def run(a):
                     and all(e["q"]<=a.offer and e["layer_physical_q"]==[e["q"]]*20
                             for e in r["trace"]),"invalid physical bill")
         row=dict(**{k:old[k] for k in KEYS},input=old["input_sha256"],first=first,old=compact(old),**extra)
+        if replay:
+            control=json.loads((a.paired_window/"rows"/f"{i:02}.json").read_bytes())
+            require(all(row[k]==control[k] for k in (*KEYS,"input"))
+                    and row["old"]==control["window"],"historical active-window arm did not reproduce")
+            row["replayed_window"]=True
         if i in prior:
             refrow=prior[i]
             require(row["input"]==refrow["input"] and row["first"]==refrow["first"] and
@@ -315,6 +332,7 @@ if __name__=="__main__":
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
     ap.add_argument("--factor",choices=("frontier","interior","window","successor","paid"),default="frontier")
     ap.add_argument("--extend-from",type=Path)
+    ap.add_argument("--paired-window",type=Path)
     ap.add_argument("--handoff",type=Path)
     ap.add_argument("--deadline",type=int,required=True)
     run(ap.parse_args())

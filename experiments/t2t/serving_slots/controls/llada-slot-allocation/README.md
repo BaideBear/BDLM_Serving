@@ -379,3 +379,33 @@ macro TPF 2.300 → 2.284, TE 29.94% → 28.57%. Full trajectories cost
 22,684 → 25,507 forwards and 153,616 → 172,511 selected Q. The 665
 supplemental reads are counted at the calls making them, not the net
 whole-trajectory difference. No failures in either arm.
+
+**Contested seat, preregistered before launch.** Fixed Q8/A6 and Q16/A5,
+old = sealed original active window on the same GPU (not the paid-MASK
+variant). On a full, warm current-block sampling call, if a selected optional
+clean prefix and an unselected resident MASK compete, exchange the farthest
+selected prefix for the leftmost unselected waiting MASK. No sampling-only
+change, no cold row, no debt replacement. Check identical width and visible
+KV, identical sampling clock, independently reconstruct the two token states,
+and require replay of every old output hash, bill and score. If none of
+0/10/20 is exposed, stop without expanding. Otherwise include all frozen90
+cases; record actual swaps, admissions, original30/new60 and all three metrics.
+This tests displacement and is distinct from H0's extra read-only prefix.
+Launch via `tools/run_llada_window_spare_a800.sh Q DEADLINE contested`.
+
+Both pilots stopped as registered: no qualifying exchange in 0, 10 or 20
+at either Q8 or Q16. All six old arms matched their sealed controls and
+the candidate IDs and bills were identical. No full90 effect estimate.
+
+**Q4 active window, A0.** [Sealed frozen90](c4-window-frozen90.json),
+[width vs yield breakdown](c4-width-accounting.json): 72/90 / 1.504 /
+37.68%, vs strict capped IBS 69/90 / 1.395 / 35.66%. Original30 25 vs
+23, new60 47 vs 46; eight rescues and five losses overall vs external IBS.
+**Independent follow-up:** run the same Q16 paid-waiting-MASK rule at
+fixed Q4 with no additional projected rows or new sample clock. Require
+the complete same-device Q4 active-window parent and exact output hash,
+bill, metric and row-count replay for every control. Stop on no measured
+exposure in 0/10/20. Otherwise report original30/new60/frozen90; compare
+to the Q4 window **and** strict IBS; do not replace cases or change the
+public offer-switching policy. Launcher: `run_llada_small_geometry_a800.sh
+paid90 DEADLINE 4`.

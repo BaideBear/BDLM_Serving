@@ -134,7 +134,8 @@ def run(a):
     gb=Path(geometry.__file__).read_bytes()
     extra_mask=a.factor=="waiting"; head_orig=a.factor=="prefix"; h0=extra_mask or head_orig
     protocol="llada-window-paid-mask-v1" if h0 else "llada-fixed-width-window-v1"
-    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","read")
+    contested=a.factor=="contested"
+    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
     # Older controls differ only by not entering this branch at Q4.
     hashes={sha256(b).hexdigest() for b in (gb,gb.replace(b"q in (4,8,16)",b"q in (8,16)"))}
     require(a.q in (8,16) and torch.cuda.is_available() and torch.cuda.device_count()==1
@@ -160,6 +161,9 @@ def run(a):
                 "not the sealed same-device paid sampler")
         control=paid.variants(request_classes()[1])[int(extra_mask)]
         reg.update(sampling=refmeta["sampling_sha256"],parent_rows=sealed["rows_sha256"])
+    if contested:
+        from . import llada_contested
+        reg["exchange_source"]=digest(Path(llada_contested.__file__))
     save(a.out/"run.json",reg)
     def ready():
         if a.handoff is not None:
@@ -168,16 +172,17 @@ def run(a):
                 require(time.time()<a.deadline,"handoff expired")
                 time.sleep(.2)
     tok,model=load_gpu(a,ready)
-    mask_id=tok.convert_tokens_to_ids("<|mask|>") if extra_mask else None
-    arms={old:control,new:with_spare(control,a.factor)}
+    mask_id=tok.convert_tokens_to_ids("<|mask|>") if extra_mask or contested else None
+    arms={old:control,new:llada_contested.variant(control) if contested else with_spare(control,a.factor)}
     exposed=0
     for j,i in enumerate(ORDER):
         require(time.time()<a.deadline-60,"stop")
         ref=json.loads((a.reference/f"{i:02d}-native32.json").read_bytes())
         require(ref["index"]==i and ref["generation_cap"]==CAP,"wrong input")
         res={k:evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.q,Law(),cross=("head",False),
-                              request_cls=arms[k],audit_admission=extra_mask) for k in (tuple(arms) if j%2==0 else tuple(reversed(arms)))}
-        r=analyze(res[old],res[new],a.q,factor=a.factor,mask_id=mask_id)
+                              request_cls=arms[k],audit_admission=extra_mask or contested) for k in (tuple(arms) if j%2==0 else tuple(reversed(arms)))}
+        r=(llada_contested.analyze(res[old],res[new],a.q,mask_id) if contested else
+           analyze(res[old],res[new],a.q,factor=a.factor,mask_id=mask_id))
         orig_path=a.parent/"rows"/f"{i:02d}.json"
         orig=json.loads(orig_path.read_bytes())
         for k,v in res.items():
@@ -189,7 +194,7 @@ def run(a):
         r.update({k:tasks[i][k] for k in KEYS},input=orig["input"],reference_sha=digest(orig_path))
         save(a.out/"rows"/f"{i:02d}.json",r)
         exposed+=bool(r["first"])
-        print(i,r["first"],r["extra_Q"],flush=True)
+        print(i,r["first"],r["calls"],r["extra_Q"],flush=True)
         if j+1==len(ANCHORS):
             require(exposed>0,"no genuine test in three unchanged anchors")
 
@@ -198,8 +203,9 @@ def report(root,manifest):
     reg=json.loads((root/"run.json").read_bytes())
     extra_mask=reg["protocol"]=="llada-window-spare-waiting-v1"
     head_orig=reg["protocol"]=="llada-window-spare-prefix-v1"
-    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","read")
-    require((reg["protocol"]=="llada-window-spare-read-v1" or (extra_mask or head_orig) and reg["q"]==8)
+    contested=reg["protocol"]=="llada-window-spare-contested-v1"
+    old,new=("paid","waiting") if extra_mask else ("old","prefix") if head_orig else ("window","swap" if contested else "read")
+    require((reg["protocol"]=="llada-window-spare-read-v1" or contested or (extra_mask or head_orig) and reg["q"]==8)
             and reg["q"] in (8,16) and reg["order"]==list(ORDER)
             and reg["samples"]==SAMPLES==manifest["samples_sha256"] and reg["scorer"]==SCORER_SHA,"wrong run")
     rows={}
@@ -209,7 +215,8 @@ def report(root,manifest):
         h.update(sha256(blob).digest())
         r=json.loads(blob);i=r["index"]
         require(p.name==f"{i:02d}.json" and all(r[t]==manifest["samples"][i][t] for t in KEYS)
-                and bool(r["first"])==bool(r["extra_Q"])==bool(r["calls"])
+                and bool(r["first"])==bool(r["swapped_seats"] if contested else r["extra_Q"])==bool(r["calls"])
+                and (not contested or r["extra_Q"]==0 and 0<=r["mask_admits"]<=r["calls"]==r["swapped_seats"])
                 and (r["first"] or r[old]==r[new]) and
                 (not extra_mask or 0<=r["extra_admits"]<=r["calls"]==r["extra_Q"])
                 and all(0<v["F"]<=v["Q"]<=reg["q"]*v["F"] and 0<v["max_decoder_Q"]<=reg["q"]
@@ -225,6 +232,8 @@ def report(root,manifest):
             losses=sum(r[old]["correct"] and not r[new]["correct"] for r in part),ci95=paired(part,old,new))
         if extra_mask:
             c["extra_admits"]=sum(r["extra_admits"] for r in part)
+        if contested:
+            c.update({k:sum(r[k] for r in part) for k in ("swapped_seats","mask_admits")})
         for k in (old,new):
             vals=[r[k] for r in part]
             s={t:sum(v[t] for v in vals) for t in ("Q","F","N","correct")}
@@ -238,7 +247,7 @@ if __name__=="__main__":
     ev=sub.add_parser("run")
     for k in ("out","samples","reference","checkpoint","parent"): ev.add_argument("--"+k,type=Path,required=True)
     ev.add_argument("--q",type=int,choices=(8,16),required=True)
-    ev.add_argument("--factor",choices=("interior","waiting","prefix"),default="interior")
+    ev.add_argument("--factor",choices=("interior","waiting","prefix","contested"),default="interior")
     ev.add_argument("--handoff",type=Path)
     ev.add_argument("--deadline",type=int,required=True)
     re=sub.add_parser("report");re.add_argument("root",type=Path);re.add_argument("manifest",type=Path)

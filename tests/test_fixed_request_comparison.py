@@ -19,11 +19,12 @@ def test_same_fixed_offer_does_not_pool_hardware_or_contaminate_efficiency():
 def test_active_window_is_its_own_sealed_arm_never_a_cherry_picked_composite():
     rows=collect()
     at={(r["model"],r["cohort"],r["budget"],r["method"]):r for r in rows}
-    for q in (8,16):
+    for q in (4,8,16):
         arm=[at["llada21",c,q,"Active window"] for c in ("original30","new60","frozen90")]
         for k in ("N","F","history_Q","correct","n"):
             assert arm[0][k]+arm[1][k]==arm[2][k]
         assert arm[2]["token_efficiency"]==pytest.approx(arm[2]["N"]/arm[2]["history_Q"])
+    assert at["llada21","frozen90",4,"Active window"]["correct"]==72
     assert at["llada21","frozen90",8,"Active window"]["correct"]==72
     assert at["llada21","new60",16,"Active window"]["correct"]==49
     assert not any(r["method"]=="Active window" and (r["model"]!="llada21" or r["budget"]>16) for r in rows)

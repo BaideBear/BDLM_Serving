@@ -78,7 +78,7 @@ def report(root,manifest,ibs=None):
     q,order=meta["q"],meta["order"]
     n=len(order)
     if (n not in (30,90) or order[:3]!=[0,10,20] or sorted(order)!=list(range(n))
-            or q not in ((64,) if successor else (4,8,16) if "window" in arms else (8,) if "paid" in arms else (4,8))
+            or q not in ((64,) if successor else (4,8,16) if "window" in arms or "paid" in arms else (4,8))
             or meta["samples"]!=manifest["samples_sha256"] or not meta["device"].startswith("GPU-")):
         raise ValueError("Unregistered study")
     files=sorted((root/"rows").glob("*.json"))
@@ -95,6 +95,9 @@ def report(root,manifest,ibs=None):
             raise ValueError(f"Unmatched input or unexercised anchor: {i}")
         if r["first"] and not 0<r["first"]["width"]<=q:
             raise ValueError("Wrong first exchange width")
+        if "paid" in arms and q==4 and not (n==90 and len(meta["paired_window_rows"])==64
+                                           and r.get("replayed_window") is True):
+            raise ValueError("Missing paired Q4 window replay")
         if "edit" in arms and bool(r["edit_first"])!=bool(r["first"]):
             raise ValueError("Unpaired read/edit opportunity")
         for k in arms:
