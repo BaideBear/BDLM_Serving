@@ -4,6 +4,8 @@
 
 **已归档版本：[Paid Agreement v1](../experiments/t2t/serving_slots/controls/paid-agreement/v1.md)**（标签 `paid-agreement-v1`）。只含 LLaDA 2.1 Q16、DiffusionGemma Q64/Q128 三档作为正式结论，附同卡对照和独立标注的诊断。不升为默认；后续结果另行登记，不改这个快照。
 
+**阶段补充：[固定预算下，哪些 KV 值得再算](../experiments/t2t/serving_slots/controls/prefix-clamp/fixed-budget-checkpoint.md)**。LLaDA Q16 每块用一个已付清前缀行替代一个暖 MASK，六题正确数不变，但多 50 F、795 Q；Q64 跳过后块已付清行且禁用旧 logits，少 27 Q、多 7 F。Gemma 上分别记录精确复用后块 KV 的零次机会，以及 Q128 纯写回步的零空位。两项 LLaDA 配对、Gemma 观察和已有 90 题正式分数分开读。
+
 **2026-11-28 21:33 后续决策（不属于 v1）：** [只刷新已支付生成前缀的真实 GPU 诊断和下一项生产选择](../experiments/t2t/serving_slots/controls/prefix-clamp/README.md)。Gemma Q64 在原 64 行投影上逐位复现控制后，232 个 MASK 中 7 个改变采纳（2 增 5 减）；LLaDA Q16 在等宽旁路中 60 个里 2 个由接受变拒绝。它证明前缀会影响决定，并不证明更正确。两个模型下一步共用 `choose_prefix_seat`，每块至多一席换位，实际预算不增加，先看原生采纳、配对 F/Q 和质量。LLaDA Q64 只省后块已付清行但重用旧 logits 的六题不扩；无本轮 logits 就不给对应行新提案的版本须分开。
 
 **11 月 28 日 20:49 更新：不把连续同提案提前采纳定为统一算法。** [三项正式 90 题、原 30 / 新 60、图和物理账单](../experiments/t2t/serving_slots/controls/paid-agreement/README.md)。Gemma Q64 在同卡从 83 降至 77，7 改错、1 改对，全部在新增 60；TPF 升但 F、Q 均增加。Gemma Q128 是效率收益而不是已证实的质量提升；LLaDA Q16 同卡 72→72，F 少 1,257、新增 60 少对两题。三档不能拼成预算策略。A0 三档的 9,693 个采样步均未截掉已建右侧 K，暂不试扩张右侧可见范围。继续按固定预算做单请求，保留已有强基线；先验证后块开启时头块实际编辑是否值得短暂延迟开块。对同设备 Live 的复核是为了区分设备与方法，不用于宣称采样器的单因素效应。
