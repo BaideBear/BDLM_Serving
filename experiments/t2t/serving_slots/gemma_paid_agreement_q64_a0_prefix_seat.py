@@ -214,15 +214,19 @@ def stable(a):
 
 
 def output_digest(ids):
-    return hashlib.sha256(json.dumps(ids.tolist(), separators=(",", ":")).encode()).hexdigest()
+    sequence = ids.tolist() if hasattr(ids, "tolist") else list(ids)
+    return hashlib.sha256(json.dumps(sequence, separators=(",", ":")).encode()).hexdigest()
 
 
 def first_fork(reference, treatment):
     for tick, (old, new) in enumerate(zip(reference["trace"], treatment["trace"])):
         if old != new:
             return dict(kind="trace", tick=tick, reference=old, treatment=new)
-    for offset, (x, y) in enumerate(zip(reference["ids"].tolist(),
-                                        treatment["ids"].tolist(), strict=True)):
+    reference_ids = (reference["ids"].tolist() if hasattr(reference["ids"], "tolist")
+                     else list(reference["ids"]))
+    treatment_ids = (treatment["ids"].tolist() if hasattr(treatment["ids"], "tolist")
+                     else list(treatment["ids"]))
+    for offset, (x, y) in enumerate(zip(reference_ids, treatment_ids, strict=True)):
         if x != y:
             return dict(kind="output_id", offset=offset, reference=x, treatment=y)
     if len(reference["trace"]) != len(treatment["trace"]):
