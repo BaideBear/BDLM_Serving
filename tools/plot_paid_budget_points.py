@@ -2,7 +2,9 @@
 from argparse import ArgumentParser
 import csv
 import json
+from math import isclose
 from pathlib import Path
+from statistics import mean
 
 
 OFFERS = {"gemma": [32,64,128,256,512], "llada": [4,8,16,32,64]}
@@ -13,10 +15,40 @@ METHODS = {"Repeat + paid IBS": ("#006751","o"), "Matched paid IBS": ("#265997",
            "Flow W1/W2 (historical)": ("#b35b13","^")}
 
 
+def point(path):
+    doc=json.loads(path.read_bytes())
+    if doc.get("status") != "sealed90":
+        return doc
+    # The A1 schema splits the scored cases into two sealed, disjoint panels.
+    cases=[]
+    for stage,scope in (("six","development"),("remaining","non_development")):
+        s=json.loads((path.parent/f"{stage}-summary.json").read_bytes())
+        reg=s["registration"]
+        if (reg["q"]!=8 or reg["stage"]!=stage or reg["code"]!=doc["source"]
+                or reg["gpu"]!=doc["gpu"] or s["raw_sha256"]!=doc["raw_sha256"][scope]
+                or reg["samples"]!="bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"):
+            raise ValueError("Q8 point does not match registered source and device")
+        cases.extend(s["cases"])
+    if sorted(r["index"] for r in cases)!=list(range(90)):
+        raise ValueError("Q8 panels overlap or miss frozen cases")
+    result={"requests":90}
+    for arm in ("stock","apply"):
+        data=[r["arms"][arm] for r in cases]
+        totals=doc["all90"]["totals"][arm]
+        bills={k:sum(x[k] for x in data) for k in ("correct","N","F","Q")}
+        if bills != {k:totals[k] for k in bills} or any(x["F"]<=0 or x["Q"]<=0 for x in data):
+            raise ValueError("Q8 bill mismatch")
+        bills.update(tpf=mean(x["N"]/x["F"] for x in data),te=bills["N"]/bills["Q"])
+        if not isclose(bills["tpf"],totals["TPF"]) or not isclose(bills["te"],totals["TE"]):
+            raise ValueError("Q8 ratio mismatch")
+        result[arm]=bills
+    return {"model":"llada","fixed_q":8,"cohorts":{"frozen90":result},"hashes":doc["raw_sha256"]}
+
+
 def collect(files, historical):
     rows={}
     for path in files:
-        doc=json.loads(path.read_bytes())
+        doc=point(path)
         model,q=doc["model"],doc["fixed_q"]
         v=doc["cohorts"]["frozen90"]
         if v["requests"] != 90 or q not in OFFERS[model] or not doc.get("hashes"):

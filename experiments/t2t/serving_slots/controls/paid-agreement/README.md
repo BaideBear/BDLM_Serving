@@ -2,6 +2,31 @@
 
 [Paid Agreement v1: frozen results, figure and reproduction](v1.md) (`paid-agreement-v1`). Archived as an experimental version, not a default policy.
 
+**After v1: [four measured points with numerical labels](fixed-budget90-with-q8.png).**
+The [new LLaDA Q8 point](llada-q8/README.md) uses the unchanged admission
+rule. On the same A1, paid IBS → agreement: **70→71/90, 2.450→2.555
+macro TPF, 30.31%→29.95% pooled TE**. Delivered N rose 42,570→44,609,
+F 19,054→20,278 and Q 140,426→148,924. Six cases were rescued and five
+lost; original 30 scored 22→22, new 60 scored 48→49. The favorable
+six-question development result did not predict the increase in paid work.
+
+For the unchanged candidate on these frozen questions, LLaDA Q8→16
+was 71→72 correct and 2.555→3.833 TPF; Gemma Q64→128 was 77→79 and
+13.635→18.747. These are comparisons **across devices and fixed runs**.
+Only each candidate versus its own paid IBS is a matched device contrast.
+With only two offers measured per model this is neither a ten-slot
+monotonicity result nor a state-conditioned response curve.
+
+To reproduce the four-point supplement without changing the v1 figure:
+
+```sh
+d=experiments/t2t/serving_slots/controls/paid-agreement
+python3 tools/plot_paid_budget_points.py "$d/llada-q8/all90-summary.json" \
+  "$d/llada-q16-frozen90.json" "$d/gemma-q64-frozen90.json" "$d/gemma-q128-frozen90.json" \
+  --historical "$d/../fixed-request-comparison/metrics.csv" \
+  --matched-live "$d/q128-same-card-live-point.json" --out /tmp/paid-agreement-four-points.png
+```
+
 ## Fixed-offer decision: reject this as the unified default
 
 The treatment admits a usually rejected ordinary MASK proposal after two
