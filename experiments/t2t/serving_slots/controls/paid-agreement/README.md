@@ -1,5 +1,7 @@
 # Two paid observations on the same unresolved row
 
+[Paid Agreement v1: frozen results, figure and reproduction](v1.md) (`paid-agreement-v1`). Archived as an experimental version, not a default policy.
+
 ## Fixed-offer decision: reject this as the unified default
 
 The treatment admits a usually rejected ordinary MASK proposal after two
