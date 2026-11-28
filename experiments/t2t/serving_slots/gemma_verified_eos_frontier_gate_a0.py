@@ -1,0 +1,214 @@
+"""A0 only: verified-EOS Q64 frontier-progress dose gate, separate factor.
+
+Control must replay the sealed verified-EOS Live `on` arm. Gate arm keeps native
+semantics and zero-dose fill; only the optional-prefix quota changes to zero when
+the paid contiguous prefix advanced since the previous ordinary sparse plan on
+the same head. Verify and pure-debt plans do not advance the memory.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+from .gemma_verified_eos_eval import run
+
+SIX = (7, 13, 25, 33, 55, 71)
+A0_UUID = "GPU-d3c3fc9c-b15d-9776-9094-7d3b85b705c1"
+MODEL = Path("/gs/models/diffusiongemma-cd40195")
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def guard(stage):
+    apps = subprocess.check_output(["nvidia-smi", "-i", "0",
+                                    "--query-compute-apps=pid,gpu_uuid",
+                                    "--format=csv,noheader,nounits"], text=True).strip()
+    uuid = subprocess.check_output(["nvidia-smi", "-i", "0", "--query-gpu=uuid",
+                                    "--format=csv,noheader"], text=True).strip()
+    if uuid != A0_UUID or os.environ.get("CUDA_VISIBLE_DEVICES") != A0_UUID:
+        raise RuntimeError(f"A0 UUID mismatch: {uuid!r}/{os.environ.get('CUDA_VISIBLE_DEVICES')!r}")
+    if stage == "before":
+        mem, util = subprocess.check_output(["nvidia-smi", "-i", "0",
+                                             "--query-gpu=memory.used,utilization.gpu",
+                                             "--format=csv,noheader,nounits"], text=True).split(",")[0:2]
+        if mem.strip() != "0" or util.strip() != "0":
+            raise RuntimeError(f"A0 not idle: {mem.strip()} MiB / {util.strip()}%")
+    expected = "" if stage == "before" else f"{os.getpid()}, {A0_UUID}"
+    if apps != expected:
+        raise RuntimeError(f"Unexpected A0 apps at {stage}: {apps!r}")
+
+
+def load_runtime(samples):
+    import torch
+    import transformers
+    from transformers import AutoProcessor, DiffusionGemmaForBlockDiffusion
+    from bdlm_serving.evaluation import frozen, frozen90, scoring
+    from bdlm_serving.runtime.diffusiongemma import check_snapshot
+    require = lambda ok, message: (_ for _ in ()).throw(RuntimeError(message)) if not ok else None
+    require(transformers.__version__ == "5.12.0", "Wrong transformers")
+    require(sha(samples) == "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+            "Wrong frozen samples")
+    check_snapshot(MODEL)
+    require(sha(frozen.ROOT / "benchmarks/checkpoints/diffusiongemma.json") ==
+            "ceb951734eb354728d7ba984093739119addbeda981b554af46d5dc105071f53",
+            "Wrong model manifest")
+    proc = AutoProcessor.from_pretrained(MODEL, local_files_only=True)
+    model = DiffusionGemmaForBlockDiffusion.from_pretrained(
+        MODEL, local_files_only=True, dtype=torch.bfloat16,
+        attn_implementation="sdpa", experts_implementation="grouped_mm",
+        device_map={"": "cuda:0"}).eval()
+    return dict(torch=torch, model=model, proc=proc, tasks=frozen90.load_tasks(samples),
+                scoring=scoring, transformers=transformers.__version__)
+
+
+def score_delivery(handle, task, delivery):
+    ids = delivery["output_ids"]
+    eos = set(handle["model"].generation_config.eos_token_id)
+    special = (set(handle["proc"].tokenizer.all_special_ids) | eos |
+               {handle["model"].generation_config.pad_token_id})
+    text = handle["proc"].tokenizer.decode(ids, skip_special_tokens=True)
+    delivery["N"] = sum(token not in special for token in ids)
+    delivery["correct"] = bool(handle["scoring"].score(text, task)["correct"])
+
+
+def replay_match(control, sealed):
+    keys = ("output_ids", "tape", "input_sha256", "hit", "encoder_digest", "N", "correct",
+            "decoder_F", "decoder_Q", "encoder_F", "encoder_Q", "F", "route_F", "route_Q")
+    return {key: control[key] == sealed[key] for key in keys}
+
+
+def first_fork(parent, gate):
+    for tick, (old, new) in enumerate(zip(parent["tape"], gate["tape"])):
+        if old != new:
+            pe, ge = parent["events"][tick], gate["events"][tick]
+            return dict(kind="trace", tick=tick, parent=pe, gate=ge,
+                        parent_receipt=pe.get("frontier_receipt"),
+                        gate_receipt=ge.get("frontier_receipt"))
+    if len(parent["tape"]) != len(gate["tape"]):
+        return dict(kind="trace_length", parent=len(parent["tape"]),
+                    gate=len(gate["tape"]))
+    return None
+
+
+def validate_fork(fork):
+    if fork is None or fork["kind"] != "trace":
+        raise RuntimeError("Gate arm has no first physical fork")
+    pe, ge = fork["parent"], fork["gate"]
+    pp, gp = pe["parts"][0], ge["parts"][0]
+    pr, gr = fork["parent_receipt"], fork["gate_receipt"]
+    if not (pr and gr):
+        raise RuntimeError("Missing frontier plan-entry receipts")
+    if pr["current"] != gr["current"] or pr["ordinal"] != gr["ordinal"]:
+        raise RuntimeError("Gate fork receipts are not same block/plan frontier")
+    if not (pe["tick"] == ge["tick"] and pe["q"] == ge["q"] == 64
+            and pe["route"] == ge["route"] == "sparse"
+            and pr["ordinal"] == gr["ordinal"]
+            and len(pe["positions"]) == len(ge["positions"]) == 64):
+        raise RuntimeError("First gate fork changed tick, block, offer or route")
+    if gr["previous"] is None or gr["current"] <= gr["previous"]:
+        raise RuntimeError(f"Registered advanced gate absent: {gr}")
+    if gr["quota"] != 0 or pr["quota"] != 1:
+        raise RuntimeError(f"Gate did not select zero dose: parent={pr}, gate={gr}")
+    if len(pp["prefix"]) == 0 and len(gp["prefix"]) == 0:
+        raise RuntimeError("Gate fork does not expose an optional-prefix identity change")
+    if len(gp["sampled"]) != len(pp["sampled"]):
+        raise RuntimeError("Gate changed sampler arity or sampling clock")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--deadline", type=int, required=True)
+    parser.add_argument("--samples", type=Path, default=Path("/gs/code/samples.json"))
+    parser.add_argument("--references", type=Path, required=True)
+    args = parser.parse_args()
+    if not str(args.root).startswith("/dev/shm/"):
+        print("A0 frontier gate root must be under /dev/shm", file=sys.stderr)
+        return 2
+    try:
+        guard("before")
+    except Exception as exc:
+        print(f"A0 FRONTIER GATE NOT STARTED: {exc}", file=sys.stderr)
+        return 4
+    args.root.mkdir(parents=True, exist_ok=True)
+    handle = load_runtime(args.samples)
+    rows, failures = [], []
+    for index in SIX:
+        require_time = time.time() < args.deadline
+        if not require_time:
+            raise RuntimeError("Deadline")
+        guard("request")
+        task = next(t for t in handle["tasks"] if t["index"] == index)
+        reference_path = args.references / f"C64-pair-{index:02}.json"
+        sealed = json.loads(reference_path.read_bytes())
+        if sealed.get("index") != index or sealed.get("q") != 64 or \
+                sealed.get("samples_sha256") != "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed":
+            raise RuntimeError(f"Wrong sealed reference {index}")
+        error = None
+        fork = None
+        try:
+            data = handle["proc"].apply_chat_template(
+                [{"role": "user", "content": task["prompt"]}], tokenize=True,
+                add_generation_prompt=True, return_dict=True, return_tensors="pt").to("cuda:0")
+            parent = run(handle["model"], data, task, 64, True, "right", True, False)
+            score_delivery(handle, task, parent)
+            matches = replay_match(parent, sealed["on"])
+            if not all(matches.values()):
+                raise RuntimeError(f"Native right replay mismatch: {matches}")
+            gate = run(handle["model"], data, task, 64, True, "right", True, True)
+            score_delivery(handle, task, gate)
+            fork = first_fork(parent, gate)
+            validate_fork(fork)
+            row = dict(index=index, task_id=task["task_id"], dataset=task["dataset"],
+                       seed=task["seed"], reference_sha256=sha(reference_path),
+                       native_replay=matches, first_fork={
+                           key: fork[key] for key in ("kind", "tick", "parent_receipt",
+                                                      "gate_receipt")},
+                       parent=parent, gate=gate)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            error = repr(exc)
+            row = dict(index=index, task_id=task.get("task_id"), dataset=task.get("dataset"),
+                       seed=task.get("seed"), error=error,
+                       parent=locals().get("parent"), gate=locals().get("gate"))
+        if fork is not None:
+            row["first_fork"] = {key: fork[key] for key in
+                                 ("kind", "tick", "parent_receipt", "gate_receipt")}
+        row["error"] = error
+        rows.append(row)
+        (args.root / f"case-{index:02}.json").write_text(json.dumps(row, separators=(",", ":"),
+                                                                   allow_nan=False) + "\n")
+        compact = {k: row.get(k) for k in ("index", "error", "native_replay", "first_fork")}
+        for arm in ("parent", "gate"):
+            value = row.get(arm) or {}
+            compact[arm] = {k: value.get(k) for k in ("N", "F", "decoder_F", "decoder_Q",
+                                                      "encoder_F", "encoder_Q", "route_F",
+                                                      "route_Q")}
+        print("CASE " + json.dumps(compact, separators=(",", ":"), allow_nan=False), flush=True)
+        if error:
+            print("STOP " + json.dumps(dict(reason="first_invalid_case", index=index,
+                                            error=error), separators=(",", ":")), flush=True)
+            failures.append(index)
+            break
+    gate = "passed" if not failures and len(rows) == len(SIX) else "failed"
+    summary = dict(schema="gemma-verified-eos-q64-frontier-gate-a0-six-v1", gpu=A0_UUID,
+                   q=64, cases=list(SIX), arms=("parent", "frontier_gate"), gate=gate,
+                   failed=failures, per_case=[dict(index=r["index"], error=r.get("error"))
+                                               for r in rows],
+                   transformers=handle["transformers"])
+    (args.root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print("SUMMARY " + json.dumps(dict(gate=gate, failed=failures),
+                                  separators=(",", ":")), flush=True)
+    return 0 if gate == "passed" else 5
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

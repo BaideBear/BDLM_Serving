@@ -17,7 +17,8 @@ def history(root,q,i):
     return root/"paid-close-1128"/f"C{q}-fuse1-{i:02}.json"
 
 
-def run(model,data,task,q,early,prefix_order='right',collect_events=False):
+def run(model,data,task,q,early,prefix_order='right',collect_events=False,
+        frontier_gate=False):
     from bdlm_serving.runtime.diffusiongemma import observe
     from .gemma_strict_eval import encoder_tape
     from .gemma_unified_audit import projectors
@@ -37,7 +38,7 @@ def run(model,data,task,q,early,prefix_order='right',collect_events=False):
         enc=stack.enter_context(encoder_tape(model))
         stack.enter_context(model.register_forward_hook(lambda _,a,out: top.append(out.logits[0].argmax(-1).tolist())))
         req=VerifiedEOSRequest(model,data,seed=task["seed"],q=q,early=early,
-                              prefix_order=prefix_order)
+                              prefix_order=prefix_order,frontier_gate=frontier_gate)
         events=[] if collect_events else None
         while req.status=="ready":
             tick=len(tape)
@@ -68,7 +69,7 @@ def run(model,data,task,q,early,prefix_order='right',collect_events=False):
             route_q[route]+=width
             # Equal fingerprints through the actual EOS chunk include sampling changes and raw argmax.
             digest_event={k:v for k,v in e.items()
-                          if k not in ("verified_eos_end","prefix_pool")}
+                          if k not in ("verified_eos_end","prefix_pool","frontier_receipt")}
             digest_event["parts"]=[{k:v for k,v in part.items() if k != "prefix_pool"}
                                    for part in digest_event["parts"]]
             tape.append(digest([digest_event,top[-1]]))

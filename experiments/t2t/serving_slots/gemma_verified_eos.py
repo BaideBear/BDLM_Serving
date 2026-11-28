@@ -15,12 +15,12 @@ class SwitchableVerifiedEOSRequest(AblationRequest):
     fixed_fixture = False
 
     def _apply(self, states, pos, sample, prefix, cold, offer, route,
-               prefix_pool=None):
+               prefix_pool=None, frontier_receipt=None):
         # Let the unchanged executor physically pay, seal and bill the entire chunk.
         start = self.cursor
         solo = len(states)==1 and self.tail is None and not self.rebuild
         e = super()._apply(states,pos,sample,prefix,cold,offer,route,
-                           prefix_pool=prefix_pool)
+                           prefix_pool=prefix_pool,frontier_receipt=frontier_receipt)
         end = start+len(pos)
         if not self.early or route not in ("verify","verify_paid") or end >= B:
             return e
@@ -50,7 +50,8 @@ class SwitchableVerifiedEOSRequest(AblationRequest):
 class VerifiedEOSRequest(SwitchableVerifiedEOSRequest):
     fixed_fixture = True
 
-    def __init__(self, model, data, *, seed, q, early, prefix_order='right'):
+    def __init__(self, model, data, *, seed, q, early, prefix_order='right',
+                 frontier_gate=False):
         if type(q) is not int or q not in (32,64,128) or type(early) is not bool:
             raise ValueError("Requires a fixed sparse offer and explicit arm")
         if prefix_order not in ("right", "spread") or q > 64 and prefix_order == "spread":
@@ -58,7 +59,8 @@ class VerifiedEOSRequest(SwitchableVerifiedEOSRequest):
         self.early = early
         super().__init__(model,data,q=q,seed=seed,max_new_tokens=2048,ablation="00",
                          law=Law(1,4 if q==128 else 8),top_gate="off",
-                         prefix_order=prefix_order,fuse_first_verify=True)
+                         prefix_order=prefix_order,fuse_first_verify=True,
+                         frontier_gate=frontier_gate)
 
     def step(self, q=None):
         if q is not None and (type(q) is not int or q != self.fixed_q):

@@ -10,6 +10,7 @@ from experiments.t2t.serving_slots.gemma_budget_family import FamilyRequest
 from experiments.t2t.serving_slots.gemma_strict_rows import B, OFFERS, RowPlan, StrictRows
 from experiments.t2t.serving_slots.gemma_strict_sampler import SelectedRowSampler
 from experiments.t2t.serving_slots.gemma_wave_kv import WaveKV, wave_attention
+from bdlm_serving.methods.t2t.frontier_dose import progress_quota
 
 
 FULL = frozenset(range(B))
@@ -154,7 +155,7 @@ class FixedFamilyRequest(FamilyRequest):
                            'verify' if verify else 'rebuild' if rebuild else 'sparse')
 
     def _apply(self, states, pos, sample, prefix, cold, offer, route,
-               prefix_pool=None):
+               prefix_pool=None, frontier_receipt=None):
         head = states[0]
         joint_verify = route == 'verify_joint_paid'
         verify, rebuild = route in ('verify', 'verify_paid') or joint_verify, route == 'rebuild'
@@ -182,7 +183,8 @@ class FixedFamilyRequest(FamilyRequest):
         logits = self._project(states, pos)
         event = dict(tick=self.tick, ordinal=self.ordinal, offer=offer, q=len(pos), route=route,
                      positions=list(pos), parts=[], encoded=False, encoder_Q=0, decoder_F=1,
-                     decoder_Q=len(pos),encoder_F=0,discarded=[],promoted=None)
+                     decoder_Q=len(pos),encoder_F=0,discarded=[],promoted=None,
+                     frontier_receipt=frontier_receipt)
         for c in states:
             base, rows, s = self.origin + c.ordinal * B, c.rows, c.sampler
             offsets = [j for j,p in enumerate(pos) if base <= p < base + B]
@@ -283,7 +285,7 @@ class AblationRequest(FixedFamilyRequest):
                  top_gate='eager', head_first=False, late_den=4, receipt_tail_ids=False,
                  prefix_order='right', reuse_paid_masks=False, fuse_first_verify=False, fullstop=None,
                  keep_rejected_noise=None, dense_stop=False, stop_at_single_b_only=False,
-                 sample_full_rebuild=False):
+                 sample_full_rebuild=False, frontier_gate=False):
         if ablation not in ABLATIONS:
             raise ValueError('Unknown Gemma ablation')
         if top_gate not in ('off','eager','half','quarter') or late_den not in (2,4,8):
@@ -293,6 +295,15 @@ class AblationRequest(FixedFamilyRequest):
         if (prefix_order not in ('right', 'spread', 'oldest', 'uniform') or type(reuse_paid_masks) is not bool
                 or type(fuse_first_verify) is not bool):
             raise ValueError('Unknown prefix ranking or refresh policy')
+        if type(frontier_gate) is not bool or frontier_gate and (
+                q > B or ablation != '00' or top_gate != 'off' or head_first or prefix_order != 'right'
+                or law != Law(1, 8) or reuse_paid_masks or fuse_first_verify or dense_stop
+                or stop_at_single_b_only or sample_full_rebuild or fullstop is not None
+                or keep_rejected_noise is not None):
+            raise ValueError('Frontier gate requires the solo fixed Live 1/8 right-edge profile')
+        self.frontier_gate = frontier_gate
+        self.frontier_ordinal = None
+        self.frontier_previous = None
         self.top_gate, self.head_first = top_gate, head_first
         self.late_den, self.receipt_tail_ids = late_den, receipt_tail_ids
         self.prefix_order, self.reuse_paid_masks = prefix_order, reuse_paid_masks
@@ -388,15 +399,31 @@ class AblationRequest(FixedFamilyRequest):
         head_initialized = len(head.rows.initialized)
         room_for_tail = self.ordinal+1 < self.max_new_tokens//B
         opened = None
+        frontier_receipt = None
+        if self.frontier_gate:
+            if self.frontier_ordinal != head.ordinal:
+                self.frontier_ordinal = head.ordinal
+                self.frontier_previous = None
+            unresolved = FULL-head.rows.accepted
+            frontier = min(unresolved, default=B)
+            frontier_receipt = dict(previous=self.frontier_previous, current=frontier,
+                                    ordinal=head.ordinal, gate=bool(self.frontier_gate))
+            if not set(range(frontier)).issubset(head.rows.accepted) or \
+                    head.rows.dirty & set(range(frontier)):
+                raise RuntimeError('Frontier is not accepted, initialized and debt-free')
 
-        def run(route, positions, sampled=(), prefix=(), cold=(), prefix_pool=None):
+        def run(route, positions, sampled=(), prefix=(), cold=(), prefix_pool=None,
+                frontier_receipt=None):
             pos = tuple(positions)
             limit = B if route == 'build_sample' else q
             if (not 0 < len(pos) <= limit or pos != tuple(sorted(set(pos))) or
                     not set(sorted(debt)[:q]).issubset(pos) or not set(sampled).issubset(pos)):
                 raise RuntimeError('Unpaid writes, invalid positions or physical width')
             e = self._apply(states, pos, set(sampled), prefix, cold, q, route,
-                            prefix_pool=prefix_pool)
+                            prefix_pool=prefix_pool, frontier_receipt=frontier_receipt)
+            if route == 'sparse' and self.frontier_gate:
+                self.frontier_ordinal = head.ordinal
+                self.frontier_previous = frontier_receipt['current']
             written = {self.origin+B*p['ordinal']+i for p in e['parts']
                        for key in ('input_changed','admitted','revoked') for i in p[key]}
             e.update(opened=opened, head_mask_before=head_masks, head_initialized_before=head_initialized,
@@ -529,7 +556,17 @@ class AblationRequest(FixedFamilyRequest):
             return run('sparse' if sample else 'drain', pos, sample, pref, cold.intersection(pos))
         if len(active) != 1 and self.prefix_order == 'spread':
             raise ValueError('Spread prefix identity requires one active canvas')
-        plan = choose(q, B, debt, masks, prefix, law=self.law, cold=cold,
+        effective_law = self.law
+        if self.frontier_gate:
+            gate = progress_quota(frontier_receipt['previous'], frontier_receipt['current'],
+                                  self.law.num)
+            effective_law = Law(gate, self.law.den)
+            frontier_receipt['quota'] = gate
+        else:
+            frontier_receipt = dict(previous=None, current=frontier,
+                                    ordinal=head.ordinal, gate=False,
+                                    quota=self.law.num)
+        plan = choose(q, B, debt, masks, prefix, law=effective_law, cold=cold,
                      prefix_identity=('spread' if self.prefix_order == 'spread' else 'right'))
         eligible = {c.ordinal for c in active if c.can_sample}
         if (self.reuse_paid_masks and self.tail is None and plan.drain_only and
@@ -545,4 +582,4 @@ class AblationRequest(FixedFamilyRequest):
             prefix_pool = {head.ordinal: tuple(i - start for i in prefix
                                                if start <= i < start + B)}
         return run('sparse' if sample else 'drain', plan.rows, sample, plan.prefix, plan.cold,
-                   prefix_pool=prefix_pool)
+                   prefix_pool=prefix_pool, frontier_receipt=frontier_receipt)
