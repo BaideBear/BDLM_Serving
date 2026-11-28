@@ -17,7 +17,34 @@ export BDLM_LLADA_REFERENCE=$rt/t2t-native-1125/frozen90-native/llada21
 module=experiments.t2t.serving_slots.shared_fixed_shard
 cd "$src"
 exec 9>"$rt/shared-formal-H0.lock"
-flock -n 9
+if [[ -n ${BDLM_AFTER_H0_FORMAL:-} ]]; then
+    [[ $# == 6 ]]
+    wait_limit=$((end-$(date +%s)-180))
+    (( wait_limit > 0 ))
+    flock -w "$wait_limit" 9
+    [[ -s $BDLM_AFTER_H0_FORMAL/returned ]]
+    # Check the released shard, not just the existence of a supervisor marker.
+    "$py" -B - "$BDLM_AFTER_H0_FORMAL" "$reg" <<'PY'
+import json,sys
+from pathlib import Path
+from experiments.t2t.serving_slots.shared_fixed_shard import OFFERS, MANIFEST, identity, shard_cases
+from experiments.t2t.serving_slots.shared_point_metrics import _receipt
+root, reg = map(Path, sys.argv[1:])
+version = identity(json.loads(reg.read_bytes()))
+shard = shard_cases(json.loads(MANIFEST.read_bytes())["samples"], "n164:H0", "formal90")
+for model, tiers in OFFERS.items():
+    want={(r["index"], q):r for r in shard for q in tiers}
+    with (root/(model+".ndjson")).open() as stream:
+        for line in stream:
+            r=json.loads(line); case=want.pop((r["index"],r["offer"]))
+            assert (r["stage"],r["version"],r["board"],r["model"])==("formal90",version,"n164:H0",model)
+            assert all(r[k]==case[k] for k in ("seed","dataset","task_id","prompt_sha256"))
+            _receipt(r,model,r["offer"])
+    assert not want
+PY
+else
+    flock -n 9
+fi
 mkdir "$out"
 pidlist() {
     nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-compute-apps=pid --format=csv,noheader,nounits | sort -n | xargs
