@@ -1,0 +1,48 @@
+{
+  "TE": "sum(N) / sum(selected history-reading decoder Q)",
+  "checkpoint": {
+    "n": 90,
+    "pid": 291644,
+    "reg": "bb6021f461aaa071d74c028a7c3929413e750acce790a776e0caef745d3dae21"
+  },
+  "historical_control": "/gs/results/verified-eos-1128",
+  "macro_TPF": "mean_i(N_i / (decoder_F_i + postprefill_encoder_F_i))",
+  "pairs_digest": "b1b4193454107c91b1e527496acd51271f53c4a8da00259edda124f190b79891",
+  "raw_root": "/gs/results/gemma-first-tile-kv-q32-a1-1128",
+  "registration": {
+    "base": {
+      "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+      "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+      "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_verified_eos": "1469ba441c9075ae92f90f71d9cf8eb459344fb2a2beab22e6ee8eccc2133177",
+      "gemma_verified_eos_eval": "df658f981898afad9adcf94fd8dab6703be12d02e3f87c0b22053629785b1aa1"
+    },
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "deadline": 1795843443,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "launcher": "ef31cecd8a3f9a949f455401bdf86f8a69d667318c0ad6a1bec2db62b7d51ef7",
+    "manifest": "2e67d12f5045d486d1676a4b9cd35718b0791ad1b2a3c81fdec86a27bd773e62",
+    "metadata": {
+      "config.json": "13b11d2fe87302cc2332c64eb9eb4ac305d9b8a123ffe9c5cb5b1920fc70c506",
+      "generation_config.json": "99334f763c3dbe8b161aeaca1c150a05344299fda2d2e4a0e1d342c744461200",
+      "model.safetensors.index.json": "6e33e8465d55fe6c7bc0a5453c7a4b341e6467d032c6ded82aaf439f61dac69a"
+    },
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 291644,
+    "policy": "101378204fa5511cda888db561fa7494e7a3f4b974356ed1342ccdbcfccfe2df",
+    "refs": "8dd583e84cd52073041ac7be17320940d71307fb5e9659046e5a5959ca233362",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "gemma_first_tile_kv": "8a70cbbaee121900ded2da79e20dc7fa262b6acca0c137f3dc5bd155c94d91f7",
+      "gemma_first_tile_kv_eval": "09257f497a81d75815458802ddc991c8d45b198c0a904773d30c068b80c13bcc"
+    },
+    "start_ticks": "35532328",
+    "tf": "5.12.0",
+    "torch": "2.6.0+cu124"
+  },
+  "report_sha256": "471b00c1e55b298fed638344b713c133d9d907eac5babd79066d1bdd1af1677c"
+}

@@ -33,6 +33,28 @@ only if 0/10/20 have both a real solo addition and a would-have-qualified
 joint admission excluded by this rule (same-state counter, not scored gain).
 No outcome-directed substitutions. Launcher mode `64 DEADLINE solo`.
 
+**Sealed frontier results.** Each control was reproduced on the same GPU for
+all 90 cases; rows are paid before deciding whether to accept. Cells are
+correct / macro TPF / pooled TE. Denominators are actual selected decoder rows.
+
+| Fixed Q and rule | Original 30 | Additional 60 | All 90 |
+|---|---|---|---|
+| 32, unchanged | 26 / 4.811 / 15.31% | 48 / 4.999 / 16.77% | 74 / 4.937 / 16.25% |
+| [32, contiguous paid admissions](q32-frontier-frozen90.json) | 26 / 5.637 / 17.65% | 49 / 5.871 / 18.27% | 75 / 5.793 / 18.06% |
+| 64, unchanged two-vote | 28 / 7.271 / 10.83% | 47 / 7.873 / 10.89% | 75 / 7.672 / 10.87% |
+| [64, contiguous paid admissions](q64-frontier-frozen90.json) | 24 / 7.672 / 11.99% | 44 / 8.113 / 11.91% | 68 / 7.966 / 11.94% |
+| [64, contiguous only without successor](q64-frontier-solo-frozen90.json) | 23 / 7.635 / 12.52% | 41 / 7.916 / 11.61% | 64 / 7.822 / 11.90% |
+
+Select Q32 for opt-in API qualification only. Against its own control,
+F 11,576→10,108, Q 252,493→231,667. Five wrong answers were rescued and
+four correct answers lost: the paired descriptive 95% interval is
+[-5.56, +7.78] percentage points for accuracy, but [+0.631, +1.086] for TPF.
+Native Q32 measures 75/90, TPF 5.677; Flow W1 is 75/90, 7.111.
+Reject both Q64 rules; suppressing joint admissions did not restore quality
+(662 otherwise-eligible admissions withheld in matched states). Keep the
+incumbent two-vote rule at Q64; neither state restriction proves a causal
+diagnosis of the quality loss. See [fixed-offer baselines](../fixed-request-comparison/README.md).
+
 **Transfer to Q16, not the Q16 paid-waiting sampler.** [Sealed A7 fixed90](q16-agreement-frozen90.json).
 Add only Q64's two-consecutive-paid-proposals acceptance to the original
 Q16 active-window control. Every historical control matched. On 55 exposed

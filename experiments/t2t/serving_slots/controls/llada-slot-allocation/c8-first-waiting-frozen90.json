@@ -1,0 +1,223 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "accepted": 7384,
+      "ci95": {
+        "correct_rate": [
+          -0.01111,
+          0.12222
+        ],
+        "macro_TPF": [
+          -0.20802,
+          -0.109
+        ]
+      },
+      "exposed": 86,
+      "first_waiting": {
+        "F": 23454,
+        "N": 46232,
+        "Q": 160088,
+        "TE": 0.2887911648593274,
+        "correct": 75,
+        "failed": 0,
+        "macro_TPF": 2.265488535425948
+      },
+      "lost": 3,
+      "n": 90,
+      "omitted": 29006,
+      "paid": {
+        "F": 21623,
+        "N": 47018,
+        "Q": 146571,
+        "TE": 0.32078651302099326,
+        "correct": 70,
+        "failed": 0,
+        "macro_TPF": 2.4243050044903867
+      },
+      "rescued": 8,
+      "retained": 8674
+    },
+    "new60": {
+      "accepted": 4954,
+      "ci95": {
+        "correct_rate": [
+          0.0,
+          0.16667
+        ],
+        "macro_TPF": [
+          -0.23997,
+          -0.10812
+        ]
+      },
+      "exposed": 56,
+      "first_waiting": {
+        "F": 15736,
+        "N": 31021,
+        "Q": 107623,
+        "TE": 0.28823764436969795,
+        "correct": 51,
+        "failed": 0,
+        "macro_TPF": 2.2993801437634906
+      },
+      "lost": 1,
+      "n": 60,
+      "omitted": 19618,
+      "paid": {
+        "F": 13689,
+        "N": 30427,
+        "Q": 92938,
+        "TE": 0.32739030321289464,
+        "correct": 46,
+        "failed": 0,
+        "macro_TPF": 2.4736204999552243
+      },
+      "rescued": 6,
+      "retained": 5828
+    },
+    "original30": {
+      "accepted": 2430,
+      "ci95": {
+        "correct_rate": [
+          -0.13333,
+          0.13333
+        ],
+        "macro_TPF": [
+          -0.19846,
+          -0.0495
+        ]
+      },
+      "exposed": 30,
+      "first_waiting": {
+        "F": 7718,
+        "N": 15211,
+        "Q": 52465,
+        "TE": 0.28992661774516343,
+        "correct": 24,
+        "failed": 0,
+        "macro_TPF": 2.197705318750862
+      },
+      "lost": 2,
+      "n": 30,
+      "omitted": 9388,
+      "paid": {
+        "F": 7934,
+        "N": 16591,
+        "Q": 53633,
+        "TE": 0.3093431282978763,
+        "correct": 24,
+        "failed": 0,
+        "macro_TPF": 2.325674013560711
+      },
+      "rescued": 2,
+      "retained": 2846
+    }
+  },
+  "finished": 90,
+  "registration": {
+    "device": "GPU-ceadb3cd-e63f-1446-a2d5-a291144f8efb",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "parent": "46b2dabc59cc5aa233a340f556aed81abef96c658e70343b0e73430fd5ad29aa",
+    "pid": 14517,
+    "protocol": "llada-q8-first-waiting-v1",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "llada_budget_request.py": "0780d7b700ac3915b120fd76848e8aba84a544cb24353949bac768591093d5f6",
+      "llada_window_fallback.py": "7f544acb76efc34d565dfab179c0a9f587fe88166455b61deb7756d840b02a9e",
+      "llada_window_sample.py": "2a7cc2a14ca88fa47cd75c27334946cccd287dec52e01af14c4068195a16ff82"
+    }
+  },
+  "rows_sha256": "4a613e3fdd44f2258571f6888425ded699fbb3854674db0ce9707bd1332b4aa7"
+}

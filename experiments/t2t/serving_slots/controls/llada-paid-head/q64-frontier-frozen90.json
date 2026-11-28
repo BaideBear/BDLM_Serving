@@ -1,0 +1,221 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "added": 4481,
+      "ci": {
+        "correct_rate": [
+          -0.15556,
+          0.0
+        ],
+        "macro_TPF": [
+          -0.03512,
+          0.62812
+        ]
+      },
+      "exposed": 84,
+      "frontier": {
+        "F": 7774,
+        "N": 41593,
+        "Q": 348483,
+        "TE": 0.11935445918452263,
+        "correct": 68,
+        "failed": 0,
+        "macro_TPF": 7.9663017244277325
+      },
+      "lost": 10,
+      "n": 90,
+      "old": {
+        "F": 8828,
+        "N": 43387,
+        "Q": 399051,
+        "TE": 0.1087254511328126,
+        "correct": 75,
+        "failed": 0,
+        "macro_TPF": 7.672274070481151
+      },
+      "rescued": 3
+    },
+    "new60": {
+      "added": 2823,
+      "ci": {
+        "correct_rate": [
+          -0.15,
+          0.05
+        ],
+        "macro_TPF": [
+          -0.18681,
+          0.66358
+        ]
+      },
+      "exposed": 56,
+      "frontier": {
+        "F": 5198,
+        "N": 27718,
+        "Q": 232808,
+        "TE": 0.11905948249201058,
+        "correct": 44,
+        "failed": 0,
+        "macro_TPF": 8.113486004388648
+      },
+      "lost": 6,
+      "n": 60,
+      "old": {
+        "F": 6153,
+        "N": 30365,
+        "Q": 278807,
+        "TE": 0.10891046494528474,
+        "correct": 47,
+        "failed": 0,
+        "macro_TPF": 7.872866159324896
+      },
+      "rescued": 3
+    },
+    "original30": {
+      "added": 1658,
+      "ci": {
+        "correct_rate": [
+          -0.26667,
+          -0.03333
+        ],
+        "macro_TPF": [
+          -0.12667,
+          0.89713
+        ]
+      },
+      "exposed": 28,
+      "frontier": {
+        "F": 2576,
+        "N": 13875,
+        "Q": 115675,
+        "TE": 0.11994813053814567,
+        "correct": 24,
+        "failed": 0,
+        "macro_TPF": 7.671933164505901
+      },
+      "lost": 4,
+      "n": 30,
+      "old": {
+        "F": 2675,
+        "N": 13022,
+        "Q": 120244,
+        "TE": 0.10829646385682445,
+        "correct": 28,
+        "failed": 0,
+        "macro_TPF": 7.271089892793664
+      },
+      "rescued": 0
+    }
+  },
+  "digest": "36ff5be34259fee0a4c98ed7e1ed74a290df169421d9ef11dd99d20d2a52429a",
+  "finished": 90,
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "parent": [
+      "llada-q64-paid-agree-1128",
+      "7a25e37235717782a931067144053c2a5bd1f5e1dd2da54c3e93cf4a51d8718a"
+    ],
+    "pid": 282019,
+    "protocol": "llada-fixed-warm-head-frontier-v1",
+    "q": 64,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "llada_agreement.py": "76b7ee108b55b425941ab81348bdbf468579b032240d08772e36af971cfce4fe",
+      "llada_frontier_accept.py": "e3775034b814c9b00f71e926c25f941fdfa77cbbf3871ea6338674a03a61c0ef",
+      "llada_frontier_accept_eval.py": "12808fac401b83c486a801e68a9ca01bac52593bdc2e690814a73f6c81fd0b28"
+    }
+  }
+}

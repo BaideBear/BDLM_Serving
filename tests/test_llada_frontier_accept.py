@@ -61,3 +61,23 @@ def test_solo_rule_disables_the_new_write_on_first_or_existing_successor_project
             audit([old],0,64,True)
     one=event([2,3],[.6,.95],[2,3])
     assert audit([one],0,64,True,solo=True)==[{2}]
+
+
+def test_switched_frontier_permission_does_not_survive_a_downshift():
+    from types import SimpleNamespace
+    from experiments.t2t.serving_slots.llada_switch_votes import audit as audit_votes
+
+    class Request:
+        def _step(self,q):
+            return self._left
+    req=frontier_class(Request,only_offer=32)()
+    req.head=req.origin=0;req.end=32;req.stopping=False;req.mask_id=0
+    req.bank=SimpleNamespace(last_end=32)
+    req.x=torch.tensor([[9,9,0,0]])
+    assert [req._step(q) for q in (4,32,16,64,32)]==[None,2,None,None,2]
+    e=event([2,3],[.6,.95],[2,3])
+    added=set()
+    assert audit_votes(32,0,True,e,0,{},frontier_left=2,frontier_added=added)==({},set())
+    assert added=={2}
+    with pytest.raises(ValueError,match="admission"):
+        audit_votes(16,0,True,e,0,{})

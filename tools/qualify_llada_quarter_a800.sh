@@ -7,7 +7,7 @@ deadline=${2:?stop timestamp}
 root=${3:?new receipt directory}
 profile=${4:-quarter_fullwrite}
 case "$profile" in quarter_fullwrite|quarter_edit_warm|quarter_edit_window) ;;
-  quarter_window_repeat64|quarter_window_repeat64_paid16)
+  quarter_window_repeat64|quarter_window_repeat64_paid16|quarter_window_repeat64_paid16_frontier32)
     /usr/bin/python3 -B -m experiments.t2t.serving_slots.llada_agreement_eval \
       report /gs/results/llada-q64-paid-agree-1128 benchmarks/frozen90/manifest.json --check-transfer ;;
   *) exit 2 ;; esac

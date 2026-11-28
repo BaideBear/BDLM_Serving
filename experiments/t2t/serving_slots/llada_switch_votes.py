@@ -1,5 +1,5 @@
 """Independent per-step admission reconstruction from measured sampler output."""
-def audit(q, head, warm, event, mask, previous):
+def audit(q, head, warm, event, mask, previous, *, frontier_left=None, frontier_added=None):
     rows=event["sampled"]
     proposals=event.get("proposals",[])
     if len(rows)!=len(proposals) or not set(rows)<=set(event["rows"]):
@@ -25,6 +25,18 @@ def audit(q, head, warm, event, mask, previous):
             votes[p]=(head,draft)
             if previous.get(p)==votes[p]:
                 extras.add(p)
-    if set(event["admitted"])!=writes|extras:
+    run=set()
+    if frontier_left is not None:
+        if q!=32 or not warm or not head<=frontier_left<head+32:
+            raise ValueError("invalid Q32 frontier")
+        paid=dict(zip(rows,proposals))
+        for p in range(frontier_left,head+32):
+            if p not in paid: break
+            old,draft,confidence,low,high=paid[p]
+            if old!=mask or draft==mask or not low: break
+            run.add(p)
+    if frontier_added is not None:
+        frontier_added.update(run-writes-extras)
+    if set(event["admitted"])!=writes|extras|run:
         raise ValueError("wrong admission after a change of head, offer or evidence")
     return votes,extras

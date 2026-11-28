@@ -468,3 +468,18 @@ Expand beyond original anchors 0/10/20 only if at least one waiting proposal
 was actually omitted and a retained frontier produced at least one actual
 admission. Record immediate admissions, all three metrics and output
 denominators on original30/new60/frozen90. Launcher: `first_waiting8`.
+## Latest fixed-offer single-factor measurements
+
+| Factor, same GPU and prompts per pair | Correct (original30; new60; all90) | All90 macro TPF | All90 pooled TE |
+|---|---|---:|---:|
+| [A0 fixed Q4: also sample already-paid waiting MASKs](c4-paid-frozen90.json) | 25→23; 47→51; 72→74 | 1.504→1.571 | 37.68%→39.88% |
+| [H0 fixed Q8: sample only the first unresolved waiting MASK instead of all waiting MASKs in mixed cold calls](c8-first-waiting-frozen90.json) | 24→24; 46→51; 70→75 | 2.424→2.265 | 32.08%→28.88% |
+
+The first comparison reproduced all 90 archived Q4 window controls; exposure
+was 87/90. The TPF gain repeated on both cohorts but the quality change did
+not. At Q8 the restriction only changes sampling eligibility, not the first
+affected projection. It rescued eight answers and lost three, but slowing
+down was consistent (paired TPF difference interval [-0.208, -0.109]).
+The H0 cold-only comparator was 71/90, 2.315, 29.21%. Do not silently
+replace it with the A800 Q8 window comparator, or mix these candidates
+into a single best-of profile.

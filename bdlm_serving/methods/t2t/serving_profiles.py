@@ -159,7 +159,8 @@ def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_token
     opts = {}
     engine = LLaDABudgetRequest
     if profile is not None:
-        paid16 = profile=="quarter_window_repeat64_paid16"
+        from experiments.t2t.serving_slots.llada_frontier_accept import PROFILE, frontier_class
+        paid16 = profile in ("quarter_window_repeat64_paid16", PROFILE)
         top_repeat = profile=="quarter_window_repeat64" or paid16
         window = top_repeat or profile=="quarter_edit_window"
         if not (window or profile in ("quarter_fullwrite","quarter_edit_warm")) or (coverage, top_gate) != ("sparse", "half"):
@@ -172,6 +173,8 @@ def open_strict_llada(model, input_ids, *, seed, mask_id, eos_ids, max_new_token
             if paid16:
                 from experiments.t2t.serving_slots.llada_window_sample import switchable_paid_class
                 engine = switchable_paid_class()
+                if profile==PROFILE:
+                    engine = frontier_class(engine, only_offer=B)
         opts = dict(close_policy="edit_once" if editable else "full_write", borrow_at_half=not window,
                     warm_head_sample=editable)
     raw = engine(model, input_ids, seed=seed, mask_id=mask_id, eos_ids=eos_ids,

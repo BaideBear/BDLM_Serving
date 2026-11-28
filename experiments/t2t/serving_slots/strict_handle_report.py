@@ -3,7 +3,7 @@ import argparse
 from collections import Counter
 import json
 from pathlib import Path
-from .strict_handle_qualify import JOINT_PROFILES, PROMOTION_PROFILES, STOP_PROFILES, single
+from .strict_handle_qualify import FRONTIER32, JOINT_PROFILES, PROMOTION_PROFILES, STOP_PROFILES, single
 
 
 def eos_summary(root,manifest):
@@ -75,7 +75,8 @@ def summarize(root, model, manifest):
     profiles = {r.get("profile","fixed90_candidate") for rows in groups.values() for r in rows}
     if len(profiles)>1:
         raise ValueError("mixed profiles in qualification")
-    paid16_profile = profiles=={"quarter_window_repeat64_paid16"}
+    frontier32 = profiles=={FRONTIER32}
+    paid16_profile = frontier32 or profiles=={"quarter_window_repeat64_paid16"}
     if paid16_profile and "park16" not in groups:
         raise ValueError("missing park16 suite for quarter_window_repeat64_paid16")
     if not paid16_profile and "park16" in groups:
@@ -107,16 +108,18 @@ def summarize(root, model, manifest):
             if model=="gemma":
                 arms[suite]["reference_sha256"]={r["index"]:r["reference_sha256"] for r in rows}
         if model=="llada" and profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"},{"quarter_edit_window"},
-                                           {"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"}):
+                                           {"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"},{FRONTIER32}):
             counts=Counter()
-            paid16=profiles=={"quarter_window_repeat64_paid16"}
-            repeat=profiles in ({"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"})
+            paid16=paid16_profile
+            repeat=paid16 or profiles=={"quarter_window_repeat64"}
             window=repeat or profiles=={"quarter_edit_window"}
             editable=window or profiles=={"quarter_edit_warm"}
             allowed={"window_F" if window else "borrow_Q", "quarter_open_F"}|({"edit_once_F","terminal_writes","warm_sample_rows"}
                                                    if editable else {"full_write_F"})
             if paid16:
                 allowed.add("paid_mask_rows")
+            if frontier32:
+                allowed.add("frontier32_rows")
             if window and suite in ("park","park16"):
                 allowed.add("parked_dirty_Q")
             if repeat:
@@ -128,6 +131,8 @@ def summarize(root, model, manifest):
                 counts.update(c)
             if fixed:
                 middle={"edit_once_F","terminal_writes"} if editable else {"full_write_F"}
+                if frontier32:
+                    middle.add("frontier32_rows")
                 top_events={"quarter_open_F","warm_sample_rows"} if editable else {"quarter_open_F"}
                 if repeat:
                     top_events.add("repeat_Q")
@@ -142,6 +147,8 @@ def summarize(root, model, manifest):
                 raise ValueError("no real debt on budget transitions")
             if paid16 and suite=="switch25" and not counts["paid_mask_rows"]:
                 raise ValueError("no paid Q16 warm MASK exposure in the mixed cycle")
+            if frontier32 and suite=="switch25" and not counts["frontier32_rows"]:
+                raise ValueError("no real frontier admission in the mixed cycle")
             if window and suite=="park" and not (counts["parked_dirty_Q"] and changes["64>4"] and changes["4>64"]):
                 raise ValueError("no real parked-tail repayment and return")
             if window and suite=="park16" and not (counts["parked_dirty_Q"] and changes["64>16"] and changes["16>64"]):
@@ -180,11 +187,11 @@ def summarize(root, model, manifest):
                     raise ValueError("Missing aligned boundary")
             arms[suite]["by_index"]={r["index"]:dict(**r["top_boundary"],stop_checks=r["stop_checks"])
                                      for r in rows}
-    if model=="llada" and profiles in ({"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"}) and not any(
+    if model=="llada" and profiles in ({"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"},{FRONTIER32}) and not any(
             arms[s]["policy_checks"].get("discard_on_downshift",0) for s in ("switch25","park")):
         raise ValueError("No live vote discarded on downshift")
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
-                **({"profile":profiles.pop()} if model=="gemma" or profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"},{"quarter_edit_window"},{"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"}) else {}),
+                **({"profile":profiles.pop()} if model=="gemma" or profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"},{"quarter_edit_window"},{"quarter_window_repeat64"},{"quarter_window_repeat64_paid16"},{FRONTIER32}) else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",
                 gpu=sorted({r["gpu"] for v in groups.values() for r in v}), arms=arms)
 

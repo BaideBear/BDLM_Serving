@@ -1,0 +1,225 @@
+{
+  "cohorts": {
+    "frozen90": {
+      "added": 3115,
+      "ci": {
+        "correct_rate": [
+          -0.21111,
+          -0.03333
+        ],
+        "macro_TPF": [
+          -0.15965,
+          0.46544
+        ]
+      },
+      "exposed": 83,
+      "frontier": {
+        "F": 7055,
+        "N": 38481,
+        "Q": 323489,
+        "TE": 0.11895613142950764,
+        "correct": 64,
+        "failed": 0,
+        "macro_TPF": 7.822081570016291
+      },
+      "joint_withheld": 662,
+      "lost": 14,
+      "n": 90,
+      "old": {
+        "F": 8828,
+        "N": 43387,
+        "Q": 399051,
+        "TE": 0.1087254511328126,
+        "correct": 75,
+        "failed": 0,
+        "macro_TPF": 7.672274070481151
+      },
+      "rescued": 3
+    },
+    "new60": {
+      "added": 2024,
+      "ci": {
+        "correct_rate": [
+          -0.21667,
+          0.01667
+        ],
+        "macro_TPF": [
+          -0.33633,
+          0.43404
+        ]
+      },
+      "exposed": 56,
+      "frontier": {
+        "F": 4874,
+        "N": 25783,
+        "Q": 222072,
+        "TE": 0.11610198494182067,
+        "correct": 41,
+        "failed": 0,
+        "macro_TPF": 7.91561260659981
+      },
+      "joint_withheld": 437,
+      "lost": 9,
+      "n": 60,
+      "old": {
+        "F": 6153,
+        "N": 30365,
+        "Q": 278807,
+        "TE": 0.10891046494528474,
+        "correct": 47,
+        "failed": 0,
+        "macro_TPF": 7.872866159324896
+      },
+      "rescued": 3
+    },
+    "original30": {
+      "added": 1091,
+      "ci": {
+        "correct_rate": [
+          -0.3,
+          -0.06667
+        ],
+        "macro_TPF": [
+          -0.20215,
+          0.89468
+        ]
+      },
+      "exposed": 27,
+      "frontier": {
+        "F": 2181,
+        "N": 12698,
+        "Q": 101417,
+        "TE": 0.12520583334155022,
+        "correct": 23,
+        "failed": 0,
+        "macro_TPF": 7.635019496849252
+      },
+      "joint_withheld": 225,
+      "lost": 5,
+      "n": 30,
+      "old": {
+        "F": 2675,
+        "N": 13022,
+        "Q": 120244,
+        "TE": 0.10829646385682445,
+        "correct": 28,
+        "failed": 0,
+        "macro_TPF": 7.271089892793664
+      },
+      "rescued": 0
+    }
+  },
+  "digest": "38876e7975a4957b4899674836b3da0b996f2094b9cb423c1934f43e23ac5d43",
+  "finished": 90,
+  "registration": {
+    "checkpoint": "/gs/models/LLaDA2.1-mini",
+    "device": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+    "order": [
+      0,
+      10,
+      20,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89
+    ],
+    "parent": [
+      "llada-q64-paid-agree-1128",
+      "7a25e37235717782a931067144053c2a5bd1f5e1dd2da54c3e93cf4a51d8718a"
+    ],
+    "pid": 315693,
+    "protocol": "llada-fixed-warm-head-frontier-v1",
+    "q": 64,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "scope": "solo",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "llada_agreement.py": "76b7ee108b55b425941ab81348bdbf468579b032240d08772e36af971cfce4fe",
+      "llada_frontier_accept.py": "4af72b29464bac556477d04afb47daea288fa1d851fbce6b2def0a82518b78c5",
+      "llada_frontier_accept_eval.py": "dd24975bea8f33d18507a98a4972e3b88892302fe821742450ac5fe6adee726b"
+    }
+  }
+}

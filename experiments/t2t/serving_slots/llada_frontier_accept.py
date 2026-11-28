@@ -1,13 +1,16 @@
 """One M2T factor at B and 2B: use a contiguous paid run at the warm head frontier."""
 
 
-def frontier_class(control, *, solo=False):
+PROFILE = "quarter_window_repeat64_paid16_frontier32"
+
+
+def frontier_class(control, *, solo=False, only_offer=None):
     """Keep normal and consecutive-vote admissions; add a paid left-hand run."""
     class Frontier(control):
         def _step(self, q):
             self._left = None
             lo, end = max(self.head,self.origin), min(self.head+32,self.end)
-            if not self.stopping and self.bank.last_end>=end:
+            if (only_offer is None or q==only_offer) and not self.stopping and self.bank.last_end>=end:
                 pending=(self.x[0,lo:end]==self.mask_id).nonzero()
                 if len(pending):
                     self._left=lo+int(pending[0,0])

@@ -10,6 +10,7 @@ import time
 
 from bdlm_serving.methods.t2t.serving_profiles import open_strict_gemma
 from . import strict_single512_qualification as single
+from .llada_frontier_accept import PROFILE as FRONTIER32
 
 TIERS = (32,64,128,256,512)
 PROMOTION = "dense_stop_promotion_fused"
@@ -346,10 +347,11 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
-    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window","quarter_window_repeat64","quarter_window_repeat64_paid16"), default="legacy")
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window","quarter_window_repeat64","quarter_window_repeat64_paid16",FRONTIER32), default="legacy")
     a = ap.parse_args(argv)
     candidate = a.profile != "legacy"
-    paid16 = a.profile == "quarter_window_repeat64_paid16"
+    frontier32 = a.profile == FRONTIER32
+    paid16 = frontier32 or a.profile == "quarter_window_repeat64_paid16"
     repeat = a.profile == "quarter_window_repeat64" or paid16
     window = repeat or a.profile == "quarter_edit_window"
     editable = window or a.profile == "quarter_edit_warm"
@@ -365,6 +367,9 @@ def llada_main(argv=None):
         from .llada_hfull_single_factor import request_classes
         from .llada_switch_votes import audit as audit_votes
         repeat_fixed = request_class(request_classes()[1])
+        if frontier32:
+            from .llada_frontier_accept import frontier_class
+            frontier_fixed = frontier_class(request_classes()[1])
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tok, model = load_gpu(a, lambda:None)
@@ -431,10 +436,18 @@ def llada_main(argv=None):
                         if repeat:
                             vote_head=req.head
                             vote_warm=req.bank.last_end>=min(req.head+32,req.end)
+                            left=None
+                            if frontier32 and q==32 and vote_warm and not req.stopping:
+                                left=next((p for p,token in zip(range(lo,split),req.x[0,lo:split].tolist())
+                                           if token==kwargs["mask_id"]),None)
                         e=h.step(q)
                         if repeat:
                             prior=previous_votes
-                            previous_votes,extras=audit_votes(q,vote_head,vote_warm,e,kwargs["mask_id"],prior)
+                            extra32=set()
+                            previous_votes,extras=audit_votes(q,vote_head,vote_warm,e,kwargs["mask_id"],prior,
+                                                              frontier_left=left,frontier_added=extra32)
+                            if extra32:
+                                checks["frontier32_rows"]+=len(extra32)
                             if extras:
                                 checks["repeat_Q"]+=len(extras)
                             if prior and old==64 and q<64:
@@ -522,7 +535,8 @@ def llada_main(argv=None):
                               close_policy=("edit_once" if editable else "full_write") if q==32 else "unchanged",
                               warm_head_sample=editable and q==64,
                               request_cls=(paid_fixed if paid16 and q==16 else window_fixed if q<32 else
-                                           repeat_fixed if repeat and q==64 else None))
+                                           repeat_fixed if repeat and q==64 else
+                                           frontier_fixed if frontier32 and q==32 else None))
                     else:
                         fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
                                           borrow=False,coverage="head" if q==64 else "sparse")
