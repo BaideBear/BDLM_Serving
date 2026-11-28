@@ -2,6 +2,8 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+**11 月 28 日 19:35 决策：** [LLaDA Q64 提前开块的完整 90 题](../experiments/t2t/serving_slots/controls/flow-admission-lead/README.md)质量 78→75，额外 669 F、32,928 Q，拒绝这条提前开块规则。[同一块内重复候选的六题](../experiments/t2t/serving_slots/controls/paid-agreement/README.md)在 LLaDA Q16 和 Gemma Q128 都真正降低了 F、Q；两边对照也都是 6/6，只够支持分别扩到 90，不能认定质量不降。先固定该唯一变化，不混预算、不拼档位。
+
 ## 1. 用户定下的目标与边界
 
 | 模型 | 物理块宽 B | 正式实验：整条请求保持不变的 decoder Q 档位 |
