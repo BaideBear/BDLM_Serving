@@ -65,3 +65,12 @@ def test_contiguous_frontier_reports_negative_top_result_alongside_q32():
     assert set(selected)=={32,64}
     assert [selected[q]["correct"] for q in (32,64)]==[75,68]
     assert selected[32]["history_Q"]==231667
+
+
+def test_primary_table_separates_live_from_experimental_arms():
+    rows=collect()
+    main=render(rows); experimental=render(rows,ablations=True)
+    assert all("| Paid frontier |" not in line for line in main.splitlines())
+    assert main.count("| Live profile | IBS capped | IBS nominal | Native | Flow W1 | Flow W2 |")==3
+    assert experimental.count("| Paid repeat | Paid frontier |")==3
+    assert not any(line.startswith("| gemma |") for line in experimental.splitlines())

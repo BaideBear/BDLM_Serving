@@ -232,18 +232,26 @@ def compare_live(rows):
                             "N, F, selected Q (when verified), source receipts, and the exact series.",""])
 
 
-def render(rows):
-    lines=["# Fixed offers: published requests versus measured baselines","",
-           "One independent request at the same offer from prompt to final output. "
-           "`Request` means `quarter_edit_warm` for LLaDA and `dense_stop_joint_verified_eos` for Gemma. "
-           "They are not the best trial chosen separately at each point. "
-           "`Active window` is the low-offer fixed head-only arm of the qualified LLaDA "
-           "`quarter_edit_window` handle. It is shown only at independently measured, sealed "
-           "90-case budgets. `Paid MASK` samples the already-projected waiting MASKs on mixed cold calls "
-           "(H800 Q8, A800 Q16). The H800 Q8 same-device control is 71/90; the A800 active-window "
-           "point on the chart is 72/90, not that paired control. `Paid repeat` is only the measured Q64 consecutive-confirmation arm. "
-           "`Paid frontier` is the contiguous MASK acceptance experiment. Only its Q32 path is in the new live profile; "
-           "at Q64 it cost seven correct answers. The retired live reference at Q32 is still visible as `Request`.","",
+MAIN=("Live profile","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
+ABLATIONS=("Live profile","Request","Active window","Paid MASK","Paid repeat","Paid frontier")
+
+
+def render(rows, *, ablations=False):
+    methods=ABLATIONS if ablations else MAIN
+    lines=(["# LLaDA fixed-offer ablations","",
+            "The earlier `Request` is quarter_edit_warm. `Active window` changes selected head rows; "
+            "`Paid MASK` samples projected waiting MASKs; `Paid repeat` accepts a repeated measured proposal; "
+            "`Paid frontier` accepts a high-confidence contiguous run. The latter dropped Q64 accuracy by seven "
+            "against paid repeat. The paired H800 Q8 control is 71/90, not the A800 window row (72/90). "
+            "Compare subgroup and same-device receipts before attributing differences. "
+            "[Ablation figure](ablations.png). [Main comparison](README.md).",""] if ablations else
+           ["# Fixed offers: one executable profile versus measured baselines","",
+           "Every point is an independent constant-budget request from prompt to final output. "
+           "Only the published profile is a candidate here. No per-metric winner selection. "
+           "For each model, Native/W1 are measured at B and W2 at 2B only. "
+           "[Main figure](frozen90.png) | [Differences against each baseline](tradeoffs.md) | "
+           "[Experimental variants (separate)](ablations.md).",""])
+    lines += [
            "**Live profile** = `quarter_window_repeat64_paid16_frontier32` for LLaDA, "
            "`dense_stop_joint_verified_eos` for Gemma. Values are from the independent fixed90 "
            "runs implementing each exact path, not 90 reruns through the switching API. "
@@ -259,10 +267,10 @@ def render(rows):
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "
            "Differences are not claims of statistical significance.",""]
-    methods=("Live profile","Request","Active window","Paid MASK","Paid repeat","Paid frontier","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
     for c in ("frozen90","original30","new60"):
         lines+=[f"## {c}","",f"| Model | Q | {' | '.join(methods)} |","|---|---:|"+"---:|"*len(methods)]
         for model,tiers in MODELS.items():
+            if ablations and model!="llada21":continue
             for q in tiers:
                 g={r["method"]:r for r in rows if (r["model"],r["cohort"],r["budget"])==(model,c,q)}
                 cells=[]
@@ -286,26 +294,30 @@ def render(rows):
     return "\n".join(lines)
 
 
-def draw(rows):
+def draw(rows, *, ablations=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from math import nan
-    methods={"Live profile":("#146859","o"),"Request":("#879288","."),"Paid MASK":("#925008","X"),"Paid frontier":("#006697","*"),
+    styles={"Live profile":("#146859","o"),"Request":("#879288","."),"Paid MASK":("#925008","X"),"Paid frontier":("#006697","*"),
+             "Paid repeat":("#b33576","d"),"Active window":("#475477","P"),
              "IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
              "Native":("#393d43","s"),"Flow W1":("#b75827","+"),"Flow W2":("#aa3159","D")}
-    fig,axes=plt.subplots(2,3,figsize=(16.8,9.8))
-    fig.subplots_adjust(left=.055,right=.985,bottom=.23,top=.88,hspace=1.22,wspace=.22)
+    methods=ABLATIONS if ablations else MAIN
+    models=("llada21",) if ablations else tuple(MODELS)
+    fig,axes=plt.subplots(len(models),3,figsize=(16.8,5.9 if ablations else 10.2),squeeze=False)
+    fig.subplots_adjust(left=.055,right=.985,bottom=.37 if ablations else .215,top=.77 if ablations else .875,hspace=1.27,wspace=.22)
     handles={}
-    for ai,(model,tiers) in enumerate(MODELS.items()):
+    for ai,model in enumerate(models):
+        tiers=MODELS[model]
         for col,(metric,title,scale) in enumerate((("correct","Correct / 90",1),("macro_TPF","Tokens / forward",1),
                                                    ("token_efficiency","Token efficiency (%)",100))):
             ax=axes[ai,col]
             ax.set(title=title,xticks=range(5),xticklabels=tiers,xlabel="Fixed decoder offer Q",xlim=(-.2,4.2))
             ax.grid(axis="y",alpha=.2);ax.spines[["right","top"]].set_visible(False)
             cells=[]; colors=[]
-            for name,(color,marker) in methods.items():
-                if name in ("Request","Paid MASK","Paid frontier") and model!="llada21":continue
+            for name in methods:
+                color,marker=styles[name]
                 colors.append(color)
                 vals={r["budget"]:r[metric] for r in rows if
                       (r["cohort"],r["model"],r["method"])==("frozen90",model,name) and r[metric] is not None}
@@ -313,7 +325,7 @@ def draw(rows):
                              str(vals[q]) if metric=="correct" else f"{vals[q]*scale:.2f}" for q in tiers]])
                 if not vals:continue
                 x=list(range(5));y=[vals.get(q,nan)*scale for q in tiers]
-                candidate=name in ("Request","Live profile","Paid MASK","Paid frontier")
+                candidate=name=="Live profile" or ablations
                 line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if candidate else "--",
                               lw=2 if candidate else 1.3,ms=6,alpha=.95)
                 handles[name]=line
@@ -328,11 +340,13 @@ def draw(rows):
                 elif j==0:cell.get_text().set_color(colors[i-1])
             if col==0:
                 ax.set_ylabel("LLaDA 2.1" if model=="llada21" else "DiffusionGemma",weight="bold")
-    fig.suptitle("Single-request execution at fixed Q  |  frozen 90",x=.05,ha="left",fontsize=18)
-    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.949),ncol=9,frameon=False)
-    fig.text(.055,.015,"Baselines are dashed. Native/W1/W2 are measured endpoints only; dash in table = unavailable. "
-             "Each point is a separate constant-budget run.",fontsize=9)
-    fig.savefig(DEST/"frozen90.png",dpi=150,facecolor="white")
+    fig.suptitle(("LLaDA 2.1 ablations" if ablations else "One executable profile vs measured baselines")+
+                  "  |  fixed Q, frozen 90",x=.05,ha="left",fontsize=18)
+    fig.legend(handles.values(),handles.keys(),loc="upper center",bbox_to_anchor=(.52,.933 if ablations else .95),ncol=len(methods),frameon=False)
+    fig.text(.055,.015,("Each experimental arm has its own series; never combine the best points across rows."
+             if ablations else "Dashed = baseline. Native/W1/W2 are actual endpoints, not constant reference lines. "
+             "Nominal IBS is not necessarily capped. Missing history-row counts are not zero."),fontsize=9)
+    fig.savefig(DEST/("ablations.png" if ablations else "frozen90.png"),dpi=150,facecolor="white")
     plt.close(fig)
 
 
@@ -341,4 +355,6 @@ if __name__=="__main__":
     write_csv(DEST/"metrics.csv",data)
     (DEST/"README.md").write_text(render(data))
     (DEST/"tradeoffs.md").write_text(compare_live(data))
+    (DEST/"ablations.md").write_text(render(data,ablations=True))
     draw(data)
+    draw(data,ablations=True)

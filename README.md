@@ -1,6 +1,6 @@
 # BDLM Serving
 
-当前 T2T 实验分支：[单请求执行接口](docs/single-request.md) · [冻结90题同档基线、前缀、跨块掩码及切换结果](experiments/t2t/serving_slots/EXPANDED.md)。下表为保留的原30题归档。
+当前 T2T 实验分支：[Live Profile v1 冻结归档（两个模型、十档固定预算）](docs/live-profile-v1.md) · [单请求执行接口](docs/single-request.md) · [冻结90题同档基线、前缀、跨块掩码及切换结果](experiments/t2t/serving_slots/EXPANDED.md)。下表为保留的原30题归档。
 
 同一批 30 题上，单请求解码每次 forward 交付多少 token，实际计算多少 Q，最终答对多少题？结果按研究问题组织，不按模型版本或测试日期拆目录。
 
