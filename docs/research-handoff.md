@@ -2,6 +2,10 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+本轮版本入口：[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)，标签 `paid-agreement-admission-20261128`。这是负结果也保留的研究快照，不是十档执行策略的发布。
+
+**2026-11-28 22:42，新决定：不采用两个额外采纳限制。** [LLaDA Q16 同卡 90 题](../experiments/t2t/serving_slots/controls/paid-agreement/allowance.md)：IBS / 不限额连续两票 / 每步限额分别 72 / 72 / 67；TPF 3.406 / 3.833 / 3.644，TE 20.65% / 23.39% / 23.06%。限额又少用 489 F，却新增 2 道不收敛，六题正例在其余 84 题上翻转。另一项[不越过本轮实测缺口的四组六题实跑](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)在 LLaDA Q8 少对 1 题；Gemma Q64（IBS 父算法）、Q128（保留原生 T2T 的 Live 父算法）均不提速。本轮不据此转混合预算。
+
 **四档快照之后，只测一个因素：** [不跨过本轮实测而仍未被采纳的 MASK 去做额外写入](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)。六题原始路径的回放中，LLaDA Q16 留下 131/221 个额外候选，Gemma Q128 留下 23/81。只证明规则改变选择，不证明质量提升。此项和限制每步额外采纳总量互为独立消融，不叠加；付费 IBS 的 Gemma 适配不能代替支持原生 T2T 的 Live 验证。
 
 **Gemma Q64，首批真实处理结果：** 同一 A2 的 IBS / 不限额额外采纳 / 只在缺口前额外采纳均 5/6；宏 TPF 为 14.455 / 14.173 / 13.657。缺口规则相对不限额多 5 F、287 Q，不扩 90。另在 A3 的 T2T-capable Live Q128 仅观察到缺口前 28 个合格候选，均已欠写回且下一轮实际重算，但其 ID 与原生重加噪后的输入全都不同，不可推断免费复用。

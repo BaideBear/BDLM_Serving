@@ -73,3 +73,44 @@ Full n164 result directories under `/data1/project_data/gx-erqw-20261123/results
 `llada-ibs-q16-risk-cap-h0-six-v1`, `gemma-q64-repeat-cut-20261128T215952`,
 `gemma-q64-repeat-cut-fork-20261128T221219`. The Gemma paired-six SHA-256 is
 `68bb3c8fff03d31a27158f45fe58bdfef2d60ac3a94f61d70e3665f3880ded77`.
+
+## Full Q16 confirmation: do not use the allowance as a default
+
+All 84 remaining requests ran on H0, disjoint from the six above. The
+physical audit of all 84 passed. The independent join verified the two seals,
+the frozen manifest and the earlier same-card controls in all five cohorts.
+The original six are counted once, not 96 total. Failed runs stayed in the
+scores at zero delivery with their F and Q charged.
+
+| H0 LLaDA Q16, frozen 90 | Correct | Macro TPF | Pooled TE | Output N | F | Actual decoder Q |
+|---|---:|---:|---:|---:|---:|---:|
+| Paid IBS | 72/90 | 3.406 | 20.65% | 42,500 | 15,407 | 205,841 |
+| Uncapped repeat | 72/90 | 3.833 | 23.39% | 43,870 | 14,150 | 187,569 |
+| Repeat + allowance | 67/90 | 3.644 | 23.06% | 42,026 | 13,661 | 182,229 |
+
+Uncapped vs allowance: the first six went from 4.156 to 4.378 TPF at 6/6,
+but the other 84 went from 3.810 to 3.591 and **66 to 61 correct**. On the
+original 30 the scores were 25 vs 24, on the added 60 they were 47 vs 43.
+Across all 90, six were rescued and eleven lost, with two additional
+nonconvergent requests (#45 and #50; #75 failed in all arms). Compared with
+uncapped repeat, the allowance saved 489 F and 5,340 Q but delivered 1,844
+fewer tokens. The descriptive stratified paired 95% interval for macro TPF
+difference is [-0.357, -0.035]; for correctness it spans [-14.44, +3.33]
+percentage points. No claim of a population-level accuracy difference.
+Both controls outscored the allowance on the actual fixed panel.
+
+![Paid IBS, repeat and capped repeat: first six, other 84 and full 90](llada-q16-allowance-90.png)
+
+[Joined data, intervals, cohorts and hashes](llada-q16-allowance-90-confirmation.json)
+· [independent verification](../../../../../tools/audit_allowance_generalization.py)
+· [replot](../../../../../tools/plot_allowance_confirmation.py).
+Source directories on n164: `results/llada-ibs-q16-risk-cap-h0-six-v1` and
+`results/llada-ibs-q16-risk-cap-frozen90-h0-v2`. The earlier `-v1` full-run
+attempt produced no eligible receipt. Keep this confirmation separate from
+the [four-offer uncapped snapshot](four-slot-checkpoint.md).
+
+**LLaDA Q8 allowance, six only:** paid IBS / uncapped / capped each scored
+6/6 on A1. Macro TPF was 2.639 / 2.782 / 2.718; pooled TE was 34.61% /
+37.32% / 35.93%. The cap used 12 more F and 139 more Q than the uncapped
+rule. No 90-case extension. [Sealed six-case totals](llada-q8-allowance-six.json);
+n164 source: `results/llada-ibs-q8-paid-agreement-allowance-a1/attempt-20261128T141226Z`.

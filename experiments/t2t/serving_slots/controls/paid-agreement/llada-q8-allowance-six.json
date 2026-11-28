@@ -1,0 +1,63 @@
+{
+  "model": "llada21",
+  "status": "sealed_six",
+  "raw_sha256": "09dbe95959274db27e73b7174d0f38871a5099c45d202805f133bc35570ca6b6",
+  "old_raw_sha256": "bcfb9288404ef4640c70f56d36a542c3a36c666607aec5baefe5317fcfc6dfed",
+  "registration": {
+    "allowance_sha256": "edd7f7f41704fbcc720f06449d6171ce5126ae5d4f8e7eb946ac663022c00402",
+    "checkpoint": "d4b48682fb49b315db221a96e288fb01ea20499f6aa4e4ef705ec9a2b328a918",
+    "code": "1e8b607ee6e45cfbaf5ebd69d0ccc1963ba8475fb780ea511f78798f98e7e450",
+    "driver_sha256": "0a2fee032c554172ff1f146ee4fa71abf4ba7ee4ad5f003d5055a4f8b2605a4d",
+    "indices": [
+      7,
+      13,
+      25,
+      33,
+      55,
+      71
+    ],
+    "kind": "registered",
+    "policy": "c0323c726d35544e026c4aa4ca87ea4cbf40ffddfd6382d3b8c34235701a036a",
+    "q": 8,
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "stage": "six"
+  },
+  "totals": {
+    "allowance": {
+      "F": 547,
+      "N": 1446,
+      "Q": 4024,
+      "TE": 0.35934393638170975,
+      "TPF": 2.718285845071473,
+      "correct": 6,
+      "extra": 88,
+      "failures": 0,
+      "paid_D": 3,
+      "paid_Q": 9
+    },
+    "apply": {
+      "F": 535,
+      "N": 1450,
+      "Q": 3885,
+      "TE": 0.3732303732303732,
+      "TPF": 2.781568356493896,
+      "correct": 6,
+      "extra": 114,
+      "failures": 0,
+      "paid_D": 2,
+      "paid_Q": 8
+    },
+    "stock": {
+      "F": 574,
+      "N": 1474,
+      "Q": 4259,
+      "TE": 0.3460906316036628,
+      "TPF": 2.639413463380863,
+      "correct": 6,
+      "extra": 0,
+      "failures": 0,
+      "paid_D": 2,
+      "paid_Q": 2
+    }
+  }
+}

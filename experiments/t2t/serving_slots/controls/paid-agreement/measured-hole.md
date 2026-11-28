@@ -90,3 +90,25 @@ unchanged cached ID or a proven saving in Q. The observer reproduced the
 six stock receipts, including output IDs and measured work; it produced
 no treatment scores. Full reference, raw log and audited `summary-verified.json`
 on n164: `results/gemma-q128-live-agreement-a3-QM86IUzQ`.
+
+## Same six questions: end-to-end results across executors
+
+Each arrow is a same-device contrast. For paid IBS the comparator here is
+the **uncapped** repeat arm; for T2T-capable Live it is the unchanged native
+Live sampler. The A3 comparison therefore tests adding **filtered repeat**
+to Live, not the difference between filtered and unfiltered repeat on Live.
+None of these results is a 90-question confirmation.
+
+| Model, fixed Q, comparator | Correct / 6 | Macro TPF | Pooled TE | Total F | Actual decoder Q |
+|---|---:|---:|---:|---:|---:|
+| [LLaDA Q8, paid IBS repeat](llada-q8-measured-hole-six.json) | 6 → 5 | 2.782 → 2.610 | 37.32% → 31.43% | 535 → 643 | 3,885 → 4,756 |
+| [LLaDA Q16, paid IBS repeat](llada-q16-measured-hole-six.json) | 6 → 6 | 4.156 → 4.327 | 27.62% → 27.89% | 371 → 388 | 5,010 → 5,227 |
+| [Gemma Q64, paid IBS repeat](gemma-q64-measured-hole-six.json) | 5 → 5 | 14.173 → 13.657 | 24.21% → 23.24% | 97 → 102 | 5,522 → 5,809 |
+| [Gemma Q128, native Live](gemma-live-q128-measured-hole-six.json) | 6 → 6 | 12.160 → 11.982 | 11.40% → 11.24% | 120 → 121 | 12,451 → 12,544 |
+
+LLaDA Q16 spent more work than repeat and delivered 74 more tokens; the
+gain in macro TPF is not a reduction in F. Native Live Q128 kept the same
+RNG procedure, T2T and encoder bookkeeping; both arms paid three generation
+encoder calls and peaked at 128 decoder Q. The earlier zero same-ID result
+does not mean the filtered admissions can be applied for free. **Do not
+adopt the measured-hole rule across tiers.**
