@@ -1,0 +1,77 @@
+{
+  "arms": [
+    "stock",
+    "noop",
+    "overlap"
+  ],
+  "block": 32,
+  "board": "A800:1",
+  "cap": 2048,
+  "created_utc": "2026-11-28T11:27:16.382453+00:00",
+  "deadline": 1795879636,
+  "gpu_uuid": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+  "indices": [
+    7,
+    13,
+    25,
+    33,
+    55,
+    71
+  ],
+  "main_pass_authorized": true,
+  "maximum_wall_seconds": 14400,
+  "q": 8,
+  "rotation": [
+    [
+      "stock",
+      "noop",
+      "overlap"
+    ],
+    [
+      "noop",
+      "overlap",
+      "stock"
+    ],
+    [
+      "overlap",
+      "stock",
+      "noop"
+    ],
+    [
+      "stock",
+      "noop",
+      "overlap"
+    ],
+    [
+      "noop",
+      "overlap",
+      "stock"
+    ],
+    [
+      "overlap",
+      "stock",
+      "noop"
+    ]
+  ],
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "sources": {
+    "bdlm_serving/evaluation/frozen90.py": "61b6875c18ee761ce36149a5c391a70ebdaf29cd3b7da77d670ea4f015c46704",
+    "bdlm_serving/evaluation/outcomes.py": "77075e3aa04cb27ba5f7e812ef3d0e5868a3b0c7ff59b0985cc7d2b556e3b2fc",
+    "bdlm_serving/evaluation/scoring.py": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "bdlm_serving/methods/optimus/fixed.py": "b95003b5f8867bd6ef7d5126c9814e08fb6d03bab57f67642618028d8a1960d4",
+    "bdlm_serving/methods/optimus/upstream.py": "f21a4704697cace53b19dfbbbf94bbabc877241b9c979e15b0d40e9a2ea0d223",
+    "bdlm_serving/runtime/batch.py": "f9a5363bffdd10026a0ab29fba5505da9c838cc13fc6449a469da91894b23a03",
+    "bdlm_serving/runtime/serial.py": "6f92dcee3651e8248deb62f46c54b5f72f94b6dad02953f00712a35d13144fe8",
+    "close_overlap.py": "9d34cb906ecdeeec342f6b2186df1a39443715cfc64fa29b80c88b6109d3aed9",
+    "controls/Optimus/sequence.py": "99c80047d517113579e04fd57443471a759a738dc30b206ba1342e0d4f9b3da2",
+    "controls/Optimus/unmasking.py": "bbc3c3328e5497aa08aed6e04150ab0383f95dc06b4ff570a69adaed4a769746",
+    "experiments/t2t/serving_slots/ibs_prefix_pair.py": "987012cf11deb9c27de832db77f0c918fc727f53da308f2e629f974b05704ab8",
+    "experiments/t2t/serving_slots/llada_all_slots90.py": "56849ab7466d9c56953e76acfe81d804cffc8d9b7de0fd067aa29a704b89a6ab",
+    "experiments/t2t/serving_slots/shared_llada_worker.py": "4519b696c3155cd603c3b0ca5f5f0e953c5a47b964eb8211b81cdd53446f1471",
+    "fused.py": "ae082e19f9587e1caee7c15910c963de42a01cd0a506ca1f722dd3b04fe92034",
+    "runner_a1.py": "c2faae1acaca8bb60ed146bbf8779c1635f3ab63391d80b11e1aeb4288fe0cc4",
+    "static_cases.json": "01e3e3bc9012fbc602dc2a06dadef7838e1cbb02c36282e0ecbdf501703beff4"
+  },
+  "static_cases_sha256": "e436c50336fc8b7eab42b6f21e025b5d336067051564b80f6430f7a39fcfdfc4",
+  "study": "llada21-ibs-q8-tail-overlap-a1-v1"
+}

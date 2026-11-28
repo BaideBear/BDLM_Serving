@@ -48,3 +48,32 @@ any native/Flow/Live points from other registrations are references, not
 matched interventions. Neither a quality loss with more TPF nor a TPF gain
 caused solely by longer output is a joint win. Do not promote to all ten
 offers, schedule mixed budgets, or stack another factor on the six-case result.
+
+## Is the repeat signal picking different positions from confidence alone?
+
+On the unchanged GPU **observer** trajectory, take each step with `k>0` extra
+agreement votes. Select exactly `k` of the currently measured, ordinary,
+native-rejected proposals with probability `>0.5`, sorted by current
+confidence (absolute row ascending on ties). Both policies are charged the
+same number of admissions at each such state; this is a replay, not a
+second decoding run.
+
+| Six fixed cases | Positive steps | Equal dose, row-events | Same rows | Replaced by current-confidence top-k | Steps with any difference |
+|---|---:|---:|---:|---:|---:|
+| LLaDA Q16 | 109 | 221 | 174 | 47 | 35 |
+| Gemma Q128 | 24 | 81 | 34 | 47 | 17 |
+
+On LLaDA's complete observer tape we followed **only the differing rows** to
+the next native admission of that same absolute position and block. The
+earlier proposed ID matched 38/47 for repeat-only versus 39/47 for
+confidence-only (no censoring here). The unit is a row-event; repeat visits
+are not independent examples. This proxy does not establish correct tokens
+or downstream answer quality, and it does not support a claim that the vote
+is a more reliable ranking. Gemma kept the positive observation steps, not
+the entire unresolved trajectory; row-set comparison is possible, the same
+future-label comparison is not. The shared-row counts are not counts of
+the applied arm's admissions after its trajectory changes.
+
+[Raw digests and six per-case counters](dose-screen.json) ·
+[Replay](../../../../../tools/audit_agreement_dose.py). Reproduce by passing
+the n164 result root; no model and no new generation are needed.

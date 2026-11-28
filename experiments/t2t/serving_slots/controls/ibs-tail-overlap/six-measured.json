@@ -1,0 +1,186 @@
+{
+  "cases": [
+    {
+      "index": 7,
+      "noop": {
+        "F": 77,
+        "N": 178,
+        "Q": 552,
+        "correct": true
+      },
+      "overlap": {
+        "F": 73,
+        "N": 178,
+        "Q": 549,
+        "correct": true,
+        "discarded_writes": 0,
+        "joint": 5,
+        "promoted": 5,
+        "retained_writes": 21,
+        "tail_Q": 26
+      },
+      "stock": {
+        "F": 77,
+        "N": 178,
+        "Q": 552,
+        "correct": true
+      }
+    },
+    {
+      "index": 13,
+      "noop": {
+        "F": 165,
+        "N": 391,
+        "Q": 1218,
+        "correct": true
+      },
+      "overlap": {
+        "F": 124,
+        "N": 326,
+        "Q": 957,
+        "correct": true,
+        "discarded_writes": 0,
+        "joint": 11,
+        "promoted": 11,
+        "retained_writes": 37,
+        "tail_Q": 47
+      },
+      "stock": {
+        "F": 165,
+        "N": 391,
+        "Q": 1218,
+        "correct": true
+      }
+    },
+    {
+      "index": 25,
+      "noop": {
+        "F": 66,
+        "N": 205,
+        "Q": 499,
+        "correct": true
+      },
+      "overlap": {
+        "F": 65,
+        "N": 205,
+        "Q": 502,
+        "correct": true,
+        "discarded_writes": 0,
+        "joint": 6,
+        "promoted": 6,
+        "retained_writes": 25,
+        "tail_Q": 25
+      },
+      "stock": {
+        "F": 66,
+        "N": 205,
+        "Q": 499,
+        "correct": true
+      }
+    },
+    {
+      "index": 33,
+      "noop": {
+        "F": 96,
+        "N": 227,
+        "Q": 716,
+        "correct": true
+      },
+      "overlap": {
+        "F": 89,
+        "N": 231,
+        "Q": 697,
+        "correct": true,
+        "discarded_writes": 0,
+        "joint": 6,
+        "promoted": 6,
+        "retained_writes": 16,
+        "tail_Q": 21
+      },
+      "stock": {
+        "F": 96,
+        "N": 227,
+        "Q": 716,
+        "correct": true
+      }
+    },
+    {
+      "index": 55,
+      "noop": {
+        "F": 146,
+        "N": 362,
+        "Q": 1105,
+        "correct": true
+      },
+      "overlap": {
+        "F": 261,
+        "N": 381,
+        "Q": 1982,
+        "correct": false,
+        "discarded_writes": 0,
+        "joint": 12,
+        "promoted": 12,
+        "retained_writes": 34,
+        "tail_Q": 61
+      },
+      "stock": {
+        "F": 146,
+        "N": 362,
+        "Q": 1105,
+        "correct": true
+      }
+    },
+    {
+      "index": 71,
+      "noop": {
+        "F": 43,
+        "N": 111,
+        "Q": 322,
+        "correct": true
+      },
+      "overlap": {
+        "F": 33,
+        "N": 97,
+        "Q": 254,
+        "correct": true,
+        "discarded_writes": 0,
+        "joint": 3,
+        "promoted": 3,
+        "retained_writes": 6,
+        "tail_Q": 6
+      },
+      "stock": {
+        "F": 43,
+        "N": 111,
+        "Q": 322,
+        "correct": true
+      }
+    }
+  ],
+  "raw_sha256": "63d9cd573323e9c1a0fa4cad6b97a2d5713ee6ed8173f7ce311537e6aaa9a4b8",
+  "registration": "afbbb74f7b7e5d5246eda6809244da73c91371a341ac433e72b1d56a9d63736b",
+  "same_device_stock_noop": true,
+  "summary": {
+    "overlap": {
+      "F": 645,
+      "N": 1418,
+      "Q": 4941,
+      "correct": 5,
+      "discarded_writes": 0,
+      "joint": 43,
+      "macro_tpf": 2.5359840414347046,
+      "pooled_te": 0.2869864399919045,
+      "promoted": 43,
+      "retained_writes": 139,
+      "tail_Q": 186
+    },
+    "stock": {
+      "F": 593,
+      "N": 1474,
+      "Q": 4412,
+      "correct": 6,
+      "macro_tpf": 2.535479437401825,
+      "pooled_te": 0.33408884859474164
+    }
+  }
+}

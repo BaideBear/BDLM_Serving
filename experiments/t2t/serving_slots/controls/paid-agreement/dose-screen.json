@@ -1,0 +1,153 @@
+{
+  "models": {
+    "gemma": {
+      "per_request": [
+        {
+          "different_set_steps": 4,
+          "dose": 9,
+          "exposed_steps": 4,
+          "index": 7,
+          "replaced_rows": 7,
+          "shared_rows": 2,
+          "source_sha256": "6ef56d6a9ee27dbea0caf25dfaabb56239b4f8309287ae19965f5adf4ac04ea6"
+        },
+        {
+          "different_set_steps": 4,
+          "dose": 40,
+          "exposed_steps": 6,
+          "index": 13,
+          "replaced_rows": 24,
+          "shared_rows": 16,
+          "source_sha256": "450e03399320d31dc62f26424ff37abc0c4e6dba9bb18203c31d7beedfeb9caa"
+        },
+        {
+          "different_set_steps": 1,
+          "dose": 5,
+          "exposed_steps": 1,
+          "index": 25,
+          "replaced_rows": 3,
+          "shared_rows": 2,
+          "source_sha256": "6662f325cac296b404587600f2c18ca053456e8cbfd95331c7b80a4724e4c457"
+        },
+        {
+          "different_set_steps": 2,
+          "dose": 6,
+          "exposed_steps": 4,
+          "index": 33,
+          "replaced_rows": 3,
+          "shared_rows": 3,
+          "source_sha256": "fd6b354076f4182b017b7ed998e6af9a3149b8a756258c44fa3bce0af505fc7e"
+        },
+        {
+          "different_set_steps": 6,
+          "dose": 21,
+          "exposed_steps": 9,
+          "index": 55,
+          "replaced_rows": 10,
+          "shared_rows": 11,
+          "source_sha256": "e49150bacb90378b713824289e1022a093fb3483a230aacb8b065c528fdd52e2"
+        },
+        {
+          "index": 71,
+          "source_sha256": "d7168ba6eb88598b9ad3c06e64d69a101116ce752be393f2570aa28dff7993fb"
+        }
+      ],
+      "total": {
+        "different_set_steps": 17,
+        "dose": 81,
+        "exposed_steps": 24,
+        "replaced_rows": 47,
+        "shared_rows": 34
+      }
+    },
+    "llada": {
+      "per_request": [
+        {
+          "current_only_match": 7,
+          "different_set_steps": 7,
+          "dose": 34,
+          "exposed_steps": 23,
+          "index": 7,
+          "repeat_only_different": 1,
+          "repeat_only_match": 6,
+          "replaced_rows": 7,
+          "shared_rows": 27,
+          "source_sha256": "f89b048741bb4a17e74d56bdb57624033482270862faf246fa43455c66957586"
+        },
+        {
+          "current_only_different": 1,
+          "current_only_match": 6,
+          "different_set_steps": 5,
+          "dose": 52,
+          "exposed_steps": 17,
+          "index": 13,
+          "repeat_only_match": 7,
+          "replaced_rows": 7,
+          "shared_rows": 45,
+          "source_sha256": "4b4d71d865238b87a2cd85cb9268098d24d7ab99385e111b447e821330af4e47"
+        },
+        {
+          "current_only_match": 1,
+          "different_set_steps": 1,
+          "dose": 10,
+          "exposed_steps": 6,
+          "index": 25,
+          "repeat_only_different": 1,
+          "replaced_rows": 1,
+          "shared_rows": 9,
+          "source_sha256": "cdef69e221d16852f4c265e1448b7f6f002ee2a593ae5e3cdefd4f9519b4c268"
+        },
+        {
+          "current_only_different": 1,
+          "current_only_match": 12,
+          "different_set_steps": 8,
+          "dose": 42,
+          "exposed_steps": 20,
+          "index": 33,
+          "repeat_only_different": 3,
+          "repeat_only_match": 10,
+          "replaced_rows": 13,
+          "shared_rows": 29,
+          "source_sha256": "464bfc5255715052befbc809982e58096c14d76d5a7cc9f9c6751b6ada2c0e8b"
+        },
+        {
+          "current_only_different": 6,
+          "current_only_match": 13,
+          "different_set_steps": 14,
+          "dose": 81,
+          "exposed_steps": 41,
+          "index": 55,
+          "repeat_only_different": 4,
+          "repeat_only_match": 15,
+          "replaced_rows": 19,
+          "shared_rows": 62,
+          "source_sha256": "19c8bd419256bebf394c2e1cfda0e310c63ddc34539a69208884147df61f672d"
+        },
+        {
+          "different_set_steps": 0,
+          "dose": 2,
+          "exposed_steps": 2,
+          "index": 71,
+          "replaced_rows": 0,
+          "shared_rows": 2,
+          "source_sha256": "2e63f0403ba9195fca5eb131b627f20001152d49a83a9e444cdb037cdb129497"
+        }
+      ],
+      "total": {
+        "current_only_different": 8,
+        "current_only_match": 39,
+        "different_set_steps": 35,
+        "dose": 221,
+        "exposed_steps": 109,
+        "repeat_only_different": 9,
+        "repeat_only_match": 38,
+        "replaced_rows": 47,
+        "shared_rows": 174
+      }
+    }
+  },
+  "source_registration": {
+    "gemma_summary": "e64094d78fe60aaae0dbbd16d075a3f06151b6ab8a2d2c87a234b12b0942f151",
+    "llada": "f1d33d0c8be39189f27341688e71ea7e8f6713e61459d4dac1938082888b6f9a"
+  }
+}
