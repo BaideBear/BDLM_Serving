@@ -1,10 +1,10 @@
 import pytest
 
-from bdlm_serving.methods.t2t.request_response import curve, read_fork, recommend_adjacent
+from bdlm_serving.methods.t2t.request_response import curve, read_fork, recommend_adjacent, vector
 from tools.request_response_eval import evaluate
 
 
-def data(req="one", digest="0", phase="roll", multiplier=1):
+def data(req="one", digest="0", phase="rolling", multiplier=1):
     return dict(model="llada21", executor_id="synthetic-test", continuation_q=16,
                 request_id=req, state_digest=digest*64, pre_delivered_n=10,
                 state=dict(head_mask_rows=8, dirty_rows=1, resident_rows=32, tail_open=False,
@@ -25,7 +25,7 @@ def test_paired_downside_keeps_enc_work_and_quality_veto():
 
 
 def test_independent_evidence_not_repeated_decisions():
-    rows = [data("a"), data("a", "1"), data("b", "2"), data("c", "3", phase="verify")]
+    rows = [data("a"), data("a", "1"), data("b", "2"), data("c", "3", phase="closing")]
     r = read_fork(rows[0])
     assert curve(list(map(read_fork, rows)), r.family, rows[0]["state"],
                  min_requests=2, exclude_request="b")["status"] == "unsupported"
@@ -85,3 +85,41 @@ def test_unobserved_feature_cannot_authorize_a_switch_or_erase_quality_gate():
     a["state"] = unknown
     report, = evaluate([a, data("other")], min_requests=1)
     assert report["total_decisions"] == 2 and report["supported_decisions"] == 0
+
+
+def test_clock_invariance_and_readiness_is_not_a_lifecycle():
+    d = data()
+    r = read_fork(d)
+    no_clock = dict(d["state"])
+    del no_clock["epoch"]
+    c = curve([r], r.family, no_clock, min_requests=1)
+    for epoch in (None, 0, 400):
+        s = dict(no_clock, epoch=epoch)
+        assert vector(s, "llada21") == vector(no_clock, "llada21")
+        assert read_fork(dict(d, state=s, history_steps=800)).x == r.x
+        assert curve([r], r.family, s, min_requests=1) == c
+    legacy = dict(no_clock, phase="ready_to_plan")
+    old = read_fork(dict(d, state=legacy))
+    assert old.x is None and old.y == r.y
+    assert curve([old], r.family, legacy, min_requests=1)["reason"] == "unobserved_lifecycle"
+    assert curve([old], r.family, no_clock, min_requests=1)["status"] == "unsupported"
+
+
+def test_same_step_different_head_work_or_residency_never_pooled():
+    rows = [data("a"), data("b", "1", phase="closing"), data("c", "2")]
+    rows[2]["state"]["resident_rows"] = 0
+    forks = [read_fork(dict(d, history_steps=10)) for d in rows]
+    assert len({r.regime for r in forks}) == 3
+    for r, d in zip(forks, rows):
+        assert curve(forks, r.family, d["state"], max_distance=1, exclude_request=r.request,
+                     min_requests=1)["status"] == "unsupported"
+
+
+def test_step_only_is_offline_and_compared_on_shared_support():
+    ds = [data("a"), data("b", "1"), data("c", "2", phase="closing", multiplier=4),
+          data("d", "3", phase="closing", multiplier=4), data("e", "4")]
+    for d, step in zip(ds, (1, 8, 1, 8)):
+        d["history_steps"] = step
+    out, = evaluate(ds, min_requests=1, neighbours=1)
+    assert out["supported_decisions"] == 5 and out["clock_control_decisions"] == 4
+    assert out["state_on_clock_support"]["mae"] == 0 < out["step_only"]["mae"]

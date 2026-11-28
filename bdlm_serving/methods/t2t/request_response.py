@@ -10,7 +10,24 @@ from statistics import mean, stdev
 
 MENUS = {"llada21": (4, 8, 16, 32, 64), "gemma": (32, 64, 128, 256, 512)}
 FEATURES = ("head_mask_rows", "dirty_rows", "resident_rows", "tail_open", "prev_q",
-            "recent_m2t", "recent_t2t", "epoch", "phase")
+            "recent_m2t", "recent_t2t", "phase")
+# Only native controller states known *before* selecting an offer.
+PHASES = {"llada21": {"bootstrap", "rolling", "closing", "debt", "rebuild"},
+          "gemma": {"sample", "closing", "verify", "rebuild"}}
+
+
+def observed_state(state):
+    # Old sealed receipts put an implementation-specific epoch inside the state.
+    # Keep their digest intact; never require, read or use that field for distance.
+    if set(state) not in (set(FEATURES), set(FEATURES) | {"epoch"}):
+        raise ValueError("Wrong pre-decision feature schema")
+    return {k: state[k] for k in FEATURES}
+
+
+def regime(state):
+    # A successor with no KV can already be labelled "rolling" by the controller.
+    # Keep this apart from an ordinary partially denoised, resident head.
+    return (state["phase"], state["tail_open"], state["resident_rows"] == 0)
 
 
 def count(value, name):
@@ -21,10 +38,9 @@ def count(value, name):
 
 def vector(state, model):
     """The whitelist is deliberately exact: fail closed on unknown or missing features."""
-    if set(state) != set(FEATURES):
-        raise ValueError("Wrong pre-decision feature schema")
+    state = observed_state(state)
     block = MENUS[model][-2]
-    for name in ("head_mask_rows", "dirty_rows", "resident_rows", "recent_m2t", "recent_t2t", "epoch"):
+    for name in ("head_mask_rows", "dirty_rows", "resident_rows", "recent_m2t", "recent_t2t"):
         count(state[name], name)
     if (state["head_mask_rows"] > block or state["resident_rows"] > block
             or any(state[k] > 2*block for k in ("dirty_rows", "recent_m2t", "recent_t2t"))
@@ -33,7 +49,7 @@ def vector(state, model):
         raise ValueError("Invalid pre-decision state")
     return (state["head_mask_rows"]/block, state["dirty_rows"]/(2*block),
             state["resident_rows"]/block, state["recent_m2t"]/(2*block),
-            state["recent_t2t"]/(2*block), min(4, state["epoch"])/4,
+            state["recent_t2t"]/(2*block),
             0 if state["prev_q"] is None else (1+log2(state["prev_q"]/MENUS[model][0]))/5)
 
 
@@ -58,16 +74,14 @@ def read_fork(data):
             or not isinstance(req, str) or not req or not isinstance(digest, str)
             or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest)):
         raise ValueError("Invalid executor, continuation, request or state identity")
-    s = data["state"]
-    if set(s) != set(FEATURES):
-        raise ValueError("Wrong pre-decision feature schema")
+    s = observed_state(data["state"])
     missing = [k for k in FEATURES if k != "prev_q" and s[k] is None]
     # Validate all observed fields; missing telemetry never enters a distance.
     checked = dict(s)
     for k in missing:
         checked[k] = False if k == "tail_open" else "unobserved" if k == "phase" else 0
     v = vector(checked, model)
-    x = None if missing else v
+    x = None if missing or s["phase"] not in PHASES[model] else v
     n0 = count(data["pre_delivered_n"], "pre_delivered_n")
     arms = {a["q"]: a for a in data["arms"]}
     if set(arms) != set(offers) or len(data["arms"]) != len(offers):
@@ -84,7 +98,7 @@ def read_fork(data):
             raise ValueError("Inconsistent endpoint")
         y.append((n-n0)/f)
         quality.append(a["correct"])
-    return Fork(scope, req, digest, (s["tail_open"], s["phase"]), x, tuple(y), tuple(quality))
+    return Fork(scope, req, digest, regime(s), x, tuple(y), tuple(quality))
 
 
 def curve(train, family, state, *, allowed_q=(), neighbours=12, min_requests=4,
@@ -99,12 +113,13 @@ def curve(train, family, state, *, allowed_q=(), neighbours=12, min_requests=4,
     if (not 1 <= min_requests <= neighbours or not 0 <= max_distance <= 1
             or set(allowed_q) - set(offers)):
         raise ValueError("Invalid prediction settings")
-    if set(state) != set(FEATURES):
-        raise ValueError("Wrong pre-decision feature schema")
+    state = observed_state(state)
     # A first call may have no previous offer. Other missing values are unknown,
     # not evidence of zero debt/edits. Return the full menu without predictions.
-    if not static and any(state[k] is None for k in FEATURES if k != "prev_q"):
-        return dict(status="unsupported", reason="incomplete_state", distinct_requests=0,
+    incomplete = any(state[k] is None for k in FEATURES if k != "prev_q")
+    if not static and (incomplete or state["phase"] not in PHASES[family[0]]):
+        return dict(status="unsupported", reason="incomplete_state" if incomplete else "unobserved_lifecycle",
+                    distinct_requests=0,
                     points=[dict(q=q, expected_suffix_tpf=None, quality_qualified=q in allowed_q,
                                  eligible=False) for q in offers],
                     adjacent=[dict(lo=lo, hi=hi, upgrade_gain=None, downshift_loss=None, paired_se=None)
@@ -119,7 +134,7 @@ def curve(train, family, state, *, allowed_q=(), neighbours=12, min_requests=4,
         if key in seen:
             raise ValueError("Duplicate decision in training set")
         seen.add(key)
-        if not static and (r.x is None or r.regime != (state["tail_open"], state["phase"])):
+        if not static and (r.x is None or r.regime != regime(state)):
             continue
         d = 0. if static else mean(abs(a-b) for a, b in zip(r.x, x))
         if static or d <= max_distance:

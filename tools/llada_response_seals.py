@@ -29,6 +29,12 @@ def seals(records):
             state = first["pre_state"]
             dd = digest(state)
             features = dict(state["features"])
+            lifecycle = features.pop("lifecycle", None)
+            if lifecycle is not None:
+                if (lifecycle["schema"] != "llada-live-strict-pre-lifecycle-v1"
+                        or not isinstance(lifecycle["stage"], str) or not lifecycle["stage"]):
+                    raise ValueError("Unrecognized pre-decision lifecycle")
+                features["phase"] = lifecycle["stage"]
             for key in ("head_mask_rows", "dirty_rows", "resident_rows"):
                 v = features[key]
                 if len(v) != len(set(v)):

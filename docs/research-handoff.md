@@ -2,6 +2,8 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+**2026-11-29 阶段定义：**单请求响应预测按决策前真实状态，不按请求 step、块内 step 或绝对块号。已删除旧数值 `epoch` 特征；就绪但实际阶段未知的五臂保留作参照，不能训练阶段模型。[状态、各档选行预演和留题评估协议](request-q-response.md#按当前块的实际工作建模不按步数分期)。LLaDA strict 六题与全块 admission 三题独立封存，默认留题支持分别是 0/6、0/3；有真实反事实标签但不能据此宣称预测有效。
+
 **当前主线（2026-11-28）：**[用户的 TPF–Q 响应目标原文](request-q-response-target.original.md) 与[执行器冻结、同状态五向分叉及切换验收](request-q-response.md)。停止扩展零散特性，先以具名 Live 为固定参照，区分 strict 与允许完整入块超额的执行器。下文旧实验中“不转混合预算”是当时决定，不再作为当前优先级。
 
 最新封存：[固定 Q 下的块内前缀刷新与后块首次构建](../experiments/t2t/serving_slots/controls/prefix-coverage/README.md)，标签 `fixed-q-prefix-and-tail-20261128`。内含五组同卡六题、三项指标、实际账单及对照，不把历史 90 题轨迹的选位回放计为处理组成绩。上一版[固定预算下的额外采纳](../experiments/t2t/serving_slots/controls/paid-agreement/admission-checkpoint.md)仍由 `paid-agreement-admission-20261128` 独立定位。两者均非十档默认策略。
