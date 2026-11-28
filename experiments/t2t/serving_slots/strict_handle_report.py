@@ -99,11 +99,14 @@ def summarize(root, model, manifest):
             arms[suite]["exact_replays"] = len(rows)
             if model=="gemma":
                 arms[suite]["reference_sha256"]={r["index"]:r["reference_sha256"] for r in rows}
-        if model=="llada" and profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"}):
+        if model=="llada" and profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"},{"quarter_edit_window"}):
             counts=Counter()
-            editable=profiles=={"quarter_edit_warm"}
-            allowed={"borrow_Q", "quarter_open_F"}|({"edit_once_F","terminal_writes","warm_sample_rows"}
+            window=profiles=={"quarter_edit_window"}
+            editable=window or profiles=={"quarter_edit_warm"}
+            allowed={"window_F" if window else "borrow_Q", "quarter_open_F"}|({"edit_once_F","terminal_writes","warm_sample_rows"}
                                                    if editable else {"full_write_F"})
+            if window and suite=="park":
+                allowed.add("parked_dirty_Q")
             for r in rows:
                 c=r["policy_checks"]
                 if set(c)-allowed or any(type(v) is not int or v<0 for v in c.values()):
@@ -113,10 +116,14 @@ def summarize(root, model, manifest):
                 middle={"edit_once_F","terminal_writes"} if editable else {"full_write_F"}
                 top_events={"quarter_open_F","warm_sample_rows"} if editable else {"quarter_open_F"}
                 expected={"fixed16":{"borrow_Q"},"fixed32":middle,"fixed64":top_events}.get(suite,set())
+                if window and suite in ("fixed4","fixed8","fixed16"):
+                    expected={"window_F"}
                 if {k for k in allowed if counts[k]} != expected:
                     raise ValueError(f"wrong fixed action exposure: {suite}")
             if suite=="switch25" and not arms[suite]["downshifts_with_debt"]:
                 raise ValueError("no real debt on budget transitions")
+            if window and suite=="park" and not (counts["parked_dirty_Q"] and changes["64>4"] and changes["4>64"]):
+                raise ValueError("no real parked-tail repayment and return")
             arms[suite]["policy_checks"]=dict(counts)
         if profiles and profiles <= set(STOP_PROFILES):
             counts=Counter()
@@ -152,7 +159,7 @@ def summarize(root, model, manifest):
             arms[suite]["by_index"]={r["index"]:dict(**r["top_boundary"],stop_checks=r["stop_checks"])
                                      for r in rows}
     return dict(model=model, indices=[0,10,20], samples_sha256=manifest["samples_sha256"],
-                **({"profile":profiles.pop()} if model=="gemma" or profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"}) else {}),
+                **({"profile":profiles.pop()} if model=="gemma" or profiles in ({"quarter_fullwrite"},{"quarter_edit_warm"},{"quarter_edit_window"}) else {}),
                 metric="functional GPU qualification; no mixed-budget quality ranking",
                 gpu=sorted({r["gpu"] for v in groups.values() for r in v}), arms=arms)
 

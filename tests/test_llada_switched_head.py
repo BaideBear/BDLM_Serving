@@ -318,3 +318,55 @@ def test_switched_head_registration_boundaries():
                dict(cross="eager", coverage="head", ablation="00")):
         with pytest.raises(ValueError):
             make(**kw)
+
+
+def switched_window(**state):
+    from experiments.t2t.serving_slots.llada_window_switch import SwitchableWindowRequest
+    req = planner(switchable=True, coverage="head", top_gate="quarter", **state)
+    req.__class__ = SwitchableWindowRequest
+    req.close_policy, req.close_attempted, req.warm_head_sample = "edit_once", None, True
+    return req
+
+
+@pytest.mark.parametrize("q", (4,8,16))
+@pytest.mark.parametrize("warm", (False,True))
+def test_small_window_matches_fixed_without_parking(q,warm):
+    from experiments.t2t.serving_slots.llada_window_geometry import window_class
+    state=dict(resident=range(32,64 if warm else 43), resolved=(32,33,35,37,39,41))
+    req=switched_window(**state)
+    fixed=planner(cross="head", **state)
+    fixed.__class__=window_class(LLaDABudgetRequest)
+    assert plan_fields(req._switch_plan(q)) == plan_fields(fixed._cross_plan(q))
+    assert req._window_geometry is not None
+    assert not req._switch_evidence["borrowed"]
+
+
+@pytest.mark.parametrize("q", (4,8,16))
+def test_warm_window_never_samples_parked_tail(q):
+    req=switched_window(resident=range(32,72), resolved=(32,33,35,37,39,41,66,68),dirty=(66,68))
+    event=req.step(q)
+    assert event.get("window_geometry")
+    assert {66,68} == set(event["rows"])-set(range(32,64))
+    assert set(event["sampled"]) == set(event["rows"])-{66,68}
+    assert not set(event["dirty_after"])&{66,68}
+
+
+def test_window_downshift_below_debt_does_not_reopen_successor():
+    req=switched_window(resident=range(32,76), resolved=range(64,75),dirty=range(64,75))
+    for remaining in (7,3):
+        e=req.step(4)
+        assert e["q"]==4 and e["drain_only"] and e["sample_clock"]==0
+        assert "window_geometry" not in e and len(e["dirty_after"])==remaining
+    e=req.step(4)
+    assert set(e["rows"])&set(range(64,76))=={72,73,74}
+    assert all(p<64 for p in e["sampled"])
+
+
+@pytest.mark.parametrize("q",(32,64))
+def test_window_higher_endpoints_use_existing_profile(q):
+    state=dict(resident=range(32,64),resolved=range(32,60))
+    req=switched_window(**state)
+    old=planner(switchable=True,coverage="head",top_gate="quarter",**state)
+    old.close_policy,old.close_attempted,old.warm_head_sample,old.borrow_at_half="edit_once",None,True,True
+    assert plan_fields(req._switch_plan(q)) == plan_fields(old._switch_plan(q))
+    assert req._window_geometry is None

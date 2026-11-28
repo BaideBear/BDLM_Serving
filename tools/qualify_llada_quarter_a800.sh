@@ -6,7 +6,7 @@ gpu=${1:?physical GPU index}
 deadline=${2:?stop timestamp}
 root=${3:?new receipt directory}
 profile=${4:-quarter_fullwrite}
-case "$profile" in quarter_fullwrite|quarter_edit_warm) ;; *) exit 2 ;; esac
+case "$profile" in quarter_fullwrite|quarter_edit_warm|quarter_edit_window) ;; *) exit 2 ;; esac
 [[ $gpu =~ ^[0-7]$ && $deadline =~ ^[0-9]+$ && ! -e $root ]]
 uuid=$(nvidia-smi -i "$gpu" --query-gpu=uuid --format=csv,noheader)
 [[ -z $(nvidia-smi -i "$uuid" --query-compute-apps=pid --format=csv,noheader,nounits) ]]

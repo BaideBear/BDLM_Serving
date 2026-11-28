@@ -1,0 +1,39 @@
+{
+  "N_per_total_Q_diagnostic": "sum(N) / sum(decoder_Q + post-prefill encoder_Q); not TE",
+  "TE": "sum(N) / sum(selected history-reading decoder_Q)",
+  "checkpoint": {
+    "exposed": 89,
+    "pairs": 90,
+    "registration": "126ddd1a81927d58f4b1ee2097f133df3b782965dae6282c5f50b095f491bec7"
+  },
+  "pair_files_sha256": "0c5c7aa89b53b6d256a4eece629b4018efce8826ef0586f7b9890cef918f15a8",
+  "registration": {
+    "bank_law_sha256": "d67a0d3649afe9d95fffe64a2ef5879b9919e89c5594210f308c4c422d2298db",
+    "base": {
+      "gemma_fixed_dual": "6d7652cdd24eef0aac47b3a4b1b4b53659d5c9bbbea13f618fefd06ca31571d9",
+      "gemma_strict_request": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_rows": "26b4a658142913b74b9ca9f82a1acd49c47ced43b992f2f66599d098d18c31d0",
+      "gemma_strict_sampler": "81da34a0f057519948fa5381230a27d5146210cfeb99b0378ad09fc7567991d0",
+      "gemma_unified_audit": "c7de97410f56f30de106a85a7f4421efb5b283f0b27ffb5e6fe29cfe87ab5daf",
+      "gemma_verified_eos": "1469ba441c9075ae92f90f71d9cf8eb459344fb2a2beab22e6ee8eccc2133177",
+      "gemma_verified_eos_eval": "df658f981898afad9adcf94fd8dab6703be12d02e3f87c0b22053629785b1aa1"
+    },
+    "deadline": 1795843440,
+    "denominators": [
+      8,
+      4
+    ],
+    "gpu": "GPU-f7fcacba-741b-a1ea-b370-4780cd948f6d",
+    "pid": 158616,
+    "policy": "a97c61ea5e35a985ea6966c0b5c131b5c62a5b0e3b630d1617279ae509b6d938",
+    "reference_digest": "0a32ca17da88b6ca514c514e93c32358b5b4268622c4a21b7a728b90bbab44af",
+    "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "schema": "eos-prefix-dose-q64-v1",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "source": {
+      "gemma_eos_prefix_dose": "c37d88f7797434662b8780c9688b601e2017bdd7e6dc70c6d93f46b8231130de",
+      "gemma_eos_prefix_dose_eval": "22caed592d90d54003108c46516f5c6bdec1eaa23083e0efca880c8d79ce7fe5"
+    }
+  },
+  "report_sha256": "af7a3f6fdcad6e8b0bda85f52a4cb09f04b144d143c0577e65f526beed9369e1"
+}

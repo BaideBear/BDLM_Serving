@@ -346,10 +346,15 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
-    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm"), default="legacy")
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window"), default="legacy")
     a = ap.parse_args(argv)
     candidate = a.profile != "legacy"
-    editable = a.profile == "quarter_edit_warm"
+    window = a.profile == "quarter_edit_window"
+    editable = window or a.profile == "quarter_edit_warm"
+    window_fixed = None
+    if window:
+        from .llada_frontier_seat import classes
+        window_fixed = classes("window")[1]
     check(torch.cuda.is_available() and torch.cuda.device_count()==1 and
           sha256(a.samples.read_bytes()).hexdigest()==SAMPLES_SHA, "GPU-only frozen qualification")
     tok, model = load_gpu(a, lambda:None)
@@ -376,6 +381,7 @@ def llada_main(argv=None):
                 debt, widths, pos, directed = set(), [], [], Counter()
                 checks = Counter()
                 parked, switches, clock, d_q, tick, old = 0, 0, 0, 0, 0, None
+                park_target, park_tested = set(), False
                 def hook(_m, _args, kw):
                     p=kw["position_ids"][0]
                     mask=kw["attention_mask"][0,0]
@@ -397,6 +403,13 @@ def llada_main(argv=None):
                             req = h._request
                             lo, split = max(req.origin,req.head), min(req.end,req.head+32)
                             head_rows = set(range(lo,split))
+                            if window and name=="park":
+                                # Drop on a measured write to a live successor, not
+                                # at a fixed step that may have nothing to park.
+                                if not park_tested and old==64:
+                                    park_target = {p for p in debt if p>=split}
+                                    park_tested = bool(park_target)
+                                q = 4 if park_target & debt else 64
                             close_due = (q==32 and not req.stopping and debt and debt<=head_rows
                                  and head_rows<=req.bank.initialized and req.close_attempted!=req.head
                                  and not (req.x[0,lo:split]==kwargs["mask_id"]).any().item())
@@ -407,6 +420,21 @@ def llada_main(argv=None):
                               and e["dirty_before"]==sorted(debt) and set(sorted(debt)[:q])<=rows,
                               "wrong projection or debt")
                         if candidate:
+                            if window and q<32:
+                                check(not e["borrowed_rows"] and rows-head_rows <= debt and
+                                      set(e["sampled"])<=head_rows, "window projected clean or sampled parked rows")
+                                if name=="park":
+                                    checks["parked_dirty_Q"]+=len((rows-head_rows)&park_target)
+                                    park_target-=rows
+                            if "window_geometry" in e:
+                                g=e["window_geometry"]
+                                pinned=set(e["dirty"])|set(e["prefix"])
+                                check(window and q<32 and len(set(g["before"]))==len(rows)
+                                      and rows!=set(g["before"]) and pinned<=rows&set(g["before"])
+                                      and set(g["interior"])<=rows&head_rows
+                                      and set(e["sampled"])==set(e["cold"] or rows)&head_rows,
+                                      "wrong width, pins or sampler on switched window")
+                                checks["window_F"]+=1
                             closed = e["phase"] in ("close_full_write","close_edit_once")
                             check(closed==bool(close_due), "missed or premature full-head close")
                             if closed:
@@ -457,9 +485,9 @@ def llada_main(argv=None):
                     q=schedule[0]
                     if candidate:
                         fixed=evaluate_fixed(model,tok,t,ref["prompt_ids"],q,Law(),
-                              cross=("quarter" if q==64 else "head", q==16),coverage="head" if q==64 else "sparse",
+                              cross=("quarter" if q==64 else "head", q==16 and not window),coverage="head" if q==64 else "sparse",
                               close_policy=("edit_once" if editable else "full_write") if q==32 else "unchanged",
-                              warm_head_sample=editable and q==64)
+                              warm_head_sample=editable and q==64,request_cls=window_fixed if q<32 else None)
                     else:
                         fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
                                           borrow=False,coverage="head" if q==64 else "sparse")

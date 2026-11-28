@@ -144,3 +144,15 @@ cd /gs/runtime/single512-api-1128/repo
 /usr/bin/python3 -B -m experiments.t2t.serving_slots.strict_handle_report \
     gemma /gs/results/qualify-single512-api-1128 benchmarks/frozen90/manifest.json
 ```
+# Experimental LLaDA active-window qualification
+
+`quarter_edit_window` is an opt-in candidate, **not a qualified replacement**
+for `quarter_edit_warm`. Fixed 4/8/16 must reproduce the independent head-only
+window arms' physical row sequence, output IDs, F and Q on the original
+0/10/20 anchors (no half-block borrowing). Fixed 32/64 must reproduce the
+previous terminal-edit and quarter-gated warm-head arms. The five-offer
+cycle must cover all 25 directed transitions, including real downshifts with
+debt. A separate `park` test waits for a measured write to the successor at
+64, then pays it at 4 and returns to 64. No small offer may sample the parked
+tail or project any clean parked row. Do not interpret these boundary tests
+as a quality ranking for mixed budgets.

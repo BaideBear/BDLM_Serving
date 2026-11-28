@@ -113,6 +113,28 @@ def test_verified_draft_compares_through_eos_and_requires_complete_canvas():
         compare_block(a[:32],b[:32],{1})
 
 
+def test_switchable_window_requires_real_fixed_changes_and_a_parked_write(cohort):
+    path,manifest=cohort
+    for p in path.glob("*.json"):
+        r=json.loads(p.read_text())
+        s=r["suite"]
+        r.update(profile="quarter_edit_window", downshifts_with_debt=int(s=="switch25"))
+        r["policy_checks"]=({"window_F":1} if s in ("fixed4","fixed8","fixed16") else {
+            "fixed32":{"edit_once_F":2,"terminal_writes":1},
+            "fixed64":{"quarter_open_F":1,"warm_sample_rows":2},
+            "park":{"parked_dirty_Q":1}}.get(s,{}))
+        if s=="park":
+            r.update(directed_pairs={"64>4":1,"4>64":1},F=3,decoder_F=3)
+        p.write_text(json.dumps(r))
+    assert summarize(path,"llada",manifest)["profile"]=="quarter_edit_window"
+    for p in path.glob("park-*.json"):
+        r=json.loads(p.read_text())
+        r["policy_checks"]={}
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError,match="parked-tail"):
+        summarize(path,"llada",manifest)
+
+
 @pytest.mark.parametrize("invalid", ["missing", "different", "lost-transition"])
 def test_reject_unqualified_cohort(cohort, invalid):
     path, manifest = cohort
