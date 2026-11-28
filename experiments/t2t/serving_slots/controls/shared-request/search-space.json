@@ -1,0 +1,16 @@
+{
+  "status": "registered_search_space_not_selected_parameters",
+  "policy": "bdlm_serving.methods.t2t.unified_rows.plan_rows",
+  "unit": "one independent fixed offer per request",
+  "model_searches": {
+    "llada21": {"block_size": 32, "offers": [4, 8, 16, 32, 64], "selected": null},
+    "gemma": {"block_size": 256, "offers": [32, 64, 128, 256, 512], "selected": null}
+  },
+  "initial_anchors": {"prefix_share": "1/8", "open_at": "1/4"},
+  "search_order": [
+    {"vary": "prefix_share", "values": ["0", "1/8", "1/4", "1/2"], "open_at": "1/4"},
+    {"vary": "open_at", "values": ["0", "1/8", "1/4", "1/2"], "prefix_share": "selected_for_this_model"}
+  ],
+  "scope": "First search constant parameters per model across its five offers. No per-cell algorithm selection.",
+  "confirmation": "Freeze both models' parameters together before comparing all ten frozen90 cells."
+}

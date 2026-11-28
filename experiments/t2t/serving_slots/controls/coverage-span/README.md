@@ -38,3 +38,10 @@ the candidate gained TPF but lost 12 correct responses at **each** offer:
 This rules out replacing the five-tier live profile with this candidate.
 The confirmation compares whole algorithms, not just the threshold. It was
 recomputed from archived n164 files [at the new storage root](../../../../../docs/cluster-storage.md).
+
+The [five-offer frozen90 result](final.json) now seals every offer (nine
+screening cases plus 81 independently confirmed cases per offer). Live versus
+covered correct counts, in ascending Q4/8/16/32/64 order:
+`72→64`, `72→65`, `75→67`, `75→63`, `75→63`. The TPF gains did not compensate
+for the quality regressions. This is the LLaDA coverage candidate, not the
+new cross-model row planner.
