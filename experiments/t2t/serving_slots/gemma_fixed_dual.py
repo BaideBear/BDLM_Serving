@@ -400,17 +400,17 @@ class AblationRequest(FixedFamilyRequest):
         room_for_tail = self.ordinal+1 < self.max_new_tokens//B
         opened = None
         frontier_receipt = None
+        if self.frontier_ordinal != head.ordinal:
+            self.frontier_ordinal = head.ordinal
+            self.frontier_previous = None
+        unresolved = FULL-head.rows.accepted
+        frontier = min(unresolved, default=B)
+        if not set(range(frontier)).issubset(head.rows.accepted) or \
+                head.rows.dirty & set(range(frontier)):
+            raise RuntimeError('Frontier is not accepted, initialized and debt-free')
         if self.frontier_gate:
-            if self.frontier_ordinal != head.ordinal:
-                self.frontier_ordinal = head.ordinal
-                self.frontier_previous = None
-            unresolved = FULL-head.rows.accepted
-            frontier = min(unresolved, default=B)
             frontier_receipt = dict(previous=self.frontier_previous, current=frontier,
-                                    ordinal=head.ordinal, gate=bool(self.frontier_gate))
-            if not set(range(frontier)).issubset(head.rows.accepted) or \
-                    head.rows.dirty & set(range(frontier)):
-                raise RuntimeError('Frontier is not accepted, initialized and debt-free')
+                                    ordinal=head.ordinal, gate=True)
 
         def run(route, positions, sampled=(), prefix=(), cold=(), prefix_pool=None,
                 frontier_receipt=None):
