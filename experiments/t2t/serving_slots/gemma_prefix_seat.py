@@ -33,6 +33,7 @@ class PrefixSeat:
                     blocks_used=sorted(self.used_blocks))
 
     def rows(self, *, local, prior, width, dirty, start, offer, ready, bank, tick):
+        original = np.asarray(local, dtype=np.int64)
         local = tuple(map(int, local))
         prior = list(map(int, prior))
         block = start // 256
@@ -45,12 +46,12 @@ class PrefixSeat:
         if (block in self.used_blocks or len(local) != offer or not local
                 or not unresolved or not due <= picked or ready <= 0
                 or prior[:ready] != [1] * ready or due & set(range(ready))):
-            return local
+            return original
         exchange = choose_prefix_seat(local, unresolved=unresolved, resident=resident,
                                       due=due, paid_prefix_end=int(ready), offer=offer,
                                       used=block in self.used_blocks)
         if exchange is None:
-            return local
+            return original
         donor, prefix = map(int, exchange)
         require_state(local=local, prior=prior, width=width, dirty=dirty, start=start,
                       ready=ready, bank=bank, donor=donor, prefix=prefix)
