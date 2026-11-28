@@ -1,0 +1,222 @@
+{
+  "raw_sha256": "c1c8a0113cd968690c313e3592ea71294f293606c6861587705cc9dd982b4ccd",
+  "parent_sha256": "a7d85ee3e36cdc59e100ca76794da35752cab1cebc059f693c64fb4d55542ae4",
+  "old_gate_equal": 6,
+  "selector_sha256": "f60b6018fb83f6271fcc64ec2deb54600b751444682db8cd5a653e317cb4deca",
+  "cohorts": {
+    "formal90": {
+      "requests": 90,
+      "stock": {
+        "correct": 88,
+        "N": 30351,
+        "F": 2384,
+        "D": 2310,
+        "E": 74,
+        "Q": 253634,
+        "TPF": 13.047157730912744,
+        "TE": 0.11966455601378365,
+        "max_q": 128
+      },
+      "treatment": {
+        "correct": 86,
+        "N": 30687,
+        "F": 2524,
+        "D": 2449,
+        "E": 75,
+        "Q": 260750,
+        "TPF": 12.835352718057202,
+        "TE": 0.11768744007670182,
+        "max_q": 128
+      },
+      "treatment_counts": {
+        "sample_plans": 1679,
+        "growth_plans": 692,
+        "cold_plans": 330,
+        "D": 2449,
+        "Q": 260750,
+        "E": 75,
+        "plans_with_row_change": 533,
+        "removed_prefix_rows": 7505,
+        "replacement_mask_rows": 1955,
+        "seats_left_free": 5550
+      },
+      "changed_ids": 68,
+      "first_forks": 86,
+      "gains": [],
+      "losses": [
+        51,
+        61
+      ]
+    },
+    "fixed6": {
+      "requests": 6,
+      "stock": {
+        "correct": 6,
+        "N": 1420,
+        "F": 120,
+        "D": 117,
+        "E": 3,
+        "Q": 12451,
+        "TPF": 12.159687013694366,
+        "TE": 0.11404706449281182,
+        "max_q": 128
+      },
+      "treatment": {
+        "correct": 6,
+        "N": 1404,
+        "F": 116,
+        "D": 114,
+        "E": 2,
+        "Q": 11801,
+        "TPF": 12.678532621877274,
+        "TE": 0.1189729683925091,
+        "max_q": 128
+      },
+      "treatment_counts": {
+        "sample_plans": 78,
+        "growth_plans": 24,
+        "cold_plans": 16,
+        "D": 114,
+        "Q": 11801,
+        "E": 2,
+        "plans_with_row_change": 18,
+        "removed_prefix_rows": 296,
+        "replacement_mask_rows": 21,
+        "seats_left_free": 275
+      },
+      "changed_ids": 4,
+      "first_forks": 5,
+      "gains": [],
+      "losses": []
+    },
+    "other84": {
+      "requests": 84,
+      "stock": {
+        "correct": 82,
+        "N": 28931,
+        "F": 2264,
+        "D": 2193,
+        "E": 71,
+        "Q": 241183,
+        "TPF": 13.110548496428343,
+        "TE": 0.1199545573278382,
+        "max_q": 128
+      },
+      "treatment": {
+        "correct": 80,
+        "N": 29283,
+        "F": 2408,
+        "D": 2335,
+        "E": 73,
+        "Q": 248949,
+        "TPF": 12.846554153498625,
+        "TE": 0.11762650181362448,
+        "max_q": 128
+      },
+      "treatment_counts": {
+        "sample_plans": 1601,
+        "growth_plans": 668,
+        "cold_plans": 314,
+        "D": 2335,
+        "Q": 248949,
+        "E": 73,
+        "plans_with_row_change": 515,
+        "removed_prefix_rows": 7209,
+        "replacement_mask_rows": 1934,
+        "seats_left_free": 5275
+      },
+      "changed_ids": 64,
+      "first_forks": 81,
+      "gains": [],
+      "losses": [
+        51,
+        61
+      ]
+    },
+    "original30": {
+      "requests": 30,
+      "stock": {
+        "correct": 30,
+        "N": 9683,
+        "F": 801,
+        "D": 779,
+        "E": 22,
+        "Q": 84656,
+        "TPF": 12.424388459821785,
+        "TE": 0.11438055188055188,
+        "max_q": 128
+      },
+      "treatment": {
+        "correct": 30,
+        "N": 9815,
+        "F": 860,
+        "D": 837,
+        "E": 23,
+        "Q": 87392,
+        "TPF": 12.03046485272297,
+        "TE": 0.11231005126327352,
+        "max_q": 128
+      },
+      "treatment_counts": {
+        "sample_plans": 576,
+        "growth_plans": 225,
+        "cold_plans": 106,
+        "D": 837,
+        "Q": 87392,
+        "E": 23,
+        "plans_with_row_change": 180,
+        "removed_prefix_rows": 2702,
+        "replacement_mask_rows": 878,
+        "seats_left_free": 1824
+      },
+      "changed_ids": 24,
+      "first_forks": 30,
+      "gains": [],
+      "losses": []
+    },
+    "new60": {
+      "requests": 60,
+      "stock": {
+        "correct": 58,
+        "N": 20668,
+        "F": 1583,
+        "D": 1531,
+        "E": 52,
+        "Q": 168978,
+        "TPF": 13.358542366458225,
+        "TE": 0.12231178023174614,
+        "max_q": 128
+      },
+      "treatment": {
+        "correct": 56,
+        "N": 20872,
+        "F": 1664,
+        "D": 1612,
+        "E": 52,
+        "Q": 173358,
+        "TPF": 13.237796650724317,
+        "TE": 0.12039825101812435,
+        "max_q": 128
+      },
+      "treatment_counts": {
+        "sample_plans": 1103,
+        "growth_plans": 467,
+        "cold_plans": 224,
+        "D": 1612,
+        "Q": 173358,
+        "E": 52,
+        "plans_with_row_change": 353,
+        "removed_prefix_rows": 4803,
+        "replacement_mask_rows": 1077,
+        "seats_left_free": 3726
+      },
+      "changed_ids": 44,
+      "first_forks": 56,
+      "gains": [],
+      "losses": [
+        51,
+        61
+      ]
+    }
+  }
+}

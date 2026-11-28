@@ -31,3 +31,5 @@
 [`request_response.curve`](../bdlm_serving/methods/t2t/request_response.py) 接受当前请求状态，在同模型、同执行器和同 continuation 的五臂样本中估计五个 TPF。先匹配是否有后块以及采样/验证阶段，再按块宽归一化的状态距离为每个训练请求选一个最近状态；五档使用完全相同的邻居。默认距离不超过 0.25、最多 12 个独立请求、少于 4 个就返回 `unsupported`。这些是首版预设，不是从测试集反推的最佳参数。相邻档返回有符号收益和题间成对标准误（不是单请求预测区间）。独立质量门槛默认不给任何档放行；调用方不能拿某一状态的高 TPF 当作质量合格凭证。
 
 在已收齐且通过物理状态核验的紧凑五臂 JSONL 上运行 `python -m tools.request_response_eval <forks.jsonl>`，分别对每个执行器版本和 continuation 做留一题验证，并在**同一批有支持的决策点**比较状态模型和仅按档估计。`total_decisions` 与 `supported_decisions` 同报；没有足够数据时不产生指标。输入字段与边界案例见[测试](../tests/test_request_response.py)。这些单元测试使用构造数据，不是 GPU 结果。
+
+[LLaDA 首批两个同题状态的 GPU 五臂](../experiments/t2t/serving_slots/controls/request-q-response/README.md)已核对真实 KV、RNG 和各阶段账单。另有一项冻结前的选择依据：[Gemma Q128 前缀减配正式 90 题](../experiments/t2t/serving_slots/controls/frontier-dose/formal90-summary.json)。与原 Live 相比 88→86 题、TPF 13.047→12.835、TE 11.97%→11.77%；原 30 是 30→30、新 60 是 58→56。六题的小幅提升未复现，减配不进入冻结候选。
