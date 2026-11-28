@@ -1,0 +1,520 @@
+{
+    "cases": [
+        {
+            "arms": {
+                "apply": {
+                    "F": 102,
+                    "N": 211,
+                    "Q": 726,
+                    "correct": 1,
+                    "eligible": 31,
+                    "eos": true,
+                    "extra": 31,
+                    "failure": null,
+                    "ids_sha": "9070ff240097b98e060f34977f25dc55b22c6877b0d6a76a93a8a2fff5055d7d",
+                    "paid_D": 1,
+                    "paid_Q": 7
+                },
+                "stock": {
+                    "F": 75,
+                    "N": 178,
+                    "Q": 536,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "12914bff0849b8bf8ecba4f130e270a0bdacf8133680a9747c618ef67c06ff9b",
+                    "paid_D": 1,
+                    "paid_Q": 1
+                },
+                "tracked": {
+                    "F": 75,
+                    "N": 178,
+                    "Q": 536,
+                    "correct": 1,
+                    "eligible": 16,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "12914bff0849b8bf8ecba4f130e270a0bdacf8133680a9747c618ef67c06ff9b",
+                    "paid_D": 1,
+                    "paid_Q": 1
+                }
+            },
+            "fork": {
+                "block": 2,
+                "dirty_before": [
+                    68,
+                    69,
+                    70
+                ],
+                "native_t2t": [],
+                "positions": [
+                    71
+                ],
+                "rows": [
+                    68,
+                    69,
+                    70,
+                    71,
+                    72,
+                    73,
+                    74,
+                    75
+                ],
+                "tick": 1
+            },
+            "index": 7
+        },
+        {
+            "arms": {
+                "apply": {
+                    "F": 143,
+                    "N": 388,
+                    "Q": 1030,
+                    "correct": 1,
+                    "eligible": 36,
+                    "eos": true,
+                    "extra": 36,
+                    "failure": null,
+                    "ids_sha": "29b5be55987b998498310a94e25c67ec36001ead18b1cd8f3c5b4c4fcbdb0ee8",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "stock": {
+                    "F": 159,
+                    "N": 391,
+                    "Q": 1170,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d151688a0d38eaf383e95d1e202202125b354c238c9cd54ae6fcdd2e0fa26a28",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "tracked": {
+                    "F": 159,
+                    "N": 391,
+                    "Q": 1170,
+                    "correct": 1,
+                    "eligible": 38,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d151688a0d38eaf383e95d1e202202125b354c238c9cd54ae6fcdd2e0fa26a28",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                }
+            },
+            "fork": {
+                "block": 2,
+                "dirty_before": [
+                    80,
+                    81
+                ],
+                "native_t2t": [],
+                "positions": [
+                    82,
+                    83,
+                    84
+                ],
+                "rows": [
+                    80,
+                    81,
+                    82,
+                    83,
+                    84,
+                    85,
+                    86,
+                    87
+                ],
+                "tick": 11
+            },
+            "index": 13
+        },
+        {
+            "arms": {
+                "apply": {
+                    "F": 60,
+                    "N": 205,
+                    "Q": 459,
+                    "correct": 1,
+                    "eligible": 5,
+                    "eos": true,
+                    "extra": 5,
+                    "failure": null,
+                    "ids_sha": "d1a5d855e417f5836f6594501caefdd20990a5a516a1f42afc019733bb667bcb",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "stock": {
+                    "F": 64,
+                    "N": 205,
+                    "Q": 483,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d1a5d855e417f5836f6594501caefdd20990a5a516a1f42afc019733bb667bcb",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "tracked": {
+                    "F": 64,
+                    "N": 205,
+                    "Q": 483,
+                    "correct": 1,
+                    "eligible": 9,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d1a5d855e417f5836f6594501caefdd20990a5a516a1f42afc019733bb667bcb",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                }
+            },
+            "fork": {
+                "block": 9,
+                "dirty_before": [
+                    312,
+                    313
+                ],
+                "native_t2t": [],
+                "positions": [
+                    314
+                ],
+                "rows": [
+                    312,
+                    313,
+                    314,
+                    315,
+                    316,
+                    317,
+                    318,
+                    319
+                ],
+                "tick": 39
+            },
+            "index": 25
+        },
+        {
+            "arms": {
+                "apply": {
+                    "F": 79,
+                    "N": 230,
+                    "Q": 586,
+                    "correct": 1,
+                    "eligible": 19,
+                    "eos": true,
+                    "extra": 19,
+                    "failure": null,
+                    "ids_sha": "703c0fe30ff100b60f46bc57717a02ca0bdd536b8c95af9aaaf7aaff268c88fb",
+                    "paid_D": 1,
+                    "paid_Q": 1
+                },
+                "stock": {
+                    "F": 93,
+                    "N": 227,
+                    "Q": 691,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d5f26bc481a43ff6fd4ff15811b1dd6d78d8cf9e159af93a809f9e06623cabd2",
+                    "paid_D": 1,
+                    "paid_Q": 1
+                },
+                "tracked": {
+                    "F": 93,
+                    "N": 227,
+                    "Q": 691,
+                    "correct": 1,
+                    "eligible": 32,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "d5f26bc481a43ff6fd4ff15811b1dd6d78d8cf9e159af93a809f9e06623cabd2",
+                    "paid_D": 1,
+                    "paid_Q": 1
+                }
+            },
+            "fork": {
+                "block": 2,
+                "dirty_before": [
+                    80
+                ],
+                "native_t2t": [],
+                "positions": [
+                    81,
+                    82,
+                    83,
+                    84
+                ],
+                "rows": [
+                    80,
+                    81,
+                    82,
+                    83,
+                    84,
+                    85,
+                    86,
+                    87
+                ],
+                "tick": 3
+            },
+            "index": 33
+        },
+        {
+            "arms": {
+                "apply": {
+                    "F": 117,
+                    "N": 319,
+                    "Q": 834,
+                    "correct": 1,
+                    "eligible": 21,
+                    "eos": true,
+                    "extra": 21,
+                    "failure": null,
+                    "ids_sha": "30ecf94eec8fb7a91672ae74c8781391635c72d4a9b364e5fad1d6198a62c12f",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "stock": {
+                    "F": 144,
+                    "N": 362,
+                    "Q": 1089,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "6bc965175f1e3563a652a42325b7d3687cd2a95682e1b8198fb0f72ce8c85a39",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "tracked": {
+                    "F": 144,
+                    "N": 362,
+                    "Q": 1089,
+                    "correct": 1,
+                    "eligible": 56,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "6bc965175f1e3563a652a42325b7d3687cd2a95682e1b8198fb0f72ce8c85a39",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                }
+            },
+            "fork": {
+                "block": 1,
+                "dirty_before": [
+                    42
+                ],
+                "native_t2t": [],
+                "positions": [
+                    47
+                ],
+                "rows": [
+                    42,
+                    43,
+                    44,
+                    45,
+                    46,
+                    47,
+                    48,
+                    49
+                ],
+                "tick": 2
+            },
+            "index": 55
+        },
+        {
+            "arms": {
+                "apply": {
+                    "F": 34,
+                    "N": 97,
+                    "Q": 250,
+                    "correct": 1,
+                    "eligible": 2,
+                    "eos": true,
+                    "extra": 2,
+                    "failure": null,
+                    "ids_sha": "df53901705cfdc8db23b0cabc0b23f916fb1f128fd7c8cc38ecf89d3710a83c8",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "stock": {
+                    "F": 39,
+                    "N": 111,
+                    "Q": 290,
+                    "correct": 1,
+                    "eligible": 0,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "261b45bc98709fe0e5a6c26d211440d54c00dd25b0cdf7b771806255ce90b39f",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                },
+                "tracked": {
+                    "F": 39,
+                    "N": 111,
+                    "Q": 290,
+                    "correct": 1,
+                    "eligible": 3,
+                    "eos": true,
+                    "extra": 0,
+                    "failure": null,
+                    "ids_sha": "261b45bc98709fe0e5a6c26d211440d54c00dd25b0cdf7b771806255ce90b39f",
+                    "paid_D": 0,
+                    "paid_Q": 0
+                }
+            },
+            "fork": {
+                "block": 6,
+                "dirty_before": [
+                    208,
+                    209,
+                    210,
+                    214
+                ],
+                "native_t2t": [],
+                "positions": [
+                    211,
+                    213
+                ],
+                "rows": [
+                    208,
+                    209,
+                    210,
+                    211,
+                    212,
+                    213,
+                    214,
+                    215
+                ],
+                "tick": 29
+            },
+            "index": 71
+        }
+    ],
+    "expand": true,
+    "gate": {
+        "F": true,
+        "TE": true,
+        "TPF": true,
+        "audit": true,
+        "no_new_failures": true,
+        "quality": true
+    },
+    "kind": "summary",
+    "native_endpoint_separate": {
+        "7": {
+            "F": 77,
+            "N": 178,
+            "Q": 552,
+            "equal_ids": true,
+            "same_prefix": true
+        },
+        "13": {
+            "F": 165,
+            "N": 391,
+            "Q": 1218,
+            "equal_ids": true,
+            "same_prefix": true
+        },
+        "25": {
+            "F": 66,
+            "N": 205,
+            "Q": 499,
+            "equal_ids": true,
+            "same_prefix": true
+        },
+        "33": {
+            "F": 96,
+            "N": 227,
+            "Q": 716,
+            "equal_ids": true,
+            "same_prefix": true
+        },
+        "55": {
+            "F": 146,
+            "N": 362,
+            "Q": 1105,
+            "equal_ids": true,
+            "same_prefix": true
+        },
+        "71": {
+            "F": 43,
+            "N": 111,
+            "Q": 322,
+            "equal_ids": true,
+            "same_prefix": true
+        }
+    },
+    "raw_sha256": "bcfb9288404ef4640c70f56d36a542c3a36c666607aec5baefe5317fcfc6dfed",
+    "registration": {
+        "checkpoint": "d4b48682fb49b315db221a96e288fb01ea20499f6aa4e4ef705ec9a2b328a918",
+        "code": "1e8b607ee6e45cfbaf5ebd69d0ccc1963ba8475fb780ea511f78798f98e7e450",
+        "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+        "indices": [
+            7,
+            13,
+            25,
+            33,
+            55,
+            71
+        ],
+        "kind": "registered",
+        "pid": 792069,
+        "policy": "c0323c726d35544e026c4aa4ca87ea4cbf40ffddfd6382d3b8c34235701a036a",
+        "q": 8,
+        "samples": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+        "stage": "six"
+    },
+    "stage": "six",
+    "totals": {
+        "apply": {
+            "F": 535,
+            "N": 1450,
+            "Q": 3885,
+            "TE": 0.3732303732303732,
+            "TPF": 2.781568356493896,
+            "correct": 6,
+            "extra": 114,
+            "failures": 0,
+            "paid_D": 2,
+            "paid_Q": 8
+        },
+        "stock": {
+            "F": 574,
+            "N": 1474,
+            "Q": 4259,
+            "TE": 0.3460906316036628,
+            "TPF": 2.639413463380863,
+            "correct": 6,
+            "extra": 0,
+            "failures": 0,
+            "paid_D": 2,
+            "paid_Q": 2
+        },
+        "tracked": {
+            "F": 574,
+            "N": 1474,
+            "Q": 4259,
+            "TE": 0.3460906316036628,
+            "TPF": 2.639413463380863,
+            "correct": 6,
+            "extra": 0,
+            "failures": 0,
+            "paid_D": 2,
+            "paid_Q": 2
+        }
+    }
+}
