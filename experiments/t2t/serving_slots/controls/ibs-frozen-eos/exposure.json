@@ -1,0 +1,416 @@
+[
+  {
+    "model": "llada21",
+    "q": 4,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "444ebcf67fa934e7bda89e864e758e5c8112b4802d89da6f42588421a07902d5",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 27397,
+        "original_decoder_Q": 105885,
+        "first_debt_Q": 51,
+        "first_has_debt": 31,
+        "following_F": 556,
+        "following_Q": 2083,
+        "following_clean_F": 394,
+        "following_clean_Q": 1519,
+        "certificates": 80,
+        "with_later_F": 74,
+        "clean_with_later_F": 46,
+        "with_room_after_one_payment": 72,
+        "failed_or_no_eos": 10
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 8705,
+        "original_decoder_Q": 33644,
+        "first_debt_Q": 12,
+        "first_has_debt": 9,
+        "following_F": 213,
+        "following_Q": 797,
+        "following_clean_F": 172,
+        "following_clean_Q": 658,
+        "certificates": 27,
+        "with_later_F": 27,
+        "clean_with_later_F": 19,
+        "with_room_after_one_payment": 26,
+        "failed_or_no_eos": 3
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 18692,
+        "original_decoder_Q": 72241,
+        "first_debt_Q": 39,
+        "first_has_debt": 22,
+        "following_F": 343,
+        "following_Q": 1286,
+        "certificates": 53,
+        "with_later_F": 47,
+        "clean_with_later_F": 27,
+        "with_room_after_one_payment": 46,
+        "following_clean_F": 222,
+        "following_clean_Q": 861,
+        "failed_or_no_eos": 7
+      }
+    }
+  },
+  {
+    "model": "llada21",
+    "q": 8,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "ceb103ced675fe7d520b5373a4984a30983d6e61137ae0aa34b2b9c6cbfb0b9c",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 19692,
+        "original_decoder_Q": 145324,
+        "first_debt_Q": 54,
+        "first_has_debt": 18,
+        "following_F": 294,
+        "following_Q": 2036,
+        "following_clean_F": 228,
+        "following_clean_Q": 1652,
+        "certificates": 85,
+        "with_later_F": 73,
+        "clean_with_later_F": 55,
+        "with_room_after_one_payment": 72,
+        "failed_or_no_eos": 5
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 6652,
+        "original_decoder_Q": 49029,
+        "first_debt_Q": 12,
+        "first_has_debt": 4,
+        "following_F": 100,
+        "following_Q": 706,
+        "following_clean_F": 84,
+        "following_clean_Q": 600,
+        "certificates": 29,
+        "with_later_F": 25,
+        "clean_with_later_F": 21,
+        "with_room_after_one_payment": 25,
+        "failed_or_no_eos": 1
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 13040,
+        "original_decoder_Q": 96295,
+        "first_debt_Q": 42,
+        "first_has_debt": 14,
+        "following_F": 194,
+        "following_Q": 1330,
+        "following_clean_F": 144,
+        "following_clean_Q": 1052,
+        "certificates": 56,
+        "with_later_F": 48,
+        "clean_with_later_F": 34,
+        "with_room_after_one_payment": 47,
+        "failed_or_no_eos": 4
+      }
+    }
+  },
+  {
+    "model": "llada21",
+    "q": 16,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "cf00240b0182627bc1f80254861d2bba0caed5c720b2c2f58b434e8bc7b74f24",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 15480,
+        "original_decoder_Q": 206927,
+        "first_debt_Q": 40,
+        "first_has_debt": 12,
+        "following_F": 85,
+        "following_Q": 1126,
+        "certificates": 84,
+        "with_later_F": 41,
+        "clean_with_later_F": 29,
+        "with_room_after_one_payment": 38,
+        "following_clean_F": 58,
+        "following_clean_Q": 838,
+        "failed_or_no_eos": 6
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 5278,
+        "original_decoder_Q": 70484,
+        "first_debt_Q": 16,
+        "first_has_debt": 6,
+        "following_F": 28,
+        "following_Q": 364,
+        "certificates": 29,
+        "with_later_F": 15,
+        "clean_with_later_F": 9,
+        "with_room_after_one_payment": 13,
+        "following_clean_F": 18,
+        "following_clean_Q": 288,
+        "failed_or_no_eos": 1
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 10202,
+        "original_decoder_Q": 136443,
+        "first_debt_Q": 24,
+        "first_has_debt": 6,
+        "certificates": 55,
+        "with_later_F": 26,
+        "clean_with_later_F": 20,
+        "with_room_after_one_payment": 25,
+        "following_F": 57,
+        "following_Q": 762,
+        "following_clean_F": 40,
+        "following_clean_Q": 550,
+        "failed_or_no_eos": 5
+      }
+    }
+  },
+  {
+    "model": "llada21",
+    "q": 32,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "8c141543e965414c7c2fd4ef51ca966472052534f9337eb3896409eaec31a4f1",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 12694,
+        "original_decoder_Q": 268170,
+        "first_debt_Q": 21,
+        "first_has_debt": 3,
+        "certificates": 84,
+        "with_later_F": 3,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0,
+        "failed_or_no_eos": 6,
+        "following_F": 3,
+        "following_Q": 48
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 5099,
+        "original_decoder_Q": 106270,
+        "first_debt_Q": 0,
+        "first_has_debt": 0,
+        "certificates": 29,
+        "with_later_F": 0,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0,
+        "failed_or_no_eos": 1
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 7595,
+        "original_decoder_Q": 161900,
+        "first_debt_Q": 21,
+        "first_has_debt": 3,
+        "certificates": 55,
+        "with_later_F": 3,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0,
+        "following_F": 3,
+        "following_Q": 48,
+        "failed_or_no_eos": 5
+      }
+    }
+  },
+  {
+    "model": "gemma",
+    "q": 32,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "6c2a8bf946d5de06fc063a32fa3da090cef4912d4c3e372910c7d87013e97f4e",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 6287,
+        "original_decoder_Q": 186829,
+        "first_debt_Q": 460,
+        "first_has_debt": 75,
+        "following_F": 1036,
+        "following_Q": 30108,
+        "certificates": 88,
+        "with_later_F": 78,
+        "clean_with_later_F": 3,
+        "with_room_after_one_payment": 73,
+        "failed_or_no_eos": 2,
+        "following_clean_F": 42,
+        "following_clean_Q": 1344
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 1656,
+        "original_decoder_Q": 49445,
+        "first_debt_Q": 208,
+        "first_has_debt": 28,
+        "following_F": 362,
+        "following_Q": 10729,
+        "certificates": 30,
+        "with_later_F": 28,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 25
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 4631,
+        "original_decoder_Q": 137384,
+        "first_debt_Q": 252,
+        "first_has_debt": 47,
+        "certificates": 58,
+        "with_later_F": 50,
+        "clean_with_later_F": 3,
+        "with_room_after_one_payment": 48,
+        "following_F": 674,
+        "following_Q": 19379,
+        "failed_or_no_eos": 2,
+        "following_clean_F": 42,
+        "following_clean_Q": 1344
+      }
+    }
+  },
+  {
+    "model": "gemma",
+    "q": 64,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "63d1f19c8ba6ffce29d974fc4ea7a191562f0db94aebf1a86361dd22cfe95c65",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 3498,
+        "original_decoder_Q": 196051,
+        "first_debt_Q": 863,
+        "first_has_debt": 74,
+        "following_F": 390,
+        "following_Q": 19803,
+        "certificates": 89,
+        "with_later_F": 76,
+        "clean_with_later_F": 2,
+        "with_room_after_one_payment": 73,
+        "failed_or_no_eos": 1,
+        "following_clean_F": 12,
+        "following_clean_Q": 768
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 1420,
+        "original_decoder_Q": 79017,
+        "first_debt_Q": 261,
+        "first_has_debt": 25,
+        "following_F": 161,
+        "following_Q": 8029,
+        "certificates": 29,
+        "with_later_F": 25,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 25,
+        "failed_or_no_eos": 1
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 2078,
+        "original_decoder_Q": 117034,
+        "first_debt_Q": 602,
+        "first_has_debt": 49,
+        "certificates": 60,
+        "with_later_F": 51,
+        "clean_with_later_F": 2,
+        "with_room_after_one_payment": 48,
+        "following_F": 229,
+        "following_Q": 11774,
+        "following_clean_F": 12,
+        "following_clean_Q": 768
+      }
+    }
+  },
+  {
+    "model": "gemma",
+    "q": 128,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "09299b0014d69fe150f6f82984dc1495fb604061794fe99c6b915071a8a2c551",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 2055,
+        "original_decoder_Q": 209763,
+        "first_debt_Q": 911,
+        "first_has_debt": 55,
+        "following_F": 146,
+        "following_Q": 11651,
+        "certificates": 90,
+        "with_later_F": 60,
+        "clean_with_later_F": 5,
+        "with_room_after_one_payment": 55,
+        "following_clean_F": 11,
+        "following_clean_Q": 1344
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 714,
+        "original_decoder_Q": 72627,
+        "first_debt_Q": 475,
+        "first_has_debt": 20,
+        "following_F": 59,
+        "following_Q": 4200,
+        "certificates": 30,
+        "with_later_F": 20,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 18
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 1341,
+        "original_decoder_Q": 137136,
+        "first_debt_Q": 436,
+        "first_has_debt": 35,
+        "certificates": 60,
+        "with_later_F": 40,
+        "clean_with_later_F": 5,
+        "with_room_after_one_payment": 37,
+        "following_F": 87,
+        "following_Q": 7451,
+        "following_clean_F": 11,
+        "following_clean_Q": 1344
+      }
+    }
+  },
+  {
+    "model": "gemma",
+    "q": 256,
+    "reference_sha256": "ff9caccbf776416f0237ddcc73af774fbe567c57929b359583f70fba128d64ce",
+    "records_sha256": "ac3d04b0ac52f57a0b40a1f19b6e6937a373d1777a9f423a7e14dcd5c0b54ae7",
+    "cohorts": {
+      "all": {
+        "requests": 90,
+        "original_F": 1563,
+        "original_decoder_Q": 290137,
+        "first_debt_Q": 0,
+        "first_has_debt": 0,
+        "certificates": 90,
+        "with_later_F": 0,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0
+      },
+      "original30": {
+        "requests": 30,
+        "original_F": 554,
+        "original_decoder_Q": 103976,
+        "first_debt_Q": 0,
+        "first_has_debt": 0,
+        "certificates": 30,
+        "with_later_F": 0,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0
+      },
+      "new60": {
+        "requests": 60,
+        "original_F": 1009,
+        "original_decoder_Q": 186161,
+        "first_debt_Q": 0,
+        "first_has_debt": 0,
+        "certificates": 60,
+        "with_later_F": 0,
+        "clean_with_later_F": 0,
+        "with_room_after_one_payment": 0
+      }
+    }
+  }
+]
