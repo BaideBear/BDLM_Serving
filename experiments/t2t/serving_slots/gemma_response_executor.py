@@ -6,6 +6,9 @@ The class keeps native row sampling, T2T, dirty writeback, retirement/promotion,
 rebuild, verify, measured EOS and actual per-step decoder-history Q.  It does not
 relax a step cap: admission uses Q64 spare seats, then the explicit 2B call.
 """
+import hashlib
+import json
+
 from .gemma_fixed_dual import AblationRequest, B, TIERS
 from .gemma_verified_eos import SwitchableVerifiedEOSRequest
 from bdlm_serving.methods.t2t.budget_family import Law

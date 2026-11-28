@@ -25,7 +25,7 @@ fi
 idle || exit 75
 sleep 1
 idle || exit 75
-mkdir -p "$out" /dev/shm/triton-a0 /dev/shm/tmp-a0 /dev/shm/hf-a0
+mkdir -p /dev/shm/triton-a0 /dev/shm/tmp-a0 /dev/shm/hf-a0
 release() { local rc=$? mem apps; trap - EXIT
   mem=$(nvidia-smi -i 0 --query-gpu=memory.used --format=csv,noheader,nounits)
   apps=$(nvidia-smi -i 0 --query-compute-apps=pid --format=csv,noheader,nounits)
