@@ -98,6 +98,26 @@ def prefill_digests(path):
     return found
 
 
+def dataset_cost(rows, dataset):
+    groups = {}
+    worst = []
+    for item in dataset:
+        x = rows[item["index"]]
+        a, b = x["stock"], x["apply"]
+        name = item["dataset"]
+        g = groups.setdefault(name, dict(requests=0, stock_correct=0, apply_correct=0,
+                                         delta_N=0, delta_F=0, delta_Q=0))
+        g["requests"] += 1
+        g["stock_correct"] += a["correct"]
+        g["apply_correct"] += b["correct"]
+        for key in ("N", "F", "Q"):
+            g[f"delta_{key}"] += b[key] - a[key]
+        worst.append(dict(index=item["index"], dataset=name, delta_F=b["F"]-a["F"],
+                          stock=a, apply=b))
+    return dict(datasets=groups, greatest_extra_F=sorted(
+        worst, key=lambda x:(-x["delta_F"], x["index"]))[:3])
+
+
 def run(root, model, samples, replay_dir=None, *, gemma_dir=None, fixed_q=None,
         with_intervals=False):
     rows, hashes = {}, {}
@@ -196,7 +216,9 @@ def run(root, model, samples, replay_dir=None, *, gemma_dir=None, fixed_q=None,
                             and a["output_tokens"] == bills["N"], "physical LLaDA bill mismatch")
                 add(d)
     out=dict(model=model, fixed_q=q, hashes=hashes, cohorts=cohorts(rows))
-    if with_intervals:out["paired_intervals"]=paired_intervals(rows,dataset)
+    if with_intervals:
+        out["paired_intervals"]=paired_intervals(rows,dataset)
+        out["cost_breakdown"]=dataset_cost(rows,dataset)
     return out
 
 

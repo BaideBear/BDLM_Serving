@@ -31,6 +31,22 @@ and remains charged with zero delivery. Historical Live got 75/90 at Q16 and
 88/90 at Gemma Q128; neither is a matched arm here. These three registrations
 are not a ten-tier curve or evidence for a mixed-budget policy.
 
+Breaking down the Q64 result explains the increase in total computation:
+
+| Dataset (30 each) | Correct, stock → repeat | Change in total N | Change in total F | Change in selected Q |
+|---|---:|---:|---:|---:|
+| GSM8K | 30 → 29 | -162 | -138 | -8,750 |
+| MATH500 | 28 → 27 | -136 | -174 | -10,400 |
+| HumanEval | 25 → 21 | +2,061 | +379 | +21,540 |
+
+On frozen index 72 (`HumanEval/9`), stock delivered 176 tokens in 10 F
+and passed. The treatment delivered 2,046 in 320 F and failed. At the
+first difference (block 0, decoder tick 5) it additionally accepted rows
+139 and 166. The later quality change cannot be attributed to either one
+of those rows individually. Index 88 also went from passing to failing:
+391 → 926 tokens and 45 → 206 F. Both are in the primary 90, not removed
+as outliers; neither implies a serving-time policy for code prompts.
+
 [Budget figure with numeric values](fixed-budget90.png) ·
 [Replot script](../../../../../tools/plot_paid_budget_points.py) ·
 [LLaDA Q16](llada-q16-frozen90.json) · [Gemma Q64](gemma-q64-frozen90.json) ·

@@ -161,6 +161,87 @@
       }
     }
   },
+  "cost_breakdown": {
+    "datasets": {
+      "gsm8k": {
+        "apply_correct": 29,
+        "delta_F": -138,
+        "delta_N": -162,
+        "delta_Q": -8750,
+        "requests": 30,
+        "stock_correct": 30
+      },
+      "humaneval": {
+        "apply_correct": 21,
+        "delta_F": 379,
+        "delta_N": 2061,
+        "delta_Q": 21540,
+        "requests": 30,
+        "stock_correct": 25
+      },
+      "math500": {
+        "apply_correct": 27,
+        "delta_F": -174,
+        "delta_N": -136,
+        "delta_Q": -10400,
+        "requests": 30,
+        "stock_correct": 28
+      }
+    },
+    "greatest_extra_F": [
+      {
+        "apply": {
+          "F": 320,
+          "N": 2046,
+          "Q": 16719,
+          "correct": false
+        },
+        "dataset": "humaneval",
+        "delta_F": 310,
+        "index": 72,
+        "stock": {
+          "F": 10,
+          "N": 176,
+          "Q": 577,
+          "correct": true
+        }
+      },
+      {
+        "apply": {
+          "F": 206,
+          "N": 926,
+          "Q": 11561,
+          "correct": false
+        },
+        "dataset": "humaneval",
+        "delta_F": 161,
+        "index": 88,
+        "stock": {
+          "F": 45,
+          "N": 391,
+          "Q": 2322,
+          "correct": true
+        }
+      },
+      {
+        "apply": {
+          "F": 33,
+          "N": 329,
+          "Q": 1824,
+          "correct": true
+        },
+        "dataset": "gsm8k",
+        "delta_F": 11,
+        "index": 35,
+        "stock": {
+          "F": 22,
+          "N": 230,
+          "Q": 1345,
+          "correct": true
+        }
+      }
+    ]
+  },
   "fixed_q": 64,
   "hashes": {
     "case-00.json": "f48a7bf34fb31c174de85bf96950450c0b008709419f2f9c88c9a780a86f28fd",

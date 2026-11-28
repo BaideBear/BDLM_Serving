@@ -175,6 +175,87 @@
       }
     }
   },
+  "cost_breakdown": {
+    "datasets": {
+      "gsm8k": {
+        "apply_correct": 26,
+        "delta_F": 733,
+        "delta_N": 2013,
+        "delta_Q": 9167,
+        "requests": 30,
+        "stock_correct": 26
+      },
+      "humaneval": {
+        "apply_correct": 22,
+        "delta_F": -119,
+        "delta_N": 213,
+        "delta_Q": -1588,
+        "requests": 30,
+        "stock_correct": 23
+      },
+      "math500": {
+        "apply_correct": 24,
+        "delta_F": -1871,
+        "delta_N": -856,
+        "delta_Q": -25851,
+        "requests": 30,
+        "stock_correct": 23
+      }
+    },
+    "greatest_extra_F": [
+      {
+        "apply": {
+          "F": 1227,
+          "N": 2048,
+          "Q": 15855,
+          "correct": false
+        },
+        "dataset": "gsm8k",
+        "delta_F": 1047,
+        "index": 43,
+        "stock": {
+          "F": 180,
+          "N": 275,
+          "Q": 2369,
+          "correct": true
+        }
+      },
+      {
+        "apply": {
+          "F": 509,
+          "N": 854,
+          "Q": 6726,
+          "correct": false
+        },
+        "dataset": "gsm8k",
+        "delta_F": 207,
+        "index": 3,
+        "stock": {
+          "F": 302,
+          "N": 492,
+          "Q": 3978,
+          "correct": false
+        }
+      },
+      {
+        "apply": {
+          "F": 711,
+          "N": 1778,
+          "Q": 9096,
+          "correct": true
+        },
+        "dataset": "math500",
+        "delta_F": 175,
+        "index": 14,
+        "stock": {
+          "F": 536,
+          "N": 1335,
+          "Q": 7113,
+          "correct": true
+        }
+      }
+    ]
+  },
   "fixed_q": 16,
   "hashes": {
     "llada-ibs-q16-paid-agreement-frozen90-h0-v1": "d9acbcd83277cef8e9624f360de0578e013486a21b560c81f960cda898940000",

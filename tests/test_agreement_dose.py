@@ -1,6 +1,6 @@
 from tools.audit_agreement_dose import selection, tally
 import pytest
-from tools.agreement_fixed90_comparison import cohorts, decompose, paired_intervals
+from tools.agreement_fixed90_comparison import cohorts, dataset_cost, decompose, paired_intervals
 
 
 def step(tick, block, votes, probs, native, ids):
@@ -54,3 +54,14 @@ def test_paired_intervals_keep_the_two_arms_together_and_preserve_dataset_size()
     ds[-1]["dataset"]=ds[-2]["dataset"]
     with pytest.raises(ValueError):
         paired_intervals(rows,ds,count=101)
+
+
+def test_cost_breakdown_keeps_the_full_long_failed_generation():
+    ds = [{"index":i,"dataset":"code"} for i in range(3)]
+    ok = dict(F=10,Q=50,N=42,correct=True)
+    fail = dict(F=300,Q=600,N=480,correct=False)
+    rows = {i:dict(stock=ok,apply=(fail if i==2 else ok)) for i in range(3)}
+    out = dataset_cost(rows,ds)
+    assert out["datasets"]["code"] == dict(requests=3, stock_correct=3, apply_correct=2,
+                                           delta_F=290, delta_N=438, delta_Q=550)
+    assert out["greatest_extra_F"][0]["index"] == 2
