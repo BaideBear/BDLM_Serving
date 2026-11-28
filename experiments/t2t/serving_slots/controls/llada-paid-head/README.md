@@ -217,3 +217,23 @@ nonconvergence as failure, never replace tasks. Compare frozen90 quality,
 macro TPF and pooled TE; do not promote over the present profile if quality
 falls or the forward-rate gain does not repeat on new60. `tools/run_llada_agreement_a800.sh`
 starts only after the switch smoke test is valid and A7 is vacant.
+
+**Paid repeat: sealed original30, not yet frozen90.** [Paired source and
+bills](q64-agreement-original30.json). The unchanged quarter-gated control
+exactly reproduced all 30 independent reference outputs and their bills.
+27/30 requests experienced a new admission. Of 5,341 eligible paid
+opportunities on treatment trajectories, 1,340 received the second
+confirmation. These are additional *acceptances*, not additional Q.
+
+| Fixed Q64, original30 | Correct | Macro TPF | Pooled TE | Paid F | Selected Q | Final N |
+|---|---:|---:|---:|---:|---:|---:|
+| Quarter gate + warm-head control | 25/30 | 6.387 | 9.09% | 3,223 | 145,807 | 13,247 |
+| Same, admit on consecutive paid agreement | 28/30 | 7.271 | 10.83% | 2,675 | 120,244 | 13,022 |
+| External Flow W2, same tasks | 23/30 | 9.721 | n/a | | | |
+
+Three rescued, zero lost, zero execution failures; paired 95% descriptive
+intervals: quality delta [0,+20] pp, macro TPF [+0.479,+1.280]. The new60
+cohort is still required by the preregistration. This is a positive early
+signal relative to the matched control, not a win on both metrics over
+Flow W2 and not yet a reason to change the default profile. Only M2T
+acceptance changed; no T2T or native fallback threshold was relaxed.
