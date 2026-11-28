@@ -1,0 +1,146 @@
+{
+  "models": {
+    "gemma": {
+      "per_request": [
+        {
+          "any_blocked_steps": 2,
+          "any_kept_steps": 2,
+          "blocked_rows": 3,
+          "index": 7,
+          "kept_rows": 6,
+          "source_sha256": "6ef56d6a9ee27dbea0caf25dfaabb56239b4f8309287ae19965f5adf4ac04ea6",
+          "v1_rows": 9,
+          "v1_steps": 4
+        },
+        {
+          "any_blocked_steps": 4,
+          "any_kept_steps": 5,
+          "blocked_rows": 33,
+          "index": 13,
+          "kept_rows": 7,
+          "source_sha256": "450e03399320d31dc62f26424ff37abc0c4e6dba9bb18203c31d7beedfeb9caa",
+          "v1_rows": 40,
+          "v1_steps": 6
+        },
+        {
+          "any_blocked_steps": 1,
+          "any_kept_steps": 0,
+          "blocked_rows": 5,
+          "index": 25,
+          "kept_rows": 0,
+          "source_sha256": "6662f325cac296b404587600f2c18ca053456e8cbfd95331c7b80a4724e4c457",
+          "v1_rows": 5,
+          "v1_steps": 1
+        },
+        {
+          "any_blocked_steps": 1,
+          "any_kept_steps": 4,
+          "blocked_rows": 1,
+          "index": 33,
+          "kept_rows": 5,
+          "source_sha256": "fd6b354076f4182b017b7ed998e6af9a3149b8a756258c44fa3bce0af505fc7e",
+          "v1_rows": 6,
+          "v1_steps": 4
+        },
+        {
+          "any_blocked_steps": 7,
+          "any_kept_steps": 5,
+          "blocked_rows": 16,
+          "index": 55,
+          "kept_rows": 5,
+          "source_sha256": "e49150bacb90378b713824289e1022a093fb3483a230aacb8b065c528fdd52e2",
+          "v1_rows": 21,
+          "v1_steps": 9
+        },
+        {
+          "index": 71,
+          "source_sha256": "d7168ba6eb88598b9ad3c06e64d69a101116ce752be393f2570aa28dff7993fb"
+        }
+      ],
+      "total": {
+        "any_blocked_steps": 15,
+        "any_kept_steps": 16,
+        "blocked_rows": 58,
+        "kept_rows": 23,
+        "v1_rows": 81,
+        "v1_steps": 24
+      }
+    },
+    "llada": {
+      "per_request": [
+        {
+          "any_blocked_steps": 8,
+          "any_kept_steps": 16,
+          "blocked_rows": 12,
+          "index": 7,
+          "kept_rows": 22,
+          "source_sha256": "f89b048741bb4a17e74d56bdb57624033482270862faf246fa43455c66957586",
+          "v1_rows": 34,
+          "v1_steps": 23
+        },
+        {
+          "any_blocked_steps": 6,
+          "any_kept_steps": 15,
+          "blocked_rows": 19,
+          "index": 13,
+          "kept_rows": 33,
+          "source_sha256": "4b4d71d865238b87a2cd85cb9268098d24d7ab99385e111b447e821330af4e47",
+          "v1_rows": 52,
+          "v1_steps": 17
+        },
+        {
+          "any_blocked_steps": 1,
+          "any_kept_steps": 5,
+          "blocked_rows": 1,
+          "index": 25,
+          "kept_rows": 9,
+          "source_sha256": "cdef69e221d16852f4c265e1448b7f6f002ee2a593ae5e3cdefd4f9519b4c268",
+          "v1_rows": 10,
+          "v1_steps": 6
+        },
+        {
+          "any_blocked_steps": 9,
+          "any_kept_steps": 16,
+          "blocked_rows": 16,
+          "index": 33,
+          "kept_rows": 26,
+          "source_sha256": "464bfc5255715052befbc809982e58096c14d76d5a7cc9f9c6751b6ada2c0e8b",
+          "v1_rows": 42,
+          "v1_steps": 20
+        },
+        {
+          "any_blocked_steps": 21,
+          "any_kept_steps": 24,
+          "blocked_rows": 42,
+          "index": 55,
+          "kept_rows": 39,
+          "source_sha256": "19c8bd419256bebf394c2e1cfda0e310c63ddc34539a69208884147df61f672d",
+          "v1_rows": 81,
+          "v1_steps": 41
+        },
+        {
+          "any_blocked_steps": 0,
+          "any_kept_steps": 2,
+          "blocked_rows": 0,
+          "index": 71,
+          "kept_rows": 2,
+          "source_sha256": "2e63f0403ba9195fca5eb131b627f20001152d49a83a9e444cdb037cdb129497",
+          "v1_rows": 2,
+          "v1_steps": 2
+        }
+      ],
+      "total": {
+        "any_blocked_steps": 45,
+        "any_kept_steps": 78,
+        "blocked_rows": 90,
+        "kept_rows": 131,
+        "v1_rows": 221,
+        "v1_steps": 109
+      }
+    }
+  },
+  "source_registration": {
+    "gemma_summary": "e64094d78fe60aaae0dbbd16d075a3f06151b6ab8a2d2c87a234b12b0942f151",
+    "llada": "f1d33d0c8be39189f27341688e71ea7e8f6713e61459d4dac1938082888b6f9a"
+  }
+}

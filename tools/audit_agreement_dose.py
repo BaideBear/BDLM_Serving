@@ -59,7 +59,7 @@ def read(path):
     return json.loads(raw), sha256(raw).hexdigest()
 
 
-def run(root):
+def run(root, *, summarize=tally):
     llada = root / "llada-ibs-q16-paid-agreement-h0-v1"
     gemma = root / "gemma-paid-agreement-q128-01"
     reg, reg_hash = read(llada/"registration.json")
@@ -85,7 +85,7 @@ def run(root):
                     raise ValueError("Gemma observer drift")
                 steps = d["arms"]["observer"]["agreement"]["extra_events"]
                 excluded = GEMMA_EXCLUDED
-            c = tally(steps, excluded, full_tape=model == "llada")
+            c = summarize(steps, excluded, full_tape=model == "llada")
             total.update(c)
             cases.append({"index": index, "source_sha256": digest, **c})
         out["models"][model] = {"total": total, "per_request": cases}

@@ -2,6 +2,8 @@
 
 工作分支：`BaideBear/BDLM_Serving:T2T_experiments`。从本页恢复，不从某次聊天、临时工作树或占用率截图推断实验状态。前四节是持续有效的约定；末节是带时间戳的交接，不是实时看板。
 
+**四档快照之后，只测一个因素：** [不跨过本轮实测而仍未被采纳的 MASK 去做额外写入](../experiments/t2t/serving_slots/controls/paid-agreement/measured-hole.md)。六题原始路径的回放中，LLaDA Q16 留下 131/221 个额外候选，Gemma Q128 留下 23/81。只证明规则改变选择，不证明质量提升。此项和限制每步额外采纳总量互为独立消融，不叠加；付费 IBS 的 Gemma 适配不能代替支持原生 T2T 的 Live 验证。
+
 **2026-11-28 四档快照：[连续两轮提案一致的 90 题结果与图](../experiments/t2t/serving_slots/controls/paid-agreement/four-slot-checkpoint.md)**（`paid-agreement-four-slot-20261128`）。在原三档外补入 LLaDA Q8，不修改旧标签。LLaDA Q16 总分持平且少算；Gemma Q64 多算且少对 6 题；不升为默认算法。同一份额外采纳限额另做六题：LLaDA Q16 可扩 90，Gemma Q64 不扩。与独立的前缀换位、零触发观察分开记账。
 
 **已归档版本：[Paid Agreement v1](../experiments/t2t/serving_slots/controls/paid-agreement/v1.md)**（标签 `paid-agreement-v1`）。只含 LLaDA 2.1 Q16、DiffusionGemma Q64/Q128 三档作为正式结论，附同卡对照和独立标注的诊断。不升为默认；后续结果另行登记，不改这个快照。
