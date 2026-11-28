@@ -1,0 +1,314 @@
+{
+ "schema": "gemma-q64-frontier-run-v1",
+ "class_sha": "80c256a80f37e46037edbebe07a30afef7699495a50789f77253aeff064237d4",
+ "q": 64,
+ "per_task": [
+  {
+   "index": 7,
+   "first_diff": 5,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": {
+    "differing": [
+     "accepted",
+     "admitted",
+     "decoder.sample.take"
+    ],
+    "v1_extras": [
+     72,
+     74,
+     75,
+     76,
+     77,
+     81,
+     86
+    ],
+    "frontier_extras": [
+     72,
+     74,
+     75,
+     76,
+     77
+    ],
+    "subset": true
+   },
+   "arms": {
+    "stock": {
+     "N": 198,
+     "F": 16,
+     "Q": 961,
+     "correct": true
+    },
+    "observer": {
+     "N": 198,
+     "F": 16,
+     "Q": 961,
+     "correct": true
+    },
+    "v1": {
+     "N": 194,
+     "F": 15,
+     "Q": 898,
+     "correct": true
+    },
+    "frontier": {
+     "N": 208,
+     "F": 17,
+     "Q": 1043,
+     "correct": true
+    }
+   },
+   "ids_v1_eq_frontier": false
+  },
+  {
+   "index": 13,
+   "first_diff": 18,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": {
+    "differing": [
+     "accepted",
+     "admitted",
+     "decoder.sample.take"
+    ],
+    "v1_extras": [
+     279
+    ],
+    "frontier_extras": [],
+    "subset": true
+   },
+   "arms": {
+    "stock": {
+     "N": 260,
+     "F": 20,
+     "Q": 1154,
+     "correct": true
+    },
+    "observer": {
+     "N": 260,
+     "F": 20,
+     "Q": 1154,
+     "correct": true
+    },
+    "v1": {
+     "N": 334,
+     "F": 29,
+     "Q": 1614,
+     "correct": true
+    },
+    "frontier": {
+     "N": 333,
+     "F": 30,
+     "Q": 1678,
+     "correct": true
+    }
+   },
+   "ids_v1_eq_frontier": false
+  },
+  {
+   "index": 25,
+   "first_diff": 6,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": {
+    "differing": [
+     "accepted",
+     "admitted",
+     "decoder.sample.take"
+    ],
+    "v1_extras": [
+     147
+    ],
+    "frontier_extras": [],
+    "subset": true
+   },
+   "arms": {
+    "stock": {
+     "N": 222,
+     "F": 13,
+     "Q": 757,
+     "correct": true
+    },
+    "observer": {
+     "N": 222,
+     "F": 13,
+     "Q": 757,
+     "correct": true
+    },
+    "v1": {
+     "N": 222,
+     "F": 14,
+     "Q": 805,
+     "correct": true
+    },
+    "frontier": {
+     "N": 222,
+     "F": 16,
+     "Q": 883,
+     "correct": true
+    }
+   },
+   "ids_v1_eq_frontier": false
+  },
+  {
+   "index": 33,
+   "first_diff": null,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": null,
+   "arms": {
+    "stock": {
+     "N": 229,
+     "F": 14,
+     "Q": 829,
+     "correct": true
+    },
+    "observer": {
+     "N": 229,
+     "F": 14,
+     "Q": 829,
+     "correct": true
+    },
+    "v1": {
+     "N": 240,
+     "F": 15,
+     "Q": 861,
+     "correct": true
+    },
+    "frontier": {
+     "N": 240,
+     "F": 15,
+     "Q": 861,
+     "correct": true
+    }
+   },
+   "ids_v1_eq_frontier": true
+  },
+  {
+   "index": 55,
+   "first_diff": null,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": null,
+   "arms": {
+    "stock": {
+     "N": 248,
+     "F": 18,
+     "Q": 1108,
+     "correct": true
+    },
+    "observer": {
+     "N": 248,
+     "F": 18,
+     "Q": 1108,
+     "correct": true
+    },
+    "v1": {
+     "N": 248,
+     "F": 17,
+     "Q": 959,
+     "correct": true
+    },
+    "frontier": {
+     "N": 248,
+     "F": 17,
+     "Q": 959,
+     "correct": true
+    }
+   },
+   "ids_v1_eq_frontier": true
+  },
+  {
+   "index": 71,
+   "first_diff": null,
+   "prefix_equal": {
+    "trace": true,
+    "decoder": true,
+    "sc": true,
+    "encoder": true
+   },
+   "at_fork": null,
+   "arms": {
+    "stock": {
+     "N": 99,
+     "F": 7,
+     "Q": 385,
+     "correct": false
+    },
+    "observer": {
+     "N": 99,
+     "F": 7,
+     "Q": 385,
+     "correct": false
+    },
+    "v1": {
+     "N": 99,
+     "F": 7,
+     "Q": 385,
+     "correct": false
+    },
+    "frontier": {
+     "N": 99,
+     "F": 7,
+     "Q": 385,
+     "correct": false
+    }
+   },
+   "ids_v1_eq_frontier": true
+  }
+ ],
+ "totals": {
+  "stock": {
+   "N": 1256,
+   "Q": 5194,
+   "macro_TPF": 14.454950142450144,
+   "TE": 0.241817481709665,
+   "correct": 5,
+   "F": 88
+  },
+  "observer": {
+   "N": 1256,
+   "Q": 5194,
+   "macro_TPF": 14.454950142450144,
+   "TE": 0.241817481709665,
+   "correct": 5,
+   "F": 88
+  },
+  "v1": {
+   "N": 1337,
+   "Q": 5522,
+   "macro_TPF": 14.173135001126887,
+   "TE": 0.24212241941325607,
+   "correct": 5,
+   "F": 97
+  },
+  "frontier": {
+   "N": 1350,
+   "Q": 5809,
+   "macro_TPF": 13.656897759103641,
+   "TE": 0.23239800309864003,
+   "correct": 5,
+   "F": 102
+  }
+ }
+}

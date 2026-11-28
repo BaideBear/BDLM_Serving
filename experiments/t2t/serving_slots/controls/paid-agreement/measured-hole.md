@@ -55,3 +55,38 @@ not unique positions, changes to final output, forwards saved, or T2T counts.
 [Per-request counts and source hashes](measured-hole-exposure.json).
 From a checkout on n164 regenerate with `python -m tools.audit_measured_hole
 /data1/project_data/gx-erqw-20261123/results`. No model is loaded.
+
+## A2: actual fixed Q64 requests (paid IBS)
+
+Using the same six indices and seeds, not just replaying votes:
+
+| Arm | Correct | Macro TPF | Pooled TE | Delivered N | Total F | Actual decoder Q |
+|---|---:|---:|---:|---:|---:|---:|
+| Paid IBS | 5/6 | 14.4550 | 24.18% | 1,256 | 88 | 5,194 |
+| Uncapped repeat | 5/6 | 14.1731 | 24.21% | 1,337 | 97 | 5,522 |
+| Repeat before measured hole | 5/6 | 13.6569 | 23.24% | 1,350 | 102 | 5,809 |
+
+**Do not expand this arm to 90.** Same-board stock and uncapped repeat
+reproduced their sealed receipts. Three treatment trajectories diverged
+from uncapped repeat (#7, #13, #25), first at ticks 5, 18 and 6 respectively.
+At each fork the paid inputs and native decision were unchanged; the new
+set of extra admissions was strictly smaller. All three affected requests
+used more F and Q than uncapped repeat; the other three were unchanged.
+The common wrong answer (#71) remains in the table. This does not establish
+what the rule would do to the seven losses in the earlier 90, or to a
+T2T-capable Live sampler. [Per-request results and first differences](gemma-q64-measured-hole-six.json).
+Reproduction source and receipts on n164:
+`results/gemma-q64-frontier-run-20261128T222416/gemma_q64_frontier`.
+
+## A3: observe the native Live sampler, Q128
+
+On the same six and the verified-EOS Live parent, the actual multinomial
+draws showed 138 qualifying repeats in 28 calls across five requests. Only
+28 row-events in 18 calls (five requests) lie before the first measured
+hole. All 138 rows were already dirty on the stock trajectory and projected
+again on the next step. None of the repeated IDs equalled the input ID
+after stock re-noising. An admission therefore cannot be treated as an
+unchanged cached ID or a proven saving in Q. The observer reproduced the
+six stock receipts, including output IDs and measured work; it produced
+no treatment scores. Full reference, raw log and audited `summary-verified.json`
+on n164: `results/gemma-q128-live-agreement-a3-QM86IUzQ`.
