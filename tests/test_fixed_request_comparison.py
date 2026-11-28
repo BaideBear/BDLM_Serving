@@ -37,3 +37,14 @@ def test_active_window_is_its_own_sealed_arm_never_a_cherry_picked_composite():
     q16=at["llada21","frozen90",16,"Paid MASK"]
     assert q16["correct"]==75 and q16["macro_TPF"]==pytest.approx(3.35629259)
     assert q16["token_efficiency"]==pytest.approx(44943/175591)
+
+
+def test_live_series_matches_named_dispatch_not_best_per_metric():
+    rows=collect()
+    at={(r["model"],r["cohort"],r["budget"],r["method"]):r for r in rows}
+    for model,c,q,name in at:
+        if name!="Live profile":
+            continue
+        arm={4:"Active window",8:"Active window",16:"Paid MASK",32:"Request",64:"Paid repeat"}[q] if model=="llada21" else "Request"
+        assert at[model,c,q,name]=={**at[model,c,q,arm],"method":name}
+    assert len([r for r in rows if r["method"]=="Live profile"])==30

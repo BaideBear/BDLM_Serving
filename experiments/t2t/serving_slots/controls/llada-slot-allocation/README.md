@@ -409,3 +409,26 @@ exposure in 0/10/20. Otherwise report original30/new60/frozen90; compare
 to the Q4 window **and** strict IBS; do not replace cases or change the
 public offer-switching policy. Launcher: `run_llada_small_geometry_a800.sh
 paid90 DEADLINE 4`.
+
+**Mixed cold calls, fixed Q16 on A4:** baseline is the sealed `paid` (75/90)
+arm. On the identical physical plan, add only already projected, clean,
+resident, decoded positions *after* the first MASK to the native sampler.
+The prefix, debt, cold and waiting MASK are unchanged; do not add any
+projection or use stored logits. No extra admission of common MASKs on the
+matched call. Require all old compact records to reproduce on the same GPU.
+On frozen 0/10/20 require a real extra T2T/revocation before expanding
+to 90; stop if the extra sampled rows never actually write. Report added
+samples, T2T and revocations separately from changes in total F/Q.
+Launch with `tools/run_llada_small_geometry_a800.sh mixed-edit DEADLINE 16`
+on the original paid-Q16 source including its pinned geometry and sampler.
+
+**Pilot outcome: stop.** The three same-A4 controls (0, 10, 20) exactly
+replayed the sealed paid arm. Candidate exposures were 7, 17 and 0
+already-projected clean interior rows; 9 calls in total, zero extra T2T
+or revocations. All three complete outputs and bills stayed identical.
+No 90-case estimate. Source: `llada-window-paid-interior-q16-1128-v2`;
+ordered pilot row SHA256 `c87dc5210571c026996da4d81cfad66f82894aa105a1d56381aaee35fe6f2083`.
+The first launch stopped before loading the model: the re-exported baseline
+report adds macro averages and expands its order metadata. V2 verifies
+all 90 per-case summary records and the independent raw-row digest, as well
+as the original device, source, sample and scorer checks.

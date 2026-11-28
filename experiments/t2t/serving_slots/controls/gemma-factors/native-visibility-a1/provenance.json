@@ -1,0 +1,64 @@
+{
+  "registration": {
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 240872,
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "gemma_native_visibility.py": "2d1365b03de85acf3ad2070db22037aa0e0b7e83228de66705e17750c0d0ba15",
+      "gemma_native_visibility_eval.py": "81745f22bbc454fc4e5d77f39846af6a7fb3b2fc362fcb62edec979e2c0f3742"
+    },
+    "start": 1795831002.1881015,
+    "start_ticks": "35090653",
+    "tf": "5.12.0",
+    "torch": "2.6.0+cu124"
+  },
+  "report_sha256": "fdaa3a8103cca4c607af11dcbf0f8bdc6716f88c0ed76b050ca877e094f98b23",
+  "sample_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+  "w1_root": "/gs/results/flowblock-frozen90-1127/analysis/reference90/runtime/t2t-native-1125/prefix90/gemma-wave-reference90",
+  "raw": "/gs/results/gemma-native-visibility-a1-1128",
+  "historical_w1_metadata": {
+    "block_size": 256,
+    "flowblock_windows": [
+      1,
+      2
+    ],
+    "flowblock_spawn_threshold": 0.8,
+    "include_b3": false,
+    "batch_size": 1,
+    "cap": 2048,
+    "policies": [
+      "flow_w1",
+      "flow_w2"
+    ],
+    "model": "diffusiongemma",
+    "revision": "cd40195554d3cfcb56f34b9adfb66efc790ed5b6",
+    "transformers": "5.12.0",
+    "torch": "2.9.0+cu128",
+    "suite": "frozen90",
+    "seed_offset": 0,
+    "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+  },
+  "qualification_sha256": "c1d5299c933cbef9728d9271437648c18357202674868e07f8f6e6f189368a63",
+  "launcher_sha256": "f02d64e1d450e69dcdec8318daaed5b230f781f3d76b10b41e39a04352a76ff9",
+  "prereg_sha256": "b1b8e895f049281275c2a7a930ec2d0ebca7a4a506ce8c76cef30d48520179b1",
+  "complete": {
+    "gates": [
+      [
+        true,
+        true
+      ],
+      [
+        true,
+        true
+      ],
+      [
+        true,
+        true
+      ]
+    ],
+    "n": 90,
+    "pid": 240872
+  }
+}

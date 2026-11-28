@@ -55,6 +55,11 @@ def classes(factor="frontier"):
     if factor=="paid":
         from .llada_window_sample import variants
         return variants(control)
+    if factor=="mixed_edit":
+        from .llada_window_sample import variants
+        from .llada_mixed_edit import variant
+        paid=variants(control)[1]
+        return paid,variant(paid)
     class Exchange(control):
         def _cross_plan(self,q):
             plan,sampled,phase,cap=super()._cross_plan(q)
@@ -213,7 +218,8 @@ def qualify_extension(factor, old, new):
 def run(a):
     import torch
     from .cross_race_llada import load_gpu, save
-    opts=(64,) if a.factor=="successor" else (4,8,16) if a.factor in ("window","paid") else (4,8)
+    mixed=a.factor=="mixed_edit"
+    opts=(16,) if mixed else (64,) if a.factor=="successor" else (4,8,16) if a.factor in ("window","paid") else (4,8)
     device=os.environ["CUDA_VISIBLE_DEVICES"]
     require(a.offer in opts and device.startswith("GPU-") and torch.cuda.device_count()==1
             and sha256(a.samples.read_bytes()).hexdigest()==SAMPLES
@@ -226,15 +232,32 @@ def run(a):
     (a.out/"rows").mkdir()
     protocol={"frontier":"llada-frontier-one-seat-v1","interior":"llada-interior-one-seat-v1",
               "window":"llada-fixed-width-window-v1","successor":"llada-warm-successor-q64-v1",
-              "paid":"llada-window-paid-mask-v1"}[a.factor]
+              "paid":"llada-window-paid-mask-v1","mixed_edit":"llada-window-paid-interior-v1"}[a.factor]
     registration=dict(protocol=protocol,order=order,q=a.offer,device=device,
                       checkpoint=str(a.checkpoint),samples=SAMPLES,scorer=SCORER_SHA,
                       planner=sha256(Path(__file__).read_bytes()).hexdigest())
     prior={}
-    if a.factor in ("window","paid"):
+    if a.factor in ("window","paid","mixed_edit"):
         registration["geometry_sha256"]=sha256(Path(__file__).with_name("llada_window_geometry.py").read_bytes()).hexdigest()
-    if a.factor=="paid":
+    if a.factor=="paid" or mixed:
         registration["sampling_sha256"]=sha256(Path(__file__).with_name("llada_window_sample.py").read_bytes()).hexdigest()
+    if mixed:
+        sealed=Path(__file__).with_name("controls")/"llada-window-sample-q16"
+        parent=json.loads((a.paired_window/"preregistration.json").read_bytes())
+        # The public report recomputes macro averages; compare the actual case
+        # records, and separately pin the byte digests of the raw GPU receipts.
+        def cases(path):
+            return json.loads((path/"summary.json").read_bytes())["cohorts"]["all90"]["per_index"]
+        raw=[(a.paired_window/"rows"/f"{i:02}.json").read_bytes() for i in range(90)]
+        ledger=sha256(b"".join(sha256(blob).digest() for blob in raw)).hexdigest()
+        require(a.limit==90 and not a.extend_from and parent==json.loads((sealed/"preregistration.json").read_bytes())
+                and cases(a.paired_window)==cases(sealed) and len(cases(sealed))==90
+                and ledger=="16ad875482119522eb7670cc20e2e1b2c5eec4ab10687968475c335ef0a9bc40"
+                and parent["samples_sha256"]==SAMPLES and all(parent[k]==registration[k] for k in
+                ("device","q","order","checkpoint","scorer","geometry_sha256","sampling_sha256")),
+                "not the exact Q16 paid parent")
+        registration.update(paired_window=str(a.paired_window),paired_paid_rows=ledger,mixed_edit_source=sha256(
+            Path(__file__).with_name("llada_mixed_edit.py").read_bytes()).hexdigest())
     if a.factor=="successor":
         registration["successor_sha256"]=sha256(Path(__file__).with_name("llada_successor_seats.py").read_bytes()).hexdigest()
     replay = a.factor=="paid" and a.offer==4
@@ -275,8 +298,10 @@ def run(a):
         require(i==ref["index"] and ref["generation_cap"]==CAP and ref["prompt_ids"],"wrong prompt")
         policy=(dict(cross=("quarter",False),coverage="head",warm_head_sample=True)
                 if a.factor=="successor" else dict(cross=("head",False)))
+        study=tuple(reversed(controls)) if mixed and j%2 else controls
         arms=[evaluate_fixed(model,tok,tasks[i],ref["prompt_ids"],a.offer,Law(),
-                             **policy,request_cls=cls) for cls in controls]
+                             **policy,request_cls=cls,audit_admission=mixed) for cls in study]
+        if mixed and j%2: arms.reverse()
         old,new=arms[:2]
         require(all(old[k]==r[k] for r in arms[1:] for k in (*KEYS,"input_sha256")),"unpaired input")
         if a.factor=="frontier":
@@ -290,6 +315,11 @@ def run(a):
             from .llada_window_sample import first as first_paid
             first=first_paid(old,new)
             extra=dict(paid=compact(new))
+        elif mixed:
+            from .llada_mixed_edit import inspect
+            first,details=inspect(old,new,tok.convert_tokens_to_ids("<|mask|>"))
+            extra=dict(mixed_edit=compact(new),effects=details)
+            counts["writes"]+=details["T2T"]+details["revoked"]
         elif a.factor=="successor":
             from .llada_successor_seats import first as first_tail
             first=first_tail(old,new,edit=False)
@@ -311,6 +341,11 @@ def run(a):
             require(all(row[k]==control[k] for k in (*KEYS,"input"))
                     and row["old"]==control["window"],"historical active-window arm did not reproduce")
             row["replayed_window"]=True
+        if mixed:
+            control=json.loads((a.paired_window/"rows"/f"{i:02}.json").read_bytes())
+            require(control["control_replay"] and all(row[k]==control[k] for k in KEYS)
+                    and row["old"]==control["paid"],"paid sampler control mismatch")
+            row["replayed_paid"]=True
         if i in prior:
             refrow=prior[i]
             require(row["input"]==refrow["input"] and row["first"]==refrow["first"] and
@@ -320,7 +355,10 @@ def run(a):
         counts["exposed"]+=bool(first)
         print(i, bool(first),[(v["F"],v["correct"]) for v in arms],flush=True)
         if j+1==len(ANCHORS):
-            require(order[:j+1]==list(ANCHORS) and counts["exposed"]>=(1 if a.factor=="paid" else len(ANCHORS)),
+            if mixed and not counts["writes"]:
+                print("No genuine extra write at pilot; stop without expansion",flush=True)
+                return
+            require(order[:j+1]==list(ANCHORS) and counts["exposed"]>=(1 if mixed or a.factor=="paid" else len(ANCHORS)),
                     "unqualified pilot; do not expand")
 
 
@@ -330,7 +368,7 @@ if __name__=="__main__":
         ap.add_argument("--"+k,type=Path,required=True)
     ap.add_argument("--offer",choices=(4,8,16,64),type=int,required=True)
     ap.add_argument("--limit",choices=(30,90),type=int,default=30)
-    ap.add_argument("--factor",choices=("frontier","interior","window","successor","paid"),default="frontier")
+    ap.add_argument("--factor",choices=("frontier","interior","window","successor","paid","mixed_edit"),default="frontier")
     ap.add_argument("--extend-from",type=Path)
     ap.add_argument("--paired-window",type=Path)
     ap.add_argument("--handoff",type=Path)

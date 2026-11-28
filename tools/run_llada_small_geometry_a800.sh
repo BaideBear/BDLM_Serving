@@ -42,6 +42,13 @@ case "$mode/$q" in
     out=/gs/results/llada-window-paid-q4-1128
     extra=(--factor paid --limit 90 --paired-window "$parent")
     ;;
+  mixed-edit/16)
+    gpu=4
+    module=llada_frontier_seat
+    parent=/gs/results/llada-window-sample-q16-pilot-20261128-084305
+    out=/gs/results/llada-window-paid-interior-q16-1128-v2
+    extra=(--factor mixed_edit --limit 90 --paired-window "$parent")
+    ;;
   successor/64)
     gpu=1
     module=llada_frontier_seat

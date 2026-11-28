@@ -104,6 +104,15 @@ Mandatory written rows, ordered verification through measured EOS, and
 nonterminal encodes still have to be paid. Keep the reference order; do
 not promote or extend this intervention.
 
+[Cost of catching strict IBS by warm calls alone](warm-gap.csv).
+`python -m experiments.t2t.serving_slots.gemma_warm_gap` joins both complete
+work tapes to the verified deliveries by case, seed, output digest and bill.
+It solves `mean_i(N_i / (F_i - r * warm_F_i)) = TPF_capped_IBS` for one
+fractional reduction `r` applied to every request. Keep all other phases
+and output lengths fixed. At Q32, 3,001 of 6,874 calls were warm and `r`
+is 70.21%; at Q64, 1,967 of 3,949 calls were warm and `r` is 54.42%.
+These are conditional break-even requirements, not achieved speedups.
+
 Eight synthetic no-model tests pass. The worker exited normally and physical
 A1 was checked empty (0 MiB, no compute PID) at 09:37 +08 on 2026-11-28;
 there is no successor. Only compact CSVs and provenance were copied back,

@@ -346,16 +346,20 @@ def llada_main(argv=None):
     for k in ("checkpoint","samples","reference","out"):
         ap.add_argument("--"+k, type=Path, required=True)
     ap.add_argument("--deadline",type=int,required=True)
-    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window","quarter_window_repeat64"), default="legacy")
+    ap.add_argument("--profile", choices=("legacy", "quarter_fullwrite", "quarter_edit_warm", "quarter_edit_window","quarter_window_repeat64","quarter_window_repeat64_paid16"), default="legacy")
     a = ap.parse_args(argv)
     candidate = a.profile != "legacy"
-    repeat = a.profile == "quarter_window_repeat64"
+    paid16 = a.profile == "quarter_window_repeat64_paid16"
+    repeat = a.profile == "quarter_window_repeat64" or paid16
     window = repeat or a.profile == "quarter_edit_window"
     editable = window or a.profile == "quarter_edit_warm"
     window_fixed = None
+    paid_fixed = None
     if window:
         from .llada_frontier_seat import classes
         window_fixed = classes("window")[1]
+        if paid16:
+            paid_fixed = classes("paid")[1]
     if repeat:
         from .llada_agreement import request_class
         from .llada_hfull_single_factor import request_classes
@@ -374,6 +378,8 @@ def llada_main(argv=None):
             x = torch.tensor([ref["prompt_ids"]],device=model.device)
             jobs = [(f"fixed{q}", (q,)) for q in slots] + [
                 ("switch25", offer_cycle(slots)), ("park",(64,)*5+(4,)*3+(64,))]
+            if paid16:
+                jobs.append(("park16",(64,)*5+(16,)*3+(64,)))
             for name, schedule in jobs:
                 dst = a.out/f"{name}-{i:02}.json"
                 if dst.exists():
@@ -412,13 +418,13 @@ def llada_main(argv=None):
                             req = h._request
                             lo, split = max(req.origin,req.head), min(req.end,req.head+32)
                             head_rows = set(range(lo,split))
-                            if window and name=="park":
+                            if window and name in ("park","park16"):
                                 # Drop on a measured write to a live successor, not
                                 # at a fixed step that may have nothing to park.
                                 if not park_tested and old==64:
                                     park_target = {p for p in debt if p>=split}
                                     park_tested = bool(park_target)
-                                q = 4 if park_target & debt else 64
+                                q = (4 if name=="park" else 16) if park_target & debt else 64
                             close_due = (q==32 and not req.stopping and debt and debt<=head_rows
                                  and head_rows<=req.bank.initialized and req.close_attempted!=req.head
                                  and not (req.x[0,lo:split]==kwargs["mask_id"]).any().item())
@@ -442,18 +448,26 @@ def llada_main(argv=None):
                             if window and q<32:
                                 check(not e["borrowed_rows"] and rows-head_rows <= debt and
                                       set(e["sampled"])<=head_rows, "window projected clean or sampled parked rows")
-                                if name=="park":
+                                if name in ("park","park16"):
                                     checks["parked_dirty_Q"]+=len((rows-head_rows)&park_target)
                                     park_target-=rows
                             if "window_geometry" in e:
                                 g=e["window_geometry"]
                                 pinned=set(e["dirty"])|set(e["prefix"])
+                                expected_sampled=(set(e["cold"] or rows)&head_rows)|set(e.get("paid_waiting_mask",()))
                                 check(window and q<32 and len(set(g["before"]))==len(rows)
                                       and rows!=set(g["before"]) and pinned<=rows&set(g["before"])
                                       and set(g["interior"])<=rows&head_rows
-                                      and set(e["sampled"])==set(e["cold"] or rows)&head_rows,
+                                      and set(e["sampled"])==expected_sampled,
                                       "wrong width, pins or sampler on switched window")
                                 checks["window_F"]+=1
+                            paid=set(e.get("paid_waiting_mask",()))
+                            if paid:
+                                check(paid16 and q==16 and e["cold"] and debt<=rows
+                                      and paid<=head_rows&set(e["mask"]) and paid.isdisjoint(debt)
+                                      and set(e["sampled"])==set(e["cold"])|paid,
+                                      "paid warm MASK did not come from this tick's paid head MASKs")
+                                checks["paid_mask_rows"]+=len(paid)
                             closed = e["phase"] in ("close_full_write","close_edit_once")
                             check(closed==bool(close_due), "missed or premature full-head close")
                             if closed:
@@ -507,7 +521,8 @@ def llada_main(argv=None):
                               cross=("quarter" if q==64 else "head", q==16 and not window),coverage="head" if q==64 else "sparse",
                               close_policy=("edit_once" if editable else "full_write") if q==32 else "unchanged",
                               warm_head_sample=editable and q==64,
-                              request_cls=window_fixed if q<32 else repeat_fixed if repeat and q==64 else None)
+                              request_cls=(paid_fixed if paid16 and q==16 else window_fixed if q<32 else
+                                           repeat_fixed if repeat and q==64 else None))
                     else:
                         fixed=fixed_cross(model,tok,t,ref["prompt_ids"],q,Law(),mode="half" if q==64 else "head",
                                           borrow=False,coverage="head" if q==64 else "sparse")

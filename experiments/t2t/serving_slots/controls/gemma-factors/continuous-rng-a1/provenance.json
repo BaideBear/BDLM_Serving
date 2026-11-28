@@ -1,0 +1,44 @@
+{
+  "registration": {
+    "boot": "6dec2931-6410-419e-89d2-b81c5cec7de0",
+    "checkpoint": "/gs/models/diffusiongemma-cd40195",
+    "checkpoint_configs": {
+      "config.json": "13b11d2fe87302cc2332c64eb9eb4ac305d9b8a123ffe9c5cb5b1920fc70c506",
+      "generation_config.json": "99334f763c3dbe8b161aeaca1c150a05344299fda2d2e4a0e1d342c744461200",
+      "model.safetensors.index.json": "6e33e8465d55fe6c7bc0a5453c7a4b341e6467d032c6ded82aaf439f61dac69a"
+    },
+    "deadline": 1795843443,
+    "gpu": "GPU-861c9b5d-1e73-2550-f832-b73988bc64ff",
+    "inputs": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed",
+    "launcher": "a66834a99a085af7c25188746808137adfaadb4eadffad38f8ba09837a77504d",
+    "manifest": "2e67d12f5045d486d1676a4b9cd35718b0791ad1b2a3c81fdec86a27bd773e62",
+    "native": "cded57b7e365f0265b1c088e993c358b5f70acdf48055fce396540b4d9d691bc",
+    "pid": 258557,
+    "policy": "8cf27f528fa29310712f428511edc840c31b39610c206a1db286b1303af6ff20",
+    "ref": "f2b160db348e22ddbda5ea28d6f8265922b3a1d4489467f8e08f5e41b77cc87e",
+    "scorer": "a72cec90206f69616b9de436d052f6df54cf075ba9abeac4a75a11e46587d692",
+    "sources": {
+      "gemma_continuous_rng.py": "c45303b649f6c2f86f755252b3b4475fd321ac816f59b2598f53d3f8bce14c27",
+      "gemma_continuous_rng_eval.py": "0a2b68e9449aba42d9c3667a0b38257f9087efc9e3a8b8ea99033905fc1c3b4a",
+      "gemma_native_visibility.py": "2d1365b03de85acf3ad2070db22037aa0e0b7e83228de66705e17750c0d0ba15",
+      "gemma_native_visibility_eval.py": "81745f22bbc454fc4e5d77f39846af6a7fb3b2fc362fcb62edec979e2c0f3742",
+      "gemma_strict_request.py": "d461a8a60cf67fd26846e87183c7524e30f4367987d379dc653d1e5edc16a5b4",
+      "gemma_strict_sampler.py": "f927477dda44859036ef138ed9d51ad80bb4f648f9960acb3ff916aea009f293",
+      "serving_profiles.py": "ebf8211cb2e1b8a4781263f7866441b174ea8cad11b8a2a0c15ed7635c5627c0"
+    },
+    "start": 1795832542.0038457,
+    "start_ticks": "35244626",
+    "tf": "5.12.0",
+    "torch": "2.6.0+cu124"
+  },
+  "checkpoint": {
+    "n": 90,
+    "pid": 258557,
+    "registration": "e31e12ee17cd21c7fbff90ce66129b5dc0355bed1e7c6692a7e5d428ae95d7f4"
+  },
+  "raw": "/gs/results/gemma-continuous-rng-a1-1128",
+  "control": "/gs/results/gemma-native-visibility-a1-1128",
+  "report_sha": "84f23b150e21f1c58a118b718fe74d418c171fc2966a3779e0693c7787ab59ba",
+  "test_sha": "5573f2b8fd41c4797e00cdc3ba1b268cc56eddd341b431ea2142efb5bf38a132",
+  "control_compact": "061829a994ed5e8936636887458723be57b4daaf3a460187829a670b0b920bee"
+}

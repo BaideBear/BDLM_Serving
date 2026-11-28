@@ -5,6 +5,32 @@
 
 ## 预算决策摘要
 
+接口在 `bdlm_serving.methods.t2t.serving_profiles`。LLaDA 用
+`open_strict_llada(..., profile="quarter_window_repeat64_paid16")`，Gemma 用
+`open_strict_gemma(..., initial_offer=C, profile="dense_stop_joint_verified_eos")`。
+同一请求重复调用 `step(C)`，不要求从满块开始。五档固定数据在
+[Live profile 列](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)。
+LLaDA 五个固定档各三题逐位置复现独立实现；混合循环覆盖全部 25 种相邻报价对，
+实际观察到 101 次带欠账的降档、50 个暂停后块行在降档时付清。
+这是[切换验证](../experiments/t2t/serving_slots/controls/strict-handle/README.md)，
+不是混合路径的质量结论，也不是在该 API 上另跑了 90 题。
+
+**Gemma 小预算的瓶颈不是最后一次写回。** 在冻结90的 Q32/Q64 原轨迹上，
+只免去独立的收尾写回，宏 TPF 的乐观上界仅 5.008/8.522，仍低于严格 IBS 的
+6.840/11.050。若每题输出与冷启动、独立收尾、终检、encoder 的轮数都不变，要靠暖态
+单项追平 IBS，必须把**每题的暖态轮数同比削掉 70.2%/54.4%**。原30分别为
+70.2%/55.3%，新60为 70.2%/54.0%。这是假设允许小数轮的反事实，不是性能预测。
+下一步要测早期的一次有效计算能否减少后面真实产生的暖态轮数。
+[逐阶段账本](../experiments/t2t/serving_slots/controls/gemma-factors/cold-frontier-last-a1/warm-gap.csv)。
+
+在 Gemma Q256，仅将全可见且无 padding 的显式掩码改用原生表示，首块与同卡原生
+完全一致的请求由 10 增为 79，正确数 83→84，但宏 TPF 24.252→23.442。
+再仅保留跨块 RNG 连续性，最终 token 序列完全一致的请求由 40 增为 68，
+正确数 84→85，宏 TPF 23.442→23.535；同设备原生为 84、25.829。
+二者都保留真实终检与 encoder；提高与原生的一致性，不等于同时胜过原生 TPF。
+见[掩码单因素](../experiments/t2t/serving_slots/controls/gemma-factors/native-visibility-a1/README.md)
+和[RNG 单因素](../experiments/t2t/serving_slots/controls/gemma-factors/continuous-rng-a1/README.md)。
+
 **最紧的一档已经有同题实测。** [LLaDA 固定 Q4，首个未解 MASK 附近的活动窗口](../experiments/t2t/serving_slots/controls/llada-slot-allocation/c4-window-frozen90.json)
 在原30、新60分别为 **25/30、47/60**，严格限宽 IBS4 为 **23/30、46/60**。全90三项为
 **72/90、1.504 TPF、37.68% TE**，对照 **69/90、1.395、35.66%**。

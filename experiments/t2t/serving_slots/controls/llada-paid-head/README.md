@@ -1,5 +1,14 @@
 # LLaDA Q64: projected but unsampled unresolved head positions
 
+**Transfer to Q16, not the Q16 paid-waiting sampler.** [Sealed A7 fixed90](q16-agreement-frozen90.json).
+Add only Q64's two-consecutive-paid-proposals acceptance to the original
+Q16 active-window control. Every historical control matched. On 55 exposed
+requests the rule added 328 admissions. Correct remained 70/90 (original30
+21→23, new60 49→47), macro TPF 2.933→2.992, TE 21.05%→20.61%.
+Total F 21,720→21,309. Do not transfer the Q64 policy to Q16 by default:
+allowing the *already paid waiting MASKs* into the ordinary sampler is a
+different, stronger Q16 intervention (75/90, 3.356 TPF, 25.60% TE).
+
 Same 17 requests common to the four gate arms at the snapshot: indices 0–15
 and 20. This partial cohort is **not** a quality or TPF comparison. All arms
 project every valid head row at Q64. When only successor rows are cold, the

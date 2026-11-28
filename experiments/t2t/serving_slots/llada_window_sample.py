@@ -25,6 +25,31 @@ def variants(base):
     return control,WindowPaidMask
 
 
+def switchable_paid_class():
+    """Q64 repeat request that also samples paid waiting head MASKs at Q16."""
+    from .llada_window_switch import TopAgreementWindowRequest
+
+    class SwitchablePaidWindowRequest(TopAgreementWindowRequest):
+        def _switch_plan(self,q):
+            plan,sampled,phase,cap=super()._switch_plan(q)
+            self._paid_window_mask=()
+            if (q==16 and getattr(self,"coverage","sparse")=="head"
+                    and not self.borrow):
+                self._paid_window_mask=extra_mask(plan,sampled)
+                if self._paid_window_mask:
+                    sampled=tuple(sorted((*sampled,*self._paid_window_mask)))
+            return plan,sampled,phase,cap
+
+        def _step(self,q):
+            event=super()._step(q)
+            paid=getattr(self,"_paid_window_mask",())
+            if paid:
+                event["paid_waiting_mask"]=paid
+            return event
+
+    return SwitchablePaidWindowRequest
+
+
 def first(old,new):
     from .llada_fixed_family_eval import require
     for a,b in zip(old["trace"],new["trace"]):

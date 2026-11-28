@@ -161,3 +161,126 @@ def test_reject_unqualified_cohort(cohort, invalid):
             f.write_text(json.dumps(row))
     with pytest.raises(ValueError):
         summarize(path, "llada", manifest)
+
+
+def test_paid16_profile_requires_paid_q16_and_a_real_parked_tail(cohort):
+    path, manifest = cohort
+    profile = "quarter_window_repeat64_paid16"
+    for p in path.glob("*.json"):
+        r = json.loads(p.read_text())
+        s = r["suite"]
+        r.update(profile=profile,
+                 downshifts_with_debt=int(s in ("switch25", "park", "park16")))
+        r["policy_checks"] = {
+            "fixed4": {"window_F": 1},
+            "fixed8": {"window_F": 1},
+            "fixed16": {"window_F": 1, "paid_mask_rows": 2},
+            "fixed32": {"edit_once_F": 2, "terminal_writes": 1},
+            "fixed64": {"quarter_open_F": 1, "warm_sample_rows": 2, "repeat_Q": 1},
+            "switch25": {"discard_on_downshift": 1, "paid_mask_rows": 1},
+            "park": {"parked_dirty_Q": 1},
+        }.get(s, {})
+        if s == "park":
+            r.update(directed_pairs={"64>4": 1, "4>64": 1}, F=3, decoder_F=3)
+        p.write_text(json.dumps(r))
+    for i in (0, 10, 20):
+        row = dict(index=i, seed=i, dataset="unit", task_id=str(i),
+                   suite="park16", schema="strict-handle-llada-qualification-v1",
+                   samples_sha256="digest", F=3, decoder_F=3, encoder_F=0,
+                   encoder_Q=0, decoder_Q=96, decoder_projection_modules=20,
+                   downshifts_with_debt=1, parked_rows_paid_on_downshift=1,
+                   gpu="test", identical=True, profile=profile,
+                   directed_pairs={"64>16": 1, "16>64": 1},
+                   policy_checks={"parked_dirty_Q": 1, "paid_mask_rows": 1})
+        (path / f"park16-{i:02}.json").write_text(json.dumps(row))
+    result = summarize(path, "llada", manifest)
+    assert result["profile"] == profile
+    assert result["arms"]["park16"]["directed_pairs"] == {"64>16": 3, "16>64": 3}
+    for p in path.glob("fixed16-*.json"):
+        r = json.loads(p.read_text())
+        r["policy_checks"].pop("paid_mask_rows", None)
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError, match="wrong fixed action exposure"):
+        summarize(path, "llada", manifest)
+    for p in path.glob("fixed16-*.json"):
+        r = json.loads(p.read_text())
+        r["policy_checks"]["paid_mask_rows"] = 2
+        p.write_text(json.dumps(r))
+    for p in path.glob("park16-*.json"):
+        r = json.loads(p.read_text())
+        r["policy_checks"] = {"paid_mask_rows": 1}
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError, match="parked-tail"):
+        summarize(path, "llada", manifest)
+
+
+def paid16_cohort(tmp_path):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    tiers = (4, 8, 16, 32, 64)
+    tasks = [dict(index=i, seed=i, dataset="unit", task_id=str(i)) for i in (0, 10, 20)]
+    for t in tasks:
+        for suite, path in [
+            *((f"fixed{q}", (q, q)) for q in tiers),
+            ("switch25", offer_cycle(tiers) + (tiers[0],)),
+            ("park", (64, 4)),
+        ]:
+            row = dict(**t, suite=suite, schema="strict-handle-llada-qualification-v1",
+                       samples_sha256="digest", F=len(path), decoder_F=len(path),
+                       encoder_F=0, encoder_Q=0, decoder_Q=sum(path),
+                       decoder_projection_modules=20, downshifts_with_debt=0,
+                       parked_rows_paid_on_downshift=0, gpu="test", identical=True,
+                       directed_pairs=dict(Counter(f"{a}>{b}" for a, b in zip(path, path[1:]))))
+            (tmp_path / f"{suite}-{t['index']:02}.json").write_text(json.dumps(row))
+    for i in (0, 10, 20):
+        row = dict(index=i, seed=i, dataset="unit", task_id=str(i),
+                   suite="park16", schema="strict-handle-llada-qualification-v1",
+                   samples_sha256="digest", F=3, decoder_F=3, encoder_F=0,
+                   encoder_Q=0, decoder_Q=96, decoder_projection_modules=20,
+                   downshifts_with_debt=1, parked_rows_paid_on_downshift=1,
+                   gpu="test", identical=True,
+                   directed_pairs={"64>16": 1, "16>64": 1})
+        (tmp_path / f"park16-{i:02}.json").write_text(json.dumps(row))
+    for p in tmp_path.glob("*.json"):
+        r = json.loads(p.read_text())
+        s = r["suite"]
+        r.update(profile="quarter_window_repeat64_paid16",
+                 downshifts_with_debt=int(s in ("switch25", "park", "park16")))
+        r["policy_checks"] = {
+            "fixed4": {"window_F": 1},
+            "fixed8": {"window_F": 1},
+            "fixed16": {"window_F": 1, "paid_mask_rows": 2},
+            "fixed32": {"edit_once_F": 2, "terminal_writes": 1},
+            "fixed64": {"quarter_open_F": 1, "warm_sample_rows": 2, "repeat_Q": 1},
+            "switch25": {"discard_on_downshift": 1, "paid_mask_rows": 1},
+            "park": {"parked_dirty_Q": 1},
+            "park16": {"parked_dirty_Q": 1},
+        }.get(s, {})
+        if s == "park":
+            r.update(directed_pairs={"64>4": 1, "4>64": 1}, F=3, decoder_F=3)
+        p.write_text(json.dumps(r))
+    return tmp_path, dict(samples_sha256="digest", samples=tasks)
+
+
+def test_paid16_report_requires_park16_and_switch25_paid(tmp_path):
+    path, manifest = paid16_cohort(tmp_path / "ok")
+    assert summarize(path, "llada", manifest)["profile"] == "quarter_window_repeat64_paid16"
+    for p in path.glob("park16-*.json"):
+        p.unlink()
+    with pytest.raises(ValueError, match="missing park16"):
+        summarize(path, "llada", manifest)
+
+    path, manifest = paid16_cohort(tmp_path / "foreign")
+    for p in path.glob("*.json"):
+        r = json.loads(p.read_text())
+        r["profile"] = "quarter_window_repeat64"
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError, match="unexpected park16"):
+        summarize(path, "llada", manifest)
+
+    path, manifest = paid16_cohort(tmp_path / "nopaid")
+    for p in path.glob("switch25-*.json"):
+        r = json.loads(p.read_text())
+        r["policy_checks"].pop("paid_mask_rows", None)
+        p.write_text(json.dumps(r))
+    with pytest.raises(ValueError, match="no paid Q16 warm MASK"):
+        summarize(path, "llada", manifest)

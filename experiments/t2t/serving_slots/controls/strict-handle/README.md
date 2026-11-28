@@ -194,3 +194,30 @@ Rebuild this compact report there without rerunning inference:
 /usr/bin/python3 -B -m experiments.t2t.serving_slots.strict_handle_report \
   llada /gs/results/llada-switch-repeat64-1128 benchmarks/frozen90/manifest.json
 ```
+
+## LLaDA: Q64 repeat plus Q16 paid warm-MASK
+
+[`quarter_window_repeat64_paid16`, A800 GPU4](llada-quarter-window-repeat64-paid16.json)
+keeps the Q64 repeat behaviour above and adds the measured Q16 paid
+waiting warm-MASK sampling on mixed cold calls. It is a separate opt-in
+profile; the old `quarter_window_repeat64` interface and Q64 path are
+unchanged. The Q16 addition samples only already-projected warm MASK rows:
+no extra Q, clean prefix, head dirty row or new sampling tick.
+
+All 15 fixed cases (five offers on 0/10/20) replayed exactly, including the
+paid Q16 arm (273 paid waiting rows, 121 window forwards). `switch25` covered
+all 25 directed pairs with 101 debt downshifts, 50 parked rows paid and five
+paid Q16 rows in the mixed cycle. The targeted Q64→Q16→Q64 `park16` suite
+observed `64>16` and `16>64` with 3 debt downshifts and 22 parked rows paid;
+that particular parked boundary had no cold Q16 call with a waiting warm
+MASK, so its paid-mask exposure is zero. The Q64 fixed path remained exact
+(3/3, 64 additional admissions). This is a functional qualification, not a
+mixed-budget quality result.
+
+Valid run: `/gs/results/qualify-llada-paid16-api-1128-v2`; the aggregate is
+linked above and the 24 compact receipts plus notes are in
+[`llada-quarter-window-repeat64-paid16/`](llada-quarter-window-repeat64-paid16/README.md).
+The first attempt
+`...-1128` is excluded because the report rejected a missing `park16`
+`parked_dirty_Q` counter; all 24 receipts had been generated and no model
+request failed.

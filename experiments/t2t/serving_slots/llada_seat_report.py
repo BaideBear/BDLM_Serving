@@ -73,12 +73,13 @@ def report(root,manifest,ibs=None):
     meta=json.loads((root/"run.json").read_bytes())
     arms={"llada-frontier-one-seat-v1":("old","exchange"),"llada-interior-one-seat-v1":("old","read","edit"),
           "llada-fixed-width-window-v1":("old","window"),"llada-warm-successor-q64-v1":("old","read","edit"),
-          "llada-window-paid-mask-v1":("old","paid")}[meta["protocol"]]
+          "llada-window-paid-mask-v1":("old","paid"),"llada-window-paid-interior-v1":("old","mixed_edit")}[meta["protocol"]]
+    mixed="mixed_edit" in arms
     successor=meta["protocol"]=="llada-warm-successor-q64-v1"
     q,order=meta["q"],meta["order"]
     n=len(order)
     if (n not in (30,90) or order[:3]!=[0,10,20] or sorted(order)!=list(range(n))
-            or q not in ((64,) if successor else (4,8,16) if "window" in arms or "paid" in arms else (4,8))
+            or q not in ((16,) if mixed else (64,) if successor else (4,8,16) if "window" in arms or "paid" in arms else (4,8))
             or meta["samples"]!=manifest["samples_sha256"] or not meta["device"].startswith("GPU-")):
         raise ValueError("Unregistered study")
     files=sorted((root/"rows").glob("*.json"))
@@ -91,8 +92,13 @@ def report(root,manifest,ibs=None):
         sha.update(sha256(blob).digest())
         r=json.loads(blob)
         if (not all(r[k]==manifest["samples"][i][k] for k in ("index","seed","dataset","task_id"))
-                or "paid" not in arms and not r["first"] and i in order[:3]):
+                or not mixed and "paid" not in arms and not r["first"] and i in order[:3]):
             raise ValueError(f"Unmatched input or unexercised anchor: {i}")
+        if mixed:
+            v=r["effects"]
+            if (n!=90 or r.get("replayed_paid") is not True or bool(v["seats"])!=bool(r["first"])
+                    or not 0<=v["T2T"]+v["revoked"]<=v["seats"] or not 0<=v["calls"]<=v["seats"]):
+                raise ValueError("Unverified mixed-edit receipt")
         if r["first"] and not 0<r["first"]["width"]<=q:
             raise ValueError("Wrong first exchange width")
         if "paid" in arms and q==4 and not (n==90 and len(meta["paired_window_rows"])==64
@@ -110,6 +116,9 @@ def report(root,manifest,ibs=None):
         rows.append(r)
     if "paid" in arms and not any(rows[i]["first"] for i in order[:3]):
         raise ValueError("Unexercised paid MASK pilot")
+    if mixed and (meta.get("paired_paid_rows")!="16ad875482119522eb7670cc20e2e1b2c5eec4ab10687968475c335ef0a9bc40"
+                  or not any(rows[i]["effects"]["T2T"]+rows[i]["effects"]["revoked"] for i in order[:3])):
+        raise ValueError("Unsealed paid parent or no real new write at pilot")
     if ibs is not None:
         if not ("window" in arms and meta["samples"]==ibs["samples"] and meta["scorer"]==ibs["scorer"]):
             raise ValueError("Reference cannot be paired")
@@ -126,7 +135,7 @@ def report(root,manifest,ibs=None):
         for k in arms:
             a=[r[k] for r in part]
             counts=(("actions","swapped_admits") if "exchange" in arms else
-                    () if "window" in arms or "paid" in arms or successor else ("interior_swaps","interior_writes"))
+                    () if "window" in arms or "paid" in arms or successor or mixed else ("interior_swaps","interior_writes"))
             s={col:sum(v[col] for v in a) for col in ("N","F","Q","correct",*counts)}
             if "window" in arms or "paid" in arms:
                 s.update({col:sum(v.get(col,0) for v in a) for col in ("window_calls","window_interior","window_edits")})
@@ -139,6 +148,8 @@ def report(root,manifest,ibs=None):
             s.update(failed=sum(bool(v["failure"]) for v in a),
                      macro_TPF=mean(v["N"]/v["F"] for v in a),TE=s["N"]/s["Q"])
             e["arms"][k]=s
+        if mixed:
+            e["effects"]={k:sum(r["effects"][k] for r in part) for k in ("calls","seats","T2T","revoked")}
         for left,right in zip(arms,arms[1:]):
             e["changes"][f"{left}_to_{right}"]=dict(
                 rescues=sum(not r[left]["correct"] and r[right]["correct"] for r in part),
