@@ -149,14 +149,29 @@ def run_generic(model, proc, task, prior_prompt, opener, offer):
     if not all((i, role) in widths for i in range(len(model.model.decoder.layers))
                for role in ("q_proj", "k_proj")):
         hook_issue = "Missing physical query/key hook"
-    return {"identity": {k: task[k] for k in ("index", "seed", "task_id", "dataset")},
-            "prompt_sha256": prompt, "prompt_q": data["input_ids"].shape[1],
-            "decoder_positions": positions, "top_level_positions": tape.projected,
-            "hook_issue": hook_issue, "close_error": close_error,
-            "projection_widths": {f"{i}:{name}": w for (i, name), w in widths.items()},
-            "encoder": tape.encoders, "events": events, "argmax": argmax,
-            "eos_ids": sorted(eos), "special_ids": sorted(special), "output_ids": ids,
-            "score": result, "error": error}
+    raw = {"identity": {k: task[k] for k in ("index", "seed", "task_id", "dataset")},
+           "prompt_sha256": prompt, "prompt_q": data["input_ids"].shape[1],
+           "decoder_positions": positions, "top_level_positions": tape.projected,
+           "hook_issue": hook_issue, "close_error": close_error,
+           "projection_widths": {f"{i}:{name}": w for (i, name), w in widths.items()},
+           "encoder": tape.encoders, "events": events, "argmax": argmax,
+           "eos_ids": sorted(eos), "special_ids": sorted(special), "output_ids": ids,
+           "score": result, "error": error}
+    # paired_first consumes the strict runner's summary on an unexposed no-op.
+    d, e = len(positions), max(0, len(tape.encoders) - 1)
+    q = sum(map(len, positions))
+    state = ("failed" if error is not None else
+             "eos" if ids and ids[-1] in eos else "length_cap")
+    summary = {"identity": {k: task[k] for k in ("index", "seed", "task_id", "dataset")},
+               "prompt_sha256": prompt, "N": None if ids is None else sum(t not in special for t in ids),
+               "D": d, "E": e, "F": d + e, "Q": q,
+               "encoder_Q": sum(len(x["positions"]) for x in tape.encoders[1:]),
+               "prefill_Q": len(tape.encoders[0]["positions"]) if tape.encoders else None,
+               "state": state, "correct": None if result is None else bool(result["correct"]),
+               "peak_decoder_q": max(map(len, positions), default=0),
+               "failure": error["type"] if error else None,
+               "output_ids_sha256": None if ids is None else live.digest(ids)}
+    return dict(raw, summary=summary)
 
 
 def main():
@@ -171,6 +186,8 @@ def main():
     ap.add_argument("--source-manifest", type=Path, default=Path("source.input.sha256"))
     ap.add_argument("--sealed-parent", type=Path)
     ap.add_argument("--commit", required=True)
+    ap.add_argument("--formal-out", type=Path)
+    ap.add_argument("--formal-range", default="0:45")
     args = ap.parse_args()
     offer = 128 if args.mode == "q128" else 64
     guard("before")
@@ -257,11 +274,14 @@ def main():
         raw_sha = sha_file(path)
         if row["failure"] is not None or row["correct"] is None:
             raise RuntimeError(f"Candidate did not complete case {index}")
-        if row["first_fork"] is None or row["over_offer_Q"] <= 0:
-            raise RuntimeError(f"Candidate case {index} is unexposed")
+        exposed_flag = bool(row["first_fork"] is not None and row["over_offer_Q"] > 0)
+        if not exposed_flag:
+            print("UNEXPOSED " + json.dumps({"index": index}, sort_keys=True,
+                                            separators=(",", ":")), flush=True)
         seal["cases"].append({"index": index, "sha256": raw_sha})
         rows.append(row)
-        exposed.append(index)
+        if exposed_flag:
+            exposed.append(index)
         write(args.out / f"receipt-{index:02}.json", dict(row, raw_sha256=raw_sha,
                                                          strict_sha256=parent_sha))
         print("QUALIFIED " + json.dumps(dict(index=index, row=row), sort_keys=True,
@@ -275,11 +295,75 @@ def main():
                                       "qualification_sha256": sha_file(args.out / "qualification.json"),
                                       "gpu": GPU, "pid": os.getpid(),
                                       "hostname": device["host"]})
-    guard("release")
     print("SUMMARY " + json.dumps({"qualified": exposed, "qualification": str(args.out / "qualification.json"),
                                    "source_sha256": manifest_sha}, sort_keys=True,
                                   separators=(",", ":")), flush=True)
-
+    if args.formal_out is None:
+        guard("release")
+        return 0
+    lo, hi = map(int, args.formal_range.split(":", 1))
+    formal_indices = list(range(lo, hi))
+    formal_out = args.formal_out
+    formal_out.mkdir(parents=False, exist_ok=False)
+    registration = dict(schema="gemma-full-admission-fixed-q64-a3-torch26-formal-v1",
+                        offer=offer, registered=formal_indices,
+                        qualification=str(args.out / "qualification.json"),
+                        qualification_sha256=sha_file(args.out / "qualification.json"),
+                        source_sha256=manifest_sha, executor_sha256=sha_file(CORE),
+                        commit=args.commit, gpu=GPU, pid=os.getpid(), host=device["host"])
+    write(formal_out / "registration.json", registration)
+    qualification_rows = {row["index"]: row for row in rows}
+    formal_rows = []
+    for index in formal_indices:
+        if time.time() >= args.deadline:
+            raise RuntimeError("Deadline reached before all registered formal cases")
+        guard("request")
+        if index in qualification_rows:
+            raw_path = args.out / f"case-{index:02}.json"
+            raw = read(raw_path)
+            source = "qualification"
+        else:
+            task = next(t for t in tasks if t["index"] == index)
+            data = proc.apply_chat_template(
+                [{"role": "user", "content": task["prompt"]}], tokenize=True,
+                add_generation_prompt=True, return_dict=True, return_tensors="pt").to(model.device)
+            if live.digest(data["input_ids"][0].tolist()) != task["prompt_sha256"]:
+                raise RuntimeError("Frozen input digest drift")
+            torch.manual_seed(task["seed"])
+            torch.cuda.manual_seed(task["seed"])
+            raw = run_generic(model, proc, task, task["prompt_sha256"],
+                              open_full_admission, offer)
+            raw["qualification_origin"] = seal["qualification_origin"]
+            source = "formal"
+        saved_q = h0.Q
+        h0.Q = offer
+        try:
+            row = h0.summarize(raw)
+        finally:
+            h0.Q = saved_q
+        path = formal_out / f"case-{index:02}.json"
+        write(path, raw)
+        row_sha = sha_file(path)
+        receipt = dict(index=index, source=source, raw_sha256=row_sha, **{
+            k: row[k] for k in ("identity", "prompt_sha256", "D", "E", "F", "Q",
+                                "peak_decoder_q", "state", "N", "correct", "failure",
+                                "output_ids_sha256")})
+        formal_rows.append(receipt)
+        write(formal_out / f"receipt-{index:02}.json", receipt)
+        print("FORMAL " + json.dumps(receipt, sort_keys=True, separators=(",", ":"),
+                                     allow_nan=False), flush=True)
+    aggregate = {"schema": registration["schema"], "offer": offer,
+                 "registered": formal_indices, "received": len(formal_rows),
+                 "N": sum(x["N"] or 0 for x in formal_rows),
+                 "F": sum(x["F"] for x in formal_rows),
+                 "Q": sum(x["Q"] for x in formal_rows),
+                 "correct": sum(int(bool(x["correct"])) for x in formal_rows),
+                 "peak_decoder_q": max(x["peak_decoder_q"] for x in formal_rows),
+                 "failures": [x["index"] for x in formal_rows if x["failure"]]}
+    write(formal_out / "complete.json", aggregate)
+    print("FORMAL_SUMMARY " + json.dumps(aggregate, sort_keys=True,
+                                         separators=(",", ":"), allow_nan=False), flush=True)
+    guard("release")
 
 if __name__ == "__main__":
     main()
