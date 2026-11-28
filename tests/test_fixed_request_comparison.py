@@ -20,6 +20,8 @@ def test_same_fixed_offer_does_not_pool_hardware_or_contaminate_efficiency():
     w2=at["gemma","frozen90",512,"Flow W2"]
     assert (w2["F"],w2["N"],w2["history_Q"])==(1494,32504,720896)
     assert w2["token_efficiency"]==pytest.approx(32504/720896)
+    gemma_w1=at["gemma","frozen90",256,"Flow W1"]
+    assert (gemma_w1["N"],gemma_w1["F"],gemma_w1["history_Q"],gemma_w1["correct"])==(31352,1397,336896,85)
     assert ("llada21","frozen90",64,"IBS capped") not in at
     assert "separately verified" in render(rows)
 

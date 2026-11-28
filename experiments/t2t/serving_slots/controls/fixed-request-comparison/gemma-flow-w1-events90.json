@@ -1,0 +1,24 @@
+{
+  "ordered_source_sha256": "b30fdb4a81d0bdff0eb1a07b2c74f7b884c53f558d686456f0b44ed2c59aec1e",
+  "original30": {
+    "F": 454,
+    "N": 9789,
+    "decoder_Q": 110336,
+    "encoder_Q": 5888,
+    "macro_TPF": 24.28368069547507
+  },
+  "new60": {
+    "F": 943,
+    "N": 21563,
+    "decoder_Q": 226560,
+    "encoder_Q": 14848,
+    "macro_TPF": 26.123168471063142
+  },
+  "frozen90": {
+    "F": 1397,
+    "N": 31352,
+    "decoder_Q": 336896,
+    "encoder_Q": 20736,
+    "macro_TPF": 25.510005879200452
+  }
+}

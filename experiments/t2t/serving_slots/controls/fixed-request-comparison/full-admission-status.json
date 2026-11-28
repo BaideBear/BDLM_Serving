@@ -1,0 +1,215 @@
+{
+  "family": "live-full-successor-v1",
+  "ready_tiers": 1,
+  "total_tiers": 10,
+  "status": "incomplete",
+  "meets_performance": null,
+  "three_metrics_complete": false,
+  "tiers": [
+    {
+      "model": "llada21",
+      "q": 4,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "llada21",
+      "q": 8,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "llada21",
+      "q": 16,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "ready_to_compare",
+      "cohorts": {
+        "original30": {
+          "n": 30,
+          "correct": 25,
+          "N": 14285,
+          "F": 5093,
+          "decoder_F": 5093,
+          "encoder_F": 0,
+          "history_Q": 70135,
+          "macro_TPF": 3.43569195948858,
+          "token_efficiency": 0.20367861980466243,
+          "peak": 32,
+          "new_block_Q": 14321,
+          "over_offer_Q": 7153,
+          "terminals": {
+            "eos": 28,
+            "cap": 2
+          }
+        },
+        "new60": {
+          "n": 60,
+          "correct": 48,
+          "N": 28296,
+          "F": 10257,
+          "decoder_F": 10257,
+          "encoder_F": 0,
+          "history_Q": 139099,
+          "macro_TPF": 3.7458793093791622,
+          "token_efficiency": 0.20342346098821704,
+          "peak": 32,
+          "new_block_Q": 28336,
+          "over_offer_Q": 14150,
+          "terminals": {
+            "eos": 57,
+            "cap": 3
+          }
+        },
+        "frozen90": {
+          "n": 90,
+          "correct": 73,
+          "N": 42581,
+          "F": 15350,
+          "decoder_F": 15350,
+          "encoder_F": 0,
+          "history_Q": 209234,
+          "macro_TPF": 3.6424835260823016,
+          "token_efficiency": 0.20350898993471425,
+          "peak": 32,
+          "new_block_Q": 42657,
+          "over_offer_Q": 21303,
+          "terminals": {
+            "eos": 85,
+            "cap": 5
+          }
+        }
+      },
+      "comparisons": {
+        "original30": {
+          "IBS capped": {
+            "correct": 2,
+            "macro_TPF": 0.24701545814454295,
+            "TE_pp": 1.0443275613072844,
+            "baseline_source": "fixed-family-references.csv"
+          },
+          "IBS nominal": {
+            "correct": 1,
+            "macro_TPF": 0.26302073582238705,
+            "TE_pp": 0.4658126767917242,
+            "baseline_source": "block-history90-matrix.csv"
+          },
+          "Live profile": {
+            "correct": 0,
+            "macro_TPF": 0.252582112526075,
+            "TE_pp": -2.6288816592226927,
+            "baseline_source": "llada-window-sample-q16/summary.json"
+          }
+        },
+        "new60": {
+          "IBS capped": {
+            "correct": -1,
+            "macro_TPF": 0.27780747394144534,
+            "TE_pp": -0.8240017533949734,
+            "baseline_source": "fixed-family-references.csv"
+          },
+          "IBS nominal": {
+            "correct": -1,
+            "macro_TPF": 0.2759073930379694,
+            "TE_pp": -0.4871372374505578,
+            "baseline_source": "block-history90-matrix.csv"
+          },
+          "Live profile": {
+            "correct": -2,
+            "macro_TPF": 0.3029953410682591,
+            "TE_pp": -6.866020310009915,
+            "baseline_source": "llada-window-sample-q16/summary.json"
+          }
+        },
+        "frozen90": {
+          "IBS capped": {
+            "correct": 1,
+            "macro_TPF": 0.26754346867581136,
+            "TE_pp": -0.18774506941065527,
+            "baseline_source": "fixed-family-references.csv"
+          },
+          "IBS nominal": {
+            "correct": 0,
+            "macro_TPF": 0.2716118406327759,
+            "TE_pp": -0.16307903075684083,
+            "baseline_source": "block-history90-matrix.csv"
+          },
+          "Live profile": {
+            "correct": -2,
+            "macro_TPF": 0.2861909315541977,
+            "TE_pp": -5.244376390802255,
+            "baseline_source": "llada-window-sample-q16/summary.json"
+          }
+        }
+      },
+      "three_metrics_complete": true,
+      "meets_performance": true,
+      "candidate_hard_cap_observed": false
+    },
+    {
+      "model": "llada21",
+      "q": 32,
+      "required": [
+        "IBS capped",
+        "Native",
+        "Flow W1"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "llada21",
+      "q": 64,
+      "required": [
+        "Flow W2"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "gemma",
+      "q": 32,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "gemma",
+      "q": 64,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "gemma",
+      "q": 128,
+      "required": [
+        "IBS capped"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "gemma",
+      "q": 256,
+      "required": [
+        "IBS capped",
+        "Native",
+        "Flow W1"
+      ],
+      "status": "incomplete"
+    },
+    {
+      "model": "gemma",
+      "q": 512,
+      "required": [
+        "Flow W2"
+      ],
+      "status": "incomplete"
+    }
+  ]
+}

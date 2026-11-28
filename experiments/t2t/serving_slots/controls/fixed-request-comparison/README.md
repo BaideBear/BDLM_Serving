@@ -6,7 +6,7 @@ Every point is an independent constant-budget request from prompt to final outpu
 
 Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. The Q in the first column is a per-request decoder offer, not mean Q/F. Native and Flow are shown only at their actual block-size endpoints.
 
-TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. W2 uses the [audited decoder ledgers](../llada-flow-active-w2/README.md), with generation encoder F included in TPF and encoder rows excluded from TE. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
+TPF averages per-request final nonspecial N / all post-prefill F (including Gemma encoder). TE pools N / selected decoder rows reading history KV, not N / decoder-plus-encoder rows. Flow TE is omitted where this selection is not separately verified; it is not zero. For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. For Gemma W1, [recorded call events](gemma-flow-w1-events90.json) separate the generation decoder rows from the generation encoder rows, with the ordered 90 raw digests matched to the scored cases. W2 uses the [audited decoder ledgers](../llada-flow-active-w2/README.md), with generation encoder F included in TPF and encoder rows excluded from TE. Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only the native fixed-window IBS run is shown; it saturates at a single physical block. Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. Differences are not claims of statistical significance.
 
 ## frozen90
 
@@ -20,7 +20,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | gemma | 32 | 85/90 / 4.879 / 15.63% | 79/90 / 6.840 / 19.33% | 78/90 / 6.743 / 16.65% | - | - | - |
 | gemma | 64 | 83/90 / 8.176 / 13.96% | 81/90 / 11.050 / 17.65% | 80/90 / 11.116 / 17.78% | - | - | - |
 | gemma | 128 | 88/90 / 13.047 / 11.97% | 79/90 / 16.408 / 14.69% | 79/90 / 16.418 / 14.66% | - | - | - |
-| gemma | 256 | 83/90 / 24.252 / 8.69% | 79/90 / 23.656 / 11.10% | 79/90 / 23.656 / 11.10% | 85/90 / 25.510 / 9.31% | 85/90 / 25.510 / n/a | - |
+| gemma | 256 | 83/90 / 24.252 / 8.69% | 79/90 / 23.656 / 11.10% | 79/90 / 23.656 / 11.10% | 85/90 / 25.510 / 9.31% | 85/90 / 25.510 / 9.31% | - |
 | gemma | 512 | 84/90 / 25.596 / 7.42% | - | 79/90 / 23.656 / 11.10% | - | - | 84/90 / 25.390 / 4.51% |
 
 ## original30
@@ -35,7 +35,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | gemma | 32 | 29/30 / 4.832 / 15.34% | 28/30 / 6.745 / 20.20% | 27/30 / 6.872 / 20.06% | - | - | - |
 | gemma | 64 | 29/30 / 8.030 / 13.62% | 28/30 / 10.918 / 15.55% | 29/30 / 11.007 / 17.24% | - | - | - |
 | gemma | 128 | 30/30 / 12.424 / 11.44% | 25/30 / 16.470 / 14.33% | 25/30 / 16.471 / 14.28% | - | - | - |
-| gemma | 256 | 28/30 / 23.259 / 8.06% | 27/30 / 23.045 / 9.74% | 27/30 / 23.045 / 9.74% | 28/30 / 24.284 / 8.87% | 28/30 / 24.284 / n/a | - |
+| gemma | 256 | 28/30 / 23.259 / 8.06% | 27/30 / 23.045 / 9.74% | 27/30 / 23.045 / 9.74% | 28/30 / 24.284 / 8.87% | 28/30 / 24.284 / 8.87% | - |
 | gemma | 512 | 28/30 / 24.923 / 7.36% | - | 27/30 / 23.045 / 9.74% | - | - | 29/30 / 23.893 / 4.33% |
 
 ## new60
@@ -50,7 +50,7 @@ TPF averages per-request final nonspecial N / all post-prefill F (including Gemm
 | gemma | 32 | 56/60 / 4.902 / 15.77% | 51/60 / 6.888 / 19.02% | 51/60 / 6.678 / 15.46% | - | - | - |
 | gemma | 64 | 54/60 / 8.249 / 14.13% | 53/60 / 11.116 / 19.07% | 51/60 / 11.170 / 18.05% | - | - | - |
 | gemma | 128 | 58/60 / 13.359 / 12.23% | 54/60 / 16.377 / 14.88% | 54/60 / 16.392 / 14.85% | - | - | - |
-| gemma | 256 | 55/60 / 24.749 / 9.01% | 52/60 / 23.961 / 11.85% | 52/60 / 23.961 / 11.85% | 57/60 / 26.123 / 9.52% | 57/60 / 26.123 / n/a | - |
+| gemma | 256 | 55/60 / 24.749 / 9.01% | 52/60 / 23.961 / 11.85% | 52/60 / 23.961 / 11.85% | 57/60 / 26.123 / 9.52% | 57/60 / 26.123 / 9.52% | - |
 | gemma | 512 | 56/60 / 25.932 / 7.44% | - | 52/60 / 23.961 / 11.85% | - | - | 55/60 / 26.139 / 4.60% |
 
 [Same-offer deltas vs each baseline, including original30 and new60](tradeoffs.md). [Budget curves with numeric readouts](frozen90.png). [Numeric data and source paths](metrics.csv). [Lower-offer receipt manifest](llada-lower.json). Regenerate this table from the repository root with `python -m experiments.t2t.serving_slots.fixed_request_comparison`. Refresh only complete LLaDA lower-offer cohorts on the receipt host with `llada_fixed_lower_cohorts.py --q4 Q4_ROOT --cross CROSS_ROOT --manifest MANIFEST`.

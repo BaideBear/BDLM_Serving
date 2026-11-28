@@ -98,6 +98,14 @@ def collect():
             r["N"],r["F"],r["history_Q"],r["source"],r["peak_decoder_Q"])
     name="block-history90-matrix.csv"
     w1=measured_w1()
+    gemma_w1_blob=(DEST/"gemma-flow-w1-events90.json").read_bytes()
+    if sha256(gemma_w1_blob).hexdigest()!="3ebb94ec88cd381afa5a42b219ed698558c6f67dd2e057df0dd6d7a207e0b9ea":
+        raise ValueError("Changed Gemma W1 GPU event summary")
+    gemma_w1=json.loads(gemma_w1_blob)
+    paired=read("gemma-factors/native-visibility-a1/pairs.csv")
+    if ([int(r["index"]) for r in paired]!=list(range(90)) or
+            sha256("".join(r["w1_reference_sha256"] for r in paired).encode()).hexdigest()!=gemma_w1["ordered_source_sha256"]):
+        raise ValueError("Gemma W1 event sources differ from the scored cases")
     w2=measured_w2()
     for r in read(name):
         m,b=r["model"],int(r["setting"])
@@ -117,6 +125,17 @@ def collect():
                     and v["Q"]==int(r["physical_Q"])):
                 raise ValueError("Historical W1 cost or scoring mismatch")
             history,source=v["Q"],"fixed-request-comparison/llada-flow-w1-calls90.json"
+        elif (m,label)==("gemma","Flow W1"):
+            c=NAMES.get(r["cohort"],r["cohort"])
+            v=gemma_w1[c]
+            group={"original30":paired[:30],"new60":paired[30:],"frozen90":paired}[c]
+            if (any(v[k]!=int(r[k]) for k in ("N","F"))
+                    or not isclose(v["macro_TPF"],float(r["macro_tpf"]))
+                    or v["decoder_Q"]+v["encoder_Q"]!=int(r["physical_Q"])
+                    or v["decoder_Q"]!=sum(int(x["historical_decoder_Q"]) for x in group)
+                    or int(r["correct"])!=sum(int(x["historical_correct"]) for x in group)):
+                raise ValueError("Gemma W1 decoder calls or scores do not reconcile")
+            history,source=v["decoder_Q"],"fixed-request-comparison/gemma-flow-w1-events90.json"
         elif label=="Flow W2":
             source,f,n,tpf,history,encoder,correct=w2[m,NAMES.get(r["cohort"],r["cohort"])]
             if (f!=int(r["F"]) or n!=int(r["N"]) or not isclose(tpf,float(r["macro_tpf"]))
@@ -318,6 +337,8 @@ def render(rows, *, ablations=False):
            "Flow TE is omitted where this selection is not separately verified; it is not zero. "
            "For LLaDA W1, the [90-case decoder-call ledger](llada-flow-w1-calls90.json) supplies "
            "the measured decoder rows with prefill excluded; the fixed budget is not used as a multiplier. "
+           "For Gemma W1, [recorded call events](gemma-flow-w1-events90.json) separate the generation decoder rows "
+           "from the generation encoder rows, with the ordered 90 raw digests matched to the scored cases. "
            "W2 uses the [audited decoder ledgers](../llada-flow-active-w2/README.md), "
            "with generation encoder F included in TPF and encoder rows excluded from TE. "
            "Nominal IBS is a fixed window, not necessarily a per-forward hard cap. At 2B only "
