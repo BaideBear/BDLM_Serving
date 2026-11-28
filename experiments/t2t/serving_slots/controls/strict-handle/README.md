@@ -1,5 +1,13 @@
 # Can a single live request consume any of the five offers?
 
+**LLaDA Q32 frontier profile.** `quarter_window_repeat64_paid16_frontier32`
+passed [the A4 GPU qualification](llada-frontier32/report.json), 15/15 fixed
+replays on frozen #0/#10/#20 and all 25 directed offer transitions. The
+mixed cycle exercised 113 downshifts with debt, 15 parked rows paid on
+downshift and 34 actual extra Q32 admissions. All 24 compact [receipts](llada-frontier32/receipts)
+are archived. This verifies routing, repayment and output parity against the
+independent fixed routines, not mixed-budget accuracy.
+
 **Verified-EOS profile.** [Qualification receipt](gemma-verified-eos.json).
 Five fixed offers times three requests matched sealed reference outputs and bills.
 Twelve mixed executions matched the no-shortcut public handle on the same offer

@@ -45,7 +45,7 @@ def test_live_series_matches_named_dispatch_not_best_per_metric():
     for model,c,q,name in at:
         if name!="Live profile":
             continue
-        arm={4:"Active window",8:"Active window",16:"Paid MASK",32:"Request",64:"Paid repeat"}[q] if model=="llada21" else "Request"
+        arm={4:"Active window",8:"Active window",16:"Paid MASK",32:"Paid frontier",64:"Paid repeat"}[q] if model=="llada21" else "Request"
         assert at[model,c,q,name]=={**at[model,c,q,arm],"method":name}
     assert len([r for r in rows if r["method"]=="Live profile"])==30
 
@@ -57,3 +57,11 @@ def test_tradeoffs_compare_the_same_named_baseline_without_pooling_subgroups():
     row=next(s for s in table.splitlines() if s.startswith("| llada21 | 4 | IBS capped"))
     assert "| +2 / +1 / +3 |" in row and row.endswith("yes / yes / yes |")
     assert table.count("| IBS capped |")==8 and table.count("| Flow W2 |")==2
+
+
+def test_contiguous_frontier_reports_negative_top_result_alongside_q32():
+    results=collect()
+    selected={r["budget"]:r for r in results if r["cohort"]=="frozen90" and r["method"]=="Paid frontier"}
+    assert set(selected)=={32,64}
+    assert [selected[q]["correct"] for q in (32,64)]==[75,68]
+    assert selected[32]["history_Q"]==231667

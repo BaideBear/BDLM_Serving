@@ -1,0 +1,202 @@
+{
+  "arms": {
+    "fixed16": {
+      "F": 262,
+      "decoder_F": 262,
+      "decoder_Q": 2835,
+      "directed_pairs": {
+        "16>16": 259
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "paid_mask_rows": 273,
+        "window_F": 121
+      },
+      "requests": 3
+    },
+    "fixed32": {
+      "F": 123,
+      "decoder_F": 123,
+      "decoder_Q": 3201,
+      "directed_pairs": {
+        "32>32": 120
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "edit_once_F": 30,
+        "frontier32_rows": 87,
+        "terminal_writes": 2
+      },
+      "requests": 3
+    },
+    "fixed4": {
+      "F": 555,
+      "decoder_F": 555,
+      "decoder_Q": 2114,
+      "directed_pairs": {
+        "4>4": 552
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "window_F": 160
+      },
+      "requests": 3
+    },
+    "fixed64": {
+      "F": 127,
+      "decoder_F": 127,
+      "decoder_Q": 5872,
+      "directed_pairs": {
+        "64>64": 124
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "quarter_open_F": 28,
+        "repeat_Q": 64,
+        "warm_sample_rows": 88
+      },
+      "requests": 3
+    },
+    "fixed8": {
+      "F": 386,
+      "decoder_F": 386,
+      "decoder_Q": 2635,
+      "directed_pairs": {
+        "8>8": 383
+      },
+      "downshifts_with_debt": 0,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "exact_replays": 3,
+      "parked_rows_paid_on_downshift": 0,
+      "policy_checks": {
+        "window_F": 167
+      },
+      "requests": 3
+    },
+    "park": {
+      "F": 153,
+      "decoder_F": 153,
+      "decoder_Q": 6400,
+      "directed_pairs": {
+        "4>4": 8,
+        "4>64": 3,
+        "64>4": 3,
+        "64>64": 136
+      },
+      "downshifts_with_debt": 3,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 6,
+      "policy_checks": {
+        "discard_on_downshift": 5,
+        "parked_dirty_Q": 10,
+        "quarter_open_F": 27,
+        "repeat_Q": 79,
+        "warm_sample_rows": 95,
+        "window_F": 1
+      },
+      "requests": 3
+    },
+    "park16": {
+      "F": 160,
+      "decoder_F": 160,
+      "decoder_Q": 7285,
+      "directed_pairs": {
+        "16>16": 1,
+        "16>64": 3,
+        "64>16": 3,
+        "64>64": 150
+      },
+      "downshifts_with_debt": 3,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 22,
+      "policy_checks": {
+        "discard_on_downshift": 5,
+        "parked_dirty_Q": 22,
+        "quarter_open_F": 26,
+        "repeat_Q": 75,
+        "warm_sample_rows": 102,
+        "window_F": 2
+      },
+      "requests": 3
+    },
+    "switch25": {
+      "F": 294,
+      "decoder_F": 294,
+      "decoder_Q": 4836,
+      "directed_pairs": {
+        "16>16": 11,
+        "16>32": 11,
+        "16>4": 13,
+        "16>64": 11,
+        "16>8": 12,
+        "32>16": 11,
+        "32>32": 10,
+        "32>4": 13,
+        "32>64": 10,
+        "32>8": 11,
+        "4>16": 13,
+        "4>32": 13,
+        "4>4": 13,
+        "4>64": 13,
+        "4>8": 13,
+        "64>16": 11,
+        "64>32": 11,
+        "64>4": 10,
+        "64>64": 10,
+        "64>8": 12,
+        "8>16": 12,
+        "8>32": 11,
+        "8>4": 13,
+        "8>64": 11,
+        "8>8": 12
+      },
+      "downshifts_with_debt": 113,
+      "encoder_F": 0,
+      "encoder_Q": 0,
+      "parked_rows_paid_on_downshift": 15,
+      "policy_checks": {
+        "discard_on_downshift": 73,
+        "edit_once_F": 5,
+        "frontier32_rows": 34,
+        "paid_mask_rows": 5,
+        "quarter_open_F": 16,
+        "repeat_Q": 1,
+        "terminal_writes": 2,
+        "warm_sample_rows": 43,
+        "window_F": 63
+      },
+      "requests": 3
+    }
+  },
+  "gpu": [
+    "NVIDIA A800-SXM4-80GB"
+  ],
+  "indices": [
+    0,
+    10,
+    20
+  ],
+  "metric": "functional GPU qualification; no mixed-budget quality ranking",
+  "model": "llada",
+  "profile": "quarter_window_repeat64_paid16_frontier32",
+  "samples_sha256": "bc9e457ddebd1eb0062c495f13f31cfc86b18e3cebbd90c3da08674f7ab65aed"
+}

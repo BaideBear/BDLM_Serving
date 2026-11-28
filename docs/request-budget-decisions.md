@@ -9,7 +9,7 @@
 LLaDA Q32 当前块建全后，从首个实际 MASK 开始，只额外接受本轮新测、连续且置信度
 大于 0.5 的非 MASK 提案，现有接受规则仍保留。正确数 74→75，TPF 4.937→5.793，
 TE 16.25%→18.06%；总 forward 少 1,468。相同规则在 Q64 为 75→68，
-即使仅限无后块时也为 75→64。Q64 保留两轮实算确认，Q32 候选单独做接口验证。
+即使仅限无后块时也为 75→64。Q64 保留两轮实算确认，Q32 规则已通过单请求接口验证。
 [三个固定实验及配对区间](../experiments/t2t/serving_slots/controls/llada-paid-head/README.md)。
 
 在 Gemma Q32，[首片只建 KV](../experiments/t2t/serving_slots/controls/gemma-factors/first-tile-kv-q32-a1/README.md)
@@ -34,12 +34,12 @@ TE 15.63%→14.79%。每块平均少一轮冷启动，却多 2.10 轮暖态。�
   时分别做实验，不能把三者的收益相加。
 
 接口在 `bdlm_serving.methods.t2t.serving_profiles`。LLaDA 用
-`open_strict_llada(..., profile="quarter_window_repeat64_paid16")`，Gemma 用
+`open_strict_llada(..., profile="quarter_window_repeat64_paid16_frontier32")`，Gemma 用
 `open_strict_gemma(..., initial_offer=C, profile="dense_stop_joint_verified_eos")`。
 同一请求重复调用 `step(C)`，不要求从满块开始。五档固定数据在
 [Live profile 列](../experiments/t2t/serving_slots/controls/fixed-request-comparison/README.md)。
 LLaDA 五个固定档各三题逐位置复现独立实现；混合循环覆盖全部 25 种相邻报价对，
-实际观察到 101 次带欠账的降档、50 个暂停后块行在降档时付清。
+实际观察到 113 次带欠账的降档、15 个暂停后块行在降档时付清、34 个由 Q32 新规则接受的行。
 这是[切换验证](../experiments/t2t/serving_slots/controls/strict-handle/README.md)，
 不是混合路径的质量结论，也不是在该 API 上另跑了 90 题。
 

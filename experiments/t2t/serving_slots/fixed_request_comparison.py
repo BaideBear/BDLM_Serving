@@ -162,12 +162,27 @@ def collect():
                     raise ValueError("A4 replay does not reproduce fixed A5 reference")
             else:
                 add("llada21",c,16,"Paid MASK",len(part),values["correct"],macro,values["N"],values["F"],values["Q"],name)
+    for q in (32,64):
+        name=f"llada-paid-head/q{q}-frontier-frozen90.json"
+        full=json.loads((ROOT/name).read_bytes())
+        if (full["finished"]!=90 or full["registration"]["q"]!=q or
+                full["registration"].get("scope","all")!="all"):
+            raise ValueError("Expected a complete all-state frontier comparison")
+        for c,v in full["cohorts"].items():
+            ref=rows["llada21",c,q,"Request" if q==32 else "Paid repeat"]
+            old,r=v["old"],v["frontier"]
+            if (any(old[k]!=ref[rk] for k,rk in (("correct","correct"),("F","F"),("N","N"),("Q","history_Q"))) or
+                    old["correct"]+v["rescued"]-v["lost"]!=r["correct"] or r["failed"] or
+                    not isclose(r["TE"],r["N"]/r["Q"])):
+                raise ValueError("Unmatched frontier control or invalid bill")
+            add("llada21",c,q,"Paid frontier",v["n"],r["correct"],r["macro_TPF"],r["N"],r["F"],r["Q"],name)
     # The handle dispatches to these fixed paths by construction. The switch
     # receipts qualify that dispatch, not the quality of a mixed-offer path.
-    qual=json.loads((ROOT/"strict-handle/llada-quarter-window-repeat64-paid16.json").read_bytes())
-    arms={4:"Active window",8:"Active window",16:"Paid MASK",32:"Request",64:"Paid repeat"}
-    if (qual["profile"]!="quarter_window_repeat64_paid16" or qual["indices"]!=[0,10,20]
+    qual=json.loads((ROOT/"strict-handle/llada-frontier32/report.json").read_bytes())
+    arms={4:"Active window",8:"Active window",16:"Paid MASK",32:"Paid frontier",64:"Paid repeat"}
+    if (qual["profile"]!="quarter_window_repeat64_paid16_frontier32" or qual["indices"]!=[0,10,20]
             or any(qual["arms"][f"fixed{q}"]["exact_replays"]!=3 for q in arms)
+            or not qual["arms"]["switch25"]["policy_checks"].get("frontier32_rows")
             or len(qual["arms"]["switch25"]["directed_pairs"])!=25):
         raise ValueError("Live profile has no fixed-path and switching qualification")
     for model,tiers in MODELS.items():
@@ -227,11 +242,12 @@ def render(rows):
            "90-case budgets. `Paid MASK` samples the already-projected waiting MASKs on mixed cold calls "
            "(H800 Q8, A800 Q16). The H800 Q8 same-device control is 71/90; the A800 active-window "
            "point on the chart is 72/90, not that paired control. `Paid repeat` is only the measured Q64 consecutive-confirmation arm. "
-           "These are not a best-of combination or a mixed-offer run.","",
-           "**Live profile** = `quarter_window_repeat64_paid16` for LLaDA, "
+           "`Paid frontier` is the contiguous MASK acceptance experiment. Only its Q32 path is in the new live profile; "
+           "at Q64 it cost seven correct answers. The retired live reference at Q32 is still visible as `Request`.","",
+           "**Live profile** = `quarter_window_repeat64_paid16_frontier32` for LLaDA, "
            "`dense_stop_joint_verified_eos` for Gemma. Values are from the independent fixed90 "
            "runs implementing each exact path, not 90 reruns through the switching API. "
-           "LLaDA uses Active window at Q4/8, Paid MASK at Q16, the original Request at Q32, "
+           "LLaDA uses Active window at Q4/8, Paid MASK at Q16, Paid frontier at Q32, "
            "and Paid repeat at Q64. [Switching qualification](../strict-handle/README.md).","",
            "Each cell: **correct / macro TPF / token efficiency (%)**. Missed or unavailable metrics are `n/a`. "
            "The Q in the first column is a per-request decoder offer, not mean Q/F. "
@@ -243,7 +259,7 @@ def render(rows):
            "the native fixed-window IBS run is shown; it saturates at a single physical block. "
            "Contrasts with native/IBS/Flow are descriptive on the same frozen cases, sometimes on different GPUs. "
            "Differences are not claims of statistical significance.",""]
-    methods=("Live profile","Request","Active window","Paid MASK","Paid repeat","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
+    methods=("Live profile","Request","Active window","Paid MASK","Paid repeat","Paid frontier","IBS capped","IBS nominal","Native","Flow W1","Flow W2")
     for c in ("frozen90","original30","new60"):
         lines+=[f"## {c}","",f"| Model | Q | {' | '.join(methods)} |","|---|---:|"+"---:|"*len(methods)]
         for model,tiers in MODELS.items():
@@ -275,7 +291,7 @@ def draw(rows):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from math import nan
-    methods={"Live profile":("#146859","o"),"Request":("#879288","."),"Paid MASK":("#925008","X"),
+    methods={"Live profile":("#146859","o"),"Request":("#879288","."),"Paid MASK":("#925008","X"),"Paid frontier":("#006697","*"),
              "IBS capped":("#365da0","^"),"IBS nominal":("#8275a5","v"),
              "Native":("#393d43","s"),"Flow W1":("#b75827","+"),"Flow W2":("#aa3159","D")}
     fig,axes=plt.subplots(2,3,figsize=(16.8,9.8))
@@ -289,7 +305,7 @@ def draw(rows):
             ax.grid(axis="y",alpha=.2);ax.spines[["right","top"]].set_visible(False)
             cells=[]; colors=[]
             for name,(color,marker) in methods.items():
-                if name in ("Request","Paid MASK") and model!="llada21":continue
+                if name in ("Request","Paid MASK","Paid frontier") and model!="llada21":continue
                 colors.append(color)
                 vals={r["budget"]:r[metric] for r in rows if
                       (r["cohort"],r["model"],r["method"])==("frozen90",model,name) and r[metric] is not None}
@@ -297,7 +313,7 @@ def draw(rows):
                              str(vals[q]) if metric=="correct" else f"{vals[q]*scale:.2f}" for q in tiers]])
                 if not vals:continue
                 x=list(range(5));y=[vals.get(q,nan)*scale for q in tiers]
-                candidate=name in ("Request","Live profile","Paid MASK")
+                candidate=name in ("Request","Live profile","Paid MASK","Paid frontier")
                 line,=ax.plot(x,y,color=color,marker=marker,linestyle="-" if candidate else "--",
                               lw=2 if candidate else 1.3,ms=6,alpha=.95)
                 handles[name]=line
